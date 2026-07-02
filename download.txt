@@ -1,0 +1,14 @@
+https://nodejs.org/en/download/current
+https://www.apachefriends.org/
+https://getcomposer.org/Composer-Setup.exe
+
+1. 按 Windows 键,搜寻 "环境变量" 或 "Environment Variables",点开 "编辑系统环境变量" (Edit the system environment variables)
+2. 跳出的视窗点右下角 "环境变量" (Environment Variables...) 按钮
+3. 在下半部 "系统变量" (System variables) 里找到叫 Path 的那一行,点选它,再点 编辑 (Edit)
+4. 点 新建 (New),输入:
+
+   C:\ProgramData\ComposerSetup\bin
+
+5. 一路点 确定 (OK) 关闭所有视窗
+6. 重新开一个新的 cmd 窗口(这次不用重开机,新开 cmd 就会重新读取 PATH)
+7. 打 composer -v 测试
