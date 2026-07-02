@@ -1,21 +1,52 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
+import Login from './Login';
+import Register from './Register';
+import api from './api';
 
 function App() {
-    const [message, setMessage] = useState('Loading...');
+  const [user, setUser] = useState(null);
+  const [showRegister, setShowRegister] = useState(false);
 
-    useEffect(() => {
-        axios.get('http://127.0.0.1:8000/api/ping')
-            .then(res => setMessage(res.data.message))
-            .catch(err => setMessage('Error: ' + err.message));
-    }, []);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      api.get('/me').then(res => setUser(res.data)).catch(() => {
+        localStorage.removeItem('token');
+      });
+    }
+  }, []);
 
+  const handleLogout = async () => {
+    await api.post('/logout');
+    localStorage.removeItem('token');
+    setUser(null);
+  };
+
+  if (user) {
     return (
-        <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-            <h1>Gemora</h1>
-            <p>Backend says: {message}</p>
-        </div>
+      <div style={{ padding: '2rem' }}>
+        <h1>Welcome, {user.name}!</h1>
+        <p>Email: {user.email}</p>
+        <button onClick={handleLogout}>Logout</button>
+      </div>
     );
+  }
+
+  return (
+    <div style={{ padding: '2rem' }}>
+      {showRegister ? (
+        <>
+          <Register onRegisterSuccess={setUser} />
+          <p>Already have account? <button onClick={() => setShowRegister(false)}>Login</button></p>
+        </>
+      ) : (
+        <>
+          <Login onLoginSuccess={setUser} />
+          <p>still doesn't have account? <button onClick={() => setShowRegister(true)}>Register</button></p>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default App;
