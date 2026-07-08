@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Login from './Login';
 import Register from './Register';
+import MapPage from './Maps';
 import api from './api';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
         <h1>Welcome, {user.name}!</h1>
         <p>Email: {user.email}</p>
         <button onClick={handleLogout}>Logout</button>
+        <MapPage />
       </div>
     );
   }

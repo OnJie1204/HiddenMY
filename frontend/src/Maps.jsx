@@ -31,7 +31,7 @@ function FlyToUser({ position }) {
     return null;
 }
 
-function App() {
+function Maps() {
     const [message, setMessage] = useState('Loading...');
     const [userPosition, setUserPosition] = useState(null);
     const [locationError, setLocationError] = useState(null);

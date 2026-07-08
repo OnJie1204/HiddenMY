@@ -19,3 +19,11 @@ npm install
 
 cd backend
 composer install
+notepad .env
+// 然后copy paste .env.example 进去 .env 
+// 然后paste我发的email replace一段东西
+php artisan key:generate
+
+// search xampp open apache config find php.ini and delete the ; symbol
+extension=pdo_pgsql
+extension=pgsql
