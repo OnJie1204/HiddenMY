@@ -12,3 +12,10 @@ https://getcomposer.org/Composer-Setup.exe
 5. 一路点 确定 (OK) 关闭所有视窗
 6. 重新开一个新的 cmd 窗口(这次不用重开机,新开 cmd 就会重新读取 PATH)
 7. 打 composer -v 测试
+
+
+cd frontend
+npm install
+
+cd backend
+composer install
