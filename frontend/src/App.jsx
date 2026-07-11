@@ -1,53 +1,56 @@
 import { useState, useEffect } from 'react';
-import Login from './Login';
-import Register from './Register';
-import MapPage from './Maps';
-import api from './api';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Home from './pages/Home';
+import Maps from './pages/Maps';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import Profile from './pages/Profile';
+import VerifyEmail from './pages/VerifyEmail';
+import { getMe } from './api/auth';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [showRegister, setShowRegister] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      api.get('/me').then(res => setUser(res.data)).catch(() => {
-        localStorage.removeItem('token');
-      });
+      getMe()
+        .then(res => setUser(res.data))
+        .catch(() => localStorage.removeItem('token'))
+        .finally(() => setChecking(false));
+    } else {
+      setChecking(false);
     }
   }, []);
 
-  const handleLogout = async () => {
-    await api.post('/logout');
-    localStorage.removeItem('token');
-    setUser(null);
-  };
-
-  if (user) {
-    return (
-      <div style={{ padding: '2rem' }}>
-        <h1>Welcome, {user.name}!</h1>
-        <p>Email: {user.email}</p>
-        <button onClick={handleLogout}>Logout</button>
-        <MapPage />
-      </div>
-    );
-  }
+  if (checking) return <p>Loading...</p>;
 
   return (
-    <div style={{ padding: '2rem' }}>
-      {showRegister ? (
-        <>
-          <Register onRegisterSuccess={setUser} />
-          <p>Already have account? <button onClick={() => setShowRegister(false)}>Login</button></p>
-        </>
-      ) : (
-        <>
-          <Login onLoginSuccess={setUser} />
-          <p>still doesn't have account? <button onClick={() => setShowRegister(true)}>Register</button></p>
-        </>
-      )}
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* 不需要 Navbar 的页面 */}
+        <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLoginSuccess={setUser} />} />
+        <Route path="/register" element={user ? <Navigate to="/" /> : <Register onRegisterSuccess={setUser} />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+
+        {/* 需要 Navbar 的页面(登入后才能进) */}
+        <Route path="/" element={
+          user ? <Layout user={user} setUser={setUser}><Home user={user} /></Layout> : <Navigate to="/login" />
+        } />
+        <Route path="/map" element={
+          user ? <Layout user={user} setUser={setUser}><Maps /></Layout> : <Navigate to="/login" />
+        } />
+        <Route path="/profile" element={
+          user ? <Layout user={user} setUser={setUser}><Profile /></Layout> : <Navigate to="/login" />
+        } />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

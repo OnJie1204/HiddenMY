@@ -6,6 +6,10 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Auth\Events\PasswordReset;
+use App\Notifications\VerifyNewEmail;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -68,5 +72,120 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return response()->json($request->user());
+    }
+
+    // Send password reset email
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $status = Password::sendResetLink(
+            $request->only('email')
+        );
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return response()->json(['message' => 'A password reset link has been sent to your email address.']);
+        }
+
+        return response()->json(['message' => 'Unable to send reset link'], 400);
+    }
+
+    // Perform password reset
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Password reset successful.']);
+        }
+
+        return response()->json(['message' => 'Reset failed; the connection may have expired.'], 400);
+    }
+    // Update Profile
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|unique:users,email,' . $user->id,
+        ]);
+
+        // If the name has changed, update it directly.
+        if (isset($validated['name'])) {
+            $user->name = $validated['name'];
+        }
+
+        // If the email address changes, do not update it directly; send a verification email first.
+        if (isset($validated['email']) && $validated['email'] !== $user->email) {
+            $token = Str::random(60);
+            $user->pending_email = $validated['email'];
+            $user->email_change_token = $token;
+            $user->save();
+
+            $user->notify(new VerifyNewEmail($token));
+
+            $user->save();
+
+            return response()->json([
+                'message' => 'A verification email has been sent to your new email address. Please check your inbox to confirm the change.',
+                'user' => $user,
+            ]);
+        }
+
+        $user->save();
+
+        return response()->json(['message' => 'Profile updated successfully', 'user' => $user]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required',
+            'new_password' => 'required|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => '目前密码不正确'], 400);
+        }
+
+        $user->update(['password' => Hash::make($request->new_password)]);
+
+        return response()->json(['message' => '密码已更新']);
+    }
+
+    public function verifyNewEmail(Request $request)
+    {
+        $request->validate(['token' => 'required']);
+
+        $user = \App\Models\User::where('email_change_token', $request->token)->first();
+
+        if (!$user || !$user->pending_email) {
+            return response()->json(['message' => 'Invalid or expired verification link'], 400);
+        }
+
+        $user->email = $user->pending_email;
+        $user->pending_email = null;
+        $user->email_change_token = null;
+        $user->save();
+
+        return response()->json(['message' => 'Email successfully updated']);
     }
 }

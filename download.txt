@@ -16,6 +16,7 @@ https://getcomposer.org/Composer-Setup.exe
 
 cd frontend
 npm install
+npm install react-router-dom
 
 cd backend
 composer install

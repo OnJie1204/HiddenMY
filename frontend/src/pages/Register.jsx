@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import api from './api';
+import { Link, useNavigate } from 'react-router-dom';
+import { register } from '../api/auth';
 
 function Register({ onRegisterSuccess }) {
   const [form, setForm] = useState({
     name: '', email: '', password: '', password_confirmation: '',
   });
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -15,9 +17,10 @@ function Register({ onRegisterSuccess }) {
     e.preventDefault();
     setError('');
     try {
-      const res = await api.post('/register', form);
+      const res = await register(form);
       localStorage.setItem('token', res.data.token);
       onRegisterSuccess(res.data.user);
+      navigate('/');
     } catch (err) {
       const errors = err.response?.data?.errors;
       setError(errors ? Object.values(errors).flat().join(', ') : 'Registration failed');
@@ -34,9 +37,10 @@ function Register({ onRegisterSuccess }) {
         style={{ display: 'block', marginBottom: 10, width: '100%' }} />
       <input name="password" type="password" placeholder="Password" onChange={handleChange} required
         style={{ display: 'block', marginBottom: 10, width: '100%' }} />
-      <input name="password_confirmation" type="password" placeholder="Confrim Password" onChange={handleChange} required
+      <input name="password_confirmation" type="password" placeholder="Confirm Password" onChange={handleChange} required
         style={{ display: 'block', marginBottom: 10, width: '100%' }} />
       <button type="submit">Register</button>
+      <p>Already have an account? <Link to="/login">Login</Link></p>
     </form>
   );
 }
