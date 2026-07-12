@@ -1,28 +1,31 @@
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { verifyEmail } from '../api/auth';
+import { useSearchParams, Link } from 'react-router-dom';
+import { verifyNewEmail } from '../api/auth';
 
-function VerifyEmail() {
-  const { id, hash } = useParams();
+function VerifyNewEmail() {
   const [searchParams] = useSearchParams();
   const [message, setMessage] = useState('Verifying...');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const params = '?' + searchParams.toString();
-    verifyEmail(id, hash, params)
+    const token = searchParams.get('token');
+    if (!token) {
+      setError('Invalid verification link');
+      return;
+    }
+    verifyNewEmail(token)
       .then(res => setMessage(res.data.message))
       .catch(err => setError(err.response?.data?.message || 'Verification failed'));
-  }, [id, hash, searchParams]);
+  }, [searchParams]);
 
   return (
     <div style={{ maxWidth: 400 }}>
-      <h2>Email Verification</h2>
+      <h2>Email Change Verification</h2>
       {message && !error && <p style={{ color: 'green' }}>{message}</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
-      <p><Link to="/login">Go to Login</Link></p>
+      <p><Link to="/profile">Back to Profile</Link></p>
     </div>
   );
 }
 
-export default VerifyEmail;
+export default VerifyNewEmail;

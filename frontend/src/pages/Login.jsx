@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { login } from '../api/auth';
 
 function Login({ onLoginSuccess }) {
@@ -7,6 +7,8 @@ function Login({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+  const [infoMessage] = useState(location.state?.message || '');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,29 +24,36 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 300 }}>
-      <h2>Login</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }}
-      />
-      <p><Link to="/forgot-password">Forgot password?</Link></p>
-      <button type="submit">Login</button>
-      <p>Don't have an account? <Link to="/register">Register</Link></p>
-    </form>
+    <div className="auth-page">
+      <form onSubmit={handleSubmit} className="auth-card">
+        <h2>Welcome back</h2>
+        <p className="subtitle">Log in to continue to Gemora</p>
+        {infoMessage && <p className="msg-success">{infoMessage}</p>}
+        {error && <p className="msg-error">{error}</p>}
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="form-input"
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          className="form-input"
+        />
+        <div className="auth-link-row" style={{ textAlign: 'right', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </div>
+        <button type="submit" className="btn btn-primary">Login</button>
+        <p className="auth-link-row">Don't have an account? <Link to="/register">Register</Link></p>
+        <p className="auth-link-row"><Link to="/resend-verification">Didn't receive verification email?</Link></p>
+      </form>
+    </div>
   );
 }
 

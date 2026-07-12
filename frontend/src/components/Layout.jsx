@@ -3,9 +3,9 @@ import Footer from './Footer';
 
 function Layout({ children, user, setUser }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="layout">
       <Navbar user={user} setUser={setUser} />
-      <main style={{ flex: 1, padding: '2rem' }}>{children}</main>
+      <main className="layout-main">{children}</main>
       <Footer />
     </div>
   );

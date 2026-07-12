@@ -9,3 +9,5 @@ export const resetPassword = (data) => api.post('/reset-password', data);
 export const updateProfile = (data) => api.put('/profile', data);
 export const changePassword = (data) => api.post('/change-password', data);
 export const verifyNewEmail = (token) => api.post('/verify-email', { token });
+export const verifyEmail = (id, hash, params) => api.get(`/email/verify/${id}/${hash}${params}`);
+export const resendVerification = (email) => api.post('/resend-verification', { email });

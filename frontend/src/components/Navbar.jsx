@@ -12,43 +12,20 @@ function Navbar({ user, setUser }) {
   };
 
   return (
-    <nav style={styles.nav}>
-      <Link to="/" style={styles.logo}>Gemora</Link>
-      <div style={styles.links}>
-        <Link to="/map" style={styles.link}>Map</Link>
-        <Link to="/hidden-gems" style={styles.link}>Hidden Gems</Link>
-        <Link to="/travel-posts" style={styles.link}>Travel Posts</Link>
-        <Link to="/trip-itinerary" style={styles.link}>Trip Itinerary</Link>
+    <nav className="navbar">
+      <Link to="/" className="navbar-logo">Gemora</Link>
+      <div className="navbar-links">
+        <Link to="/map" className="navbar-link">Map</Link>
+        <Link to="/hidden-gems" className="navbar-link">Hidden Gems</Link>
+        <Link to="/travel-posts" className="navbar-link">Travel Posts</Link>
+        <Link to="/trip-itinerary" className="navbar-link">Trip Itinerary</Link>
       </div>
-      <div style={styles.userArea}>
-        <Link to="/profile" style={styles.link}>{user.name}</Link>
-        <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
+      <div className="navbar-user">
+        <Link to="/profile" className="navbar-username">{user.name}</Link>
+        <button onClick={handleLogout} className="navbar-logout">Logout</button>
       </div>
     </nav>
   );
 }
-
-const styles = {
-  nav: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '1rem 2rem',
-    background: '#1e293b',
-    color: '#fff',
-  },
-  logo: { fontWeight: 'bold', fontSize: '1.2rem', color: '#fff', textDecoration: 'none' },
-  links: { display: 'flex', gap: '1.5rem' },
-  link: { color: '#fff', textDecoration: 'none' },
-  userArea: { display: 'flex', alignItems: 'center', gap: '1rem' },
-  logoutBtn: {
-    background: '#ef4444',
-    color: '#fff',
-    border: 'none',
-    padding: '0.4rem 0.8rem',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-};
 
 export default Navbar;

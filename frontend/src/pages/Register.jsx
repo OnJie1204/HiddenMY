@@ -18,9 +18,7 @@ function Register({ onRegisterSuccess }) {
     setError('');
     try {
       const res = await register(form);
-      localStorage.setItem('token', res.data.token);
-      onRegisterSuccess(res.data.user);
-      navigate('/');
+      navigate('/login', { state: { message: res.data.message } });
     } catch (err) {
       const errors = err.response?.data?.errors;
       setError(errors ? Object.values(errors).flat().join(', ') : 'Registration failed');
@@ -28,20 +26,19 @@ function Register({ onRegisterSuccess }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 300 }}>
-      <h2>Register</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <input name="name" placeholder="Name" onChange={handleChange} required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }} />
-      <input name="email" type="email" placeholder="Email" onChange={handleChange} required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }} />
-      <input name="password" type="password" placeholder="Password" onChange={handleChange} required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }} />
-      <input name="password_confirmation" type="password" placeholder="Confirm Password" onChange={handleChange} required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }} />
-      <button type="submit">Register</button>
-      <p>Already have an account? <Link to="/login">Login</Link></p>
-    </form>
+    <div className="auth-page">
+      <form onSubmit={handleSubmit} className="auth-card">
+        <h2>Create account</h2>
+        <p className="subtitle">Join Gemora and start exploring</p>
+        {error && <p className="msg-error">{error}</p>}
+        <input name="name" placeholder="Name" onChange={handleChange} required className="form-input" />
+        <input name="email" type="email" placeholder="Email" onChange={handleChange} required className="form-input" />
+        <input name="password" type="password" placeholder="Password" onChange={handleChange} required className="form-input" />
+        <input name="password_confirmation" type="password" placeholder="Confirm Password" onChange={handleChange} required className="form-input" />
+        <button type="submit" className="btn btn-primary">Register</button>
+        <p className="auth-link-row">Already have an account? <Link to="/login">Login</Link></p>
+      </form>
+    </div>
   );
 }
 

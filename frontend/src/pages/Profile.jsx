@@ -16,7 +16,7 @@ function Profile() {
 
   useEffect(() => {
     getMe().then(res => {
-      setUser(res.data.user);
+      setUser(res.data);
       setName(res.data.name);
       setEmail(res.data.email);
     });
@@ -28,7 +28,7 @@ function Profile() {
     setProfileMessage('');
     try {
       const res = await updateProfile({ name, email });
-      setUser(res.data);
+      setUser(res.data.user);
       setProfileMessage(res.data.message);
     } catch (err) {
       const errors = err.response?.data?.errors;
@@ -59,59 +59,63 @@ function Profile() {
 
   return (
     <div>
-      <h1>My Profile</h1>
+      <h1 className="page-title">My Profile</h1>
 
-      <form onSubmit={handleProfileSubmit} style={{ maxWidth: 300, marginBottom: '2rem' }}>
+      <div className="section-card">
         <h3>Profile Information</h3>
-        {profileMessage && <p style={{ color: 'green' }}>{profileMessage}</p>}
-        {profileError && <p style={{ color: 'red' }}>{profileError}</p>}
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          style={{ display: 'block', marginBottom: 10, width: '100%' }}
-        />
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ display: 'block', marginBottom: 10, width: '100%' }}
-        />
-        <button type="submit">Update Profile</button>
-      </form>
+        <form onSubmit={handleProfileSubmit}>
+          {profileMessage && <p className="msg-success">{profileMessage}</p>}
+          {profileError && <p className="msg-error">{profileError}</p>}
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="form-input"
+          />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="form-input"
+          />
+          <button type="submit" className="btn btn-primary">Update Profile</button>
+        </form>
+      </div>
 
-      <form onSubmit={handlePasswordSubmit} style={{ maxWidth: 300 }}>
+      <div className="section-card">
         <h3>Change Password</h3>
-        {passwordMessage && <p style={{ color: 'green' }}>{passwordMessage}</p>}
-        {passwordError && <p style={{ color: 'red' }}>{passwordError}</p>}
-        <input
-          type="password"
-          placeholder="Current Password"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-          required
-          style={{ display: 'block', marginBottom: 10, width: '100%' }}
-        />
-        <input
-          type="password"
-          placeholder="New Password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-          style={{ display: 'block', marginBottom: 10, width: '100%' }}
-        />
-        <input
-          type="password"
-          placeholder="Confirm New Password"
-          value={newPasswordConfirmation}
-          onChange={(e) => setNewPasswordConfirmation(e.target.value)}
-          required
-          style={{ display: 'block', marginBottom: 10, width: '100%' }}
-        />
-        <button type="submit">Change Password</button>
-      </form>
+        <form onSubmit={handlePasswordSubmit}>
+          {passwordMessage && <p className="msg-success">{passwordMessage}</p>}
+          {passwordError && <p className="msg-error">{passwordError}</p>}
+          <input
+            type="password"
+            placeholder="Current Password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            required
+            className="form-input"
+          />
+          <input
+            type="password"
+            placeholder="New Password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            required
+            className="form-input"
+          />
+          <input
+            type="password"
+            placeholder="Confirm New Password"
+            value={newPasswordConfirmation}
+            onChange={(e) => setNewPasswordConfirmation(e.target.value)}
+            required
+            className="form-input"
+          />
+          <button type="submit" className="btn btn-danger">Change Password</button>
+        </form>
+      </div>
     </div>
   );
 }

@@ -28,11 +28,12 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
+        event(new \Illuminate\Auth\Events\Registered($user)); // Trigger the sending of a verification email
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
-            'token' => $token,
+            'message' => 'Registration successful. Please check your email to verify your account.',
         ], 201);
     }
 
@@ -50,6 +51,12 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'email' => ['The provided account or password is incorrect.'],
             ]);
+        }
+
+        if (!$user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Please verify your email before logging in.',
+            ], 403);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -187,5 +194,24 @@ class AuthController extends Controller
         $user->save();
 
         return response()->json(['message' => 'Email successfully updated']);
+    }
+
+    public function resendVerification(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'No account found with this email'], 404);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'This email is already verified. Please log in.'], 400);
+        }
+
+        $user->sendEmailVerificationNotification();
+
+        return response()->json(['message' => 'Verification email has been resent. Please check your inbox.']);
     }
 }

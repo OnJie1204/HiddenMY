@@ -9,6 +9,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
 import VerifyEmail from './pages/VerifyEmail';
+import VerifyNewEmail from './pages/VerifyNewEmail';
+import ResendVerification from './pages/ResendVerification';
 import { getMe } from './api/auth';
 
 function App() {
@@ -37,7 +39,9 @@ function App() {
         <Route path="/register" element={user ? <Navigate to="/" /> : <Register onRegisterSuccess={setUser} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/email/verify/:id/:hash" element={<VerifyEmail />} />
+        <Route path="/verify-email" element={<VerifyNewEmail />} />
+        <Route path="/resend-verification" element={<ResendVerification />} />
 
         {/* 需要 Navbar 的页面(登入后才能进) */}
         <Route path="/" element={
