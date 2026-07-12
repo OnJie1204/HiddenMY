@@ -20,9 +20,7 @@ npm install react-router-dom
 
 cd backend
 composer install
-notepad .env
-// 然后copy paste .env.example 进去 .env 
-// 然后paste我发的email replace一段东西
+// 开一个.env在backend folder里面然后copy paste我发的email 整段放进去
 php artisan key:generate
 
 // search xampp open apache config find php.ini and delete the ; symbol
