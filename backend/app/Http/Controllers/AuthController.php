@@ -47,17 +47,49 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user) {
             throw ValidationException::withMessages([
                 'email' => ['The provided account or password is incorrect.'],
             ]);
         }
+
+        // Check if the account is locked.
+    if ($user->locked_until && $user->locked_until->isFuture()) {
+        $minutesLeft = now()->diffInMinutes($user->locked_until);
+        return response()->json([
+            'message' => "Too many failed attempts. Please try again in {$minutesLeft} minute(s).",
+        ], 423); // 423 Locked
+    }
+
+    if (!Hash::check($request->password, $user->password)) {
+        $user->increment('failed_login_attempts');
+
+        if ($user->failed_login_attempts >= 5) {
+            $user->locked_until = now()->addMinutes(15);
+            $user->save();
+
+            return response()->json([
+                'message' => 'Too many failed attempts. Your account has been locked for 15 minutes.',
+            ], 423);
+        }
+
+        $user->save();
+
+        throw ValidationException::withMessages([
+            'email' => ['The provided account or password is incorrect.'],
+        ]);
+    }
 
         if (!$user->hasVerifiedEmail()) {
             return response()->json([
                 'message' => 'Please verify your email before logging in.',
             ], 403);
         }
+
+        // Login successful; reset failed attempt count.
+        $user->failed_login_attempts = 0;
+        $user->locked_until = null;
+        $user->save();
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
