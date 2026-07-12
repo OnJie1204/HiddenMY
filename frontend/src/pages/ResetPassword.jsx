@@ -34,37 +34,40 @@ function ResetPassword() {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 300 }}>
-      <h2>Reset Password</h2>
-      {message && <p style={{ color: 'green' }}>{message}</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }}
-      />
-      <input
-        type="password"
-        placeholder="New Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }}
-      />
-      <input
-        type="password"
-        placeholder="Confirm New Password"
-        value={passwordConfirmation}
-        onChange={(e) => setPasswordConfirmation(e.target.value)}
-        required
-        style={{ display: 'block', marginBottom: 10, width: '100%' }}
-      />
-      <button type="submit">Reset Password</button>
-      <p><Link to="/login">Back to Login</Link></p>
-    </form>
+    <div className="auth-page">
+      <form onSubmit={handleSubmit} className="auth-card">
+        <h2>Reset password</h2>
+        <p className="subtitle">Enter your new password below.</p>
+        {message && <p className="msg-success">{message}</p>}
+        {error && <p className="msg-error">{error}</p>}
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="form-input"
+        />
+        <input
+          type="password"
+          placeholder="New Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          className="form-input"
+        />
+        <input
+          type="password"
+          placeholder="Confirm New Password"
+          value={passwordConfirmation}
+          onChange={(e) => setPasswordConfirmation(e.target.value)}
+          required
+          className="form-input"
+        />
+        <button type="submit" className="btn btn-primary">Reset password</button>
+        <p className="auth-link-row"><Link to="/login">Back to login</Link></p>
+      </form>
+    </div>
   );
 }
 

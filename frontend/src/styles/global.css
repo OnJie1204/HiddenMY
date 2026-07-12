@@ -278,3 +278,38 @@ a {
   font-size: 1.6rem;
   margin-bottom: 1.5rem;
 }
+
+/* Navbar link hover */
+.navbar-link {
+  padding: 0.3rem 0;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.navbar-link:hover {
+  color: #fff;
+  border-bottom-color: #60a5fa;
+}
+
+/* Logo hover */
+.navbar-logo {
+  transition: opacity 0.15s;
+}
+
+.navbar-logo:hover {
+  opacity: 0.85;
+}
+
+/* Username link hover */
+.navbar-username {
+  transition: color 0.15s;
+}
+
+.navbar-username:hover {
+  color: #93c5fd;
+}
+
+/* Home 卡片 hover 加强一点，现在已经有基础动画了，补个光标提示 */
+.home-card {
+  cursor: pointer;
+}
