@@ -19,11 +19,13 @@ function VerifyNewEmail() {
   }, [searchParams]);
 
   return (
-    <div style={{ maxWidth: 400 }}>
-      <h2>Email Change Verification</h2>
-      {message && !error && <p style={{ color: 'green' }}>{message}</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <p><Link to="/profile">Back to Profile</Link></p>
+    <div className="auth-page">
+      <div className="auth-card">
+        <h2>Email change verification</h2>
+        {message && !error && <p className="msg-success">{message}</p>}
+        {error && <p className="msg-error">{error}</p>}
+        <p className="auth-link-row"><Link to="/profile">Back to profile</Link></p>
+      </div>
     </div>
   );
 }

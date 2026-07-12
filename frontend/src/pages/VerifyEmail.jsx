@@ -16,11 +16,13 @@ function VerifyEmail() {
   }, [id, hash, searchParams]);
 
   return (
-    <div style={{ maxWidth: 400 }}>
-      <h2>Email Verification</h2>
-      {message && !error && <p style={{ color: 'green' }}>{message}</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <p><Link to="/login">Go to Login</Link></p>
+    <div className="auth-page">
+      <div className="auth-card">
+        <h2>Email verification</h2>
+        {message && !error && <p className="msg-success">{message}</p>}
+        {error && <p className="msg-error">{error}</p>}
+        <p className="auth-link-row"><Link to="/login">Go to login</Link></p>
+      </div>
     </div>
   );
 }
