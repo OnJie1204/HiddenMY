@@ -50,3 +50,10 @@ Route::middleware('auth:sanctum')->group(function () {
         return response()->json(['message' => 'Verification link sent']);
     });
 });
+
+// trip itineraries
+use App\Http\Controllers\TripItineraryController;
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('trips', TripItineraryController::class);
+});
