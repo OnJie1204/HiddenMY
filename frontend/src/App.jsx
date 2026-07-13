@@ -13,6 +13,7 @@ import VerifyNewEmail from './pages/VerifyNewEmail';
 import ResendVerification from './pages/ResendVerification';
 import TripItinerary from "./pages/TripItinerary";
 import { getMe } from './api/auth';
+import TripItineraryDetail from "./pages/TripItineraryDetail";
 
 
 function App() {
@@ -68,6 +69,20 @@ function App() {
             )
           }
         />
+
+        <Route
+          path="/trip-itinerary/:id"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <TripItineraryDetail />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
       </Routes>
 
 

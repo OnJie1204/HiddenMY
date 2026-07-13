@@ -55,5 +55,5 @@ Route::middleware('auth:sanctum')->group(function () {
 use App\Http\Controllers\TripItineraryController;
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::apiResource('trips', TripItineraryController::class);
+    Route::apiResource('trip-itineraries', TripItineraryController::class);
 });
