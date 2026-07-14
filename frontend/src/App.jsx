@@ -11,6 +11,7 @@ import Profile from './pages/Profile';
 import VerifyEmail from './pages/VerifyEmail';
 import VerifyNewEmail from './pages/VerifyNewEmail';
 import ResendVerification from './pages/ResendVerification';
+import TripItinerary from "./pages/TripItinerary";
 import { getMe } from './api/auth';
 import TripItineraryDetail from "./pages/TripItineraryDetail";
 
