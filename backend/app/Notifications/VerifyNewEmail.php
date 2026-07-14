@@ -42,6 +42,11 @@ class VerifyNewEmail extends Notification
             ->line('If you did not request this change, please ignore this email.');
     }
 
+    public function routeNotificationForMail($notifiable)
+    {
+        return $notifiable->pending_email;
+    }
+
     /**
      * Get the array representation of the notification.
      *

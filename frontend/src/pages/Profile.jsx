@@ -29,8 +29,8 @@ function Profile({ setAppUser }) {
     try {
       const res = await updateProfile({ name, email });
       setUser(res.data.user);
-      setAppUser(res.data.user);
-      setProfileMessage(res.data.message);
+      setAppUser(res.data.user); // Add this line to synchronize the user state in App.jsx
+      setProfileMessage(res.data.message); 
     } catch (err) {
       const errors = err.response?.data?.errors;
       setProfileError(errors ? Object.values(errors).flat().join(', ') : 'Update failed');

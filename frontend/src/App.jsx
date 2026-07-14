@@ -12,6 +12,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import VerifyNewEmail from './pages/VerifyNewEmail';
 import ResendVerification from './pages/ResendVerification';
 import { getMe } from './api/auth';
+import TripItineraryDetail from "./pages/TripItineraryDetail";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -53,6 +54,33 @@ function App() {
         <Route path="/profile" element={
           user ? <Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout> : <Navigate to="/login" />
         } />
+
+        <Route
+          path="/trip-itinerary"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <TripItinerary />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/trip-itinerary/:id"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <TripItineraryDetail />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
       </Routes>
     </BrowserRouter>
   );
