@@ -51,7 +51,7 @@ function App() {
           user ? <Layout user={user} setUser={setUser}><Maps /></Layout> : <Navigate to="/login" />
         } />
         <Route path="/profile" element={
-          user ? <Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout> : <Navigate to="/login" />
+          user ? <Layout user={user} setUser={setUser}><Profile /></Layout> : <Navigate to="/login" />
         } />
       </Routes>
     </BrowserRouter>
