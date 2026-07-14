@@ -1,19 +1,32 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useState } from "react";
+import { updateTripItinerary, deleteTripItinerary } from "../api/TripItinerary";
 
 
 import "../styles/global.css";
 
 
 export default function TripItineraryDetail() {
-
     const navigate = useNavigate();
 
     const { id } = useParams();
 
+    const { state } = useLocation();
 
-    const [tripName, setTripName] = useState("Japan Trip");
+    const [trip, setTrip] = useState(
+        state?.itinerary || null
+    );
 
+    const createdDate = trip?.created_at
+        ? new Date(trip.created_at).toLocaleDateString(
+            "en-GB",
+            {
+                day: "numeric",
+                month: "long",
+                year: "numeric"
+            }
+        )
+        : "";
 
     const [locations, setLocations] = useState([
         {
@@ -35,17 +48,30 @@ export default function TripItineraryDetail() {
 
 
 
-    const handleRename = () => {
+    const handleRename = async () => {
 
         const newName = prompt(
             "Enter new itinerary name",
-            tripName
+            trip?.name
         );
 
+        if (!newName || !newName.trim()) return;
 
-        if (newName) {
+        try {
 
-            setTripName(newName);
+            await updateTripItinerary(id, {
+                name: newName
+            });
+
+            setTrip({
+                ...trip,
+                name: newName
+            });
+
+        } catch (err) {
+
+            console.error(err);
+            alert("Failed to rename itinerary.");
 
         }
 
@@ -53,17 +79,19 @@ export default function TripItineraryDetail() {
 
 
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
 
-        const confirmDelete =
-            window.confirm(
-                "Delete this itinerary?"
-            );
+        if (!window.confirm("Delete this itinerary?")) return;
 
+        try {
 
-        if (confirmDelete) {
+            await deleteTripItinerary(id);
 
             navigate("/trip-itinerary");
+
+        } catch (err) {
+
+            console.error(err);
 
         }
 
@@ -102,12 +130,10 @@ export default function TripItineraryDetail() {
 
                 <div>
 
-                    <h1>
-                        {tripName}
-                    </h1>
+                    <h1>{trip?.name}</h1>
 
                     <p className="trip-detail-created-date">
-                        Created on 12 July 2026
+                        Created on {createdDate}
                     </p>
 
                 </div>
@@ -116,12 +142,12 @@ export default function TripItineraryDetail() {
 
                 <div>
 
-                    <button className="trip-detail-btn trip-detail-rename-btn">
+                    <button className="trip-detail-btn trip-detail-rename-btn" onClick={handleRename}>
                         ✏ Rename
                     </button>
 
 
-                    <button className="trip-detail-btn trip-detail-delete-btn">
+                    <button className="trip-detail-btn trip-detail-delete-btn" onClick={handleDelete}>
                         🗑 Delete
                     </button>
 

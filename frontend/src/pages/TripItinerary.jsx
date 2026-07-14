@@ -110,7 +110,11 @@ export default function TripItinerary() {
                     <div
                         className="trip-card"
                         key={trip.id}
-                        onClick={() => navigate(`/trip-itinerary/${trip.id}`)}
+                        onClick={() => navigate(`/trip-itinerary/${trip.id}`, {
+                            state: {
+                                itinerary: trip
+                            }
+                        })}
                     >
 
                         <h2>
