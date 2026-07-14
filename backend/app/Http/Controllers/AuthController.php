@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\PasswordReset;
 use App\Notifications\VerifyNewEmail;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Notification;
 
 class AuthController extends Controller
 {
@@ -54,31 +55,31 @@ class AuthController extends Controller
         }
 
         // Check if the account is locked.
-    if ($user->locked_until && $user->locked_until->isFuture()) {
-        $minutesLeft = now()->diffInMinutes($user->locked_until);
-        return response()->json([
-            'message' => "Too many failed attempts. Please try again in {$minutesLeft} minute(s).",
-        ], 423); // 423 Locked
-    }
-
-    if (!Hash::check($request->password, $user->password)) {
-        $user->increment('failed_login_attempts');
-
-        if ($user->failed_login_attempts >= 5) {
-            $user->locked_until = now()->addMinutes(15);
-            $user->save();
-
+        if ($user->locked_until && $user->locked_until->isFuture()) {
+            $minutesLeft = now()->diffInMinutes($user->locked_until);
             return response()->json([
-                'message' => 'Too many failed attempts. Your account has been locked for 15 minutes.',
-            ], 423);
+                'message' => "Too many failed attempts. Please try again in {$minutesLeft} minute(s).",
+            ], 423); // 423 Locked
         }
 
-        $user->save();
+        if (!Hash::check($request->password, $user->password)) {
+            $user->increment('failed_login_attempts');
 
-        throw ValidationException::withMessages([
-            'email' => ['The provided account or password is incorrect.'],
-        ]);
-    }
+            if ($user->failed_login_attempts >= 5) {
+                $user->locked_until = now()->addMinutes(15);
+                $user->save();
+
+                return response()->json([
+                    'message' => 'Too many failed attempts. Your account has been locked for 15 minutes.',
+                ], 423);
+            }
+
+            $user->save();
+
+            throw ValidationException::withMessages([
+                'email' => ['The provided account or password is incorrect.'],
+            ]);
+        }
 
         if (!$user->hasVerifiedEmail()) {
             return response()->json([
@@ -155,6 +156,7 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Reset failed; the connection may have expired.'], 400);
     }
+
     // Update Profile
     public function updateProfile(Request $request)
     {
@@ -177,9 +179,9 @@ class AuthController extends Controller
             $user->email_change_token = $token;
             $user->save();
 
-            $user->notify(new VerifyNewEmail($token));
-
-            $user->save();
+            // 改成用 Notification::route，直接指定寄到新 email
+            Notification::route('mail', $validated['email'])
+                ->notify(new VerifyNewEmail($token));
 
             return response()->json([
                 'message' => 'A verification email has been sent to your new email address. Please check your inbox to confirm the change.',
