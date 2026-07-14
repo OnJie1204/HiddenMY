@@ -8,7 +8,7 @@ import {
     deleteTripItinerary
 } from "../api/TripItinerary";
 
-import "../styles/TripItinerary.css";
+import "../styles/global.css";
 
 export default function TripItinerary() {
 

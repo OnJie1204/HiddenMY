@@ -318,3 +318,421 @@ a {
 .home-card {
   cursor: pointer;
 }
+
+/* ---------- Trip Itinerary Page ---------- */
+.trip-page {
+    padding: 40px;
+}
+
+
+.trip-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+
+.create-btn {
+    background:#2563eb;
+    color:white;
+    padding:12px 20px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+
+.trip-list {
+    margin-top:30px;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:20px;
+}
+
+
+.trip-card {
+
+    background:white;
+    padding:20px;
+    border-radius:15px;
+
+    box-shadow:
+    0 4px 15px rgba(0,0,0,0.1);
+
+    cursor:pointer;
+
+    transition:0.2s;
+}
+
+
+.trip-card:hover {
+
+    transform:translateY(-5px);
+
+}
+
+
+.trip-actions button {
+
+    margin-right:10px;
+
+}
+
+
+
+.modal-overlay {
+
+    position:fixed;
+
+    inset:0;
+
+    background:rgba(0,0,0,0.4);
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+
+.modal {
+
+    background:white;
+
+    padding:30px;
+
+    border-radius:15px;
+
+    width:350px;
+
+}
+
+
+.modal input {
+
+    width:100%;
+
+    padding:10px;
+
+    margin:20px 0;
+
+}
+
+/* ---------- Trip Itinerary Detail Page ---------- */
+.trip-detail-container {
+
+    padding:2rem;
+
+}
+
+
+
+.trip-detail-header {
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+}
+
+
+.location-card {
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:20px;
+
+    margin-bottom:15px;
+
+    border-radius:12px;
+
+    background:white;
+
+    box-shadow:
+    0 3px 10px rgba(0,0,0,0.1);
+
+}
+
+
+
+.location-card span {
+
+    background:#eee;
+
+    padding:5px 10px;
+
+    border-radius:20px;
+
+}
+
+
+
+.route-btn {
+
+    width:100%;
+
+    padding:15px;
+
+    margin-top:30px;
+
+}
+
+/* ===============================
+   Trip Itinerary Detail Buttons
+================================ */
+
+
+/* Common button style only for this page */
+
+.trip-detail-btn {
+
+    border: none;
+
+    cursor: pointer;
+
+    font-size: 15px;
+
+    font-weight: 500;
+
+    border-radius: 10px;
+
+    transition: 0.2s;
+
+}
+
+
+
+/* Rename button */
+
+.trip-detail-rename-btn {
+
+    background: #f1f3f5;
+
+    color: #333;
+
+    padding: 10px 18px;
+
+}
+
+
+.trip-detail-rename-btn:hover {
+
+    background: #e5e7eb;
+
+}
+
+
+
+/* Delete itinerary button */
+
+.trip-detail-delete-btn {
+
+    background: #fee2e2;
+
+    color: #dc2626;
+
+    padding: 10px 18px;
+
+}
+
+
+.trip-detail-delete-btn:hover {
+
+    background: #fecaca;
+
+}
+
+
+
+/* Add Tourist Attraction / Hidden Gem */
+
+.trip-detail-add-btn {
+
+    width: 100%;
+
+    padding: 15px;
+
+    background: #2563eb;
+
+    color: white;
+
+    margin-bottom: 12px;
+
+}
+
+
+.trip-detail-add-btn:hover {
+
+    background: #1d4ed8;
+
+}
+
+
+
+/* Remove stop button */
+
+.trip-detail-remove-btn {
+
+    background: transparent;
+
+    color: #dc2626;
+
+    padding: 8px 12px;
+
+}
+
+
+.trip-detail-remove-btn:hover {
+
+    background: #fee2e2;
+
+}
+
+
+
+/* Open Google Maps button */
+
+.trip-detail-route-btn {
+
+    width: 100%;
+
+    padding: 16px;
+
+    margin-top: 30px;
+
+    background: #16a34a;
+
+    color: white;
+
+    font-size: 16px;
+
+}
+
+
+.trip-detail-route-btn:hover {
+
+    background: #15803d;
+
+}
+
+.trip-detail-location-title {
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+}
+
+
+.trip-detail-location-icon {
+
+    font-size:22px;
+
+}
+
+
+/* Optional hover effect */
+
+.trip-detail-location-icon:hover {
+
+    transform:scale(1.2);
+
+}
+
+.trip-detail-back-btn {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 10px 16px;
+
+    margin-bottom: 24px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #f5f5f5;
+
+    color: #444;
+
+    font-size: 15px;
+
+    font-weight: 500;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+
+}
+
+.trip-detail-back-btn:hover {
+
+    background: #e9ecef;
+
+    transform: translateX(-3px);
+
+}
+
+.trip-detail-created-date {
+
+    margin-top: 6px;
+
+    color: #6b7280;
+
+    font-size: 14px;
+
+    letter-spacing: 0.3px;
+
+}
+
+.trip-detail-section-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin: 30px 0 18px;
+
+}
+
+.trip-detail-section-header h2 {
+
+    margin: 0;
+
+    font-size: 24px;
+
+    color: #222;
+
+}
+
+.trip-detail-section-header span {
+
+    background: #eef2ff;
+
+    color: #2563eb;
+
+    padding: 6px 14px;
+
+    border-radius: 999px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+}
