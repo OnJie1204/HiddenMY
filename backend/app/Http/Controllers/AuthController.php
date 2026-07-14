@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\PasswordReset;
 use App\Notifications\VerifyNewEmail;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -39,65 +40,27 @@ class AuthController extends Controller
 
     // login
     public function login(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
+{
+    $start = microtime(true);
 
-        $user = User::where('email', $request->email)->first();
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required',
+    ]);
 
-        if (!$user) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided account or password is incorrect.'],
-            ]);
-        }
+    $user = User::where('email', $request->email)->first();
+    Log::info('After first query: ' . (microtime(true) - $start) . 's');
 
-        // Check if the account is locked.
-    if ($user->locked_until && $user->locked_until->isFuture()) {
-        $minutesLeft = now()->diffInMinutes($user->locked_until);
-        return response()->json([
-            'message' => "Too many failed attempts. Please try again in {$minutesLeft} minute(s).",
-        ], 423); // 423 Locked
-    }
+    // ... 其他逻辑不变，最后加：
 
-    if (!Hash::check($request->password, $user->password)) {
-        $user->increment('failed_login_attempts');
+    $token = $user->createToken('auth_token')->plainTextToken;
+    Log::info('Total time: ' . (microtime(true) - $start) . 's');
 
-        if ($user->failed_login_attempts >= 5) {
-            $user->locked_until = now()->addMinutes(15);
-            $user->save();
-
-            return response()->json([
-                'message' => 'Too many failed attempts. Your account has been locked for 15 minutes.',
-            ], 423);
-        }
-
-        $user->save();
-
-        throw ValidationException::withMessages([
-            'email' => ['The provided account or password is incorrect.'],
-        ]);
-    }
-
-        if (!$user->hasVerifiedEmail()) {
-            return response()->json([
-                'message' => 'Please verify your email before logging in.',
-            ], 403);
-        }
-
-        // Login successful; reset failed attempt count.
-        $user->failed_login_attempts = 0;
-        $user->locked_until = null;
-        $user->save();
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-        ]);
-    }
+    return response()->json([
+        'user' => $user,
+        'token' => $token,
+    ]);
+}
 
     // logout
     public function logout(Request $request)
@@ -155,6 +118,7 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Reset failed; the connection may have expired.'], 400);
     }
+    
     // Update Profile
     public function updateProfile(Request $request)
     {
