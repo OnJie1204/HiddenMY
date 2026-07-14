@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getMe, updateProfile, changePassword } from '../api/auth';
 
-function Profile() {
+function Profile({ setAppUser }) {
   const [user, setUser] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,6 +29,7 @@ function Profile() {
     try {
       const res = await updateProfile({ name, email });
       setUser(res.data.user);
+      setAppUser(res.data.user);
       setProfileMessage(res.data.message);
     } catch (err) {
       const errors = err.response?.data?.errors;
