@@ -46,7 +46,7 @@ class GoogleAuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         // Redirect back to the frontend, carrying the token.
-        $frontendUrl = 'http://localhost:5173/google-callback?token=' . $token;
+        $frontendUrl = 'http://127.0.0.1:8000/google-callback?token=' . $token;
         return redirect($frontendUrl);
     }
 }

@@ -54,7 +54,7 @@ body {
   margin: 0;
 }
 
-#root {
+#app {
   width: 100%;
   max-width: 100%;
   min-height: 100vh;

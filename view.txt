@@ -1,7 +1,5 @@
-cd backend
+cd lavarel
 php artisan serve
-
-
-cd frontend
 npm run dev
 
+http://127.0.0.1:8000

@@ -116,7 +116,11 @@ class AuthController extends Controller
     // retrieve information about the currently logged-in user.
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user();
+        return response()->json([
+            ...$user->toArray(),
+            'has_password' => !is_null($user->password),
+        ]);
     }
 
     // Send password reset email
@@ -201,20 +205,28 @@ class AuthController extends Controller
 
     public function changePassword(Request $request)
     {
-        $request->validate([
-            'current_password' => 'required',
-            'new_password' => 'required|min:8|confirmed',
-        ]);
-
         $user = $request->user();
 
-        if (!Hash::check($request->current_password, $user->password)) {
-            return response()->json(['message' => '目前密码不正确'], 400);
+        if ($user->password) {
+            // For standard users who already have a password, follow the existing logic.
+            $request->validate([
+                'current_password' => 'required',
+                'new_password' => 'required|min:8|confirmed',
+            ]);
+
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json(['message' => 'Current password is incorrect'], 400);
+            }
+        } else {
+            // For Google users signing in and setting a password for the first time, verifying the "current password" is not required.
+            $request->validate([
+                'new_password' => 'required|min:8|confirmed',
+            ]);
         }
 
         $user->update(['password' => Hash::make($request->new_password)]);
 
-        return response()->json(['message' => '密码已更新']);
+        return response()->json(['message' => 'Password updated successfully']);
     }
 
     public function verifyNewEmail(Request $request)

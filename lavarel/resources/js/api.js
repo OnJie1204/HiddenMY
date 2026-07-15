@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
+  baseURL: '/api',
 });
 
-// 每次发请求前，自动带上储存的 token
+// Automatically include the stored token with every request.
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {

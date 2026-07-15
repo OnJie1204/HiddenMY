@@ -1,0 +1,21 @@
+{
+    "$schema": "https://www.schemastore.org/package.json",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^4.7.0",
+        "axios": "^1.18.1",
+        "concurrently": "^9.0.1",
+        "laravel-vite-plugin": "^2.1.0",
+        "leaflet": "^1.9.4",
+        "react": "^19.2.7",
+        "react-dom": "^19.2.7",
+        "react-leaflet": "^5.0.0",
+        "react-router-dom": "^7.18.1",
+        "vite": "^7.3.6"
+    }
+}

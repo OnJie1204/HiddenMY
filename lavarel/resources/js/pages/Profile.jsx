@@ -13,12 +13,14 @@ function Profile({ setAppUser }) {
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [hasPassword, setHasPassword] = useState(true);
 
   useEffect(() => {
     getMe().then(res => {
       setUser(res.data);
       setName(res.data.name);
       setEmail(res.data.email);
+      setHasPassword(res.data.has_password);
     });
   }, []);
 
@@ -43,16 +45,17 @@ function Profile({ setAppUser }) {
     setPasswordMessage('');
     try {
       await changePassword({
-        current_password: currentPassword,
+        current_password: hasPassword ? currentPassword : undefined,
         new_password: newPassword,
         new_password_confirmation: newPasswordConfirmation,
       });
-      setPasswordMessage('Password changed successfully');
+      setPasswordMessage(hasPassword ? 'Password changed successfully' : 'Password set successfully');
+      setHasPassword(true); // Once you've set it up, you'll be a user with a password from then on.
       setCurrentPassword('');
       setNewPassword('');
       setNewPasswordConfirmation('');
     } catch (err) {
-      setPasswordError(err.response?.data?.message || 'Password change failed');
+      setPasswordError(err.response?.data?.message || 'Password update failed');
     }
   };
 
@@ -86,18 +89,22 @@ function Profile({ setAppUser }) {
       </div>
 
       <div className="section-card">
-        <h3>Change Password</h3>
+        <h3>{hasPassword ? 'Change Password' : 'Set Password'}</h3>
         <form onSubmit={handlePasswordSubmit}>
           {passwordMessage && <p className="msg-success">{passwordMessage}</p>}
           {passwordError && <p className="msg-error">{passwordError}</p>}
-          <input
-            type="password"
-            placeholder="Current Password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            required
-            className="form-input"
-          />
+
+          {hasPassword && (
+            <input
+              type="password"
+              placeholder="Current Password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              className="form-input"
+            />
+          )}
+
           <input
             type="password"
             placeholder="New Password"
@@ -114,7 +121,9 @@ function Profile({ setAppUser }) {
             required
             className="form-input"
           />
-          <button type="submit" className="btn btn-danger">Change Password</button>
+          <button type="submit" className="btn btn-danger">
+            {hasPassword ? 'Change Password' : 'Set Password'}
+          </button>
         </form>
       </div>
     </div>
