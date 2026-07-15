@@ -94,7 +94,7 @@ export default function TripItinerary() {
                 </h1>
 
                 <button
-                    className="create-btn"
+                    className="trip-itinerary-create-btn"
                     onClick={() => setShowCreateModal(true)}
                 >
                     + Create Itinerary
@@ -121,12 +121,39 @@ export default function TripItinerary() {
                             {trip.name}
                         </h2>
 
-                        <p>
-                            Created:
-                            {" "}
-                            {new Date(trip.created_at)
-                                .toLocaleDateString()}
-                        </p>
+                        <div className="trip-itinerary-card-dates">
+
+                            <p className="trip-itinerary-created-date">
+                                📅 Created:
+                                {" "}
+                                {new Date(trip.created_at).toLocaleDateString(
+                                    "en-GB",
+                                    {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric"
+                                    }
+                                )}
+                            </p>
+
+                            {trip.created_at !== trip.updated_at && (
+
+                                <p className="trip-itinerary-modified-date">
+                                    ✏️ Last Modified:
+                                    {" "}
+                                    {new Date(trip.updated_at).toLocaleDateString(
+                                        "en-GB",
+                                        {
+                                            day: "numeric",
+                                            month: "short",
+                                            year: "numeric"
+                                        }
+                                    )}
+                                </p>
+
+                            )}
+
+                        </div>
 
                     </div>
 
@@ -158,24 +185,27 @@ export default function TripItinerary() {
                             />
 
 
-                            <div>
+                            <div className="trip-create-modal-actions">
 
                                 <button
-                                    onClick={() =>
-                                        setShowCreateModal(false)
-                                    }
+                                    className="trip-create-modal-cancel-btn"
+                                    onClick={() => {
+                                        setShowCreateModal(false);
+                                        setTripName("");
+                                    }}
                                 >
                                     Cancel
                                 </button>
 
-
                                 <button
+                                    className="trip-create-modal-confirm-btn"
                                     onClick={() => {
                                         handleCreate();
                                         setShowCreateModal(false);
                                     }}
+                                    disabled={!tripName.trim()}
                                 >
-                                    Create
+                                    ✈ Create Itinerary
                                 </button>
 
                             </div>
