@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\GoogleAuthController;
 
 use App\Models\User;
 
@@ -13,6 +14,9 @@ Route::get('/user', function (Request $request) {
 Route::get('/ping', function () {
     return response()->json(['message' => 'Laravel connected!']);
 });
+
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect']);
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
 
 // Public route (accessible without logging in)
 Route::post('/register', [AuthController::class, 'register']);

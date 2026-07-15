@@ -11,6 +11,7 @@ import Profile from './pages/Profile';
 import VerifyEmail from './pages/VerifyEmail';
 import VerifyNewEmail from './pages/VerifyNewEmail';
 import ResendVerification from './pages/ResendVerification';
+import GoogleCallback from './pages/GoogleCallback';
 import TripItinerary from "./pages/TripItinerary";
 import { getMe } from './api/auth';
 import TripItineraryDetail from "./pages/TripItineraryDetail";
@@ -44,6 +45,7 @@ function App() {
         <Route path="/email/verify/:id/:hash" element={<VerifyEmail />} />
         <Route path="/verify-email" element={<VerifyNewEmail />} />
         <Route path="/resend-verification" element={<ResendVerification />} />
+        <Route path="/google-callback" element={<GoogleCallback setUser={setUser} />} />
 
         {/* 需要 Navbar 的页面(登入后才能进) */}
         <Route path="/" element={

@@ -50,6 +50,9 @@ function Login({ onLoginSuccess }) {
           <Link to="/forgot-password">Forgot password?</Link>
         </div>
         <button type="submit" className="btn btn-primary">Login</button>
+        <a href="http://127.0.0.1:8000/api/auth/google/redirect" className="btn" style={{ background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', marginTop: '0.75rem', display: 'block', textAlign: 'center' }}>
+          Continue with Google
+        </a>
         <p className="auth-link-row">Don't have an account? <Link to="/register">Register</Link></p>
         <p className="auth-link-row"><Link to="/resend-verification">Didn't receive verification email?</Link></p>
       </form>
