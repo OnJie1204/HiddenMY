@@ -24,18 +24,25 @@ class TripItineraryController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
+        // Backend validation
+        $validated = $request->validate([
+            'trip_name' => [
+                'required',
+                'string',
+                'min:1',
+                'max:10'
+            ],
         ]);
 
-        $itinerary = TripItinerary::create([
+        // Create itinerary after validation passed
+        $trip = TripItinerary::create([
             'user_id' => $request->user()->id,
-            'name' => $request->name,
+            'trip_name' => $validated['trip_name']
         ]);
 
         return response()->json([
-            'message' => 'Trip itinerary created successfully.',
-            'data' => $itinerary,
+            'message' => 'Trip itinerary created successfully',
+            'data' => $trip
         ], 201);
     }
 
@@ -51,11 +58,11 @@ class TripItineraryController extends Controller
         }
 
         $request->validate([
-            'name' => 'required|string|max:255',
+            'trip_name' => 'required|string|max:50',
         ]);
 
         $tripItinerary->update([
-            'name' => $request->name,
+            'trip_name' => $request->trip_name,
         ]);
 
         return response()->json([

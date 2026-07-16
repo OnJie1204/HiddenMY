@@ -9,8 +9,8 @@ use App\Models\User;
 class TripItinerary extends Model
 {
     protected $fillable = [
-        'user_id',
-        'name',
+        'trip_name',
+        'user_id'
     ];
 
     public function locations()

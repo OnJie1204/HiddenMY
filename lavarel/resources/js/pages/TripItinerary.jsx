@@ -13,6 +13,26 @@ import "../styles/global.css";
 export default function TripItinerary() {
 
     const [tripName, setTripName] = useState("");
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+
+        if (tripName.trim().length < 1) {
+            alert("Trip name must contain at least 1 character");
+            return;
+        }
+
+        if (tripName.trim().length > 10) {
+            alert("Trip name cannot exceed 10 characters");
+            return;
+        }
+
+        handleCreate(); // your existing create function
+
+        setShowCreateModal(false);
+        setTripName("");
+    };
+
     const [tripItineraries, setTripItineraries] = useState([]);
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState("");
@@ -38,7 +58,7 @@ export default function TripItinerary() {
         if (!tripName.trim()) return;
 
         createTripItinerary({
-            name: tripName
+            trip_name: tripName
         })
             .then((res) => {
 
@@ -118,7 +138,7 @@ export default function TripItinerary() {
                     >
 
                         <h2>
-                            {trip.name}
+                            {trip.trip_name}
                         </h2>
 
                         <div className="trip-itinerary-card-dates">
@@ -176,39 +196,36 @@ export default function TripItinerary() {
                             </h2>
 
 
-                            <input
-                                placeholder="Enter trip name"
-                                value={tripName}
-                                onChange={(e) =>
-                                    setTripName(e.target.value)
-                                }
-                            />
+                            <form onSubmit={handleSubmit}>
+                                <input
+                                    placeholder="Enter trip name"
+                                    value={tripName}
+                                    onChange={(e) => setTripName(e.target.value)}
+                                />
 
+                                <div className="trip-create-modal-actions">
 
-                            <div className="trip-create-modal-actions">
+                                    <button
+                                        type="button"
+                                        className="trip-create-modal-cancel-btn"
+                                        onClick={() => {
+                                            setShowCreateModal(false);
+                                            setTripName("");
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
 
-                                <button
-                                    className="trip-create-modal-cancel-btn"
-                                    onClick={() => {
-                                        setShowCreateModal(false);
-                                        setTripName("");
-                                    }}
-                                >
-                                    Cancel
-                                </button>
+                                    <button
+                                        type="submit"
+                                        className="trip-create-modal-confirm-btn"
+                                        disabled={!tripName.trim()}
+                                    >
+                                        ✈ Create Itinerary
+                                    </button>
 
-                                <button
-                                    className="trip-create-modal-confirm-btn"
-                                    onClick={() => {
-                                        handleCreate();
-                                        setShowCreateModal(false);
-                                    }}
-                                    disabled={!tripName.trim()}
-                                >
-                                    ✈ Create Itinerary
-                                </button>
-
-                            </div>
+                                </div>
+                            </form>
 
 
                         </div>

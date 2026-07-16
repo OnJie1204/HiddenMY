@@ -2,8 +2,121 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { updateTripItinerary, deleteTripItinerary } from "../api/TripItinerary";
 
+import {
+    DndContext,
+    closestCenter
+} from "@dnd-kit/core";
+
+import {
+    SortableContext,
+    arrayMove,
+    verticalListSortingStrategy,
+    useSortable
+} from "@dnd-kit/sortable";
+
+import { CSS } from "@dnd-kit/utilities";
+
+import { MdDragIndicator } from "react-icons/md";
+
 
 import "../styles/global.css";
+
+/* dragable location card component */
+function SortableLocationCard({
+
+    location,
+
+    index,
+
+    onDelete
+
+}) {
+
+    const {
+
+        attributes,
+
+        listeners,
+
+        setNodeRef,
+
+        transform,
+
+        transition
+
+    } = useSortable({
+
+        id: location.id
+
+    });
+
+    const style = {
+
+        transform: CSS.Transform.toString(transform),
+
+        transition
+
+    };
+
+    return (
+
+        <div
+
+            ref={setNodeRef}
+
+            style={style}
+
+            className="trip-detail-location-card"
+
+        >
+
+            <div
+
+                className="trip-detail-drag-handle"
+
+                {...attributes}
+
+                {...listeners}
+
+            >
+
+                <MdDragIndicator size={22} />
+
+            </div>
+
+            <div className="trip-detail-location-icon">
+
+                {location.type === "hidden"
+
+                    ? "💎"
+
+                    : "📍"}
+
+            </div>
+
+            <div className="trip-detail-location-name">
+                {index + 1}. {location.name}
+            </div>
+
+            <button
+
+                className="trip-detail-delete-stop-btn"
+
+                onClick={() => onDelete(location.id)}
+
+            >
+
+                🗑
+
+            </button>
+
+        </div>
+
+    );
+
+}
+
+
 
 
 export default function TripItineraryDetail() {
@@ -46,13 +159,57 @@ export default function TripItineraryDetail() {
         }
     ]);
 
+    const handleDragEnd = (event) => {
+
+        const {
+
+            active,
+
+            over
+
+        } = event;
+
+        if (!over) return;
+
+        if (active.id !== over.id) {
+
+            setLocations((items) => {
+
+                const oldIndex = items.findIndex(
+
+                    item => item.id === active.id
+
+                );
+
+                const newIndex = items.findIndex(
+
+                    item => item.id === over.id
+
+                );
+
+                return arrayMove(
+
+                    items,
+
+                    oldIndex,
+
+                    newIndex
+
+                );
+
+            });
+
+        }
+
+    };
+
 
 
     const handleRename = async () => {
 
         const newName = prompt(
             "Enter new itinerary name",
-            trip?.name
+            trip?.trip_name
         );
 
         if (!newName || !newName.trim()) return;
@@ -60,12 +217,12 @@ export default function TripItineraryDetail() {
         try {
 
             await updateTripItinerary(id, {
-                name: newName
+                trip_name: newName
             });
 
             setTrip({
                 ...trip,
-                name: newName
+                trip_name: newName
             });
 
         } catch (err) {
@@ -130,7 +287,7 @@ export default function TripItineraryDetail() {
 
                 <div>
 
-                    <h1>{trip?.name}</h1>
+                    <h1>{trip?.trip_name}</h1>
 
                     <p className="trip-detail-created-date">
                         Created on {createdDate}
@@ -192,69 +349,30 @@ export default function TripItineraryDetail() {
 
             <div className="location-list">
 
+                <DndContext
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
 
-                {
-                    locations.map(
-                        (location, index) => (
+                    <SortableContext
+                        items={locations}
+                        strategy={verticalListSortingStrategy}
+                    >
 
+                        {locations.map((location, index) => (
 
-                            <div
-                                className="location-card"
+                            <SortableLocationCard
                                 key={location.id}
-                            >
+                                location={location}
+                                index={index}
+                                onDelete={removeLocation}
+                            />
 
+                        ))}
 
-                                <div>
+                    </SortableContext>
 
-                                    <div className="trip-detail-location-title">
-
-                                        <h3>
-                                            {index + 1}. {location.name}
-                                        </h3>
-
-
-                                        <span
-                                            className={
-                                                location.type === "hidden"
-                                                    ?
-                                                    "trip-detail-location-icon hidden"
-                                                    :
-                                                    "trip-detail-location-icon tourist"
-                                            }
-                                        >
-                                            {
-                                                location.type === "hidden"
-                                                    ? "✨"
-                                                    : "📍"
-                                            }
-                                        </span>
-
-                                    </div>
-
-
-                                </div>
-
-
-
-
-                                <button className="trip-detail-btn trip-detail-remove-btn" onClick={() =>
-                                    removeLocation(
-                                        location.id
-                                    )
-                                }>
-                                    Remove
-                                </button>
-
-
-
-                            </div>
-
-
-                        )
-
-                    )
-                }
-
+                </DndContext>
 
             </div>
 
