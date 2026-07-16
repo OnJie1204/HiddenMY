@@ -520,6 +520,8 @@ a {
 
     padding: 10px 18px;
 
+    margin-right: 10px;
+
 }
 
 
@@ -642,12 +644,6 @@ a {
 
 
 /* Optional hover effect */
-
-.trip-detail-location-icon:hover {
-
-    transform:scale(1.2);
-
-}
 
 .trip-detail-back-btn {
 
@@ -928,5 +924,105 @@ a {
     font-size:14px;
 
     color:#6b7280;
+
+}
+
+.trip-detail-drag-handle{
+
+    width:40px;
+
+    height:40px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    cursor:grab;
+
+    color:#64748b;
+
+    border-radius:8px;
+
+    transition:.2s;
+
+}
+
+.trip-detail-drag-handle:hover{
+
+    background:#f3f4f6;
+
+    color:#2563eb;
+
+}
+
+.trip-detail-drag-handle:active{
+
+    cursor:grabbing;
+
+}
+
+.trip-detail-location-card{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:16px;
+
+    background:#ededed;
+
+    padding:5px;
+
+    margin:16px;
+
+    border-radius:12px;
+
+}
+
+.trip-detail-location-icon{
+
+    font-size:24px;
+
+}
+
+.trip-detail-location-name{
+
+    flex:1;
+
+    font-size:17px;
+
+    font-weight:600;
+
+    color:#374151;
+
+}
+
+.trip-detail-delete-stop-btn{
+
+    width:40px;
+
+    height:40px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#fef2f2;
+
+    color:#dc2626;
+
+    cursor:pointer;
+
+    transition:.2s;
+
+}
+
+.trip-detail-delete-stop-btn:hover{
+
+    background:#dc2626;
+
+    color:white;
 
 }
