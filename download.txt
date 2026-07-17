@@ -14,12 +14,11 @@ https://getcomposer.org/Composer-Setup.exe
 7. 打 composer -v 测试
 
 
-cd frontend
+cd laravel
 npm install
 npm install react-router-dom
-
-cd backend
 composer install
+
 // 开一个.env在backend folder里面然后copy paste我发的email 整段放进去
 php artisan key:generate
 
