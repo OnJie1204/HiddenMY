@@ -1026,3 +1026,43 @@ a {
     color:white;
 
 }
+
+.trip-rename-input {
+    width: 100%;
+    max-width: 420px;
+    padding: 12px 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-bottom: 12px;
+}
+
+.trip-rename-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.trip-detail-cancel-btn {
+    width: 100%;
+    padding: 15px;
+    background: white;
+    margin-bottom: 12px;
+}
+
+.trip-detail-cancel-btn:hover {
+    background-color: #e5e7eb;
+}
+
+.trip-detail-cancel-btn:active {
+    transform: scale(0.98);
+}
+
+.trip-rename-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.trip-detail-hr {
+    margin-top: 12px;
+}

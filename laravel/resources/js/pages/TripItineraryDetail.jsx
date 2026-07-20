@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateTripItinerary, deleteTripItinerary } from "../api/TripItinerary";
 
 import {
@@ -130,6 +130,15 @@ export default function TripItineraryDetail() {
         state?.itinerary || null
     );
 
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [renameName, setRenameName] = useState("");
+
+    useEffect(() => {
+        if (trip) {
+            setRenameName(trip.trip_name);
+        }
+    }, [trip]);
+
     const createdDate = trip?.created_at
         ? new Date(trip.created_at).toLocaleDateString(
             "en-GB",
@@ -205,17 +214,27 @@ export default function TripItineraryDetail() {
 
 
 
-    const handleRename = async () => {
+    const handleRename = async (e) => {
+        e.preventDefault();
 
-        const newName = prompt(
-            "Enter new itinerary name",
-            trip?.trip_name
-        );
+        const newName = renameName.trim();
 
-        if (!newName || !newName.trim()) return;
+        if (!newName) {
+            alert("Trip name is required.");
+            return;
+        }
+
+        if (newName.length < 1) {
+            alert("Trip name must be at least 1 character.");
+            return;
+        }
+
+        if (newName.length > 10) {
+            alert("Trip name cannot exceed 10 characters.");
+            return;
+        }
 
         try {
-
             await updateTripItinerary(id, {
                 trip_name: newName
             });
@@ -225,13 +244,11 @@ export default function TripItineraryDetail() {
                 trip_name: newName
             });
 
+            setIsRenaming(false);
         } catch (err) {
-
             console.error(err);
             alert("Failed to rename itinerary.");
-
         }
-
     };
 
 
@@ -287,11 +304,54 @@ export default function TripItineraryDetail() {
 
                 <div>
 
-                    <h1>{trip?.trip_name}</h1>
+                    {isRenaming ? (
 
-                    <p className="trip-detail-created-date">
-                        Created on {createdDate}
-                    </p>
+                        <form onSubmit={handleRename}>
+
+                            <input
+                                type="text"
+                                value={renameName}
+                                onChange={(e) => setRenameName(e.target.value)}
+                                placeholder="Enter itinerary name"
+                                autoFocus
+                                className="trip-rename-input"
+                            />
+
+                            <div className="trip-rename-buttons">
+
+                                <button
+                                    type="submit"
+                                    className="trip-detail-btn trip-detail-add-btn"
+                                >
+                                    Rename
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="trip-detail-btn trip-detail-cancel-btn"
+                                    onClick={() => {
+                                        setRenameName(trip.trip_name);
+                                        setIsRenaming(false);
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+
+                            </div>
+
+                        </form>
+
+                    ) : (
+
+                        <>
+                            <h1>{trip?.trip_name}</h1>
+
+                            <p className="trip-detail-created-date">
+                                Created on {createdDate}
+                            </p>
+                        </>
+
+                    )}
 
                 </div>
 
@@ -299,9 +359,14 @@ export default function TripItineraryDetail() {
 
                 <div>
 
-                    <button className="trip-detail-btn trip-detail-rename-btn" onClick={handleRename}>
-                        ✏ Rename
-                    </button>
+                    {!isRenaming && (
+                        <button
+                            className="trip-detail-btn trip-detail-rename-btn"
+                            onClick={() => setIsRenaming(true)}
+                        >
+                            ✏ Rename
+                        </button>
+                    )}
 
 
                     <button className="trip-detail-btn trip-detail-delete-btn" onClick={handleDelete}>
