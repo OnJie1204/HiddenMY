@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
+use App\Http\Controllers\SearchController;
 
 use App\Models\User;
 
@@ -61,3 +62,11 @@ use App\Http\Controllers\TripItineraryController;
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('trip-itineraries', TripItineraryController::class);
 });
+
+// hidden gem
+use App\Http\Controllers\HiddenGemController;
+
+Route::apiResource('hidden-gems', HiddenGemController::class);
+Route::get('/recent-hidden-gems',[HiddenGemController::class,'recent']);
+// search
+Route::get('/search', [SearchController::class, 'search']);
