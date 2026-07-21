@@ -23,13 +23,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         ResetPassword::createUrlUsing(function ($user, string $token) {
-            return 'http://localhost:5173/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+            return 'http://127.0.0.1:8000/reset-password?token=' . $token . '&email=' . urlencode($user->email);
         });
 
         VerifyEmail::toMailUsing(function ($notifiable, $url) {
             $frontendUrl = str_replace(
                 url('/api'),
-                'http://localhost:5173',
+                'http://127.0.0.1:8000',
                 $url
             );
 
