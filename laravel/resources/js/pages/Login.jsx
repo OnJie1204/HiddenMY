@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { login } from '../api/auth';
+import { setToken } from '../utils/tokenStorage';
 
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -16,11 +17,7 @@ function Login({ onLoginSuccess }) {
     setError('');
     try {
       const res = await login(email, password);
-      if (rememberMe) {
-        localStorage.setItem('token', res.data.token);
-      } else {
-        sessionStorage.setItem('token', res.data.token);
-      }
+      setToken(res.data.token, rememberMe);
       onLoginSuccess(res.data.user);
       navigate('/');
     } catch (err) {
@@ -66,7 +63,7 @@ function Login({ onLoginSuccess }) {
           <Link to="/forgot-password">Forgot password?</Link>
         </div>
         <button type="submit" className="btn btn-primary">Login</button>
-        <a href="http://127.0.0.1:8000/api/auth/google/redirect" className="btn" style={{ background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', marginTop: '0.75rem', display: 'block', textAlign: 'center' }}>
+        <a href={`http://127.0.0.1:8000/api/auth/google/redirect?remember=${rememberMe}`} className="btn" style={{ background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', marginTop: '0.75rem', display: 'block', textAlign: 'center' }}>
           Continue with Google
         </a>
         <p className="auth-link-row">Don't have an account? <Link to="/register">Register</Link></p>

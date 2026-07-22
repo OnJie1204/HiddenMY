@@ -10,15 +10,21 @@ use Illuminate\Support\Str;
 class GoogleAuthController extends Controller
 {
     // Redirecting to the Google sign-in screen
-    public function redirect()
+    public function redirect(Request $request)
     {
-        return Socialite::driver('google')->stateless()->redirect(); // @phpstan-ignore-line
-    }
+        $remember = $request->query('remember', 'false');
+    
+        return Socialite::driver('google')
+            ->stateless()
+            ->with(['state' => $remember])
+            ->redirect();
+        }
 
     // Process the returned information after Google sign-in is complete.
-    public function callback()
+    public function callback(Request $request)
     {
         $googleUser = Socialite::driver('google')->stateless()->user(); // @phpstan-ignore-line
+        $remember = $request->query('state', 'false');
 
         // First, check if an account has already been created using the `google_id`.
         $user = User::where('google_id', $googleUser->getId())->first();
@@ -46,7 +52,7 @@ class GoogleAuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         // Redirect back to the frontend, carrying the token.
-        $frontendUrl = 'http://127.0.0.1:8000/google-callback?token=' . $token;
+        $frontendUrl = 'http://127.0.0.1:8000/google-callback?token=' . $token . '&remember=' . $remember;
         return redirect($frontendUrl);
     }
 }

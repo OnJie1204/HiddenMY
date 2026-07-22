@@ -15,20 +15,18 @@ import GoogleCallback from './pages/GoogleCallback';
 import TripItinerary from "./pages/TripItinerary";
 import { getMe } from './api/auth';
 import TripItineraryDetail from "./pages/TripItineraryDetail";
+import { getToken, clearToken } from './utils/tokenStorage';
 
 function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const token = getToken();
     if (token) {
       getMe()
         .then(res => setUser(res.data))
-        .catch(() => {
-          localStorage.removeItem('token');
-          sessionStorage.removeItem('token');
-        })
+        .catch(() => clearToken())
         .finally(() => setChecking(false));
     } else {
       setChecking(false);

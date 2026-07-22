@@ -1,13 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../api/auth';
+import { clearToken } from '../utils/tokenStorage';
 
 function Navbar({ user, setUser }) {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
-    localStorage.removeItem('token');
-    sessionStorage.removeItem('token');
+    clearToken();
     setUser(null);
     navigate('/login');
   };
