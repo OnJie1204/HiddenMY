@@ -21,11 +21,14 @@ function App() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (token) {
       getMe()
         .then(res => setUser(res.data))
-        .catch(() => localStorage.removeItem('token'))
+        .catch(() => {
+          localStorage.removeItem('token');
+          sessionStorage.removeItem('token');
+        })
         .finally(() => setChecking(false));
     } else {
       setChecking(false);

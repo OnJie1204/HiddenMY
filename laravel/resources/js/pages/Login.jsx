@@ -5,6 +5,7 @@ import { login } from '../api/auth';
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
@@ -15,7 +16,11 @@ function Login({ onLoginSuccess }) {
     setError('');
     try {
       const res = await login(email, password);
-      localStorage.setItem('token', res.data.token);
+      if (rememberMe) {
+        localStorage.setItem('token', res.data.token);
+      } else {
+        sessionStorage.setItem('token', res.data.token);
+      }
       onLoginSuccess(res.data.user);
       navigate('/');
     } catch (err) {
@@ -46,6 +51,17 @@ function Login({ onLoginSuccess }) {
           required
           className="form-input"
         />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          <input
+            type="checkbox"
+            id="rememberMe"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+          />
+          <label htmlFor="rememberMe" style={{ fontSize: '0.9rem', color: '#64748b' }}>
+            Remember me
+          </label>
+        </div>
         <div className="auth-link-row" style={{ textAlign: 'right', marginTop: '-0.5rem', marginBottom: '1rem' }}>
           <Link to="/forgot-password">Forgot password?</Link>
         </div>
