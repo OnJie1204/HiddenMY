@@ -47,4 +47,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
         ];
     }
+
+    public function locations()
+    {
+        return $this->hasMany(Location::class);
+    }
 }
