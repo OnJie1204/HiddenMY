@@ -17,6 +17,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import { MdDragIndicator } from "react-icons/md";
+import { MapContainer, TileLayer } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 
 import "../styles/global.css";
@@ -132,6 +134,11 @@ export default function TripItineraryDetail() {
 
     const [isRenaming, setIsRenaming] = useState(false);
     const [renameName, setRenameName] = useState("");
+    const [isStoppingPointDialogOpen, setIsStoppingPointDialogOpen] = useState(false);
+
+    const closeStoppingPointDialog = () => {
+        setIsStoppingPointDialogOpen(false);
+    };
 
     useEffect(() => {
         if (trip) {
@@ -401,7 +408,11 @@ export default function TripItineraryDetail() {
             <div className="add-buttons">
 
 
-                <button className="trip-detail-btn trip-detail-add-btn">
+                <button
+                    type="button"
+                    className="trip-detail-btn trip-detail-add-btn"
+                    onClick={() => setIsStoppingPointDialogOpen(true)}
+                >
                     + Add Stopping Point
                 </button>
 
@@ -444,6 +455,65 @@ export default function TripItineraryDetail() {
 
 
 
+
+            {isStoppingPointDialogOpen && (
+                <div
+                    className="stopping-point-dialog-backdrop"
+                    onMouseDown={closeStoppingPointDialog}
+                >
+                    <section
+                        className="stopping-point-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="stopping-point-dialog-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <h2 id="stopping-point-dialog-title">Add Stopping Point</h2>
+
+                        <label className="stopping-point-search-label" htmlFor="stopping-point-search">
+                            Search hidden gems
+                        </label>
+                        <input
+                            id="stopping-point-search"
+                            type="search"
+                            className="stopping-point-search"
+                            placeholder="Search by name"
+                            autoComplete="off"
+                        />
+
+                        <div className="stopping-point-map" aria-label="Map of hidden gems">
+                            <MapContainer
+                                center={[20, 0]}
+                                zoom={2}
+                                scrollWheelZoom
+                                className="stopping-point-leaflet-map"
+                            >
+                                <TileLayer
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                />
+                            </MapContainer>
+                        </div>
+
+                        <div className="stopping-point-dialog-actions">
+                            <button
+                                type="button"
+                                className="stopping-point-cancel-btn"
+                                onClick={closeStoppingPointDialog}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="stopping-point-confirm-btn"
+                                disabled
+                            >
+                                Add
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
 
             <button className="trip-detail-btn trip-detail-route-btn">
                 🗺 Open Route in Google Maps
