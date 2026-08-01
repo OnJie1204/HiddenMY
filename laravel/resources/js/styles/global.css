@@ -639,10 +639,14 @@ a {
 
 .stopping-point-dialog {
     width: min(100%, 680px);
+    max-height: calc(100dvh - 3rem);
     padding: 1.5rem;
     border-radius: 14px;
     background: #fff;
     box-shadow: 0 20px 50px rgba(15, 23, 42, 0.28);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .stopping-point-dialog h2 {
@@ -672,9 +676,61 @@ a {
     outline-offset: 1px;
 }
 
+.stopping-point-search-suggestions {
+    max-height: min(180px, 20dvh);
+    margin: -0.5rem 0 1rem;
+    flex: 0 1 auto;
+    overflow-y: auto;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.stopping-point-search-status {
+    margin: 0;
+    padding: 0.55rem 0.8rem;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.stopping-point-search-result {
+    display: block;
+    width: 100%;
+    padding: 0.65rem 0.8rem;
+    border: 0;
+    background: #fff;
+    color: #1e293b;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.stopping-point-search-result-prefix {
+    display: inline-flex;
+    width: 1.35rem;
+    height: 1.35rem;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.5rem;
+    border-radius: 50%;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.stopping-point-search-result:hover,
+.stopping-point-search-result:focus-visible {
+    outline: none;
+    background: #eff6ff;
+}
+
 .stopping-point-map {
     overflow: hidden;
-    height: 360px;
+    flex: 0 0 clamp(190px, 36dvh, 360px);
+    height: clamp(190px, 36dvh, 360px);
+    min-height: 0;
     border: 1px solid #cbd5e1;
     border-radius: 10px;
 }
@@ -684,8 +740,75 @@ a {
     height: 100%;
 }
 
+.hidden-gem-marker-icon {
+    background: transparent;
+    border: 0;
+}
+
+.hidden-gem-marker-diamond {
+    display: block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-radius: 3px;
+    background: #2563eb;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+    transform: rotate(45deg);
+}
+
+.hidden-gem-marker-diamond-selected {
+    width: 20px;
+    height: 20px;
+    background: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35), 0 2px 6px rgba(15, 23, 42, 0.35);
+}
+
+.hidden-gem-marker-popup {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.hidden-gem-marker-popup span {
+    color: #475569;
+    font-size: 0.8rem;
+}
+
+.open-street-map-marker-icon {
+    background: transparent;
+    border: 0;
+}
+
+.open-street-map-marker {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border: 3px solid #fff;
+    border-radius: 50% 50% 50% 0;
+    background: #dc2626;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+    transform: rotate(-45deg);
+}
+
+.stopping-point-map-status {
+    margin-top: 0.65rem;
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.stopping-point-map-status-error {
+    color: #b91c1c;
+}
+
+.stopping-point-selected-location {
+    margin-top: 0.65rem;
+    color: #1e40af;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 .stopping-point-dialog-actions {
     display: flex;
+    flex: 0 0 auto;
     justify-content: flex-end;
     gap: 0.75rem;
     margin-top: 1.25rem;
@@ -726,7 +849,28 @@ a {
     }
 
     .stopping-point-map {
-        height: 280px;
+        flex-basis: clamp(180px, 34dvh, 260px);
+        height: clamp(180px, 34dvh, 260px);
+    }
+}
+
+@media (max-height: 640px) {
+    .stopping-point-dialog-backdrop {
+        align-items: start;
+        overflow-y: auto;
+    }
+
+    .stopping-point-dialog {
+        margin-block: 0.75rem;
+    }
+
+    .stopping-point-search-suggestions {
+        max-height: 96px;
+    }
+
+    .stopping-point-map {
+        flex-basis: 190px;
+        height: 190px;
     }
 }
 
@@ -1084,6 +1228,16 @@ a {
 
     border-radius:12px;
 
+}
+
+.trip-location-order-status {
+    margin: 0 16px 8px;
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.trip-location-order-error {
+    color: #b91c1c;
 }
 
 .trip-detail-location-icon{

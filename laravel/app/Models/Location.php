@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Location extends Model
@@ -16,9 +17,17 @@ class Location extends Model
         'description',
         'latitude',
         'longitude',
-        'is_hidden_gem',
-        'status'
+        'isHidden',
+        'status',
     ];
+
+    /**
+     * Limit a query to locations approved as Hidden Gems.
+     */
+    public function scopeHiddenGems(Builder $query): Builder
+    {
+        return $query->where('isHidden', 'yes');
+    }
 
     public function user()
     {
@@ -29,7 +38,6 @@ class Location extends Model
     {
         return $this->belongsTo(Category::class);
     }
-
 
     public function images()
     {
