@@ -8,17 +8,19 @@ class TripLocation extends Model
 {
     protected $fillable = [
         'trip_itinerary_id',
-        'location_type',
-        'location_name',
-        'latitude',
-        'longitude',
-        'description',
-        'place_id',
-        'sequence'
+        'location_id',
+        'osm_id',
+        'isHidden',
+        'order_number',
     ];
 
     public function itinerary()
     {
         return $this->belongsTo(TripItinerary::class);
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
     }
 }
