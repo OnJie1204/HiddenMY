@@ -23,8 +23,7 @@ class HiddenGemController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Location::with(['user', 'category', 'images'])
-                         ->where('isHidden', 'yes');
+        $query = Location::with(['user', 'category', 'images']);
 
         // Filter by status (verified / pending)
         if ($request->has('status') && in_array($request->status, ['verified', 'pending'])) {
@@ -62,7 +61,6 @@ class HiddenGemController extends Controller
     public function show($id): JsonResponse
     {
         $location = Location::with(['user', 'category', 'images', 'votes.user'])
-                            ->where('isHidden', 'yes')
                             ->findOrFail($id);
 
         return response()->json(['data' => $location]);
@@ -87,7 +85,6 @@ class HiddenGemController extends Controller
         }
 
         $databaseLocations = Location::query()
-            ->hiddenGems()
             ->where('place_name', 'ILIKE', '%'.$query.'%')
             ->select(['id', 'place_name', 'latitude', 'longitude'])
             ->orderBy('place_name')
@@ -122,8 +119,7 @@ class HiddenGemController extends Controller
      */
     public function getStates(): JsonResponse
     {
-        $states = Location::where('isHidden', 'yes')
-                          ->distinct()
+        $states = Location::distinct()
                           ->pluck('state')
                           ->filter()
                           ->values();

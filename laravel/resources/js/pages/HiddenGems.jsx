@@ -13,7 +13,6 @@ export default function HiddenGems() {
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
 
-    // Fetch hidden gems data
     const fetchGems = async () => {
         setLoading(true);
         try {
@@ -24,6 +23,7 @@ export default function HiddenGems() {
             if (filter.state) params.state = filter.state;
 
             const response = await getHiddenGems(params);
+            console.log('API Response:', response.data);  // 加这行查看数据
             setGems(response.data.data || []);
         } catch (error) {
             console.error('Error fetching gems:', error);
@@ -32,7 +32,6 @@ export default function HiddenGems() {
         }
     };
 
-    // Fetch categories and states for filters
     const fetchFilters = async () => {
         try {
             const [catRes, stateRes] = await Promise.all([
@@ -53,13 +52,10 @@ export default function HiddenGems() {
 
     return (
         <div className="hidden-gems-page">
-
-            {/* Header */}
             <div className="hidden-gems-header">
                 <h1>🔍 Hidden Gems Discovery</h1>
             </div>
 
-            {/* Search Bar */}
             <div className="hidden-gems-search">
                 <input
                     type="text"
@@ -70,7 +66,6 @@ export default function HiddenGems() {
                 />
             </div>
 
-            {/* Filters */}
             <div className="hidden-gems-filters">
                 <select
                     className="hidden-gems-filter-select"
@@ -78,8 +73,8 @@ export default function HiddenGems() {
                     onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 >
                     <option value="">All Status</option>
-                    <option value="verified">✅ Verified</option>
-                    <option value="pending">⏳ Pending</option>
+                    <option value="verified">Verified</option>
+                    <option value="pending">Pending</option>
                 </select>
 
                 <select
@@ -109,7 +104,6 @@ export default function HiddenGems() {
                 </select>
             </div>
 
-            {/* Results */}
             {loading ? (
                 <div className="hidden-gems-loading">
                     <p>Loading hidden gems...</p>
@@ -126,23 +120,21 @@ export default function HiddenGems() {
                             key={gem.id}
                             onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                         >
-                            {/* Image */}
                             <div className="hidden-gems-card-image">
                                 {gem.images && gem.images.length > 0 ? (
                                     <img
                                         src={gem.images[0].image_url}
-                                        alt={gem.name || gem.place_name}
+                                        alt={gem.place_name}
                                     />
                                 ) : (
                                     <div className="hidden-gems-card-no-image">
-                                        📷 No Image
+                                        No Image
                                     </div>
                                 )}
                             </div>
 
-                            {/* Content */}
                             <div className="hidden-gems-card-content">
-                                <h2>{gem.name || gem.place_name}</h2>
+                                <h2>{gem.place_name}</h2>
 
                                 <div className="hidden-gems-card-tags">
                                     <span className="hidden-gems-card-category">
@@ -154,17 +146,17 @@ export default function HiddenGems() {
                                 </div>
 
                                 <p className="hidden-gems-card-description">
-                                    {gem.description || gem.place_name}
+                                    {gem.description || 'No description'}
                                 </p>
 
                                 <div className="hidden-gems-card-status">
                                     {gem.status === 'verified' ? (
                                         <span className="hidden-gems-card-verified">
-                                            ✅ Verified
+                                            Verified
                                         </span>
                                     ) : (
                                         <span className="hidden-gems-card-pending">
-                                            ⏳ Pending ({gem.vote_count || 0}/10 votes)
+                                            Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
                                         </span>
                                     )}
                                 </div>

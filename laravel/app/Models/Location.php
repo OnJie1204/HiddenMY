@@ -17,19 +17,10 @@ class Location extends Model
         'description',
         'latitude',
         'longitude',
-        'isHidden',
         'status',
         'vote_count',
         'verification_threshold',
     ];
-
-    /**
-     * Limit a query to locations approved as Hidden Gems.
-     */
-    public function scopeHiddenGems(Builder $query): Builder
-    {
-        return $query->where('isHidden', 'yes');
-    }
 
     public function user()
     {
@@ -46,7 +37,7 @@ class Location extends Model
         return $this->hasMany(LocationImage::class);
     }
 
-     public function votes()
+    public function votes()
     {
         return $this->hasMany(Vote::class);
     }
@@ -55,7 +46,7 @@ class Location extends Model
     {
         return $this->hasMany(CheckIn::class);
     }
-    
+
     public function isVerified()
     {
         return $this->status === 'verified';
