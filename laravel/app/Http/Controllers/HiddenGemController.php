@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Location;
+use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,24 +16,56 @@ class HiddenGemController extends Controller
 
     private const OSM_CACHE_TTL_HOURS = 6;
 
-    /**
-     * Return the Hidden Gems available for itinerary stopping-point selection.
-     */
-    public function index(): JsonResponse
-    {
-        $hiddenGems = Location::query()
-            ->hiddenGems()
-            ->select(['id', 'place_name', 'latitude', 'longitude'])
-            ->orderBy('place_name')
-            ->get()
-            ->map(fn (Location $location) => [
-                'id' => $location->id,
-                'name' => $location->place_name,
-                'latitude' => $location->latitude,
-                'longitude' => $location->longitude,
-            ]);
+    // ==================== API METHODS ====================
 
-        return response()->json(['data' => $hiddenGems]);
+    /**
+     * Return the Hidden Gems list for React frontend.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $query = Location::with(['user', 'category', 'images'])
+                         ->where('isHidden', 'yes');
+
+        // Filter by status (verified / pending)
+        if ($request->has('status') && in_array($request->status, ['verified', 'pending'])) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by category
+        if ($request->has('category') && $request->category) {
+            $query->where('category_id', $request->category);
+        }
+
+        // Filter by state
+        if ($request->has('state') && $request->state) {
+            $query->where('state', $request->state);
+        }
+
+        // Search by place name
+        if ($request->has('search') && $request->search) {
+            $query->where('place_name', 'like', '%' . $request->search . '%');
+        }
+
+        $hiddenGems = $query->latest()->paginate(12);
+
+        return response()->json([
+            'data' => $hiddenGems->items(),
+            'current_page' => $hiddenGems->currentPage(),
+            'last_page' => $hiddenGems->lastPage(),
+            'total' => $hiddenGems->total(),
+        ]);
+    }
+
+    /**
+     * Display a single Hidden Gem detail.
+     */
+    public function show($id): JsonResponse
+    {
+        $location = Location::with(['user', 'category', 'images', 'votes.user'])
+                            ->where('isHidden', 'yes')
+                            ->findOrFail($id);
+
+        return response()->json(['data' => $location]);
     }
 
     /**
@@ -74,6 +107,31 @@ class HiddenGemController extends Controller
             'openStreetMap' => $openStreetMapLocations,
         ]);
     }
+
+    /**
+     * Get categories for filter.
+     */
+    public function getCategories(): JsonResponse
+    {
+        $categories = Category::all();
+        return response()->json(['data' => $categories]);
+    }
+
+    /**
+     * Get states for filter.
+     */
+    public function getStates(): JsonResponse
+    {
+        $states = Location::where('isHidden', 'yes')
+                          ->distinct()
+                          ->pluck('state')
+                          ->filter()
+                          ->values();
+
+        return response()->json(['data' => $states]);
+    }
+
+    // ==================== PRIVATE METHODS ====================
 
     private function searchOpenStreetMap(string $query, int $remainingResults): Collection
     {

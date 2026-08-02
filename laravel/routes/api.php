@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
+use App\Http\Controllers\HiddenGemController;
+use App\Http\Controllers\TripItineraryController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -53,16 +55,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
         return response()->json(['message' => 'Verification link sent']);
     });
-});
 
-// trip itineraries
-use App\Http\Controllers\HiddenGemController;
-use App\Http\Controllers\TripItineraryController;
-
-Route::middleware('auth:sanctum')->group(function () {
+    // Trip Itineraries
     Route::post('trip-itineraries/{tripItinerary}/locations', [TripItineraryController::class, 'storeLocation']);
     Route::put('trip-itineraries/{tripItinerary}/locations/order', [TripItineraryController::class, 'updateLocationOrder']);
     Route::apiResource('trip-itineraries', TripItineraryController::class);
-    Route::get('hidden-gems/search', [HiddenGemController::class, 'search']);
+
+    // ===== Hidden Gems API (for React) =====
     Route::get('hidden-gems', [HiddenGemController::class, 'index']);
+    Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
+    Route::get('hidden-gems/search', [HiddenGemController::class, 'search']);
+    Route::get('hidden-gems/categories', [HiddenGemController::class, 'getCategories']);
+    Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);
 });
