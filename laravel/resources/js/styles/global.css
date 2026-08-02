@@ -1325,3 +1325,188 @@ a {
 .trip-detail-hr {
     margin-top: 12px;
 }
+
+/* ===== Hidden Gems Page ===== */
+
+.hidden-gems-page {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.hidden-gems-header {
+    margin-bottom: 24px;
+}
+
+.hidden-gems-header h1 {
+    font-size: 28px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Search */
+.hidden-gems-search {
+    margin-bottom: 16px;
+}
+
+.hidden-gems-search-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    outline: none;
+}
+
+.hidden-gems-search-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+/* Filters */
+.hidden-gems-filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.hidden-gems-filter-select {
+    padding: 10px 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+    outline: none;
+    min-width: 150px;
+}
+
+.hidden-gems-filter-select:focus {
+    border-color: #007bff;
+}
+
+/* Loading */
+.hidden-gems-loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+/* Empty */
+.hidden-gems-empty {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+/* Cards Grid */
+.hidden-gems-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* Card */
+.hidden-gems-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.hidden-gems-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Card Image */
+.hidden-gems-card-image {
+    height: 200px;
+    overflow: hidden;
+    background: #f5f5f5;
+}
+
+.hidden-gems-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.hidden-gems-card-no-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #999;
+    font-size: 14px;
+}
+
+/* Card Content */
+.hidden-gems-card-content {
+    padding: 16px;
+}
+
+.hidden-gems-card-content h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.hidden-gems-card-tags {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.hidden-gems-card-category {
+    font-size: 12px;
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.hidden-gems-card-state {
+    font-size: 12px;
+    background: #f5f5f5;
+    color: #666;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.hidden-gems-card-description {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.hidden-gems-card-status {
+    margin-top: 8px;
+}
+
+.hidden-gems-card-verified {
+    font-size: 13px;
+    color: #2e7d32;
+    background: #e8f5e9;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+.hidden-gems-card-pending {
+    font-size: 13px;
+    color: #f57f17;
+    background: #fff8e1;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-block;
+}

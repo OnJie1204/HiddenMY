@@ -7,7 +7,7 @@ import {
     updateTripItinerary,
     updateTripLocationOrder,
 } from "../api/TripItinerary";
-import { getHiddenGems, searchHiddenGems } from "../api/HiddenGem";
+import { getHiddenGems, searchHiddenGems } from "../api/hiddenGems";
 
 import {
     DndContext,

@@ -19,6 +19,8 @@ class Location extends Model
         'longitude',
         'isHidden',
         'status',
+        'vote_count',
+        'verification_threshold',
     ];
 
     /**
@@ -42,5 +44,38 @@ class Location extends Model
     public function images()
     {
         return $this->hasMany(LocationImage::class);
+    }
+
+     public function votes()
+    {
+        return $this->hasMany(Vote::class);
+    }
+
+    public function checkIns()
+    {
+        return $this->hasMany(CheckIn::class);
+    }
+    
+    public function isVerified()
+    {
+        return $this->status === 'verified';
+    }
+
+    public function isPending()
+    {
+        return $this->status === 'pending';
+    }
+
+    public function getVoteProgressAttribute()
+    {
+        if ($this->verification_threshold <= 0) {
+            return 100;
+        }
+        return min(100, round(($this->vote_count / $this->verification_threshold) * 100));
+    }
+
+    public function getRemainingVotesAttribute()
+    {
+        return max(0, $this->verification_threshold - $this->vote_count);
     }
 }
