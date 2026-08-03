@@ -41,15 +41,9 @@ function HiddenGemMarker({
         }}
         >
             <Popup offset={[0, -25]}>
-<<<<<<< HEAD
                 <b>💎 {gem.place_name}</b>
                 <br />
                 <small>{gem.state}</small>
-=======
-                <b>💎 {gem.title}</b>
-                <br/>
-                <small>Hidden Gem</small>
->>>>>>> Interactive-Map
             </Popup>
         </Marker>
     );

@@ -38,11 +38,7 @@ function AttractionMarker({
         }}
         >
             <Popup offset={[0, -25]}>
-<<<<<<< HEAD
                 <b>📍 {place.name}</b>
-=======
-                <b>📍 {place.title}</b>
->>>>>>> Interactive-Map
                 <br/>
                 <small>Attraction</small>
             </Popup>

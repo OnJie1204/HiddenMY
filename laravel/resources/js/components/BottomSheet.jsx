@@ -48,25 +48,15 @@ function BottomSheet({
             gem.cover_image &&
             <img
             src={gem.cover_image}
-<<<<<<< HEAD
             alt={gem.name}
-=======
-            alt={gem.title}
->>>>>>> Interactive-Map
             className="bottom-sheet-image"
             />
             }
 
             <h2>
-<<<<<<< HEAD
             {gem.source === "database" ? "💎" : "📍"}
             {" "}
             {gem.name}
-=======
-            {gem.type === "hidden_gem" ? "💎" : "📍"}
-            {" "}
-            {gem.title}
->>>>>>> Interactive-Map
             </h2>
 
             {
