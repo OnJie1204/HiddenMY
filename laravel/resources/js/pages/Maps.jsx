@@ -1,29 +1,26 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
+import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-
-<<<<<<< Updated upstream
-// Define an icon directly, bypassing Leaflet's default mechanism, to ensure it displays correctly.
-=======
-import "leaflet/dist/leaflet.css";
 import "../../css/maps.css";
-import L from "leaflet";
 
 import {getHiddenGems} from "../api/hiddenGems";
 
+import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
 import SearchBar from "../components/SearchBar";
 import BottomSheet from "../components/BottomSheet";
 import AttractionMarker from "../components/AttractionMarker";
 import RecentHiddenGemCard from "../components/RecentHiddenGemCard";
 
+import malaysia from "../assets/MYS.geo.json";
+
 import api from "../api";
 
 
 // Marker icon
->>>>>>> Stashed changes
 const customIcon = new L.Icon({
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -50,12 +47,6 @@ function FlyToUser({ position }) {
     return null;
 }
 
-<<<<<<< Updated upstream
-function Maps() {
-    const [message, setMessage] = useState('Loading...');
-    const [userPosition, setUserPosition] = useState(null);
-    const [locationError, setLocationError] = useState(null);
-=======
 function Maps(){
     const [hiddenGems,setHiddenGems]=useState([]);
     const [selectedGem,setSelectedGem]=useState(null);
@@ -64,7 +55,6 @@ function Maps(){
     const [message,setMessage]=useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [recentPosts,setRecentPosts]=useState([]);
->>>>>>> Stashed changes
 
     useEffect(() => {
         axios.get('http://127.0.0.1:8000/api/ping')
@@ -72,11 +62,6 @@ function Maps(){
             .catch(err => setMessage('Error: ' + err.message));
     }, []);
 
-<<<<<<< Updated upstream
-    useEffect(() => {
-        if (!navigator.geolocation) {
-            setLocationError('Your browser does not support location services.');
-=======
     // Load hidden gems
     useEffect(()=>{
         getHiddenGems()
@@ -97,11 +82,38 @@ function Maps(){
         });
     },[]);
 
+    // Normalize the gem shape
+    function normalizeGem(raw, source) {
+        if (source === "database") {
+            return {
+                id: raw.id,
+                source: "database",
+                title: raw.place_name,
+                state: raw.state,
+                address: raw.address,
+                description: raw.description,
+                latitude: raw.latitude,
+                longitude: raw.longitude,
+                image: raw.images?.[0]?.image_url ? `/storage/${raw.images[0].image_url}` : null,
+                voteCount: raw.vote_count,
+                category: raw.category?.name,
+            };
+        }
+        // OSM / attraction result
+        return {
+            id: raw.id,
+            source: "attraction",
+            title: raw.name,
+            latitude: raw.latitude,
+            longitude: raw.longitude,
+            image: null,
+        };
+    }
+
     // Get user location
     useEffect(()=>{
         if(!navigator.geolocation){
             setLocationError("Location not supported");
->>>>>>> Stashed changes
             return;
         }
         navigator.geolocation.getCurrentPosition(
@@ -116,13 +128,6 @@ function Maps(){
 
     const defaultCenter = [4.2105, 101.9758];
 
-<<<<<<< Updated upstream
-    return (
-        <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-            <h1>Gemora</h1>
-            <p>Backend says: {message}</p>
-            {locationError && <p style={{ color: 'orange' }}>{locationError}</p>}
-=======
     function FlyToGem({ gem }) {
         const map = useMap();
         useEffect(() => {
@@ -141,16 +146,14 @@ function Maps(){
             
             <SearchBar
                 onSelect={(item) => {
-                if (item.source === "database") {
-                    const gem = hiddenGems.find(g => g.id === item.id);
-                    if (gem) {
-                        setSelectedGem(gem);
+                    if (item.source === "database") {
+                        const gem = hiddenGems.find(g => g.id === item.id);
+                        if (gem) setSelectedGem(normalizeGem(gem, "database"));
+                        setSearchResults([]);
+                    } else {
+                        setSelectedGem(normalizeGem(item, "attraction"));
+                        setSearchResults([item]);
                     }
-                    setSearchResults([]);
-                } else {
-                    setSelectedGem(item);
-                    setSearchResults([item]);
-                }
                 }}
             />
 
@@ -160,7 +163,6 @@ function Maps(){
                 {locationError}
             </p>
             }
->>>>>>> Stashed changes
 
             <MapContainer
                 center={userPosition || defaultCenter}
@@ -170,11 +172,6 @@ function Maps(){
                 maxBoundsViscosity={1.0}
                 style={{ height: '500px', width: '100%' }}
             >
-<<<<<<< Updated upstream
-                <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; OpenStreetMap contributors'
-=======
             <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
@@ -195,35 +192,47 @@ function Maps(){
                 <FlyToUser position={userPosition}/>
                 </>
             }
-            <>
-                {hiddenGems.map((gem) => (
-                    <HiddenGemMarker
-                        key={gem.id}
-                        gem={gem}
-                        onClick={() => {
-                            setSelectedGem(gem);
-                        }}
-                    />
-                ))}
-            </>
-            {searchResults.map((place,index)=>(
-                <AttractionMarker
-                key={index}
-                place={place}
-                onClick={()=>{
-                    setSelectedGem(place);
-                }}
->>>>>>> Stashed changes
+            <MarkerClusterGroup iconCreateFunction={createGemClusterIcon} zoomToBoundsOnClick={true} spiderfyOnMaxZoom={true}>
+            {hiddenGems.map((gem)=>(
+                <HiddenGemMarker
+                    key={gem.id}
+                    gem={gem}
+                    onClick={() => setSelectedGem(normalizeGem(gem, "database"))}
                 />
-                {userPosition && (
-                    <>
-                        <Marker position={userPosition} icon={customIcon}>
-                            <Popup>current location</Popup>
-                        </Marker>
-                        <FlyToUser position={userPosition} />
-                    </>
-                )}
+            ))}
+        </MarkerClusterGroup>`
+            {searchResults.map((place, index) => (
+                <AttractionMarker
+                    key={index}
+                    place={place}
+                    onClick={() => setSelectedGem(normalizeGem(post, "database"))}
+                />
+            ))}
+            <FlyToGem gem={selectedGem}/>
             </MapContainer>
+            {!selectedGem && (
+                <div className="recent-section">
+
+                    <h2>
+                        Recent Hidden Gems
+                    </h2>
+
+                    <div className="recent-list">
+                        {recentPosts.map(post => (
+                            <RecentHiddenGemCard
+                                key={post.id}
+                                post={post}
+                                onClick={() => setSelectedGem(post)}
+                            />
+                        ))}
+                    </div>
+
+                </div>
+            )}
+            <BottomSheet
+                gem={selectedGem}
+                onClose={()=>setSelectedGem(null)}
+            />
         </div>
     );
 }
