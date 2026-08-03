@@ -222,7 +222,7 @@ function Maps(){
                             <RecentHiddenGemCard
                                 key={post.id}
                                 post={post}
-                                onClick={() => setSelectedGem(post)}
+                                onClick={() => setSelectedGem(normalizeGem(post, "database"))}
                             />
                         ))}
                     </div>
