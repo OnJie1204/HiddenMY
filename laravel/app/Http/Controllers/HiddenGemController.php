@@ -191,6 +191,16 @@ class HiddenGemController extends Controller
         return response()->json(['data' => $states]);
     }
 
+    public function recent(): JsonResponse
+    {
+        $recentLocations = Location::with(['user', 'category', 'images'])
+            ->latest()
+            ->take(5)
+            ->get();
+
+        return response()->json($recentLocations);
+    }
+
     // ==================== PRIVATE METHODS ====================
 
     private function searchOpenStreetMap(string $query, int $remainingResults): Collection

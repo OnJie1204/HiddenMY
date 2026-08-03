@@ -2,6 +2,10 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 use App\Http\Controllers\HiddenGemController;
 use App\Http\Controllers\TripItineraryController;
 use App\Models\User;
@@ -68,4 +72,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);
     Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
     Route::post('hidden-gems', [HiddenGemController::class, 'store']);
+<<<<<<< Updated upstream
 });
+=======
+    
+});
+Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);
+>>>>>>> Stashed changes
