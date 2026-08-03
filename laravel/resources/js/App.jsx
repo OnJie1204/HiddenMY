@@ -13,19 +13,22 @@ import VerifyNewEmail from './pages/VerifyNewEmail';
 import ResendVerification from './pages/ResendVerification';
 import GoogleCallback from './pages/GoogleCallback';
 import TripItinerary from "./pages/TripItinerary";
-import { getMe } from './api/auth';
 import TripItineraryDetail from "./pages/TripItineraryDetail";
+import HiddenGems from './pages/HiddenGems';  
+import HiddenGemSubmission from './pages/HiddenGemSubmission';
+import { getMe } from './api/auth';
+import { getToken, clearToken } from './utils/tokenStorage';
 
 function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (token) {
       getMe()
         .then(res => setUser(res.data))
-        .catch(() => localStorage.removeItem('token'))
+        .catch(() => clearToken())
         .finally(() => setChecking(false));
     } else {
       setChecking(false);
@@ -77,6 +80,33 @@ function App() {
             user ? (
               <Layout user={user} setUser={setUser}>
                 <TripItineraryDetail />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        {/* 👇 新增 Hidden Gems 路由 */}
+        <Route
+          path="/hidden-gems"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <HiddenGems />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/hidden-gems/create"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <HiddenGemSubmission />
               </Layout>
             ) : (
               <Navigate to="/login" />

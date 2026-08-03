@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Location;
 use App\Models\TripItinerary;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class TripItineraryController extends Controller
 {
@@ -30,20 +33,138 @@ class TripItineraryController extends Controller
                 'required',
                 'string',
                 'min:1',
-                'max:10'
+                'max:10',
             ],
         ]);
 
         // Create itinerary after validation passed
         $trip = TripItinerary::create([
             'user_id' => $request->user()->id,
-            'trip_name' => $validated['trip_name']
+            'trip_name' => $validated['trip_name'],
         ]);
 
         return response()->json([
             'message' => 'Trip itinerary created successfully',
-            'data' => $trip
+            'data' => $trip,
         ], 201);
+    }
+
+    /**
+     * Display one itinerary and its ordered stopping points.
+     */
+    public function show(Request $request, TripItinerary $tripItinerary)
+    {
+        if ($tripItinerary->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        return response()->json([
+            'data' => $tripItinerary->load('locations.location'),
+        ]);
+    }
+
+    /**
+     * Add either an approved Hidden Gem or an OpenStreetMap location as a stop.
+     */
+    public function storeLocation(Request $request, TripItinerary $tripItinerary)
+    {
+        if ($tripItinerary->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validated = $request->validate([
+            'source' => ['required', 'in:database,openstreetmap'],
+            'location_id' => ['nullable', 'integer'],
+            'osm_id' => ['nullable', 'integer'],
+        ]);
+
+        if ($validated['source'] === 'database') {
+            $request->validate(['location_id' => ['required', 'integer']]);
+
+            $location = Location::query()
+                ->hiddenGems()
+                ->find($validated['location_id']);
+
+            if (! $location) {
+                return response()->json([
+                    'message' => 'The selected location is not an approved Hidden Gem.',
+                ], 422);
+            }
+
+            $attributes = [
+                'location_id' => $location->id,
+                'osm_id' => null,
+                'isHidden' => true,
+            ];
+        } else {
+            $request->validate(['osm_id' => ['required', 'integer']]);
+
+            $attributes = [
+                'location_id' => null,
+                'osm_id' => $validated['osm_id'],
+                'isHidden' => false,
+            ];
+        }
+
+        $tripLocation = DB::transaction(function () use ($tripItinerary, $attributes) {
+            $nextOrderNumber = $tripItinerary->locations()->max('order_number') + 1;
+
+            return $tripItinerary->locations()->create([
+                ...$attributes,
+                'order_number' => $nextOrderNumber,
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Stopping point added successfully.',
+            'data' => $tripLocation->load('location'),
+        ], 201);
+    }
+
+    /**
+     * Persist the ordered list of stopping points for an itinerary.
+     */
+    public function updateLocationOrder(Request $request, TripItinerary $tripItinerary)
+    {
+        if ($tripItinerary->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $locations = Validator::make($request->all(), [
+            '*' => ['required', 'array'],
+            '*.id' => ['required', 'integer', 'distinct'],
+            '*.sequence' => ['required', 'integer', 'min:1', 'distinct'],
+        ])->validate();
+
+        DB::transaction(function () use ($locations, $tripItinerary) {
+            $storedLocations = $tripItinerary->locations()
+                ->lockForUpdate()
+                ->get();
+
+            $storedIds = $storedLocations->pluck('id')->sort()->values();
+            $submittedIds = collect($locations)->pluck('id')->sort()->values();
+            $submittedSequences = collect($locations)->pluck('sequence')->sort()->values();
+            $expectedSequences = $storedLocations->isEmpty()
+                ? collect()
+                : collect(range(1, $storedLocations->count()));
+
+            if ($storedIds->count() !== $submittedIds->count()
+                || $storedIds->all() !== $submittedIds->all()
+                || $submittedSequences->all() !== $expectedSequences->all()) {
+                abort(422, 'The order must contain every stopping point exactly once.');
+            }
+
+            foreach ($locations as $location) {
+                $tripItinerary->locations()
+                    ->whereKey($location['id'])
+                    ->update(['order_number' => $location['sequence']]);
+            }
+        });
+
+        return response()->json([
+            'message' => 'Stopping point order updated successfully.',
+            'data' => $tripItinerary->fresh()->load('locations.location'),
+        ]);
     }
 
     /**
@@ -53,7 +174,7 @@ class TripItineraryController extends Controller
     {
         if ($tripItinerary->user_id !== $request->user()->id) {
             return response()->json([
-                'message' => 'Unauthorized.'
+                'message' => 'Unauthorized.',
             ], 403);
         }
 
@@ -78,14 +199,14 @@ class TripItineraryController extends Controller
     {
         if ($tripItinerary->user_id !== $request->user()->id) {
             return response()->json([
-                'message' => 'Unauthorized.'
+                'message' => 'Unauthorized.',
             ], 403);
         }
 
         $tripItinerary->delete();
 
         return response()->json([
-            'message' => 'Trip itinerary deleted successfully.'
+            'message' => 'Trip itinerary deleted successfully.',
         ]);
     }
 }

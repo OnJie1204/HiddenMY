@@ -4,20 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class TripLocation extends Model
+class LocationImage extends Model
 {
     protected $fillable = [
-        'trip_itinerary_id',
         'location_id',
-        'osm_id',
-        'isHidden',
-        'order_number',
+        'image_url'
     ];
 
-    public function itinerary()
-    {
-        return $this->belongsTo(TripItinerary::class);
-    }
 
     public function location()
     {

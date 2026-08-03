@@ -1,12 +1,14 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\SearchController;
 
+use App\Http\Controllers\HiddenGemController;
+use App\Http\Controllers\TripItineraryController;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -30,7 +32,7 @@ Route::post('/resend-verification', [AuthController::class, 'resendVerification'
 Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
     $user = User::findOrFail($id);
 
-    if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+    if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
         return response()->json(['message' => 'Invalid verification link'], 400);
     }
 
@@ -52,21 +54,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']); // 改 email 用，移到这里因为需要登入才能改自己的资料
     Route::post('/email/resend', function (Request $request) {
         $request->user()->sendEmailVerificationNotification();
+
         return response()->json(['message' => 'Verification link sent']);
     });
-});
 
-// trip itineraries
-use App\Http\Controllers\TripItineraryController;
-
-Route::middleware('auth:sanctum')->group(function () {
+    // Trip Itineraries
+    Route::post('trip-itineraries/{tripItinerary}/locations', [TripItineraryController::class, 'storeLocation']);
+    Route::put('trip-itineraries/{tripItinerary}/locations/order', [TripItineraryController::class, 'updateLocationOrder']);
     Route::apiResource('trip-itineraries', TripItineraryController::class);
+
+    // ===== Hidden Gems API (for React) =====
+    Route::get('hidden-gems', [HiddenGemController::class, 'index']);
+    Route::get('hidden-gems/search', [HiddenGemController::class, 'search']);
+    Route::get('hidden-gems/categories', [HiddenGemController::class, 'getCategories']);
+    Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);
+    Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
+    Route::post('hidden-gems', [HiddenGemController::class, 'store']);
 });
-
-// hidden gem
-use App\Http\Controllers\HiddenGemController;
-
-Route::apiResource('hidden-gems', HiddenGemController::class);
-Route::get('/recent-hidden-gems',[HiddenGemController::class,'recent']);
-// search
-Route::get('/search', [SearchController::class, 'search']);
