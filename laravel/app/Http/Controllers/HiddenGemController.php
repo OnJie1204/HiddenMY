@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
 
 class HiddenGemController extends Controller
 {
@@ -17,6 +18,54 @@ class HiddenGemController extends Controller
     private const OSM_CACHE_TTL_HOURS = 6;
 
     // ==================== API METHODS ====================
+    public function store(Request $request): JsonResponse
+    {
+         if (!Auth::check()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $user = Auth::user();
+
+        $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'place_name' => 'required|string',
+            'address' => 'required|string',
+            'state' => 'required|string',
+            'postcode' => 'required|integer',
+            'description' => 'required|string',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+        ]);
+
+        $existingLocation = Location::where('place_name', $request->place_name)
+            ->where('address', $request->address)
+            ->first();
+
+        if ($existingLocation) {
+            return response()->json([
+                'message' => 'This location already exists.'
+            ], 409);
+        }
+
+        $location = Location::create([
+            'user_id' => $user->id,    
+            'category_id' => $request->category_id,
+            'place_name' => $request->place_name,
+            'address' => $request->address,
+            'state' => $request->state,
+            'postcode' => $request->postcode,
+            'description' => $request->description,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'status' => 'pending',      
+        ]);
+
+        return response()->json([
+            'message' => 'Hidden gem submitted successfully.',
+            'data' => $location
+        ], 201);
+    }
+
 
     /**
      * Return the Hidden Gems list for React frontend.
