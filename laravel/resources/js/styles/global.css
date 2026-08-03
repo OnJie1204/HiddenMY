@@ -1335,6 +1335,9 @@ a {
 }
 
 .hidden-gems-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 24px;
 }
 
@@ -1509,4 +1512,213 @@ a {
     padding: 4px 12px;
     border-radius: 20px;
     display: inline-block;
+}
+
+/* Submit Hidden Gem Button */
+
+.hidden-gem-submit-header {
+    display:flex;
+    align-items:center;
+    gap:20px;
+    margin-bottom:20px;
+}
+
+.hidden-gems-submit-btn {
+    padding:12px 22px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg,#059669,#10b981);
+    color:#fff;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all .25s ease;
+    box-shadow:0 8px 18px rgba(5,150,105,.25);
+}
+
+.hidden-gems-submit-btn:hover{
+    background:linear-gradient(135deg,#047857,#059669);
+    transform:translateY(-2px);
+    box-shadow:0 12px 22px rgba(5,150,105,.35);
+}
+
+/* ===== Hidden Gem Submission ===== */
+
+.hidden-gem-form-page {
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:2rem;
+}
+
+
+.hidden-gem-back-btn {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:42px;
+    height:42px;
+    border:none;
+    border-radius:10px;
+    background:#1e293b;
+    color:white;
+    font-size:20px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.2s;
+}
+
+
+.hidden-gem-back-btn:hover {
+    background:#334155;
+    transform:translateX(-3px);
+}
+
+.hidden-gem-form-card {
+    background:white;
+    width:100%;
+    max-width:500px;
+    padding:2rem;
+    border-radius:15px;
+    box-shadow:
+    0 4px 20px rgba(0,0,0,0.08);
+}
+
+
+.hidden-gem-submit-card h2 {
+    margin-bottom:20px;
+    font-size:28px;
+    color:#333;
+}
+
+
+.hidden-gem-description {
+    min-height:120px;
+    resize:vertical;
+}
+
+
+/* Green button */
+
+.hidden-gem-submit-btn {
+    width:100%;
+    padding:14px;
+    margin-top:15px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(135deg,#059669,#10b981);
+    color:white;
+    font-size:16px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all .25s ease;
+    box-shadow:0 8px 18px rgba(5,150,105,.25);
+}
+
+
+.hidden-gem-submit-btn:hover {
+    background:linear-gradient(135deg,#047857,#059669);
+    transform:translateY(-2px);
+    box-shadow:0 12px 22px rgba(5,150,105,.35);
+}
+
+.hidden-gem-image-preview {
+    display:flex;
+    gap:15px;
+    margin-top:15px;
+    flex-wrap:wrap;
+}
+
+.hidden-gem-preview-item {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+}
+
+.hidden-gem-image-preview img {
+    width:100px;
+    height:100px;
+    object-fit:cover;
+    border-radius:10px;
+    border:1px solid #e2e8f0;
+}
+
+.hidden-gem-remove-image-btn {
+    width:100px;
+    padding:6px 10px;
+    border:none;
+    border-radius:8px;
+    background:#ef4444;
+    color:white;
+    cursor:pointer;
+    font-size:13px;
+    font-weight:600;
+}
+
+.hidden-gem-remove-image-btn:hover {
+    background:#dc2626;
+}
+
+.hidden-gem-upload-row {
+    display:flex;
+    align-items:center;
+    gap:15px;
+    margin-bottom:15px;
+}
+
+
+.hidden-gem-file-label {
+    display:inline-flex;
+    align-items:center;
+    padding:10px 16px;
+    background:#1e293b;
+    color:white;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:600;
+    font-size:14px;
+}
+
+
+.hidden-gem-file-label:hover {
+    background:#334155;
+}
+
+
+.hidden-gem-file-status {
+    color:#64748b;
+    font-size:14px;
+}
+
+/* ===== Snackbar Message ===== */
+.hidden-gem-snackbar {
+    position:fixed;
+    top:30px;
+    left:50%;
+    transform:translateX(-50%);
+    background:#10b981;
+    color:white;
+    padding:14px 24px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    box-shadow:0 8px 20px rgba(0,0,0,0.15);
+    z-index:9999;
+    animation:snackbar-slide-down 0.3s ease;
+}
+
+/* appear animation */
+@keyframes snackbar-slide-down {
+    from {
+        opacity:0;
+        transform:
+            translate(-50%, -20px);
+    }
+    to {
+        opacity:1;
+        transform:
+            translate(-50%, 0);
+    }
 }
