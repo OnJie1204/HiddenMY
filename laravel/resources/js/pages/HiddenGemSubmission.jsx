@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { createHiddenGem } from "../api/hiddenGems";
+import { useState, useEffect } from "react";
+import { createHiddenGem, getCategories } from "../api/hiddenGems";
 
 export default function HiddenGemSubmission() {
 
@@ -15,7 +15,27 @@ export default function HiddenGemSubmission() {
     });
 
     const [message, setMessage] = useState("");
+    const [categories, setCategories] = useState([]);
+    const [images,setImages]=useState([]);
+    const [imagePreview,setImagePreview] = useState([]);
 
+    useEffect(() => {
+        fetchCategories();
+    }, []);
+
+    const fetchCategories = async () => {
+        try {
+            const response = await getCategories();
+
+            console.log("Category API:", response.data);
+
+            setCategories(response.data.data || []);
+
+        } catch (error) {
+            console.error(error);
+        }
+    };
+    
     const handleChange = (e) => {
         setFormData({
             ...formData,
@@ -29,7 +49,19 @@ export default function HiddenGemSubmission() {
 
         try {
 
-            const response = await createHiddenGem(formData);
+            const data = new FormData();
+
+            Object.keys(formData).forEach((key) => {
+                data.append(key, formData[key]);
+            });
+
+
+            for (let i = 0; i < images.length; i++) {
+                data.append("images[]", images[i]);
+            }
+
+
+            const response = await createHiddenGem(data);
 
             setMessage(response.data.message);
 
@@ -43,6 +75,9 @@ export default function HiddenGemSubmission() {
                 latitude: "",
                 longitude: "",
             });
+
+            setImages([]);
+            setImagePreview([]);
 
         } catch (error) {
 
@@ -117,13 +152,49 @@ export default function HiddenGemSubmission() {
                 />
 
 
-                <input
+                <select
                     name="category_id"
-                    placeholder="Category ID"
                     value={formData.category_id}
                     onChange={handleChange}
+                >
+                    <option value="">
+                        Select Category
+                    </option>
+
+                    {categories.map((category) => (
+                        <option 
+                            key={category.id}
+                            value={category.id}
+                        >
+                            {category.name}
+                        </option>
+                    ))}
+                </select>
+
+                <input
+                    type="file"
+                    multiple
+                    onChange={(e)=>{
+                        setImages(e.target.files);
+
+                        setImagePreview(
+                            Array.from(e.target.files).map(file =>
+                                URL.createObjectURL(file)
+                            )
+                        );
+                    }}
                 />
 
+                <div>
+                    {imagePreview.map((img,index)=>(
+                        <img 
+                            key={index}
+                            src={img}
+                            width="100"
+                            alt={`preview-${index}`}
+                        />
+                    ))}
+                </div>
 
                 <button type="submit">
                     Submit

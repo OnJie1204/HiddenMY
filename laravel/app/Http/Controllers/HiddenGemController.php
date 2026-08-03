@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Location;
 use App\Models\Category;
+use App\Models\LocationImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -35,6 +36,7 @@ class HiddenGemController extends Controller
             'description' => 'required|string',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
+            'images.*' => 'image|max:2048'
         ]);
 
         $existingLocation = Location::where('place_name', $request->place_name)
@@ -59,6 +61,19 @@ class HiddenGemController extends Controller
             'longitude' => $request->longitude,
             'status' => 'pending',      
         ]);
+
+        if ($request->hasFile('images')) {
+
+            foreach ($request->file('images') as $image) {
+
+                $path = $image->store('hidden-gems','public');
+
+                LocationImage::create([
+                    'location_id'=>$location->id,
+                    'image_url'=>$path
+                ]);
+            }
+        }
 
         return response()->json([
             'message' => 'Hidden gem submitted successfully.',

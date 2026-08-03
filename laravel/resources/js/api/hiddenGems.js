@@ -16,4 +16,8 @@ export const getStates = () =>
     api.get('/hidden-gems/states');
 
 export const createHiddenGem = (data) =>
-    api.post('/hidden-gems', data);
+    api.post('/hidden-gems', data, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
