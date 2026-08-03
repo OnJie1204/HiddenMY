@@ -1,105 +1,65 @@
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 
-function BottomSheet({
-    gem,
-    onClose
-}){
+function BottomSheet({ gem, onClose }) {
+    if (!gem) return null;
 
-    if(!gem){
-        return null;
+    function openGoogleMaps() {
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${gem.latitude},${gem.longitude}`;
+        window.open(url, "_blank");
     }
 
-    function openGoogleMaps(){
-        const url =
-        `https://www.google.com/maps/dir/?api=1&destination=${gem.latitude},${gem.longitude}`;
-        window.open(
-            url,
-            "_blank"
-        );
+    function openWaze() {
+        const url = `https://www.waze.com/ul?ll=${gem.latitude},${gem.longitude}&navigate=yes`;
+        window.open(url, "_blank");
     }
-
-
-    function openWaze(){
-        const url =
-        `https://www.waze.com/ul?ll=${gem.latitude},${gem.longitude}&navigate=yes`;
-        window.open(
-            url,
-            "_blank"
-        );
-    }
-
 
     return (
         <div className="bottom-sheet">
-            {/* Handle */}
-            <div className="bottom-sheet-handle"/>
+            <div className="bottom-sheet-handle" />
+            <button onClick={onClose} className="bottom-sheet-close" aria-label="Close">✕</button>
 
-            <button
-            onClick={onClose}
-            style={{
-                float:"right"
-            }}
-            >
-                ✕
-            </button>
+            <div className="bottom-sheet-header">
+                {gem.image && <img src={gem.image} alt={gem.title} className="bottom-sheet-image" />}
+                <div className="bottom-sheet-badges">
+                    {gem.category && <span className="badge badge-neutral">{gem.category}</span>}
+                    {gem.source === "database" && (
+                        <span className="badge badge-success"><i className="ti ti-check" /> Verified</span>
+                    )}
+                </div>
+            </div>
 
-            {
-            gem.cover_image &&
-            <img
-            src={gem.cover_image}
-            alt={gem.name}
-            className="bottom-sheet-image"
-            />
-            }
+            <h2>{gem.source === "database" ? "💎" : "📍"} {gem.title}</h2>
+            {gem.state && <p className="bottom-sheet-meta">📍 {gem.state}</p>}
+            <p>{gem.description || "No description available."}</p>
 
-            <h2>
-            {gem.source === "database" ? "💎" : "📍"}
-            {" "}
-            {gem.name}
-            </h2>
+            {gem.address && (
+                <>
+                    <h4>Address</h4>
+                    <p>{gem.address}</p>
+                </>
+            )}
 
-            {
-            gem.state &&
-            <p>{gem.state}</p>
-            }
-
-            <p>
-                {gem.description ||
-                "No description available."}
-            </p>
-
-            {gem.address &&
-            <>
-            <h4>Address</h4>
-            <p>{gem.address}</p>
-            </>
-            }
+            {gem.source === "database" && gem.voteCount != null && (
+                <div className="vote-progress">
+                    <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes to verify</span>
+                    <div className="vote-bar">
+                        <div className="vote-fill" style={{ width: `${Math.min(100, (gem.voteCount / (gem.verificationThreshold ?? 10)) * 100)}%` }} />
+                    </div>
+                </div>
+            )}
 
             <div className="action-buttons">
-
-            <button className="map-action-button" 
-            onClick={openGoogleMaps}>
-                <img
-                src={googleMapsIcon}
-                alt="Google Maps"
-                />
-            </button>
-
-            <button className="map-action-button" 
-            onClick={openWaze}>
-                <img
-                src={wazeIcon}
-                alt="Waze"
-                />
-            </button>
-
-            <button className="map-action-button itinerary">Add to Itinerary</button>
+                <button className="map-action-button" onClick={openGoogleMaps}>
+                    <img src={googleMapsIcon} alt="Google Maps" />
+                </button>
+                <button className="map-action-button" onClick={openWaze}>
+                    <img src={wazeIcon} alt="Waze" />
+                </button>
+                <button className="map-action-button itinerary">Add to Itinerary</button>
             </div>
-            <hr/>
-            <h3>Traveller Posts</h3>
-            <p>No posts available.</p>
         </div>
     );
 }
+
 export default BottomSheet;
