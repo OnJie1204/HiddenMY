@@ -54,6 +54,14 @@ export default function HiddenGems() {
         <div className="hidden-gems-page">
             <div className="hidden-gems-header">
                 <h1>🔍 Hidden Gems Discovery</h1>
+
+                <button
+                    className="hidden-gems-submit-btn"
+                    onClick={() => navigate("/hidden-gems/create")}
+                >
+                    + Hidden Gem
+                </button>
+
             </div>
 
             <div className="hidden-gems-search">
