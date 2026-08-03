@@ -14,7 +14,8 @@ import ResendVerification from './pages/ResendVerification';
 import GoogleCallback from './pages/GoogleCallback';
 import TripItinerary from "./pages/TripItinerary";
 import TripItineraryDetail from "./pages/TripItineraryDetail";
-import HiddenGems from './pages/HiddenGems';  // 👈 新增这行
+import HiddenGems from './pages/HiddenGems';  
+import HiddenGemSubmission from './pages/HiddenGemSubmission';
 import { getMe } from './api/auth';
 import { getToken, clearToken } from './utils/tokenStorage';
 
@@ -93,6 +94,19 @@ function App() {
             user ? (
               <Layout user={user} setUser={setUser}>
                 <HiddenGems />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/hidden-gems/create"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <HiddenGemSubmission />
               </Layout>
             ) : (
               <Navigate to="/login" />
