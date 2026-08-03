@@ -1,5 +1,9 @@
 import { useState } from "react";
+<<<<<<< HEAD
 import { searchHiddenGems } from "../api/hiddenGems";
+=======
+import { searchPlaces } from "../api/searchAPI";
+>>>>>>> Interactive-Map
 
 
 function SearchBar({onSelect}){
@@ -19,10 +23,15 @@ function SearchBar({onSelect}){
 
         try{
             setLoading(true);
+<<<<<<< HEAD
             const res = await searchHiddenGems(value);
             const database = res.data.database || [];
             const osm = res.data.openStreetMap || [];
             setResults([...database, ...osm]);
+=======
+            const res = await searchPlaces(value);
+            setResults(res.data);
+>>>>>>> Interactive-Map
         }
         catch(error){
             console.log(
@@ -37,7 +46,11 @@ function SearchBar({onSelect}){
 
 
     function selectResult(item){
+<<<<<<< HEAD
         setQuery(item.name);
+=======
+        setQuery(item.title);
+>>>>>>> Interactive-Map
         setResults([]);
         onSelect(item);
     }
@@ -79,18 +92,32 @@ function SearchBar({onSelect}){
                 }}
                 >
                 {
+<<<<<<< HEAD
                     item.source === "database"
+=======
+                    item.type === "hidden_gem"
+>>>>>>> Interactive-Map
                     ?
                     "💎"
                     :
                     "📍"
                 }
                 {" "}
+<<<<<<< HEAD
                 <b>{item.name}</b>
                 <br/>
                 <small>
                 {
                     item.source === "database"
+=======
+                <b>
+                    {item.title}
+                </b>
+                <br/>
+                <small>
+                {
+                    item.type === "hidden_gem"
+>>>>>>> Interactive-Map
                     ?
                     "Hidden Gem"
                     :

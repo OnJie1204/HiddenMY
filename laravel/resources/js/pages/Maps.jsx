@@ -1,17 +1,24 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import {useEffect, useState} from "react";
+import {MapContainer, TileLayer, Marker, Popup, useMap} from "react-leaflet";
+import { GeoJSON } from "react-leaflet";
+import malaysia from "../assets/MYS.geo.json";
 
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 // Define an icon directly, bypassing Leaflet's default mechanism, to ensure it displays correctly.
 =======
+=======
+>>>>>>> Interactive-Map
 import "leaflet/dist/leaflet.css";
 import "../../css/maps.css";
 import L from "leaflet";
 
+<<<<<<< HEAD
 import {getHiddenGems} from "../api/hiddenGems";
+=======
+import {getHiddenGems} from "../api/hiddenGemAPI";
+import { searchPlaces } from "../api/searchAPI";
+>>>>>>> Interactive-Map
 
 import HiddenGemMarker from "../components/HiddenGemMarker";
 import SearchBar from "../components/SearchBar";
@@ -23,55 +30,73 @@ import api from "../api";
 
 
 // Marker icon
+<<<<<<< HEAD
 >>>>>>> Stashed changes
+=======
+>>>>>>> Interactive-Map
 const customIcon = new L.Icon({
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
+    iconUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+    shadowUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+    iconSize:[25,41],
+    iconAnchor:[12,41]
 });
 
-// Approximate latitude and longitude boundaries of Malaysia
-const MALAYSIA_BOUNDS = [
-    [0.5, 99.5],
-    [7.5, 119.5],
+
+// Malaysia boundary
+const MALAYSIA_BOUNDS=[
+    [-2,95],
+    [10,121]
 ];
 
-function FlyToUser({ position }) {
-    const map = useMap();
-    useEffect(() => {
-        if (position) {
-            map.flyTo(position, 15);
+// Move map to user
+function FlyToUser({position}){
+    const map=useMap();
+    useEffect(()=>{
+        if(position){
+            map.flyTo(position,15);
         }
-    }, [position, map]);
+    },[position]);
     return null;
 }
 
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 function Maps() {
     const [message, setMessage] = useState('Loading...');
     const [userPosition, setUserPosition] = useState(null);
     const [locationError, setLocationError] = useState(null);
 =======
+=======
+>>>>>>> Interactive-Map
 function Maps(){
     const [hiddenGems,setHiddenGems]=useState([]);
     const [selectedGem,setSelectedGem]=useState(null);
     const [userPosition,setUserPosition]=useState(null);
     const [locationError,setLocationError]=useState("");
     const [message,setMessage]=useState("");
+<<<<<<< HEAD
     const [searchResults, setSearchResults] = useState([]);
     const [recentPosts,setRecentPosts]=useState([]);
 >>>>>>> Stashed changes
+=======
+    const [searchPlaces,setSearchPlaces]=useState([]);
+    const [recentPosts,setRecentPosts]=useState([]);
+>>>>>>> Interactive-Map
 
-    useEffect(() => {
-        axios.get('http://127.0.0.1:8000/api/ping')
-            .then(res => setMessage(res.data.message))
-            .catch(err => setMessage('Error: ' + err.message));
-    }, []);
+    // Test Laravel connection
+    useEffect(()=>{
+    api.get("/ping")
+    .then(res=>{
+        setMessage(res.data.message);
+    })
+    .catch(()=>{
+        setMessage("Laravel connection failed");
+    });
+    },[]);
 
+<<<<<<< HEAD
 <<<<<<< Updated upstream
     useEffect(() => {
         if (!navigator.geolocation) {
@@ -87,6 +112,18 @@ function Maps(){
             .catch(err => {
                 console.log(err);
             });
+=======
+    // Load hidden gems
+    useEffect(()=>{
+        getHiddenGems()
+        .then(res=>{
+        console.log("Hidden gems:",res.data);
+        setHiddenGems(res.data);
+        })
+        .catch(err=>{
+        console.log(err);
+        });
+>>>>>>> Interactive-Map
     },[]);
 
     // Load recent hidden gems
@@ -101,21 +138,34 @@ function Maps(){
     useEffect(()=>{
         if(!navigator.geolocation){
             setLocationError("Location not supported");
+<<<<<<< HEAD
 >>>>>>> Stashed changes
+=======
+>>>>>>> Interactive-Map
             return;
         }
+
         navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setUserPosition([pos.coords.latitude, pos.coords.longitude]);
+            (position)=>{
+                setUserPosition([
+                    position.coords.latitude,
+                    position.coords.longitude
+                ]);
             },
-            (err) => {
-                setLocationError('Unable to obtain location: ' + err.message);
+            (error)=>{
+                setLocationError(
+                error.message
+                );
             }
         );
-    }, []);
+    },[]);
 
-    const defaultCenter = [4.2105, 101.9758];
+    const defaultCenter=[
+        4.2105,
+        101.9758
+    ];
 
+<<<<<<< HEAD
 <<<<<<< Updated upstream
     return (
         <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
@@ -123,6 +173,8 @@ function Maps(){
             <p>Backend says: {message}</p>
             {locationError && <p style={{ color: 'orange' }}>{locationError}</p>}
 =======
+=======
+>>>>>>> Interactive-Map
     function FlyToGem({ gem }) {
         const map = useMap();
         useEffect(() => {
@@ -140,6 +192,7 @@ function Maps(){
             <h1 className="maps-title">Gemora Interactive Map</h1>
             
             <SearchBar
+<<<<<<< HEAD
                 onSelect={(item) => {
                 if (item.source === "database") {
                     const gem = hiddenGems.find(g => g.id === item.id);
@@ -151,6 +204,15 @@ function Maps(){
                     setSelectedGem(item);
                     setSearchResults([item]);
                 }
+=======
+                onSelect={(item)=>{
+                    setSelectedGem(item);
+                    if(item.type==="attraction"){
+                        setSearchPlaces([
+                            item
+                        ]);
+                    }
+>>>>>>> Interactive-Map
                 }}
             />
 
@@ -160,21 +222,27 @@ function Maps(){
                 {locationError}
             </p>
             }
+<<<<<<< HEAD
 >>>>>>> Stashed changes
+=======
+>>>>>>> Interactive-Map
 
             <MapContainer
                 center={userPosition || defaultCenter}
                 zoom={7}
                 minZoom={6}
                 maxBounds={MALAYSIA_BOUNDS}
-                maxBoundsViscosity={1.0}
-                style={{ height: '500px', width: '100%' }}
+                maxBoundsViscosity={0.3}
+                className="gemora-map"
             >
+<<<<<<< HEAD
 <<<<<<< Updated upstream
                 <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; OpenStreetMap contributors'
 =======
+=======
+>>>>>>> Interactive-Map
             <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
@@ -206,25 +274,48 @@ function Maps(){
                     />
                 ))}
             </>
+<<<<<<< HEAD
             {searchResults.map((place,index)=>(
+=======
+            {searchPlaces.map((place,index)=>(
+>>>>>>> Interactive-Map
                 <AttractionMarker
                 key={index}
                 place={place}
                 onClick={()=>{
                     setSelectedGem(place);
                 }}
+<<<<<<< HEAD
 >>>>>>> Stashed changes
+=======
+>>>>>>> Interactive-Map
                 />
-                {userPosition && (
-                    <>
-                        <Marker position={userPosition} icon={customIcon}>
-                            <Popup>current location</Popup>
-                        </Marker>
-                        <FlyToUser position={userPosition} />
-                    </>
-                )}
+            ))
+            }
+            <FlyToGem gem={selectedGem} />
             </MapContainer>
-        </div>
+
+            {!selectedGem &&
+            <div className="recent-section">
+            <h2>Recent Hidden Gems</h2>
+
+            {recentPosts.map(post=>(
+            <RecentHiddenGemCard
+            key={post.id}
+            post={post}
+            onClick={()=>{setSelectedGem(post);}}
+            />
+            ))
+            }
+            </div>
+            }
+            <BottomSheet
+                gem={selectedGem}
+                onClose={()=>{
+                    setSelectedGem(null);
+                }}
+            />
+        </div> 
     );
 }
 
