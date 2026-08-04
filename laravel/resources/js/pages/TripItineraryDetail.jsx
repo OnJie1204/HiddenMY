@@ -731,7 +731,7 @@ export default function TripItineraryDetail() {
                                         >
                                             <Popup>
                                                 <div className="hidden-gem-marker-popup">
-                                                    <strong>{hiddenGem.name}</strong>
+                                                    <strong>{hiddenGem.place_name}</strong>
                                                     <span>
                                                         {Number(hiddenGem.latitude).toFixed(6)}, {Number(hiddenGem.longitude).toFixed(6)}
                                                     </span>
