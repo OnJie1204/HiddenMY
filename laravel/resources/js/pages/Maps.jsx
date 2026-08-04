@@ -142,7 +142,7 @@ function Maps(){
 
     return (    
         <div className="maps-page">
-            <h1 className="maps-title">Gemora Interactive Map</h1>
+            <h1 className="maps-title">HiddenMY Interactive Map</h1>
             
             <SearchBar
                 onSelect={(item) => {
@@ -157,9 +157,8 @@ function Maps(){
                 }}
             />
 
-            <p>Backend: {message}</p>
             {locationError &&
-            <p style={{color:"orange"}}>
+            <p className="maps-location-error">
                 {locationError}
             </p>
             }
@@ -173,15 +172,16 @@ function Maps(){
                 style={{ height: '500px', width: '100%' }}
             >
             <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
             />
             <GeoJSON
                 data={malaysia}
                 style={{
-                    color: "#248bc7",
+                    color: "#14b8a6",
                     weight: 2,
-                    fillColor: "#248bc7",
-                    fillOpacity: 0.15,
+                    fillColor: "#14b8a6",
+                    fillOpacity: 0.12,
                 }}
             />
             {userPosition &&
@@ -200,12 +200,12 @@ function Maps(){
                     onClick={() => setSelectedGem(normalizeGem(gem, "database"))}
                 />
             ))}
-        </MarkerClusterGroup>`
+        </MarkerClusterGroup>
             {searchResults.map((place, index) => (
                 <AttractionMarker
                     key={index}
                     place={place}
-                    onClick={() => setSelectedGem(normalizeGem(post, "database"))}
+                    onClick={() => setSelectedGem(normalizeGem(place, "attraction"))}
                 />
             ))}
             <FlyToGem gem={selectedGem}/>

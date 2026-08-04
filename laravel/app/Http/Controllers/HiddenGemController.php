@@ -228,7 +228,7 @@ class HiddenGemController extends Controller
     {
         return collect(
             Http::acceptJson()
-                ->withUserAgent(config('app.name', 'Gemora').' location search')
+                ->withUserAgent(config('app.name', 'HiddenMY').' location search')
                 ->timeout(5)
                 ->get('https://nominatim.openstreetmap.org/search', [
                     'q' => $query,
