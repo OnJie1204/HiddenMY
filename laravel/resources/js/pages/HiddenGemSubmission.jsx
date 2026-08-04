@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { createHiddenGem, getCategories } from "../api/hiddenGems";
+import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
 import { useNavigate } from "react-router-dom";
 
 export default function HiddenGemSubmission() {
@@ -22,6 +22,8 @@ export default function HiddenGemSubmission() {
     const [categories, setCategories] = useState([]);
     const [images,setImages]=useState([]);
     const [imagePreview,setImagePreview] = useState([]);
+    const [geocoding, setGeocoding] = useState(false);
+    const [geocodeStatus, setGeocodeStatus] = useState("");
 
     useEffect(() => {
         fetchCategories();
@@ -65,6 +67,40 @@ export default function HiddenGemSubmission() {
         });
     };
 
+    const handleFindCoordinates = async () => {
+        const query = [formData.address, formData.state, formData.postcode, "Malaysia"]
+            .filter((part) => String(part).trim() !== "")
+            .join(", ");
+
+        if (!formData.address.trim()) {
+            setGeocodeStatus("error:Enter an address first.");
+            return;
+        }
+
+        setGeocoding(true);
+        setGeocodeStatus("");
+
+        try {
+            const response = await geocodeAddress(query);
+
+            setFormData((prev) => ({
+                ...prev,
+                latitude: String(response.data.latitude),
+                longitude: String(response.data.longitude),
+            }));
+
+            setGeocodeStatus(`success:Found: ${response.data.name}`);
+        } catch (error) {
+            setGeocodeStatus(
+                error.response?.status === 404
+                    ? "error:No matching location found. Please enter coordinates manually."
+                    : "error:Unable to look up coordinates. Please enter them manually."
+            );
+        } finally {
+            setGeocoding(false);
+        }
+    };
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -100,6 +136,7 @@ export default function HiddenGemSubmission() {
 
             setImages([]);
             setImagePreview([]);
+            setGeocodeStatus("");
 
             if(fileInputRef.current){
                 fileInputRef.current.value="";
@@ -187,6 +224,28 @@ export default function HiddenGemSubmission() {
                         onChange={handleChange}
                     />
 
+                    <div className="hidden-gem-geocode-row">
+                        <button
+                            type="button"
+                            className="hidden-gem-geocode-btn"
+                            onClick={handleFindCoordinates}
+                            disabled={geocoding}
+                        >
+                            {geocoding ? "Finding…" : "📍 Find Coordinates from Address"}
+                        </button>
+
+                        {geocodeStatus && (
+                            <span
+                                className={
+                                    geocodeStatus.startsWith("error:")
+                                        ? "hidden-gem-geocode-status hidden-gem-geocode-status-error"
+                                        : "hidden-gem-geocode-status hidden-gem-geocode-status-success"
+                                }
+                            >
+                                {geocodeStatus.replace(/^(error|success):/, "")}
+                            </span>
+                        )}
+                    </div>
 
                     <input
                         className="form-input"

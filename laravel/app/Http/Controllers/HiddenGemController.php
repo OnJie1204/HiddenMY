@@ -170,6 +170,28 @@ class HiddenGemController extends Controller
     }
 
     /**
+     * Look up latitude/longitude for a free-text address (Malaysia only).
+     */
+    public function geocode(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'query' => ['required', 'string', 'min:3', 'max:200'],
+        ]);
+
+        $match = $this->searchOpenStreetMap(trim($validated['query']), 1)->first();
+
+        if (! $match) {
+            return response()->json(['message' => 'No matching location found.'], 404);
+        }
+
+        return response()->json([
+            'latitude' => $match['latitude'],
+            'longitude' => $match['longitude'],
+            'name' => $match['name'],
+        ]);
+    }
+
+    /**
      * Get categories for filter.
      */
     public function getCategories(): JsonResponse

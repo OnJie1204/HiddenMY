@@ -12,8 +12,11 @@ export const searchHiddenGems = (query, config = {}) =>
 export const getCategories = () => 
     api.get('/hidden-gems/categories');
 
-export const getStates = () => 
+export const getStates = () =>
     api.get('/hidden-gems/states');
+
+export const geocodeAddress = (query) =>
+    api.get('/hidden-gems/geocode', { params: { query } });
 
 export const createHiddenGem = (data) =>
     api.post('/hidden-gems', data, {
