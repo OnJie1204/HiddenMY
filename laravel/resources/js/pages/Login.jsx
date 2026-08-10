@@ -29,7 +29,7 @@ function Login({ onLoginSuccess }) {
     <div className="auth-page">
       <form onSubmit={handleSubmit} className="auth-card">
         <h2>Welcome back</h2>
-        <p className="subtitle">Log in to continue to Gemora</p>
+        <p className="subtitle">Log in to continue to HiddenMY</p>
         {infoMessage && <p className="msg-success">{infoMessage}</p>}
         {error && <p className="msg-error">{error}</p>}
         <input

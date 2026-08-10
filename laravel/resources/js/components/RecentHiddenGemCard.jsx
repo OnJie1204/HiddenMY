@@ -3,10 +3,7 @@ function RecentHiddenGemCard({
     onClick
 }){
     return (
-        <div 
-        className="recent-card"
-        onClick={onClick}
-        >
+        <div className="recent-card" onClick={onClick}>
             {post.images?.[0]?.image_url && (
                 <img src={`/storage/${post.images[0].image_url}`} alt={post.place_name} className="recent-image"/>
             )}
@@ -16,7 +13,7 @@ function RecentHiddenGemCard({
                     📍 {post.state}
                 </p>
                 <p>{post.description}</p>
-                <button>Explore</button>
+                <button onClick={(e) => { e.stopPropagation(); onClick(); }}>Explore</button>
             </div>
         </div>
     );

@@ -29,7 +29,7 @@ function Register({ onRegisterSuccess }) {
     <div className="auth-page">
       <form onSubmit={handleSubmit} className="auth-card">
         <h2>Create account</h2>
-        <p className="subtitle">Join Gemora and start exploring</p>
+        <p className="subtitle">Join HiddenMY and start exploring</p>
         {error && <p className="msg-error">{error}</p>}
         <input name="name" placeholder="Name" onChange={handleChange} required className="form-input" />
         <input name="email" type="email" placeholder="Email" onChange={handleChange} required className="form-input" />

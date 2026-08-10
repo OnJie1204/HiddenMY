@@ -1,17 +1,61 @@
 import { Link } from 'react-router-dom';
 
+const destinations = [
+  {
+    to: '/map',
+    icon: '🗺️',
+    color: '#e6f6f3',
+    title: 'Interactive Map',
+    desc: 'Explore hidden gems and attractions across Malaysia on the map.',
+  },
+  {
+    to: '/hidden-gems',
+    icon: '💎',
+    color: '#ffe4e8',
+    title: 'Hidden Gem Management',
+    desc: 'Browse, submit, and manage hidden gem locations.',
+  },
+  {
+    to: '/travel-posts',
+    icon: '📝',
+    color: '#fef3c7',
+    title: 'Travel Posts',
+    desc: 'Read and share travel stories from the community.',
+  },
+  {
+    to: '/trip-itinerary',
+    icon: '✈️',
+    color: '#e0f2fe',
+    title: 'Trip Itinerary',
+    desc: 'Plan your trips and organise your stopping points.',
+  },
+  {
+    to: '/profile',
+    icon: '👤',
+    color: '#ede9fe',
+    title: 'My Profile',
+    desc: 'Manage your account details and preferences.',
+  },
+];
+
 function Home({ user }) {
   return (
     <div>
-      <h1 className="home-title">Welcome, {user.name}!</h1>
-      <p className="home-subtitle">What would you like to do today?</p>
+      <div className="home-hero">
+        <h1 className="home-title">Welcome back, {user.name}!</h1>
+        <p className="home-subtitle">Where are you headed today?</p>
+      </div>
 
       <div className="home-grid">
-        <Link to="/map" className="home-card">Interactive Map</Link>
-        <Link to="/hidden-gems" className="home-card">Hidden Gem Management</Link>
-        <Link to="/travel-posts" className="home-card">Travel Posts</Link>
-        <Link to="/trip-itinerary" className="home-card">Trip Itinerary</Link>
-        <Link to="/profile" className="home-card">My Profile</Link>
+        {destinations.map(({ to, icon, color, title, desc }) => (
+          <Link key={to} to={to} className="home-card">
+            <span className="home-card-icon" style={{ '--home-card-color': color }} aria-hidden="true">
+              {icon}
+            </span>
+            <span className="home-card-title">{title}</span>
+            <span className="home-card-desc">{desc}</span>
+          </Link>
+        ))}
       </div>
     </div>
   );
