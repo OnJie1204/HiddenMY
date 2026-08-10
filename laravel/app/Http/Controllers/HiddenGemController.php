@@ -149,8 +149,11 @@ class HiddenGemController extends Controller
         }
 
         $databaseLocations = Location::query()
-            ->where('place_name', 'ILIKE', '%'.$query.'%')
-            ->select(['id', 'place_name', 'latitude', 'longitude'])
+            ->where(function ($q) use ($query) {
+                $q->where('place_name', 'ILIKE', '%'.$query.'%')
+                ->orWhere('state', 'ILIKE', '%'.$query.'%');
+            })
+            ->select(['id', 'place_name', 'state', 'latitude', 'longitude'])
             ->orderBy('place_name')
             ->limit(self::SEARCH_RESULT_LIMIT)
             ->get()
@@ -217,7 +220,7 @@ class HiddenGemController extends Controller
     {
         $recentLocations = Location::with(['user', 'category', 'images'])
             ->latest()
-            ->take(5)
+            ->take(6)
             ->get();
 
         return response()->json($recentLocations);
@@ -275,6 +278,7 @@ class HiddenGemController extends Controller
         return [
             'id' => $location->id,
             'name' => $location->place_name,
+            'state' => $location->state,
             'latitude' => $location->latitude,
             'longitude' => $location->longitude,
             'source' => 'database',

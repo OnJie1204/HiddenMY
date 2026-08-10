@@ -6,8 +6,8 @@ export const getHiddenGems = (params = {}) =>
 export const getHiddenGemDetail = (id) => 
     api.get(`/hidden-gems/${id}`);
 
-export const searchHiddenGems = (query, config = {}) =>
-    api.get('/hidden-gems/search', { ...config, params: { query } });
+export function searchHiddenGems(query) {
+    return api.get('/hidden-gems/search', { params: { query } });}
 
 export const getCategories = () => 
     api.get('/hidden-gems/categories');

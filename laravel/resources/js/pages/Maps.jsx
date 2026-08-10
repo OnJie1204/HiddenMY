@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
@@ -11,7 +11,7 @@ import {getHiddenGems} from "../api/hiddenGems";
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
 import SearchBar from "../components/SearchBar";
-import BottomSheet from "../components/BottomSheet";
+import SidePanel from "../components/SidePanel";
 import AttractionMarker from "../components/AttractionMarker";
 import RecentHiddenGemCard from "../components/RecentHiddenGemCard";
 
@@ -47,9 +47,13 @@ function FlyToUser({ position }) {
     return null;
 }
 
+function groupKey(lat, lng) {
+    return `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+}
+
 function Maps(){
     const [hiddenGems,setHiddenGems]=useState([]);
-    const [selectedGem,setSelectedGem]=useState(null);
+    const [selectedGroup, setSelectedGroup] = useState(null);
     const [userPosition,setUserPosition]=useState(null);
     const [locationError,setLocationError]=useState("");
     const [message,setMessage]=useState("");
@@ -110,6 +114,18 @@ function Maps(){
         };
     }
 
+    // Group hidden gems by coordinate
+    const groupedGems = useMemo(() => {
+        const map = new Map();
+        hiddenGems.forEach(raw => {
+            const gem = normalizeGem(raw, "database");
+            const key = groupKey(gem.latitude, gem.longitude);
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(gem);
+        });
+        return Array.from(map.values());
+    }, [hiddenGems]);
+
     // Get user location
     useEffect(()=>{
         if(!navigator.geolocation){
@@ -148,10 +164,10 @@ function Maps(){
                 onSelect={(item) => {
                     if (item.source === "database") {
                         const gem = hiddenGems.find(g => g.id === item.id);
-                        if (gem) setSelectedGem(normalizeGem(gem, "database"));
+                        if (gem) setSelectedGroup([normalizeGem(gem, "database")]);
                         setSearchResults([]);
                     } else {
-                        setSelectedGem(normalizeGem(item, "attraction"));
+                        setSelectedGroup([normalizeGem(item, "attraction")]);
                         setSearchResults([item]);
                     }
                 }}
@@ -193,11 +209,12 @@ function Maps(){
                 </>
             }
             <MarkerClusterGroup iconCreateFunction={createGemClusterIcon} zoomToBoundsOnClick={true} spiderfyOnMaxZoom={true}>
-            {hiddenGems.map((gem)=>(
+            {groupedGems.map((group) => (
                 <HiddenGemMarker
-                    key={gem.id}
-                    gem={gem}
-                    onClick={() => setSelectedGem(normalizeGem(gem, "database"))}
+                    key={groupKey(group[0].latitude, group[0].longitude)}
+                    gem={group[0]}
+                    postCount={group.length}
+                    onClick={() => setSelectedGroup(group)}
                 />
             ))}
         </MarkerClusterGroup>
@@ -205,12 +222,12 @@ function Maps(){
                 <AttractionMarker
                     key={index}
                     place={place}
-                    onClick={() => setSelectedGem(normalizeGem(place, "attraction"))}
+                    onClick={() => setSelectedGroup([normalizeGem(place, "attraction")])}
                 />
             ))}
-            <FlyToGem gem={selectedGem}/>
+            <FlyToGem gem={selectedGroup ? selectedGroup[0] : null}/>
             </MapContainer>
-            {!selectedGem && (
+            {!selectedGroup && (
                 <div className="recent-section">
 
                     <h2>
@@ -222,16 +239,16 @@ function Maps(){
                             <RecentHiddenGemCard
                                 key={post.id}
                                 post={post}
-                                onClick={() => setSelectedGem(normalizeGem(post, "database"))}
+                                onClick={() => setSelectedGroup([normalizeGem(post, "database")])}
                             />
                         ))}
                     </div>
 
                 </div>
             )}
-            <BottomSheet
-                gem={selectedGem}
-                onClose={()=>setSelectedGem(null)}
+            <SidePanel
+                group={selectedGroup}
+                onClose={() => setSelectedGroup(null)}
             />
         </div>
     );
