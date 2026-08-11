@@ -198,15 +198,6 @@ export default function HiddenGemSubmission() {
                     />
 
 
-                    <input
-                        className="form-input"
-                        name="state"
-                        placeholder="State"
-                        value={formData.state}
-                        onChange={handleChange}
-                    />
-
-
                     <select
                         className="form-input"
                         name="state"
@@ -232,6 +223,15 @@ export default function HiddenGemSubmission() {
                         <option value="Putrajaya">Putrajaya</option>
                         <option value="Labuan">Labuan</option>
                     </select>
+
+
+                    <input
+                        className="form-input"
+                        name="postcode"
+                        placeholder="Postcode"
+                        value={formData.postcode}
+                        onChange={handleChange}
+                    />
 
 
                     <textarea
