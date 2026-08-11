@@ -1646,3 +1646,414 @@ h1, h2, h3 {
             translate(-50%, 0);
     }
 }
+
+/* ===== Hidden Gem Detail - Travel Style ===== */
+
+.gem-detail-page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    background: #faf8f5;
+}
+
+.gem-detail-back-link {
+    display: inline-block;
+    color: #8b7a6b;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 0;
+    margin-bottom: 12px;
+    transition: color 0.2s;
+}
+
+.gem-detail-back-link:hover {
+    color: #d4a373;
+}
+
+/* Gallery */
+.gem-detail-gallery {
+    border-radius: 16px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    margin-bottom: 10px;
+    margin-top: 10px;
+}
+
+.gem-detail-main-image {
+    width: 100%;
+    height: 340px;
+    background: #e8e0d8;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gem-detail-main-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.gem-detail-main-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    font-size: 18px;
+    color: #aaa;
+    background: #f0ebe6;
+}
+
+.gem-detail-thumbnails {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: white;
+}
+
+.gem-detail-thumbnail {
+    flex: 1;
+    height: 80px;
+    background: #f0ebe6;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.gem-detail-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.gem-detail-thumbnail:hover {
+    opacity: 0.8;
+}
+
+.gem-detail-thumbnail-more {
+    flex: 1;
+    height: 80px;
+    background: #2c3e50;
+    color: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Header */
+.gem-detail-header {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    margin-bottom: 20px;
+}
+
+.gem-detail-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #2d1b0f;
+    margin: 0 0 10px;
+}
+
+.gem-detail-meta-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.gem-detail-category-tag {
+    background: #f0ebe6;
+    color: #5d4a3a;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+}
+
+.gem-detail-location-tag {
+    background: #f0ebe6;
+    color: #5d4a3a;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+}
+
+.gem-detail-status-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.gem-detail-status-verified {
+    background: #d4edda;
+    color: #155724;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.gem-detail-status-pending {
+    background: #fff3cd;
+    color: #856404;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Tabs */
+.gem-detail-tabs {
+    display: flex;
+    gap: 0;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    margin-bottom: 20px;
+}
+
+.gem-detail-tab {
+    flex: 1;
+    padding: 14px 16px;
+    border: none;
+    background: white;
+    font-size: 14px;
+    font-weight: 500;
+    color: #8b7a6b;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 3px solid transparent;
+}
+
+.gem-detail-tab.active {
+    color: #2d1b0f;
+    border-bottom-color: #d4a373;
+    background: #fdfcfa;
+}
+
+.gem-detail-tab:hover {
+    background: #faf8f5;
+}
+
+/* Content */
+.gem-detail-content {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.gem-detail-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f0ebe6;
+}
+
+.gem-detail-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.gem-detail-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #5d4a3a;
+    margin: 0 0 8px;
+    letter-spacing: 0.5px;
+}
+
+.gem-detail-description-text {
+    font-size: 15px;
+    color: #3d2c1d;
+    line-height: 1.8;
+    background: #fdfcfa;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border-left: 4px solid #d4a373;
+    margin: 0;
+}
+
+.gem-detail-address {
+    font-size: 14px;
+    color: #3d2c1d;
+    margin: 4px 0;
+}
+
+.gem-detail-coords {
+    font-size: 13px;
+    color: #8b7a6b;
+    margin: 2px 0 0;
+}
+
+/* Progress Bar */
+.gem-detail-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #f0ebe6;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.gem-detail-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #d4a373, #e9c9a9);
+    border-radius: 10px;
+    transition: width 0.8s ease;
+}
+
+.gem-detail-progress-text {
+    font-size: 13px;
+    color: #8b7a6b;
+    margin: 6px 0 0;
+}
+
+.gem-detail-submitter {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2d1b0f;
+    margin: 0;
+}
+
+/* Vote Section */
+.gem-detail-vote-section {
+    text-align: center;
+    padding-top: 20px;
+    margin-top: 4px;
+}
+
+.gem-detail-vote-btn {
+    background: linear-gradient(135deg, #d4a373, #e9c9a9);
+    color: white;
+    border: none;
+    padding: 14px 36px;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 16px rgba(212, 163, 115, 0.3);
+}
+
+.gem-detail-vote-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(212, 163, 115, 0.4);
+}
+
+.gem-detail-vote-btn-verified {
+    background: #a8c4a0 !important;
+    cursor: not-allowed;
+    box-shadow: none !important;
+    opacity: 0.8;
+}
+
+.gem-detail-vote-btn-verified:hover {
+    transform: none !important;
+}
+
+/* Votes List */
+.gem-detail-votes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.gem-detail-vote-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    background: #fdfcfa;
+    border-radius: 12px;
+    border: 1px solid #f0ebe6;
+    transition: border-color 0.2s;
+}
+
+.gem-detail-vote-item:hover {
+    border-color: #d4a373;
+}
+
+.gem-detail-vote-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d4a373, #e9c9a9);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.gem-detail-vote-info {
+    flex: 1;
+}
+
+.gem-detail-vote-user {
+    font-weight: 500;
+    color: #2d1b0f;
+    margin: 0;
+    font-size: 14px;
+}
+
+.gem-detail-vote-date {
+    font-size: 12px;
+    color: #8b7a6b;
+    margin: 0;
+}
+
+.gem-detail-no-votes {
+    text-align: center;
+    color: #8b7a6b;
+    padding: 30px 0;
+}
+
+/* Loading & Error */
+.gem-detail-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    background: #faf8f5;
+    border-radius: 16px;
+}
+
+.gem-detail-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f0ebe6;
+    border-top-color: #d4a373;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.gem-detail-error {
+    text-align: center;
+    padding: 60px 20px;
+    background: #faf8f5;
+    border-radius: 16px;
+}
+
+.gem-detail-error p {
+    color: #8b7a6b;
+    font-size: 16px;
+}
