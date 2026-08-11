@@ -1,17 +1,25 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
 
 import "../styles/global.css";
 
 export default function HiddenGems() {
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Get search from URL params
+    const queryParams = new URLSearchParams(location.search);
+    const initialSearch = queryParams.get('search') || '';
+
     const [gems, setGems] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState(initialSearch);
     const [filter, setFilter] = useState({ status: "", category: "", state: "" });
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
+    const [totalResults, setTotalResults] = useState(0);
+    const [lastSearch, setLastSearch] = useState('');
 
     const fetchGems = async () => {
         setLoading(true);
@@ -23,8 +31,10 @@ export default function HiddenGems() {
             if (filter.state) params.state = filter.state;
 
             const response = await getHiddenGems(params);
-            console.log('API Response:', response.data);  // 加这行查看数据
+            console.log('API Response:', response.data);
             setGems(response.data.data || []);
+            setTotalResults(response.data.total || 0);
+            setLastSearch(search);
         } catch (error) {
             console.error('Error fetching gems:', error);
         } finally {
@@ -45,10 +55,33 @@ export default function HiddenGems() {
         }
     };
 
+    // Handle search from URL on page load
+    useEffect(() => {
+        if (initialSearch) {
+            setSearch(initialSearch);
+        }
+    }, [initialSearch]);
+
     useEffect(() => {
         fetchGems();
         fetchFilters();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search, filter]);
+
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        if (search) {
+            navigate(`/hidden-gems?search=${encodeURIComponent(search)}`);
+        } else {
+            navigate('/hidden-gems');
+        }
+        fetchGems();
+    };
+
+    const handleClearSearch = () => {
+        setSearch('');
+        navigate('/hidden-gems');
+    };
 
     return (
         <div className="hidden-gems-page">
@@ -61,26 +94,53 @@ export default function HiddenGems() {
                 >
                     + Hidden Gem
                 </button>
-
             </div>
 
+            {/* Search Bar */}
             <div className="hidden-gems-search">
-                <input
-                    type="text"
-                    placeholder="Search hidden gems..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="hidden-gems-search-input"
-                />
+                <form className="hidden-gems-search-form" onSubmit={handleSearchSubmit}>
+                    <div className="hidden-gems-search-wrapper">
+                        <input
+                            type="text"
+                            placeholder="Search hidden gems by place name or keyword..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="hidden-gems-search-input"
+                        />
+                        <div className="hidden-gems-search-actions">
+                            {search && (
+                                <button
+                                    type="button"
+                                    className="hidden-gems-search-clear"
+                                    onClick={handleClearSearch}
+                                    aria-label="Clear search"
+                                >
+                                    ✕
+                                </button>
+                            )}
+                            <button type="submit" className="hidden-gems-search-btn">
+                                🔍 Search
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                {/* Search result count */}
+                {lastSearch && !loading && (
+                    <p className="hidden-gems-search-result-count">
+                        Found <strong>{totalResults}</strong> result{totalResults !== 1 ? 's' : ''} for "<strong>{lastSearch}</strong>"
+                    </p>
+                )}
             </div>
 
+            {/* Filters */}
             <div className="hidden-gems-filters">
                 <select
                     className="hidden-gems-filter-select"
                     value={filter.status}
                     onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 >
-                    <option value="">All Status</option>
+                    <option value="">Select Status</option>
                     <option value="verified">Verified</option>
                     <option value="pending">Pending</option>
                 </select>
@@ -90,7 +150,7 @@ export default function HiddenGems() {
                     value={filter.category}
                     onChange={(e) => setFilter({ ...filter, category: e.target.value })}
                 >
-                    <option value="">All Categories</option>
+                    <option value="">Select Category</option>
                     {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>
                             {cat.name}
@@ -103,7 +163,7 @@ export default function HiddenGems() {
                     value={filter.state}
                     onChange={(e) => setFilter({ ...filter, state: e.target.value })}
                 >
-                    <option value="">All States</option>
+                    <option value="">Select State</option>
                     {states.map((state) => (
                         <option key={state} value={state}>
                             {state}
@@ -133,6 +193,7 @@ export default function HiddenGems() {
                                     <img
                                         src={gem.images[0].image_url}
                                         alt={gem.place_name}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
                                 ) : (
                                     <div className="hidden-gems-card-no-image">
