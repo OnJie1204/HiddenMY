@@ -21,7 +21,7 @@ class HiddenGemController extends Controller
     // ==================== API METHODS ====================
     public function store(Request $request): JsonResponse
     {
-         if (!Auth::check()) {
+        if (!Auth::check()) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
@@ -36,7 +36,7 @@ class HiddenGemController extends Controller
             'description' => 'required|string',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
-            'images.*' => 'image|max:2048'
+            'images.*' => 'image|max:5120'
         ]);
 
         $existingLocation = Location::where('place_name', $request->place_name)
@@ -50,7 +50,7 @@ class HiddenGemController extends Controller
         }
 
         $location = Location::create([
-            'user_id' => $user->id,    
+            'user_id' => $user->id,
             'category_id' => $request->category_id,
             'place_name' => $request->place_name,
             'address' => $request->address,
@@ -59,25 +59,41 @@ class HiddenGemController extends Controller
             'description' => $request->description,
             'latitude' => $request->latitude,
             'longitude' => $request->longitude,
-            'status' => 'pending',      
+            'status' => 'pending',
+            'vote_count' => 0,
+            'verification_threshold' => 10,
         ]);
 
+        // Upload images to Supabase Storage
         if ($request->hasFile('images')) {
+            $supabaseUrl = env('SUPABASE_URL');
+            $supabaseKey = env('SUPABASE_ANON_KEY');
+            $bucket = 'location_images';
 
             foreach ($request->file('images') as $image) {
+                $fileName = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+                $publicUrl = $supabaseUrl . '/storage/v1/object/public/' . $bucket . '/' . $fileName;
 
-                $path = $image->store('hidden-gems','public');
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $supabaseKey,
+                    'Content-Type' => $image->getMimeType(),
+                ])->put(
+                    $supabaseUrl . '/storage/v1/object/' . $bucket . '/' . $fileName,
+                    file_get_contents($image)
+                );
 
-                LocationImage::create([
-                    'location_id'=>$location->id,
-                    'image_url'=>$path
-                ]);
+                if ($response->successful()) {
+                    LocationImage::create([
+                        'location_id' => $location->id,
+                        'image_url' => $publicUrl,
+                    ]);
+                }
             }
         }
 
         return response()->json([
             'message' => 'Hidden gem submitted successfully.',
-            'data' => $location
+            'data' => $location->load('images')
         ], 201);
     }
 
@@ -206,7 +222,7 @@ class HiddenGemController extends Controller
     /**
      * Get states for filter.
      */
-   public function getStates(): JsonResponse
+    public function getStates(): JsonResponse
     {
         $states = [
             'Johor',
