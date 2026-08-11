@@ -64,30 +64,14 @@ class HiddenGemController extends Controller
             'verification_threshold' => 10,
         ]);
 
-        // Upload images to Supabase Storage
+        // Upload images to local storage
         if ($request->hasFile('images')) {
-            $supabaseUrl = env('SUPABASE_URL');
-            $supabaseKey = env('SUPABASE_ANON_KEY');
-            $bucket = 'location_images';
-
             foreach ($request->file('images') as $image) {
-                $fileName = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-                $publicUrl = $supabaseUrl . '/storage/v1/object/public/' . $bucket . '/' . $fileName;
-
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $supabaseKey,
-                    'Content-Type' => $image->getMimeType(),
-                ])->put(
-                    $supabaseUrl . '/storage/v1/object/' . $bucket . '/' . $fileName,
-                    file_get_contents($image)
-                );
-
-                if ($response->successful()) {
-                    LocationImage::create([
-                        'location_id' => $location->id,
-                        'image_url' => $publicUrl,
-                    ]);
-                }
+                $path = $image->store('hidden-gems', 'public');
+                LocationImage::create([
+                    'location_id' => $location->id,
+                    'image_url' => $path
+                ]);
             }
         }
 
