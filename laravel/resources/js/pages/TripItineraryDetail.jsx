@@ -552,7 +552,7 @@ export default function TripItineraryDetail() {
 
 
 
-                <div>
+                <div className="trip-detail-actions">
 
                     {!isRenaming && (
                         <button
@@ -577,13 +577,16 @@ export default function TripItineraryDetail() {
 
 
 
-            <hr />
+            <section className="trip-detail-stops-card">
 
 
 
             <div className="trip-detail-section-header">
 
-                <h2>Trip Stops</h2>
+                <div>
+                    <p className="trip-detail-section-kicker">Your route</p>
+                    <h2>Trip Stops</h2>
+                </div>
 
                 <span>
                     {locations.length} Stops
@@ -622,6 +625,12 @@ export default function TripItineraryDetail() {
                     </p>
                 )}
 
+                {locations.length === 0 ? (
+                    <div className="trip-detail-empty-state">
+                        <strong>No stops added yet</strong>
+                        <p>Start building your route by adding a hidden gem or a location from the map.</p>
+                    </div>
+                ) : (
                 <DndContext
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
@@ -646,12 +655,15 @@ export default function TripItineraryDetail() {
                     </SortableContext>
 
                 </DndContext>
+                )}
 
             </div>
 
 
 
 
+
+            </section>
 
             {isStoppingPointDialogOpen && (
                 <div
