@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 
-const MIN_WIDTH = 320;
-const MAX_WIDTH = 900;
+const MIN_WIDTH = 280;
+const MAX_WIDTH = 420;
 
-function SidePanel({ group, onClose }) {
+function SidePanel({ group, isOpen, onClose, user, setUser }) {
     const [activeGem, setActiveGem] = useState(null);
-    const [width, setWidth] = useState(400);
+    const [width, setWidth] = useState(340);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const panelRef = useRef(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         setActiveGem(group && group.length === 1 ? group[0] : null);
@@ -37,10 +39,8 @@ function SidePanel({ group, onClose }) {
         };
     }, [isResizing]);
 
-    // Press 'esc' to close panel 
+    // Press 'esc' to close panel
     useEffect(() => {
-        if (!group) return; 
-
         function handleEscape(e) {
             if (e.key === "Escape") {
                 onClose();
@@ -49,11 +49,11 @@ function SidePanel({ group, onClose }) {
 
         document.addEventListener("keydown", handleEscape);
         return () => document.removeEventListener("keydown", handleEscape);
-    }, [group, onClose]);
+    }, [onClose]);
 
-    if (!group) return null;
+    if (!isOpen) return null;
 
-    const showList = group.length > 1 && !activeGem;
+    const showList = group && group.length > 1 && !activeGem;
     const gem = activeGem;
 
     function openGoogleMaps(g) {
@@ -63,29 +63,77 @@ function SidePanel({ group, onClose }) {
         window.open(`https://www.waze.com/ul?ll=${g.latitude},${g.longitude}&navigate=yes`, "_blank");
     }
 
+    const handleLogout = async () => {
+        localStorage.removeItem('token');
+        setUser(null);
+        onClose();
+        navigate('/login');
+    };
+
+    const menuItems = [
+        { to: '/', icon: '🏠', label: 'Home' },
+        { to: '/map', icon: '🗺️', label: 'Map' },
+        { to: '/hidden-gems', icon: '💎', label: 'Hidden Gems' },
+        { to: '/trip-itinerary', icon: '✈️', label: 'Trip Itinerary' },
+        { to: '/travel-posts', icon: '📝', label: 'Travel Posts' },
+        { to: '/profile', icon: '👤', label: 'Profile' },
+    ];
+
     return (
         <div
             ref={panelRef}
-            className={`side-sheet open ${isFullscreen ? "fullscreen" : ""} ${isResizing ? "resizing" : ""}`}
+            className={`side-panel open ${isFullscreen ? "fullscreen" : ""} ${isResizing ? "resizing" : ""}`}
             style={!isFullscreen ? { width: `${width}px` } : undefined}
         >
-            <div className="side-sheet-topbar">
-                <button
-                    className="side-sheet-icon-btn"
-                    onClick={() => setIsFullscreen(f => !f)}
-                    aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                >
-                    {isFullscreen ? "⤡" : "⤢"}
+            {/* Header: Logo + Close */}
+            <div className="side-panel-header">
+                <div className="side-panel-logo">
+                    <span className="side-panel-logo-icon">✦</span>
+                    <span className="side-panel-logo-text">Gemora</span>
+                </div>
+                <button className="side-panel-close" onClick={onClose} aria-label="Close">
+                    ✕
                 </button>
-                <button className="side-sheet-icon-btn" onClick={onClose} aria-label="Close">✕</button>
             </div>
 
-            <div className="side-sheet-body">
+            {/* User Info: Avatar + Name (same row) */}
+            {user && (
+                <div className="side-panel-user">
+                    <div className="side-panel-user-avatar">
+                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <div className="side-panel-user-info">
+                        <p className="side-panel-user-name">{user.name || 'User'}</p>
+                        <p className="side-panel-user-email">{user.email || ''}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Navigation */}
+            <nav className="side-panel-nav">
+                {menuItems.map(({ to, icon, label }) => (
+                    <Link
+                        key={to}
+                        to={to}
+                        className="side-panel-nav-item"
+                        onClick={onClose}
+                    >
+                        <span className="side-panel-nav-icon">{icon}</span>
+                        <span className="side-panel-nav-label">{label}</span>
+                    </Link>
+                ))}
+            </nav>
+
+            {/* Divider */}
+            <div className="side-panel-divider"></div>
+
+            {/* Body Content (Gem Details) */}
+            <div className="side-panel-body">
                 {showList && (
                     <>
-                        <h2>{group.length} posts at this spot</h2>
+                        <h3>{group.length} posts at this spot</h3>
                         {group.map((g, i) => (
-                            <div key={g.id ?? i} className="post-list-item" onClick={() => setActiveGem(g)}>
+                            <div key={g.id ?? i} className="side-panel-post-item" onClick={() => setActiveGem(g)}>
                                 {g.image && <img src={g.image} alt={g.title} />}
                                 <div>
                                     <strong>{g.title}</strong>
@@ -98,25 +146,27 @@ function SidePanel({ group, onClose }) {
 
                 {gem && (
                     <>
-                        {group.length > 1 && (
-                            <button className="side-sheet-back" onClick={() => setActiveGem(null)}>
+                        {group && group.length > 1 && (
+                            <button className="side-panel-back" onClick={() => setActiveGem(null)}>
                                 ← Back to posts
                             </button>
                         )}
 
-                        <div className="bottom-sheet-header">
-                            {gem.image && <img src={gem.image} alt={gem.title} className="bottom-sheet-image" />}
-                            <div className="bottom-sheet-badges">
+                        <div className="side-panel-gem-header">
+                            {gem.image && <img src={gem.image} alt={gem.title} className="side-panel-gem-image" />}
+                            <div className="side-panel-badges">
                                 {gem.category && <span className="badge badge-neutral">{gem.category}</span>}
                                 {gem.source === "database" && (
-                                    <span className="badge badge-success"><i className="ti ti-check" /> Verified</span>
+                                    <span className="badge badge-success">✓ Verified</span>
                                 )}
                             </div>
                         </div>
 
-                        <h2>{gem.source === "database" ? "💎" : "📍"} {gem.title}</h2>
-                        {gem.state && <p className="bottom-sheet-meta">📍 {gem.state}</p>}
-                        <p>{gem.description || "No description available."}</p>
+                        <h2 className="side-panel-gem-title">
+                            {gem.source === "database" ? "💎" : "📍"} {gem.title}
+                        </h2>
+                        {gem.state && <p className="side-panel-gem-meta">📍 {gem.state}</p>}
+                        <p className="side-panel-gem-desc">{gem.description || "No description available."}</p>
 
                         {gem.address && (
                             <>
@@ -125,21 +175,25 @@ function SidePanel({ group, onClose }) {
                             </>
                         )}
 
-                        <div className="action-buttons-row">
-                            <button className="map-action-tile" onClick={() => openGoogleMaps(gem)} aria-label="Open in Google Maps">
+                        <div className="side-panel-actions">
+                            <button className="side-panel-action-btn" onClick={() => openGoogleMaps(gem)}>
                                 <img src={googleMapsIcon} alt="Google Maps" />
+                                Google Maps
                             </button>
-                            <button className="map-action-tile" onClick={() => openWaze(gem)} aria-label="Open in Waze">
+                            <button className="side-panel-action-btn" onClick={() => openWaze(gem)}>
                                 <img src={wazeIcon} alt="Waze" />
+                                Waze
                             </button>
-                            <button className="map-action-tile itinerary">Add to Itinerary</button>
+                            <button className="side-panel-action-btn primary">
+                                ➕ Add to Itinerary
+                            </button>
                         </div>
 
                         {gem.source === "database" && gem.voteCount != null && (
-                            <div className="vote-progress">
+                            <div className="side-panel-vote">
                                 <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes to verify</span>
-                                <div className="vote-bar">
-                                    <div className="vote-fill" style={{ width: `${Math.min(100, (gem.voteCount / (gem.verificationThreshold ?? 10)) * 100)}%` }} />
+                                <div className="side-panel-vote-bar">
+                                    <div className="side-panel-vote-fill" style={{ width: `${Math.min(100, (gem.voteCount / (gem.verificationThreshold ?? 10)) * 100)}%` }} />
                                 </div>
                             </div>
                         )}
@@ -147,9 +201,16 @@ function SidePanel({ group, onClose }) {
                 )}
             </div>
 
+            {/* Footer: Logout */}
+            <div className="side-panel-footer">
+                <button className="side-panel-logout-btn" onClick={handleLogout}>
+                    🚪 Logout
+                </button>
+            </div>
+
             {!isFullscreen && (
                 <div
-                    className="side-sheet-resize-handle"
+                    className="side-panel-resize-handle"
                     onMouseDown={() => setIsResizing(true)}
                 />
             )}
