@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class HiddenGemController extends Controller
 {
@@ -66,11 +67,33 @@ class HiddenGemController extends Controller
 
             foreach ($request->file('images') as $image) {
 
-                $path = $image->store('hidden-gems','public');
+                $fileName = 'hidden-gems/' . uniqid() . '.' . $image->getClientOriginalExtension();
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                    'Content-Type' => $image->getMimeType(),
+                ])->withBody(
+                    file_get_contents($image->getRealPath()),
+                    $image->getMimeType()
+                )->post(
+                    env('SUPABASE_URL') . '/storage/v1/object/location_images/' . $fileName
+                );
+
+                if ($response->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to upload image.',
+                        'error' => $response->json()
+                    ], 500);
+                }
+
+                $imageUrl = env('SUPABASE_URL')
+                    . '/storage/v1/object/public/location_images/'
+                    . $fileName;
 
                 LocationImage::create([
-                    'location_id'=>$location->id,
-                    'image_url'=>$path
+                    'location_id' => $location->id,
+                    'image_url' => $imageUrl
                 ]);
             }
         }
