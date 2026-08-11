@@ -206,12 +206,26 @@ class HiddenGemController extends Controller
     /**
      * Get states for filter.
      */
-    public function getStates(): JsonResponse
+   public function getStates(): JsonResponse
     {
-        $states = Location::distinct()
-                          ->pluck('state')
-                          ->filter()
-                          ->values();
+        $states = [
+            'Johor',
+            'Kuala Lumpur',
+            'Penang',
+            'Selangor',
+            'Melaka',
+            'Perak',
+            'Pahang',
+            'Sarawak',
+            'Sabah',
+            'Terengganu',
+            'Kelantan',
+            'Kedah',
+            'Negeri Sembilan',
+            'Perlis',
+            'Putrajaya',
+            'Labuan'
+        ];
 
         return response()->json(['data' => $states]);
     }
