@@ -76,6 +76,7 @@ class TripItineraryController extends Controller
             'source' => ['required', 'in:database,openstreetmap'],
             'location_id' => ['nullable', 'integer'],
             'osm_id' => ['nullable', 'integer'],
+            'osm_name' => ['nullable', 'string', 'max:255'],
         ]);
 
         if ($validated['source'] === 'database') {
@@ -97,11 +98,15 @@ class TripItineraryController extends Controller
                 'isHidden' => true,
             ];
         } else {
-            $request->validate(['osm_id' => ['required', 'integer']]);
+            $request->validate([
+                'osm_id' => ['required', 'integer'],
+                'osm_name' => ['required', 'string', 'max:255'],
+            ]);
 
             $attributes = [
                 'location_id' => null,
                 'osm_id' => $validated['osm_id'],
+                'osm_name' => $validated['osm_name'],
                 'isHidden' => false,
             ];
         }

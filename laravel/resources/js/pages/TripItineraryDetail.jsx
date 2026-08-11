@@ -57,7 +57,7 @@ const hasValidCoordinates = ({ latitude, longitude }) =>
 
 const toDisplayLocation = (location) => ({
     id: location.id,
-    name: location.location?.place_name ?? `OpenStreetMap location (${location.osm_id})`,
+    name: location.location?.place_name ?? location.osm_name ?? `OpenStreetMap location (${location.osm_id})`,
     type: location.isHidden ? "hidden" : "osm",
 });
 
@@ -242,7 +242,7 @@ export default function TripItineraryDetail() {
             setHiddenGemsError("");
 
             try {
-                const response = await getHiddenGems();
+                const response = await getHiddenGems({ status: "verified" });
                 const gems = Array.isArray(response.data?.data) ? response.data.data : [];
 
                 if (isCurrent) {
@@ -319,7 +319,7 @@ export default function TripItineraryDetail() {
     };
 
     const selectHiddenGemOnMap = (hiddenGem) => {
-        setSelectedLocation({ ...hiddenGem, source: "database" });
+        setSelectedLocation({ ...hiddenGem, name: hiddenGem.place_name, source: "database" });
     };
 
     const handleAddLocation = async () => {
@@ -327,7 +327,7 @@ export default function TripItineraryDetail() {
 
         const data = selectedLocation.source === "database"
             ? { source: "database", location_id: selectedLocation.id }
-            : { source: "openstreetmap", osm_id: selectedLocation.osm_id };
+            : { source: "openstreetmap", osm_id: selectedLocation.osm_id, osm_name: selectedLocation.name };
 
         setIsAddingLocation(true);
         setAddLocationError("");
