@@ -70,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('hidden-gems/geocode', [HiddenGemController::class, 'geocode']);
     Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
     Route::post('hidden-gems', [HiddenGemController::class, 'store']);
+    Route::get('my-hidden-gems', [HiddenGemController::class, 'myHiddenGems']);
     
 });
 Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);

@@ -131,7 +131,7 @@ export default function HiddenGems() {
                             <div className="hidden-gems-card-image">
                                 {gem.images && gem.images.length > 0 ? (
                                     <img
-                                        src={`http://localhost:8000/storage/${gem.images[0].image_url}`}
+                                        src={gem.images[0].image_url}
                                         alt={gem.place_name}
                                     />
                                 ) : (

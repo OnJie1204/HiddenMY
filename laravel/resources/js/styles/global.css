@@ -2057,3 +2057,67 @@ h1, h2, h3 {
     color: #8b7a6b;
     font-size: 16px;
 }
+
+/* ================================
+   My Hidden Gems - Actions
+   ================================ */
+
+.my-hidden-gems-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.my-hidden-gem-card-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.my-hidden-gem-card-content .hidden-gems-card-description {
+    margin-bottom: 12px;
+}
+
+.my-hidden-gem-card-content .hidden-gems-card-status {
+    margin-top: 4px;
+}
+
+.my-hidden-gems-actions button {
+    min-width: 80px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.my-hidden-gems-edit-btn {
+    background-color: #4570cf;
+    color: #ffffff;
+}
+
+.my-hidden-gems-edit-btn:hover {
+    background-color: #1d4ed8;
+}
+
+.my-hidden-gems-edit-btn:active {
+    transform: scale(0.97);
+}
+
+.my-hidden-gems-delete-btn {
+    background-color: #e43434;
+    color: #ffffff;
+}
+
+.my-hidden-gems-delete-btn:hover {
+    background-color: #b91c1c;
+}
+
+.my-hidden-gems-delete-btn:active {
+    transform: scale(0.97);
+}
+

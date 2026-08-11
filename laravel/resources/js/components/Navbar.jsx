@@ -25,7 +25,7 @@ function Navbar({ user, setUser }) {
       <div className="navbar-links">
         <NavLink to="/map" className={navLinkClassName}>Map</NavLink>
         <NavLink to="/hidden-gems" className={navLinkClassName}>Hidden Gems</NavLink>
-        <NavLink to="/travel-posts" className={navLinkClassName}>Travel Posts</NavLink>
+        <NavLink to="/my-hidden-gems" className={navLinkClassName}>My Hidden Gems</NavLink>
         <NavLink to="/trip-itinerary" className={navLinkClassName}>Trip Itinerary</NavLink>
       </div>
       <div className="navbar-user">

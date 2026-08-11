@@ -24,3 +24,6 @@ export const createHiddenGem = (data) =>
             'Content-Type': 'multipart/form-data'
         }
     });
+
+export const getMyHiddenGems = () =>
+    api.get('/my-hidden-gems');
