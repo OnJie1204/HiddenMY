@@ -12,6 +12,9 @@ export const addTripLocation = (itineraryId, data) =>
 export const updateTripLocationOrder = (itineraryId, locations) =>
     api.put(`/trip-itineraries/${itineraryId}/locations/order`, locations);
 
+export const deleteTripLocation = (itineraryId, locationId) =>
+    api.delete(`/trip-itineraries/${itineraryId}/locations/${locationId}`);
+
 export const createTripItinerary = (data) =>
     api.post('/trip-itineraries', data);
 

@@ -59,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Trip Itineraries
     Route::post('trip-itineraries/{tripItinerary}/locations', [TripItineraryController::class, 'storeLocation']);
     Route::put('trip-itineraries/{tripItinerary}/locations/order', [TripItineraryController::class, 'updateLocationOrder']);
+    Route::delete('trip-itineraries/{tripItinerary}/locations/{location}', [TripItineraryController::class, 'destroyLocation']);
     Route::apiResource('trip-itineraries', TripItineraryController::class);
 
     // ===== Hidden Gems API (for React) =====

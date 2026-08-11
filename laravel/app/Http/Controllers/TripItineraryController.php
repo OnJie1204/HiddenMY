@@ -173,6 +173,29 @@ class TripItineraryController extends Controller
     }
 
     /**
+     * Remove a single stopping point from an itinerary.
+     */
+    public function destroyLocation(Request $request, TripItinerary $tripItinerary, $location)
+    {
+        if ($tripItinerary->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $tripLocation = $tripItinerary->locations()->find($location);
+
+        if (! $tripLocation) {
+            return response()->json(['message' => 'Stopping point not found.'], 404);
+        }
+
+        $tripLocation->delete();
+
+        return response()->json([
+            'message' => 'Stopping point removed successfully.',
+            'data' => $tripItinerary->fresh()->load('locations.location'),
+        ]);
+    }
+
+    /**
      * Rename an itinerary.
      */
     public function update(Request $request, TripItinerary $tripItinerary)

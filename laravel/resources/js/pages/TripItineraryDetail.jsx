@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import {
     addTripLocation,
     deleteTripItinerary,
+    deleteTripLocation,
     getTripItinerary,
     updateTripItinerary,
     updateTripLocationOrder,
@@ -468,13 +469,24 @@ export default function TripItineraryDetail() {
 
 
 
-    const removeLocation = (locationId) => {
+    const removeLocation = async (locationId) => {
+
+        const previousLocations = locations;
 
         setLocations(
             locations.filter(
                 item => item.id !== locationId
             )
         );
+        setLocationOrderError("");
+
+        try {
+            await deleteTripLocation(id, locationId);
+        } catch (error) {
+            console.error("Failed to delete stopping point.", error);
+            setLocations(previousLocations);
+            setLocationOrderError("Unable to delete this stopping point. Please try again.");
+        }
 
     };
 
