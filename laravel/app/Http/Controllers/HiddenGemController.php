@@ -107,13 +107,13 @@ class HiddenGemController extends Controller
         ], 201);
     }
 
-
     /**
      * Return the Hidden Gems list for React frontend.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Location::with(['user', 'category', 'images']);
+        $query = Location::with(['user', 'category', 'images'])
+            ->where('status', '!=', 'deleted');
 
         // Filter by status (verified / pending)
         if ($request->has('status') && in_array($request->status, ['verified', 'pending'])) {
@@ -154,11 +154,35 @@ class HiddenGemController extends Controller
             'images'
         ])
         ->where('user_id', $user->id)
+        ->where('status', '!=', 'deleted')
         ->latest()
         ->get();
 
         return response()->json([
             'data' => $hiddenGems
+        ]);
+    }
+
+    public function updateStatus(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'status' => 'required|in:deleted',
+        ]);
+
+        $gem = Location::findOrFail($id);
+
+        if ($gem->user_id !== Auth::id()) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        $gem->status = 'deleted';
+        $gem->save();
+
+        return response()->json([
+            'message' => 'Hidden gem deleted successfully',
+            'data' => $gem
         ]);
     }
 

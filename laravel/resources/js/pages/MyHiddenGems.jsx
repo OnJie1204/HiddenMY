@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getMyHiddenGems } from "../api/hiddenGems";
+import { getMyHiddenGems, deleteHiddenGem } from "../api/hiddenGems";
 
 import "../styles/global.css";
 
@@ -10,6 +10,9 @@ export default function MyHiddenGems() {
     const [gems, setGems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [deleteId, setDeleteId] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
 
     const fetchMyHiddenGems = async () => {
         setLoading(true);
@@ -36,12 +39,53 @@ export default function MyHiddenGems() {
         fetchMyHiddenGems();
     }, []);
 
+    useEffect(() => {
+        if (successMessage) {
+            const timer = setTimeout(() => {
+                setSuccessMessage("");
+            }, 3000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [successMessage]);
+
+    const handleDelete = async () => {
+        if (!deleteId) return;
+
+        setDeleting(true);
+
+        try {
+            await deleteHiddenGem(deleteId);
+
+            setGems((prev) =>
+                prev.filter((gem) => gem.id !== deleteId)
+            );
+
+            setDeleteId(null);
+
+            setSuccessMessage("Hidden gem deleted successfully.");
+
+        } catch (error) {
+            console.error("Delete failed:", error);
+
+            setDeleteId(null);
+
+            setSuccessMessage(
+                error.response?.data?.message ||
+                "Failed to delete hidden gem."
+            );
+
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     return (
         <div className="hidden-gems-page">
 
             <div className="hidden-gems-header">
                 <div>
-                    <h1>💎 My Hidden Gems</h1>
+                    <h1>📍 My Hidden Gems</h1>
                     <p>Manage the hidden gems you have submitted.</p>
                 </div>
 
@@ -149,12 +193,7 @@ export default function MyHiddenGems() {
 
                                     <button
                                         className="my-hidden-gems-delete-btn"
-                                        onClick={() => {
-                                            console.log(
-                                                "Delete hidden gem:",
-                                                gem.id
-                                            );
-                                        }}
+                                        onClick={() => setDeleteId(gem.id)}
                                     >
                                         Delete
                                     </button>
@@ -167,7 +206,55 @@ export default function MyHiddenGems() {
 
                 </div>
             )}
+            
+            {deleteId && (
+                <div
+                    className="delete-modal-overlay"
+                    onClick={() => !deleting && setDeleteId(null)}
+                >
+                    <div
+                        className="delete-modal"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="delete-modal-icon">
+                            🗑️
+                        </div>
 
+                        <h2>Delete Hidden Gem?</h2>
+
+                        <p>
+                            Are you sure you want to delete this hidden gem?
+                            This action cannot be undone.
+                        </p>
+
+                        <div className="delete-modal-actions">
+
+                            <button
+                                className="delete-modal-cancel"
+                                onClick={() => setDeleteId(null)}
+                                disabled={deleting}
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                className="delete-modal-confirm"
+                                onClick={handleDelete}
+                                disabled={deleting}
+                            >
+                                {deleting ? "Deleting..." : "Delete"}
+                            </button>
+
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {successMessage && (
+                <div className="hidden-gem-snackbar">
+                    {successMessage}
+                </div>
+            )}
         </div>
     );
 }

@@ -27,3 +27,6 @@ export const createHiddenGem = (data) =>
 
 export const getMyHiddenGems = () =>
     api.get('/my-hidden-gems');
+
+export const deleteHiddenGem = (id) =>
+    api.patch(`/hidden-gems/${id}/status`, {status: "deleted"});
