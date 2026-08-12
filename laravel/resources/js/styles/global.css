@@ -2025,6 +2025,15 @@ h1, h2, h3 {
     display: inline-block;
 }
 
+.hidden-gems-card-rejected {
+    font-size: 13px;
+    color: #be123c;
+    background: #fef2f2;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
 /* Submit Hidden Gem Button */
 
 .hidden-gem-submit-header {

@@ -126,6 +126,16 @@ export default function MyHiddenGems() {
                                         <span className="hidden-gems-card-verified">
                                             Verified
                                         </span>
+                                    ) : gem.status === "rejected" ? (
+                                        <span
+                                            className="hidden-gems-card-rejected"
+                                            title={gem.ai_review_reason || ""}
+                                        >
+                                            Rejected
+                                            {gem.ai_review_reason
+                                                ? `: ${gem.ai_review_reason}`
+                                                : ""}
+                                        </span>
                                     ) : (
                                         <span className="hidden-gems-card-pending">
                                             Pending (

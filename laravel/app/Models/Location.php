@@ -20,6 +20,8 @@ class Location extends Model
         'status',
         'vote_count',
         'verification_threshold',
+        'ai_review_reason',
+        'ai_reviewed_at',
     ];
 
     public function user()
@@ -55,6 +57,11 @@ class Location extends Model
     public function isPending()
     {
         return $this->status === 'pending';
+    }
+
+    public function isRejected()
+    {
+        return $this->status === 'rejected';
     }
 
     public function scopeHiddenGems(Builder $query)

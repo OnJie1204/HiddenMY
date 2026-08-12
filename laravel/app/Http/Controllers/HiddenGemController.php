@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\VerifyHiddenGemSubmission;
 use App\Models\Location;
 use App\Models\Category;
 use App\Models\LocationImage;
@@ -100,6 +101,8 @@ class HiddenGemController extends Controller
                 ]);
             }
         }
+
+        VerifyHiddenGemSubmission::dispatch($location->id);
 
         return response()->json([
             'message' => 'Hidden gem submitted successfully.',
