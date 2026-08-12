@@ -76,7 +76,6 @@ function SidePanel({ group, isOpen, onClose, user, setUser }) {
         { to: '/hidden-gems', icon: '💎', label: 'Hidden Gems' },
         { to: '/my-hidden-gems', icon: '📍', label: 'My Hidden Gems' },
         { to: '/trip-itinerary', icon: '✈️', label: 'Trip Itinerary' },
-        { to: '/travel-posts', icon: '📝', label: 'Travel Posts' },
         { to: '/profile', icon: '👤', label: 'Profile' },
     ];
 
@@ -90,7 +89,7 @@ function SidePanel({ group, isOpen, onClose, user, setUser }) {
             <div className="side-panel-header">
                 <div className="side-panel-logo">
                     <span className="side-panel-logo-icon">✦</span>
-                    <span className="side-panel-logo-text">Gemora</span>
+                    <span className="side-panel-logo-text">HiddenMY</span>
                 </div>
                 <button className="side-panel-close" onClick={onClose} aria-label="Close">
                     ✕
