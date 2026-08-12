@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']); // 改 email 用，移到这里因为需要登入才能改自己的资料
     Route::post('/email/resend', function (Request $request) {

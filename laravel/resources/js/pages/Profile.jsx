@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
-import { getMe, updateProfile, changePassword } from '../api/auth';
+import { Link, useNavigate } from 'react-router-dom';
+import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
+import { getMe, updateProfile, changePassword, uploadAvatar } from '../api/auth';
+import { getMyHiddenGems } from '../api/hiddenGems';
+import { getTripItineraries } from '../api/TripItinerary';
+import { getPasswordStrength } from '../utils/password';
+import Avatar from '../components/Avatar';
 
 function Profile({ setAppUser }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -15,6 +22,19 @@ function Profile({ setAppUser }) {
   const [passwordError, setPasswordError] = useState('');
   const [hasPassword, setHasPassword] = useState(true);
 
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+
+  const [stats, setStats] = useState({ totalGems: 0, verifiedGems: 0, pendingGems: 0, totalTrips: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [recentGems, setRecentGems] = useState([]);
+
+  const [activeTab, setActiveTab] = useState('overview');
+
   useEffect(() => {
     getMe().then(res => {
       setUser(res.data);
@@ -24,6 +44,45 @@ function Profile({ setAppUser }) {
     });
   }, []);
 
+  useEffect(() => {
+    Promise.all([getMyHiddenGems(), getTripItineraries()])
+      .then(([gemsRes, tripsRes]) => {
+        const gems = gemsRes.data.data || [];
+        const trips = tripsRes.data || [];
+        const verifiedGems = gems.filter((gem) => gem.status === 'verified').length;
+
+        setStats({
+          totalGems: gems.length,
+          verifiedGems,
+          pendingGems: gems.length - verifiedGems,
+          totalTrips: trips.length,
+        });
+        setRecentGems(gems.slice(0, 3));
+      })
+      .catch(() => {
+        // Stats are a nice-to-have; leave the cards at 0 if either call fails.
+      })
+      .finally(() => setStatsLoading(false));
+  }, []);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAvatarError('');
+    setAvatarUploading(true);
+    try {
+      const res = await uploadAvatar(file);
+      setUser(res.data.user);
+      setAppUser(res.data.user);
+    } catch (err) {
+      setAvatarError(err.response?.data?.message || 'Avatar upload failed');
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = '';
+    }
+  };
+
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     setProfileError('');
@@ -32,7 +91,7 @@ function Profile({ setAppUser }) {
       const res = await updateProfile({ name, email });
       setUser(res.data.user);
       setAppUser(res.data.user); // Add this line to synchronize the user state in App.jsx
-      setProfileMessage(res.data.message); 
+      setProfileMessage(res.data.message);
     } catch (err) {
       const errors = err.response?.data?.errors;
       setProfileError(errors ? Object.values(errors).flat().join(', ') : 'Update failed');
@@ -59,73 +118,271 @@ function Profile({ setAppUser }) {
     }
   };
 
+  const newPasswordStrength = getPasswordStrength(newPassword);
+
   if (!user) return <p>Loading...</p>;
+
+  const memberSince = user.created_at
+    ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : null;
 
   return (
     <div>
       <h1 className="page-title">My Profile</h1>
 
-      <div className="section-card">
-        <h3>Profile Information</h3>
-        <form onSubmit={handleProfileSubmit}>
-          {profileMessage && <p className="msg-success">{profileMessage}</p>}
-          {profileError && <p className="msg-error">{profileError}</p>}
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="form-input"
-          />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="form-input"
-          />
-          <button type="submit" className="btn btn-primary">Update Profile</button>
-        </form>
-      </div>
-
-      <div className="section-card">
-        <h3>{hasPassword ? 'Change Password' : 'Set Password'}</h3>
-        <form onSubmit={handlePasswordSubmit}>
-          {passwordMessage && <p className="msg-success">{passwordMessage}</p>}
-          {passwordError && <p className="msg-error">{passwordError}</p>}
-
-          {hasPassword && (
+      <div className="profile-header-card">
+        <div className="profile-header-body">
+          <div className="profile-avatar-wrap">
+            <Avatar name={user.name} avatarUrl={user.avatar_url} size="lg" />
+            <label
+              className="profile-avatar-edit-btn"
+              htmlFor="avatar-upload"
+              title="Change photo"
+            >
+              {avatarUploading ? '…' : '✎'}
+            </label>
             <input
-              type="password"
-              placeholder="Current Password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              className="form-input"
+              id="avatar-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              disabled={avatarUploading}
+              style={{ display: 'none' }}
             />
-          )}
+          </div>
 
-          <input
-            type="password"
-            placeholder="New Password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-            className="form-input"
-          />
-          <input
-            type="password"
-            placeholder="Confirm New Password"
-            value={newPasswordConfirmation}
-            onChange={(e) => setNewPasswordConfirmation(e.target.value)}
-            required
-            className="form-input"
-          />
-          <button type="submit" className="btn btn-danger">
-            {hasPassword ? 'Change Password' : 'Set Password'}
-          </button>
-        </form>
+          <div className="profile-header-info">
+            <h2>{user.name}</h2>
+            <p className="profile-header-email">{user.email}</p>
+            <div className="profile-header-badges">
+              {memberSince && <span className="profile-badge">Member since {memberSince}</span>}
+              {user.google_id && <span className="profile-badge profile-badge-google">Linked with Google</span>}
+              {user.email_verified_at && (
+                <span className="profile-badge profile-badge-verified">Email verified</span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
+      {avatarError && (
+        <p className="msg-error" style={{ maxWidth: 420, margin: '0 auto 1.5rem' }}>{avatarError}</p>
+      )}
+
+      <div className="profile-tabs">
+        <button
+          type="button"
+          className={`profile-tab ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          Settings
+        </button>
+      </div>
+
+      {activeTab === 'overview' && (
+        <div className="stats-grid">
+          <div className="stat-card">
+            <span className="stat-card-icon">📍</span>
+            <span className="stat-card-value">{statsLoading ? '—' : stats.totalGems}</span>
+            <span className="stat-card-label">Hidden Gems Submitted</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-icon">✅</span>
+            <span className="stat-card-value">{statsLoading ? '—' : stats.verifiedGems}</span>
+            <span className="stat-card-label">Verified</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-icon">⏳</span>
+            <span className="stat-card-value">{statsLoading ? '—' : stats.pendingGems}</span>
+            <span className="stat-card-label">Pending Verification</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card-icon">✈️</span>
+            <span className="stat-card-value">{statsLoading ? '—' : stats.totalTrips}</span>
+            <span className="stat-card-label">Trip Itineraries</span>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'overview' && (
+        <div className="profile-recent-section">
+          <div className="trip-detail-section-header">
+            <h2>Recent Submissions</h2>
+            {stats.totalGems > 0 && (
+              <Link to="/my-hidden-gems" className="home-trending-seeall">View all →</Link>
+            )}
+          </div>
+
+          {statsLoading ? (
+            <p className="hidden-gems-loading">Loading…</p>
+          ) : recentGems.length === 0 ? (
+            <div className="hidden-gems-empty">
+              <p>You haven't submitted any hidden gems yet.</p>
+              <Link to="/hidden-gems/create" className="hidden-gems-submit-btn profile-recent-empty-btn">
+                Submit Your First Hidden Gem
+              </Link>
+            </div>
+          ) : (
+            <div className="hidden-gems-list profile-recent-list">
+              {recentGems.map((gem) => (
+                <div
+                  key={gem.id}
+                  className="hidden-gems-card"
+                  onClick={() => navigate(`/hidden-gems/${gem.id}`)}
+                >
+                  <div className="hidden-gems-card-image">
+                    {gem.images && gem.images.length > 0 ? (
+                      <img src={gem.images[0].image_url} alt={gem.place_name} />
+                    ) : (
+                      <div className="hidden-gems-card-no-image">No Image</div>
+                    )}
+                  </div>
+                  <div className="hidden-gems-card-content">
+                    <h2>{gem.place_name}</h2>
+                    <div className="hidden-gems-card-tags">
+                      <span className="hidden-gems-card-category">{gem.category?.name || 'Uncategorized'}</span>
+                      <span className="hidden-gems-card-state">{gem.state || 'Unknown'}</span>
+                    </div>
+                    <div className="hidden-gems-card-status">
+                      {gem.status === 'verified' ? (
+                        <span className="hidden-gems-card-verified">Verified</span>
+                      ) : (
+                        <span className="hidden-gems-card-pending">
+                          Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'settings' && (
+        <>
+          <div className="section-card">
+            <h3>Profile Information</h3>
+            <form onSubmit={handleProfileSubmit}>
+              {profileMessage && <p className="msg-success">{profileMessage}</p>}
+              {profileError && <p className="msg-error">{profileError}</p>}
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="form-input"
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="form-input"
+              />
+              <button type="submit" className="btn btn-primary">Update Profile</button>
+            </form>
+          </div>
+
+          <div className="section-card">
+            <h3>{hasPassword ? 'Change Password' : 'Set Password'}</h3>
+            <form onSubmit={handlePasswordSubmit}>
+              {passwordMessage && <p className="msg-success">{passwordMessage}</p>}
+              {passwordError && <p className="msg-error">{passwordError}</p>}
+
+              {hasPassword && (
+                <div className="form-input-wrapper">
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    placeholder="Current Password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                    className="form-input"
+                  />
+                  <button
+                    type="button"
+                    className="form-input-toggle"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showCurrentPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                  </button>
+                </div>
+              )}
+
+              <div className="form-input-wrapper">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  placeholder="New Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  className="form-input"
+                />
+                <button
+                  type="button"
+                  className="form-input-toggle"
+                  onClick={() => setShowNewPassword((prev) => !prev)}
+                  aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showNewPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                </button>
+              </div>
+
+              {newPassword && (
+                <div className="password-strength">
+                  <div className="password-strength-bar">
+                    <span className={`password-strength-seg ${newPasswordStrength.level >= 1 ? `filled level-${newPasswordStrength.level}` : ''}`} />
+                    <span className={`password-strength-seg ${newPasswordStrength.level >= 2 ? `filled level-${newPasswordStrength.level}` : ''}`} />
+                    <span className={`password-strength-seg ${newPasswordStrength.level >= 3 ? `filled level-${newPasswordStrength.level}` : ''}`} />
+                  </div>
+                  <span className={`password-strength-label strength-${newPasswordStrength.level}`}>
+                    {newPasswordStrength.label}
+                  </span>
+                </div>
+              )}
+              <p className={`password-hint ${newPassword.length >= 8 ? 'password-hint-ok' : ''}`}>
+                {newPassword.length >= 8 ? '✓' : '•'} At least 8 characters
+              </p>
+
+              <div className="form-input-wrapper">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm New Password"
+                  value={newPasswordConfirmation}
+                  onChange={(e) => setNewPasswordConfirmation(e.target.value)}
+                  required
+                  className="form-input"
+                />
+                <button
+                  type="button"
+                  className="form-input-toggle"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                </button>
+              </div>
+              {newPasswordConfirmation && (
+                <p className={`password-hint ${newPassword === newPasswordConfirmation ? 'password-hint-ok' : 'password-hint-bad'}`}>
+                  {newPassword === newPasswordConfirmation ? '✓ Passwords match' : '✗ Passwords do not match'}
+                </p>
+              )}
+              <button type="submit" className="btn btn-danger">
+                {hasPassword ? 'Change Password' : 'Set Password'}
+              </button>
+            </form>
+          </div>
+        </>
+      )}
     </div>
   );
 }
