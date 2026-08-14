@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import {
     addTripLocation,
     deleteTripItinerary,
+    deleteTripLocation,
     getTripItinerary,
     updateTripItinerary,
     updateTripLocationOrder,
@@ -57,8 +58,10 @@ const hasValidCoordinates = ({ latitude, longitude }) =>
 
 const toDisplayLocation = (location) => ({
     id: location.id,
-    name: location.location?.place_name ?? `OpenStreetMap location (${location.osm_id})`,
+    name: location.location?.place_name ?? location.osm_name ?? `OpenStreetMap location (${location.osm_id})`,
     type: location.isHidden ? "hidden" : "osm",
+    latitude: location.isHidden ? location.location?.latitude : location.latitude,
+    longitude: location.isHidden ? location.location?.longitude : location.longitude,
 });
 
 function MapViewController({ target }) {
@@ -200,6 +203,7 @@ export default function TripItineraryDetail() {
     const [addLocationError, setAddLocationError] = useState("");
     const [isSavingLocationOrder, setIsSavingLocationOrder] = useState(false);
     const [locationOrderError, setLocationOrderError] = useState("");
+    const [routeError, setRouteError] = useState("");
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -242,7 +246,7 @@ export default function TripItineraryDetail() {
             setHiddenGemsError("");
 
             try {
-                const response = await getHiddenGems();
+                const response = await getHiddenGems({ status: "verified" });
                 const gems = Array.isArray(response.data?.data) ? response.data.data : [];
 
                 if (isCurrent) {
@@ -319,7 +323,7 @@ export default function TripItineraryDetail() {
     };
 
     const selectHiddenGemOnMap = (hiddenGem) => {
-        setSelectedLocation({ ...hiddenGem, source: "database" });
+        setSelectedLocation({ ...hiddenGem, name: hiddenGem.place_name, source: "database" });
     };
 
     const handleAddLocation = async () => {
@@ -327,7 +331,13 @@ export default function TripItineraryDetail() {
 
         const data = selectedLocation.source === "database"
             ? { source: "database", location_id: selectedLocation.id }
-            : { source: "openstreetmap", osm_id: selectedLocation.osm_id };
+            : {
+                source: "openstreetmap",
+                osm_id: selectedLocation.osm_id,
+                osm_name: selectedLocation.name,
+                latitude: selectedLocation.latitude,
+                longitude: selectedLocation.longitude,
+            };
 
         setIsAddingLocation(true);
         setAddLocationError("");
@@ -468,17 +478,57 @@ export default function TripItineraryDetail() {
 
 
 
-    const removeLocation = (locationId) => {
+    const removeLocation = async (locationId) => {
+
+        const previousLocations = locations;
 
         setLocations(
             locations.filter(
                 item => item.id !== locationId
             )
         );
+        setLocationOrderError("");
+
+        try {
+            await deleteTripLocation(id, locationId);
+        } catch (error) {
+            console.error("Failed to delete stopping point.", error);
+            setLocations(previousLocations);
+            setLocationOrderError("Unable to delete this stopping point. Please try again.");
+        }
 
     };
 
 
+
+    const handleOpenRouteInGoogleMaps = () => {
+        const stopsWithCoordinates = locations.filter(hasValidCoordinates);
+
+        if (stopsWithCoordinates.length === 0) {
+            setRouteError("Add at least one stopping point with known coordinates before opening the route.");
+            return;
+        }
+
+        setRouteError("");
+
+        const destinationStop = stopsWithCoordinates[stopsWithCoordinates.length - 1];
+        const waypointStops = stopsWithCoordinates.slice(0, -1);
+
+        const params = new URLSearchParams({
+            api: "1",
+            destination: `${Number(destinationStop.latitude)},${Number(destinationStop.longitude)}`,
+            travelmode: "driving",
+        });
+
+        if (waypointStops.length > 0) {
+            params.set(
+                "waypoints",
+                waypointStops.map((stop) => `${Number(stop.latitude)},${Number(stop.longitude)}`).join("|"),
+            );
+        }
+
+        window.open(`https://www.google.com/maps/dir/?${params.toString()}`, "_blank");
+    };
 
     return (
 
@@ -789,7 +839,16 @@ export default function TripItineraryDetail() {
                 </div>
             )}
 
-            <button className="trip-detail-btn trip-detail-route-btn">
+            {routeError && (
+                <p className="trip-location-order-status trip-location-order-error" role="alert">
+                    {routeError}
+                </p>
+            )}
+
+            <button
+                className="trip-detail-btn trip-detail-route-btn"
+                onClick={handleOpenRouteInGoogleMaps}
+            >
                 🗺 Open Route in Google Maps
             </button>
 

@@ -12,6 +12,7 @@ use App\Notifications\VerifyNewEmail;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Http;
 
 class AuthController extends Controller
 {
@@ -201,6 +202,44 @@ class AuthController extends Controller
         $user->save();
 
         return response()->json(['message' => 'Profile updated successfully', 'user' => $user]);
+    }
+
+    // Upload / replace the user's avatar photo
+    public function uploadAvatar(Request $request)
+    {
+        $request->validate([
+            'avatar' => 'required|image|max:5120',
+        ]);
+
+        $user = $request->user();
+        $image = $request->file('avatar');
+        $fileName = $user->id . '-' . uniqid() . '.' . $image->getClientOriginalExtension();
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+            'apikey' => env('SUPABASE_KEY'),
+            'Content-Type' => $image->getMimeType(),
+        ])->withBody(
+            file_get_contents($image->getRealPath()),
+            $image->getMimeType()
+        )->post(
+            env('SUPABASE_URL') . '/storage/v1/object/avatars/' . $fileName
+        );
+
+        if ($response->failed()) {
+            return response()->json([
+                'message' => 'Failed to upload avatar.',
+                'error' => $response->json(),
+            ], 500);
+        }
+
+        $user->avatar_url = env('SUPABASE_URL') . '/storage/v1/object/public/avatars/' . $fileName;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Avatar updated successfully',
+            'user' => $user,
+        ]);
     }
 
     public function changePassword(Request $request)

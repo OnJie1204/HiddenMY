@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class HiddenGemController extends Controller
 {
@@ -21,7 +22,7 @@ class HiddenGemController extends Controller
     // ==================== API METHODS ====================
     public function store(Request $request): JsonResponse
     {
-         if (!Auth::check()) {
+        if (!Auth::check()) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
@@ -36,7 +37,7 @@ class HiddenGemController extends Controller
             'description' => 'required|string',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
-            'images.*' => 'image|max:2048'
+            'images.*' => 'image|max:5120'
         ]);
 
         $existingLocation = Location::where('place_name', $request->place_name)
@@ -50,7 +51,7 @@ class HiddenGemController extends Controller
         }
 
         $location = Location::create([
-            'user_id' => $user->id,    
+            'user_id' => $user->id,
             'category_id' => $request->category_id,
             'place_name' => $request->place_name,
             'address' => $request->address,
@@ -59,35 +60,60 @@ class HiddenGemController extends Controller
             'description' => $request->description,
             'latitude' => $request->latitude,
             'longitude' => $request->longitude,
-            'status' => 'pending',      
+            'status' => 'pending',
+            'vote_count' => 0,
+            'verification_threshold' => 10,
         ]);
 
+        // Upload images to local storage
         if ($request->hasFile('images')) {
 
             foreach ($request->file('images') as $image) {
 
-                $path = $image->store('hidden-gems','public');
+                $fileName = 'hidden-gems/' . uniqid() . '.' . $image->getClientOriginalExtension();
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                    'Content-Type' => $image->getMimeType(),
+                ])->withBody(
+                    file_get_contents($image->getRealPath()),
+                    $image->getMimeType()
+                )->post(
+                    env('SUPABASE_URL') . '/storage/v1/object/location_images/' . $fileName
+                );
+
+                if ($response->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to upload image.',
+                        'error' => $response->json()
+                    ], 500);
+                }
+
+                $imageUrl = env('SUPABASE_URL')
+                    . '/storage/v1/object/public/location_images/'
+                    . $fileName;
 
                 LocationImage::create([
-                    'location_id'=>$location->id,
-                    'image_url'=>$path
+                    'location_id' => $location->id,
+                    'image_url' => $imageUrl
                 ]);
             }
         }
 
         return response()->json([
             'message' => 'Hidden gem submitted successfully.',
-            'data' => $location
+            'data' => $location->load('images')
         ], 201);
     }
-
 
     /**
      * Return the Hidden Gems list for React frontend.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Location::with(['user', 'category', 'images']);
+        $query = Location::with(['user', 'category', 'images'])
+            ->where('status', '!=', 'deleted');
 
         // Filter by status (verified / pending)
         if ($request->has('status') && in_array($request->status, ['verified', 'pending'])) {
@@ -116,6 +142,47 @@ class HiddenGemController extends Controller
             'current_page' => $hiddenGems->currentPage(),
             'last_page' => $hiddenGems->lastPage(),
             'total' => $hiddenGems->total(),
+        ]);
+    }
+
+    public function myHiddenGems(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        $hiddenGems = Location::with([
+            'category',
+            'images'
+        ])
+        ->where('user_id', $user->id)
+        ->where('status', '!=', 'deleted')
+        ->latest()
+        ->get();
+
+        return response()->json([
+            'data' => $hiddenGems
+        ]);
+    }
+
+    public function updateStatus(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'status' => 'required|in:deleted',
+        ]);
+
+        $gem = Location::findOrFail($id);
+
+        if ($gem->user_id !== Auth::id()) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        $gem->status = 'deleted';
+        $gem->save();
+
+        return response()->json([
+            'message' => 'Hidden gem deleted successfully',
+            'data' => $gem
         ]);
     }
 
@@ -208,10 +275,24 @@ class HiddenGemController extends Controller
      */
     public function getStates(): JsonResponse
     {
-        $states = Location::distinct()
-                          ->pluck('state')
-                          ->filter()
-                          ->values();
+        $states = [
+            'Johor',
+            'Kuala Lumpur',
+            'Penang',
+            'Selangor',
+            'Melaka',
+            'Perak',
+            'Pahang',
+            'Sarawak',
+            'Sabah',
+            'Terengganu',
+            'Kelantan',
+            'Kedah',
+            'Negeri Sembilan',
+            'Perlis',
+            'Putrajaya',
+            'Labuan'
+        ];
 
         return response()->json(['data' => $states]);
     }

@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']); // 改 email 用，移到这里因为需要登入才能改自己的资料
     Route::post('/email/resend', function (Request $request) {
@@ -59,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Trip Itineraries
     Route::post('trip-itineraries/{tripItinerary}/locations', [TripItineraryController::class, 'storeLocation']);
     Route::put('trip-itineraries/{tripItinerary}/locations/order', [TripItineraryController::class, 'updateLocationOrder']);
+    Route::delete('trip-itineraries/{tripItinerary}/locations/{location}', [TripItineraryController::class, 'destroyLocation']);
     Route::apiResource('trip-itineraries', TripItineraryController::class);
 
     // ===== Hidden Gems API (for React) =====
@@ -67,8 +69,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('hidden-gems/categories', [HiddenGemController::class, 'getCategories']);
     Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);
     Route::get('hidden-gems/geocode', [HiddenGemController::class, 'geocode']);
-    Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
     Route::post('hidden-gems', [HiddenGemController::class, 'store']);
+    Route::get('my-hidden-gems', [HiddenGemController::class, 'myHiddenGems']);
+    Route::patch('hidden-gems/{id}/status', [HiddenGemController::class, 'updateStatus']);
+    Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
     
 });
 Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);
