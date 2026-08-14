@@ -72,8 +72,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('hidden-gems', [HiddenGemController::class, 'store']);
     Route::get('my-hidden-gems', [HiddenGemController::class, 'myHiddenGems']);
     Route::patch('hidden-gems/{id}/status', [HiddenGemController::class, 'updateStatus']);
+    Route::get('hidden-gems-in-bounds', [HiddenGemController::class, 'inBounds']);
+    Route::get('nearby-attractions', [HiddenGemController::class, 'nearbyAttractions']);
+    Route::get('hidden-gems/{id}/nearby', [HiddenGemController::class, 'nearby']);
     Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
-    
 });
 Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);
+Route::get('popular-hidden-gems', [HiddenGemController::class, 'popular']);
 

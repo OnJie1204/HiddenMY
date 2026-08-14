@@ -23,6 +23,7 @@ function AttractionMarker({
             Number(place.longitude)
         ]}
         icon={attractionIcon}
+        riseOnHover={true}
         eventHandlers={{
             click:()=>{
                 onClick();
