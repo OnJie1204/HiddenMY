@@ -72,6 +72,18 @@ function FlyToUser({ position }) {
     return null;
 }
 
+function FlyToGem({ gem }) {
+    const map = useMap();
+    useEffect(() => {
+        if (gem) {
+            map.flyTo(
+                [Number(gem.latitude), Number(gem.longitude)], 15, FLY_TO_OPTIONS
+            );
+        }
+    }, [gem, map]);
+    return null;
+}
+
 // Reports the map's visible bounds + zoom upward so the page can query
 // hidden gems (and OSM places) for exactly what's on screen.
 function ViewportWatcher({ onChange }) {
@@ -325,18 +337,6 @@ function Maps(){
     }
 
     const defaultCenter = [4.2105, 101.9758];
-
-    function FlyToGem({ gem }) {
-        const map = useMap();
-        useEffect(() => {
-            if (gem) {
-                map.flyTo(
-                    [Number(gem.latitude), Number(gem.longitude)], 15, FLY_TO_OPTIONS
-                );
-            }
-        }, [gem]);
-        return null;
-    }
 
     const statusFilters = [
         { value: null, label: "All" },
