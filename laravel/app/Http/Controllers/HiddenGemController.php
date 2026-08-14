@@ -18,6 +18,38 @@ class HiddenGemController extends Controller
 
     private const OSM_CACHE_TTL_HOURS = 6;
 
+    private const NEARBY_RADIUS_METERS = 1500;
+
+    private const NEARBY_RESULT_LIMIT = 60;
+
+    private const VIEWPORT_RESULT_LIMIT = 300;
+
+    /**
+     * Overpass is a free, shared, per-IP rate-limited service whose latency swings
+     * between ~0.8s and >12s (and answers 429 when busy). To keep the map inside its
+     * performance budget we (a) fail fast rather than hanging, (b) snap cache keys to
+     * a coarse grid so panning reuses one entry, (c) cache successes for a long time,
+     * and (d) cache failures briefly so a bad patch isn't retried on every pan.
+     */
+    private const OVERPASS_TIMEOUT_SECONDS = 5;
+
+    private const NEARBY_CACHE_TTL_DAYS = 7;
+
+    private const NEARBY_FAILURE_TTL_MINUTES = 5;
+
+    /** ~1.1km grid — coarse enough that small pans share a cache entry. */
+    private const NEARBY_GRID_PRECISION = 2;
+
+    /** Place types worth showing on the map, grouped by their OSM tag. */
+    private const NEARBY_TAG_FILTERS = [
+        'tourism' => 'attraction|museum|viewpoint|gallery|zoo|theme_park|artwork|aquarium|picnic_site',
+        'leisure' => 'park|garden|nature_reserve|water_park|beach_resort',
+        'historic' => 'monument|memorial|ruins|castle|archaeological_site|temple',
+        'amenity' => 'restaurant|cafe|fast_food|bar|pub|cinema|theatre|marketplace|food_court|ice_cream',
+        'shop' => 'mall|department_store',
+        'natural' => 'beach|peak|cave_entrance',
+    ];
+
     // ==================== API METHODS ====================
     public function store(Request $request): JsonResponse
     {
@@ -131,6 +163,71 @@ class HiddenGemController extends Controller
     }
 
     /**
+     * Nearby attractions (from OpenStreetMap) around a Hidden Gem — powers the
+     * "Near this gem" section shown under a gem's detail in the map panel.
+     */
+    public function nearby(Request $request, $id): JsonResponse
+    {
+        $gem = Location::findOrFail($id);
+
+        $radius = (int) $request->query('radius', self::NEARBY_RADIUS_METERS);
+        $radius = max(100, min(3000, $radius));
+
+        $results = $this->fetchNearbyFromOverpass((float) $gem->latitude, (float) $gem->longitude, $radius);
+
+        return response()->json(['data' => $results]);
+    }
+
+    /**
+     * Nearby attractions around an arbitrary coordinate — used by the map's
+     * zoom-in "explore nearby" discovery, which has no Hidden Gem to key off.
+     */
+    public function nearbyAttractions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'radius' => ['nullable', 'integer', 'between:100,3000'],
+        ]);
+
+        $results = $this->fetchNearbyFromOverpass(
+            (float) $validated['latitude'],
+            (float) $validated['longitude'],
+            (int) ($validated['radius'] ?? self::NEARBY_RADIUS_METERS)
+        );
+
+        return response()->json(['data' => $results]);
+    }
+
+    /**
+     * Hidden Gems within the map's current viewport. The paginated index() only
+     * ever returned the first 12, so the map could never show everything in view.
+     */
+    public function inBounds(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'north' => ['required', 'numeric', 'between:-90,90'],
+            'south' => ['required', 'numeric', 'between:-90,90'],
+            'east' => ['required', 'numeric', 'between:-180,180'],
+            'west' => ['required', 'numeric', 'between:-180,180'],
+            'status' => ['nullable', 'in:verified,pending'],
+        ]);
+
+        $query = Location::with(['category', 'images'])
+            ->where('status', '!=', 'deleted')
+            ->whereBetween('latitude', [$validated['south'], $validated['north']])
+            ->whereBetween('longitude', [$validated['west'], $validated['east']]);
+
+        if (!empty($validated['status'])) {
+            $query->where('status', $validated['status']);
+        }
+
+        return response()->json([
+            'data' => $query->limit(self::VIEWPORT_RESULT_LIMIT)->get(),
+        ]);
+    }
+
+    /**
      * Search approved Hidden Gems first, then supplement the results with OSM.
      */
     public function search(Request $request): JsonResponse
@@ -226,6 +323,20 @@ class HiddenGemController extends Controller
         return response()->json($recentLocations);
     }
 
+    /**
+     * Top-voted, verified Hidden Gems (used by the "Popular" row on the map page).
+     */
+    public function popular(): JsonResponse
+    {
+        $popularLocations = Location::with(['user', 'category', 'images'])
+            ->where('status', 'verified')
+            ->orderByDesc('vote_count')
+            ->take(6)
+            ->get();
+
+        return response()->json($popularLocations);
+    }
+
     // ==================== PRIVATE METHODS ====================
 
     private function searchOpenStreetMap(string $query, int $remainingResults): Collection
@@ -283,5 +394,138 @@ class HiddenGemController extends Controller
             'longitude' => $location->longitude,
             'source' => 'database',
         ];
+    }
+
+    /**
+     * Named OSM points (attractions, museums, restaurants, cafes, ...) within
+     * NEARBY_RADIUS_METERS of a coordinate, via the free Overpass API — no
+     * ratings/reviews available from OSM, just name/type/distance.
+     */
+    private function fetchNearbyFromOverpass(float $lat, float $lng, ?int $radius = null): Collection
+    {
+        $radius = $radius ?? self::NEARBY_RADIUS_METERS;
+
+        // Snap the cache key to a coarse grid. Keying on the exact coordinate meant
+        // moving a few metres missed the cache and paid the full Overpass round-trip.
+        $cacheKey = sprintf(
+            'osm-nearby:%s:%s:%d',
+            number_format(round($lat, self::NEARBY_GRID_PRECISION), self::NEARBY_GRID_PRECISION, '.', ''),
+            number_format(round($lng, self::NEARBY_GRID_PRECISION), self::NEARBY_GRID_PRECISION, '.', ''),
+            $radius
+        );
+
+        $places = Cache::get($cacheKey);
+
+        if ($places === null) {
+            $places = $this->requestNearbyFromOverpass($lat, $lng, $radius);
+        }
+
+        // Distances are measured from the caller's exact position, not the grid
+        // centre the results were cached under.
+        return $places
+            ->map(function (array $place) use ($lat, $lng) {
+                $place['distance'] = (int) round(
+                    $this->haversineMeters($lat, $lng, $place['latitude'], $place['longitude'])
+                );
+
+                return $place;
+            })
+            ->sortBy('distance')
+            ->values();
+    }
+
+    /**
+     * One Overpass round-trip, writing whatever it learns (including failure) to cache.
+     */
+    private function requestNearbyFromOverpass(float $lat, float $lng, int $radius): Collection
+    {
+        $cacheKey = sprintf(
+            'osm-nearby:%s:%s:%d',
+            number_format(round($lat, self::NEARBY_GRID_PRECISION), self::NEARBY_GRID_PRECISION, '.', ''),
+            number_format(round($lng, self::NEARBY_GRID_PRECISION), self::NEARBY_GRID_PRECISION, '.', ''),
+            $radius
+        );
+
+        // `nwr` (node/way/relation) rather than `node` alone: parks, malls, museums and
+        // most large attractions are mapped as ways or relations, so a node-only query
+        // silently missed them. `out center` gives those a usable centre point.
+        $clauses = '';
+        foreach (self::NEARBY_TAG_FILTERS as $tag => $pattern) {
+            $clauses .= "nwr[\"{$tag}\"~\"^({$pattern})$\"](around:{$radius},{$lat},{$lng});";
+        }
+
+        $overpassQuery = '[out:json][timeout:'.self::OVERPASS_TIMEOUT_SECONDS.'];'
+            . "({$clauses});"
+            . 'out center '.self::NEARBY_RESULT_LIMIT.';';
+
+        try {
+            // Overpass answers 406 Not Acceptable to Guzzle's default User-Agent,
+            // so an explicit one is required here (same as the Nominatim call above).
+            $response = Http::asForm()
+                ->withUserAgent(config('app.name', 'HiddenMY').' nearby attractions')
+                ->timeout(self::OVERPASS_TIMEOUT_SECONDS)
+                ->post('https://overpass-api.de/api/interpreter', ['data' => $overpassQuery])
+                ->throw()
+                ->json();
+
+            $places = collect($response['elements'] ?? [])
+                ->map(function (array $element) {
+                    $tags = $element['tags'] ?? [];
+                    $name = $tags['name'] ?? null;
+
+                    // Nodes carry lat/lon directly; ways and relations get a centre.
+                    $placeLat = $element['lat'] ?? $element['center']['lat'] ?? null;
+                    $placeLng = $element['lon'] ?? $element['center']['lon'] ?? null;
+
+                    if (!$name || $placeLat === null || $placeLng === null) {
+                        return null;
+                    }
+
+                    $type = 'place';
+                    foreach (array_keys(self::NEARBY_TAG_FILTERS) as $tag) {
+                        if (!empty($tags[$tag])) {
+                            $type = $tags[$tag];
+                            break;
+                        }
+                    }
+
+                    return [
+                        'id' => 'osm-'.$element['type'].'-'.$element['id'],
+                        'osm_id' => $element['id'],
+                        'name' => $name,
+                        'type' => $type,
+                        'latitude' => (float) $placeLat,
+                        'longitude' => (float) $placeLng,
+                        'source' => 'openstreetmap',
+                    ];
+                })
+                ->filter()
+                ->unique('id')
+                ->values();
+
+            Cache::put($cacheKey, $places, now()->addDays(self::NEARBY_CACHE_TTL_DAYS));
+
+            return $places;
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            // Cache the miss briefly. Overpass rate-limits per IP (429) and a bad call
+            // costs the full timeout, so retrying it on every pan makes things worse.
+            Cache::put($cacheKey, collect(), now()->addMinutes(self::NEARBY_FAILURE_TTL_MINUTES));
+
+            return collect();
+        }
+    }
+
+    private function haversineMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadiusMeters = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return $earthRadiusMeters * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 }

@@ -5,7 +5,7 @@ function RecentHiddenGemCard({
     return (
         <div className="recent-card" onClick={onClick}>
             {post.images?.[0]?.image_url && (
-                <img src={`/storage/${post.images[0].image_url}`} alt={post.place_name} className="recent-image"/>
+                <img src={post.images[0].image_url} alt={post.place_name} className="recent-image"/>
             )}
             <div className="recent-content">
                 <h3>💎 {post.place_name}</h3>
