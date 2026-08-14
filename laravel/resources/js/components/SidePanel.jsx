@@ -3,8 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 
-const MIN_WIDTH = 320;
-const MAX_WIDTH = 900;
+const MIN_WIDTH = 280;
+const MAX_WIDTH = 420;
 
 // mode="nav"  -> the hamburger-menu panel (Layout.jsx): fixed to the viewport, full nav chrome.
 // mode="gems" -> the Maps page's gem-detail panel: docked inside the map's left column
@@ -63,10 +63,8 @@ function SidePanel({
         };
     }, [isResizing, side]);
 
-    // Press 'esc' to close panel 
+    // Press 'esc' to close panel
     useEffect(() => {
-        if (!group) return; 
-
         function handleEscape(e) {
             if (e.key === "Escape") {
                 onClose();
@@ -75,9 +73,9 @@ function SidePanel({
 
         document.addEventListener("keydown", handleEscape);
         return () => document.removeEventListener("keydown", handleEscape);
-    }, [group, onClose]);
+    }, [onClose]);
 
-    if (!group) return null;
+    if (!isOpen) return null;
 
     const showNavChrome = mode === "nav";
     const embedded = mode === "gems";
@@ -113,6 +111,22 @@ function SidePanel({
         }
     }
 
+    const handleLogout = async () => {
+        localStorage.removeItem('token');
+        setUser(null);
+        onClose();
+        navigate('/login');
+    };
+
+    const menuItems = [
+        { to: '/', icon: '🏠', label: 'Home' },
+        { to: '/map', icon: '🗺️', label: 'Map' },
+        { to: '/hidden-gems', icon: '💎', label: 'Hidden Gems' },
+        { to: '/my-hidden-gems', icon: '📍', label: 'My Hidden Gems' },
+        { to: '/trip-itinerary', icon: '✈️', label: 'Trip Itinerary' },
+        { to: '/profile', icon: '👤', label: 'Profile' },
+    ];
+
     return (
         <div
             ref={panelRef}
@@ -139,7 +153,6 @@ function SidePanel({
                 <button className="side-panel-close" onClick={onClose} aria-label="Close">
                     ✕
                 </button>
-                <button className="side-sheet-icon-btn" onClick={onClose} aria-label="Close">✕</button>
             </div>
 
             {headerExtra && (
@@ -201,9 +214,11 @@ function SidePanel({
                             </div>
                         </div>
 
-                        <h2>{gem.source === "database" ? "💎" : "📍"} {gem.title}</h2>
-                        {gem.state && <p className="bottom-sheet-meta">📍 {gem.state}</p>}
-                        <p>{gem.description || "No description available."}</p>
+                        <h2 className="side-panel-gem-title">
+                            {gem.source === "database" ? "💎" : "📍"} {gem.title}
+                        </h2>
+                        {gem.state && <p className="side-panel-gem-meta">📍 {gem.state}</p>}
+                        <p className="side-panel-gem-desc">{gem.description || "No description available."}</p>
 
                         {/* Icon action row, Google Maps style: icon tile + label underneath */}
                         <div className="side-panel-actions">
@@ -275,10 +290,10 @@ function SidePanel({
                         )}
 
                         {gem.source === "database" && gem.voteCount != null && (
-                            <div className="vote-progress">
+                            <div className="side-panel-vote">
                                 <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes to verify</span>
-                                <div className="vote-bar">
-                                    <div className="vote-fill" style={{ width: `${Math.min(100, (gem.voteCount / (gem.verificationThreshold ?? 10)) * 100)}%` }} />
+                                <div className="side-panel-vote-bar">
+                                    <div className="side-panel-vote-fill" style={{ width: `${Math.min(100, (gem.voteCount / (gem.verificationThreshold ?? 10)) * 100)}%` }} />
                                 </div>
                             </div>
                         )}

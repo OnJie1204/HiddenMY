@@ -10,6 +10,9 @@ class TripLocation extends Model
         'trip_itinerary_id',
         'location_id',
         'osm_id',
+        'osm_name',
+        'latitude',
+        'longitude',
         'isHidden',
         'order_number',
     ];

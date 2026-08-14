@@ -45,8 +45,17 @@ class GoogleAuthController extends Controller
                     'google_id' => $googleUser->getId(),
                     'password' => null,
                     'email_verified_at' => now(), // Google 已验证过，直接标记为已验证
+                    'avatar_url' => $googleUser->getAvatar(),
                 ]);
             }
+        }
+
+        // Backfill the Google avatar for accounts that don't have one yet
+        // (e.g. Google users created before avatar_url existed). Never
+        // overwrite a photo the user already uploaded themselves.
+        if (!$user->avatar_url && $googleUser->getAvatar()) {
+            $user->avatar_url = $googleUser->getAvatar();
+            $user->save();
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;

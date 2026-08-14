@@ -57,6 +57,11 @@ class Location extends Model
         return $this->status === 'pending';
     }
 
+    public function scopeHiddenGems(Builder $query)
+    {
+        return $query->where('status', 'verified');
+    }
+
     public function getVoteProgressAttribute()
     {
         if ($this->verification_threshold <= 0) {

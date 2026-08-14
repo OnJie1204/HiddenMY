@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { resetPassword } from '../api/auth';
 
 function ResetPassword() {
@@ -12,6 +13,8 @@ function ResetPassword() {
   const [email, setEmail] = useState(emailFromUrl);
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -48,22 +51,42 @@ function ResetPassword() {
           required
           className="form-input"
         />
-        <input
-          type="password"
-          placeholder="New Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="form-input"
-        />
-        <input
-          type="password"
-          placeholder="Confirm New Password"
-          value={passwordConfirmation}
-          onChange={(e) => setPasswordConfirmation(e.target.value)}
-          required
-          className="form-input"
-        />
+        <div className="form-input-wrapper">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="New Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="form-input"
+          />
+          <button
+            type="button"
+            className="form-input-toggle"
+            onClick={() => setShowPassword((prev) => !prev)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+          </button>
+        </div>
+        <div className="form-input-wrapper">
+          <input
+            type={showConfirmPassword ? 'text' : 'password'}
+            placeholder="Confirm New Password"
+            value={passwordConfirmation}
+            onChange={(e) => setPasswordConfirmation(e.target.value)}
+            required
+            className="form-input"
+          />
+          <button
+            type="button"
+            className="form-input-toggle"
+            onClick={() => setShowConfirmPassword((prev) => !prev)}
+            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+          >
+            {showConfirmPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+          </button>
+        </div>
         <button type="submit" className="btn btn-primary">Reset password</button>
         <p className="auth-link-row"><Link to="/login">Back to login</Link></p>
       </form>

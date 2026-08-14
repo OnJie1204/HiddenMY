@@ -16,6 +16,8 @@ import TripItinerary from "./pages/TripItinerary";
 import TripItineraryDetail from "./pages/TripItineraryDetail";
 import HiddenGems from './pages/HiddenGems';  
 import HiddenGemSubmission from './pages/HiddenGemSubmission';
+import MyHiddenGems from './pages/MyHiddenGems';
+import HiddenGemDetail from "./pages/HiddenGemDetail";
 import { getMe } from './api/auth';
 import { getToken, clearToken } from './utils/tokenStorage';
 
@@ -87,7 +89,6 @@ function App() {
           }
         />
 
-        {/* 👇 新增 Hidden Gems 路由 */}
         <Route
           path="/hidden-gems"
           element={
@@ -102,6 +103,19 @@ function App() {
         />
 
         <Route
+          path="/hidden-gems/:id"
+          element={
+              user ? (
+                  <Layout user={user} setUser={setUser}>
+                      <HiddenGemDetail />
+                  </Layout>
+              ) : (
+                  <Navigate to="/login" />
+              )
+          }
+      />
+
+        <Route
           path="/hidden-gems/create"
           element={
             user ? (
@@ -112,6 +126,19 @@ function App() {
               <Navigate to="/login" />
             )
           }
+        />
+
+        <Route
+            path="/my-hidden-gems"
+            element={
+                user ? (
+                    <Layout user={user} setUser={setUser}>
+                        <MyHiddenGems />
+                    </Layout>
+                ) : (
+                    <Navigate to="/login" />
+                )
+            }
         />
 
       </Routes>

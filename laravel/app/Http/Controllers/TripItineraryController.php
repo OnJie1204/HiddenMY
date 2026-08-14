@@ -76,6 +76,9 @@ class TripItineraryController extends Controller
             'source' => ['required', 'in:database,openstreetmap'],
             'location_id' => ['nullable', 'integer'],
             'osm_id' => ['nullable', 'integer'],
+            'osm_name' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
         if ($validated['source'] === 'database') {
@@ -97,11 +100,19 @@ class TripItineraryController extends Controller
                 'isHidden' => true,
             ];
         } else {
-            $request->validate(['osm_id' => ['required', 'integer']]);
+            $request->validate([
+                'osm_id' => ['required', 'integer'],
+                'osm_name' => ['required', 'string', 'max:255'],
+                'latitude' => ['required', 'numeric', 'between:-90,90'],
+                'longitude' => ['required', 'numeric', 'between:-180,180'],
+            ]);
 
             $attributes = [
                 'location_id' => null,
                 'osm_id' => $validated['osm_id'],
+                'osm_name' => $validated['osm_name'],
+                'latitude' => $validated['latitude'],
+                'longitude' => $validated['longitude'],
                 'isHidden' => false,
             ];
         }
@@ -163,6 +174,29 @@ class TripItineraryController extends Controller
 
         return response()->json([
             'message' => 'Stopping point order updated successfully.',
+            'data' => $tripItinerary->fresh()->load('locations.location'),
+        ]);
+    }
+
+    /**
+     * Remove a single stopping point from an itinerary.
+     */
+    public function destroyLocation(Request $request, TripItinerary $tripItinerary, $location)
+    {
+        if ($tripItinerary->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $tripLocation = $tripItinerary->locations()->find($location);
+
+        if (! $tripLocation) {
+            return response()->json(['message' => 'Stopping point not found.'], 404);
+        }
+
+        $tripLocation->delete();
+
+        return response()->json([
+            'message' => 'Stopping point removed successfully.',
             'data' => $tripItinerary->fresh()->load('locations.location'),
         ]);
     }
