@@ -204,6 +204,10 @@ export default function TripItineraryDetail() {
     const [isSavingLocationOrder, setIsSavingLocationOrder] = useState(false);
     const [locationOrderError, setLocationOrderError] = useState("");
     const [routeError, setRouteError] = useState("");
+    const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
+    const [userLocation, setUserLocation] = useState(null);
+    const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+    const [locationPromptError, setLocationPromptError] = useState("");
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -212,6 +216,49 @@ export default function TripItineraryDetail() {
         setSearchResults({ database: [], openStreetMap: [] });
         setMapTarget(null);
         setAddLocationError("");
+        setUserLocation(null);
+    };
+
+    const openAddStoppingPointFlow = () => {
+        setLocationPromptError("");
+
+        if (typeof navigator === "undefined" || !navigator.geolocation) {
+            setUserLocation(null);
+            setIsStoppingPointDialogOpen(true);
+            return;
+        }
+
+        setIsLocationPromptOpen(true);
+    };
+
+    const skipLocationAndOpenDialog = () => {
+        setUserLocation(null);
+        setIsRequestingLocation(false);
+        setIsLocationPromptOpen(false);
+        setIsStoppingPointDialogOpen(true);
+    };
+
+    const shareLocationAndOpenDialog = () => {
+        setIsRequestingLocation(true);
+        setLocationPromptError("");
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setUserLocation({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                });
+                setIsRequestingLocation(false);
+                setIsLocationPromptOpen(false);
+                setIsStoppingPointDialogOpen(true);
+            },
+            (error) => {
+                console.error("Failed to get user location.", error);
+                setIsRequestingLocation(false);
+                setLocationPromptError("Unable to access your location. You can skip and search without it.");
+            },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+        );
     };
 
     const refreshItinerary = async () => {
@@ -292,7 +339,11 @@ export default function TripItineraryDetail() {
             setLocationSearchError("");
 
             try {
-                const response = await searchHiddenGems(query, { signal: controller.signal });
+                const response = await searchHiddenGems(query, {
+                    signal: controller.signal,
+                    latitude: userLocation?.latitude,
+                    longitude: userLocation?.longitude,
+                });
                 setSearchResults({
                     database: Array.isArray(response.data?.database) ? response.data.database : [],
                     openStreetMap: Array.isArray(response.data?.openStreetMap) ? response.data.openStreetMap : [],
@@ -314,7 +365,7 @@ export default function TripItineraryDetail() {
             window.clearTimeout(timeout);
             controller.abort();
         };
-    }, [isStoppingPointDialogOpen, searchQuery]);
+    }, [isStoppingPointDialogOpen, searchQuery, userLocation]);
 
     const selectSearchResult = (location) => {
         setSelectedLocation(location);
@@ -649,7 +700,7 @@ export default function TripItineraryDetail() {
                 <button
                     type="button"
                     className="trip-detail-btn trip-detail-add-btn"
-                    onClick={() => setIsStoppingPointDialogOpen(true)}
+                    onClick={openAddStoppingPointFlow}
                 >
                     + Add Stopping Point
                 </button>
@@ -703,6 +754,53 @@ export default function TripItineraryDetail() {
 
 
 
+            {isLocationPromptOpen && (
+                <div
+                    className="stopping-point-dialog-backdrop"
+                    onMouseDown={() => setIsLocationPromptOpen(false)}
+                >
+                    <section
+                        className="stopping-point-dialog location-prompt-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="location-prompt-dialog-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <h2 id="location-prompt-dialog-title">Use your current location?</h2>
+
+                        <p className="location-prompt-description">
+                            Sharing your location lets us show nearby OpenStreetMap results first. This is
+                            optional — Hidden Gems are always searched first either way.
+                        </p>
+
+                        {locationPromptError && (
+                            <p className="stopping-point-map-status stopping-point-map-status-error" role="alert">
+                                {locationPromptError}
+                            </p>
+                        )}
+
+                        <div className="stopping-point-dialog-actions">
+                            <button
+                                type="button"
+                                className="stopping-point-cancel-btn"
+                                onClick={skipLocationAndOpenDialog}
+                                disabled={isRequestingLocation}
+                            >
+                                Skip
+                            </button>
+                            <button
+                                type="button"
+                                className="stopping-point-confirm-btn"
+                                onClick={shareLocationAndOpenDialog}
+                                disabled={isRequestingLocation}
+                            >
+                                {isRequestingLocation ? "Requesting…" : "Share Location"}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
+
             {isStoppingPointDialogOpen && (
                 <div
                     className="stopping-point-dialog-backdrop"
@@ -716,6 +814,12 @@ export default function TripItineraryDetail() {
                         onMouseDown={(event) => event.stopPropagation()}
                     >
                         <h2 id="stopping-point-dialog-title">Add Stopping Point</h2>
+
+                        {userLocation && (
+                            <p className="stopping-point-search-status">
+                                📍 Showing OpenStreetMap results nearest to your current location first.
+                            </p>
+                        )}
 
                         <label className="stopping-point-search-label" htmlFor="stopping-point-search">
                             Search hidden gems

@@ -6,8 +6,12 @@ export const getHiddenGems = (params = {}) =>
 export const getHiddenGemDetail = (id) => 
     api.get(`/hidden-gems/${id}`);
 
-export function searchHiddenGems(query) {
-    return api.get('/hidden-gems/search', { params: { query } });}
+export function searchHiddenGems(query, { signal, latitude, longitude } = {}) {
+    return api.get('/hidden-gems/search', {
+        params: { query, latitude, longitude },
+        signal,
+    });
+}
 
 export const getCategories = () => 
     api.get('/hidden-gems/categories');
