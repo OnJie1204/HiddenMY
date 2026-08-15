@@ -1804,6 +1804,17 @@ img.avatar {
     margin-top: 1.25rem;
 }
 
+.location-prompt-dialog {
+    width: min(100%, 420px);
+}
+
+.location-prompt-description {
+    margin: 0;
+    color: #475569;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
 .stopping-point-dialog-actions button {
     padding: 0.7rem 1.1rem;
     border-radius: 8px;
