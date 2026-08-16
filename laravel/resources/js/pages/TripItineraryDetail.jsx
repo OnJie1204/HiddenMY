@@ -8,7 +8,7 @@ import {
     updateTripItinerary,
     updateTripLocationOrder,
 } from "../api/TripItinerary";
-import { getHiddenGems, searchHiddenGems } from "../api/hiddenGems";
+import { getHiddenGems, searchHiddenGems, reverseGeocodeLocation } from "../api/hiddenGems";
 
 import {
     DndContext,
@@ -25,7 +25,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import { MdDragIndicator } from "react-icons/md";
-import { MapContainer, Marker, Popup, Tooltip, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, Tooltip, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -81,6 +81,16 @@ function MapViewController({ target }) {
             });
         }
     }, [map, target]);
+
+    return null;
+}
+
+function MapClickHandler({ onMapClick }) {
+    useMapEvents({
+        click(event) {
+            onMapClick(event.latlng);
+        },
+    });
 
     return null;
 }
@@ -215,6 +225,8 @@ export default function TripItineraryDetail() {
     const [userLocation, setUserLocation] = useState(null);
     const [isRequestingLocation, setIsRequestingLocation] = useState(false);
     const [locationPromptError, setLocationPromptError] = useState("");
+    const [isIdentifyingClickedLocation, setIsIdentifyingClickedLocation] = useState(false);
+    const [mapClickError, setMapClickError] = useState("");
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -224,6 +236,7 @@ export default function TripItineraryDetail() {
         setMapTarget(null);
         setAddLocationError("");
         setUserLocation(null);
+        setMapClickError("");
     };
 
     const openAddStoppingPointFlow = () => {
@@ -384,6 +397,37 @@ export default function TripItineraryDetail() {
 
     const selectHiddenGemOnMap = (hiddenGem) => {
         setSelectedLocation({ ...hiddenGem, name: hiddenGem.place_name, source: "database" });
+    };
+
+    const handleMapClick = async (latlng) => {
+        const latitude = latlng.lat;
+        const longitude = latlng.lng;
+
+        setSelectedLocation(null);
+        setMapClickError("");
+        setIsIdentifyingClickedLocation(true);
+
+        try {
+            const response = await reverseGeocodeLocation(latitude, longitude);
+            const location = {
+                id: response.data.id,
+                osm_id: response.data.osm_id,
+                name: response.data.name,
+                latitude,
+                longitude,
+                source: "openstreetmap",
+            };
+
+            setSelectedLocation(location);
+            setMapTarget({ ...location, zoom: 16 });
+        } catch (error) {
+            console.error("Failed to identify the clicked location.", error);
+            setMapClickError(
+                error.response?.data?.message ?? "Unable to identify a location at this point. Please try again.",
+            );
+        } finally {
+            setIsIdentifyingClickedLocation(false);
+        }
     };
 
     const handleAddLocation = async () => {
@@ -867,6 +911,10 @@ export default function TripItineraryDetail() {
                             </div>
                         )}
 
+                        <p className="stopping-point-search-status">
+                            Or click anywhere on the map to select that location.
+                        </p>
+
                         <div className="stopping-point-map" aria-label="Map of hidden gems">
                             <MapContainer
                                 center={[4.2105, 101.9758]}
@@ -879,6 +927,7 @@ export default function TripItineraryDetail() {
                                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 />
                                 <MapViewController target={mapTarget} />
+                                <MapClickHandler onMapClick={handleMapClick} />
                                 {hiddenGems
                                     .filter(hasValidCoordinates)
                                     .map((hiddenGem) => (
@@ -906,7 +955,16 @@ export default function TripItineraryDetail() {
                                     <Marker
                                         position={[Number(selectedLocation.latitude), Number(selectedLocation.longitude)]}
                                         icon={openStreetMapMarkerIcon}
-                                    />
+                                    >
+                                        <Popup>
+                                            <div className="hidden-gem-marker-popup">
+                                                <strong>{selectedLocation.name}</strong>
+                                                <span>
+                                                    {Number(selectedLocation.latitude).toFixed(6)}, {Number(selectedLocation.longitude).toFixed(6)}
+                                                </span>
+                                            </div>
+                                        </Popup>
+                                    </Marker>
                                 )}
                                 {userLocation && hasValidCoordinates(userLocation) && (
                                     <Marker
@@ -931,6 +989,14 @@ export default function TripItineraryDetail() {
                         {hiddenGemsError && (
                             <p className="stopping-point-map-status stopping-point-map-status-error" role="alert">
                                 {hiddenGemsError}
+                            </p>
+                        )}
+                        {isIdentifyingClickedLocation && (
+                            <p className="stopping-point-map-status">Identifying selected location…</p>
+                        )}
+                        {mapClickError && (
+                            <p className="stopping-point-map-status stopping-point-map-status-error" role="alert">
+                                {mapClickError}
                             </p>
                         )}
                         {addLocationError && (

@@ -369,6 +369,64 @@ class HiddenGemController extends Controller
     }
 
     /**
+     * Identify the location under a coordinate the user clicked on the map
+     * (reverse geocoding via Nominatim). The clicked coordinate itself is
+     * always used as the stopping point's position — Nominatim is only
+     * used to look up a human-readable name and an osm_id for it.
+     */
+    public function reverseGeocode(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        $latitude = (float) $validated['latitude'];
+        $longitude = (float) $validated['longitude'];
+
+        $cacheKey = 'osm-reverse:'.md5(round($latitude, 5).':'.round($longitude, 5));
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return response()->json($cached);
+        }
+
+        try {
+            $result = Http::acceptJson()
+                ->withUserAgent(config('app.name', 'HiddenMY').' location search')
+                ->timeout(5)
+                ->get('https://nominatim.openstreetmap.org/reverse', [
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'format' => 'jsonv2',
+                ])
+                ->throw()
+                ->json();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to identify a location at this point. Please try again.'], 502);
+        }
+
+        if (empty($result['osm_id']) || empty($result['display_name'])) {
+            return response()->json(['message' => 'No location found at this point. Try clicking closer to a road or landmark.'], 404);
+        }
+
+        $location = [
+            'id' => 'osm-'.($result['osm_type'] ?? 'node').'-'.$result['osm_id'],
+            'osm_id' => (int) $result['osm_id'],
+            'name' => $result['display_name'],
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'source' => 'openstreetmap',
+        ];
+
+        Cache::put($cacheKey, $location, now()->addHours(self::OSM_CACHE_TTL_HOURS));
+
+        return response()->json($location);
+    }
+
+    /**
      * Get categories for filter.
      */
     public function getCategories(): JsonResponse

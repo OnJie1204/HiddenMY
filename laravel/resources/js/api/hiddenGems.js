@@ -22,6 +22,9 @@ export const getStates = () =>
 export const geocodeAddress = (query) =>
     api.get('/hidden-gems/geocode', { params: { query } });
 
+export const reverseGeocodeLocation = (latitude, longitude) =>
+    api.get('/hidden-gems/reverse-geocode', { params: { latitude, longitude } });
+
 export const createHiddenGem = (data) =>
     api.post('/hidden-gems', data, {
         headers: {
