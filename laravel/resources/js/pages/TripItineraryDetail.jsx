@@ -25,7 +25,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import { MdDragIndicator } from "react-icons/md";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, Tooltip, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -51,6 +51,13 @@ const openStreetMapMarkerIcon = L.divIcon({
     html: '<span class="open-street-map-marker" aria-hidden="true"></span>',
     iconSize: [24, 24],
     iconAnchor: [12, 12],
+});
+
+const userLocationMarkerIcon = L.divIcon({
+    className: "user-location-marker-icon",
+    html: '<span class="user-location-marker-pulse" aria-hidden="true"></span><span class="user-location-marker-dot" aria-hidden="true"></span>',
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
 });
 
 const hasValidCoordinates = ({ latitude, longitude }) =>
@@ -244,10 +251,12 @@ export default function TripItineraryDetail() {
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                setUserLocation({
+                const location = {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
-                });
+                };
+                setUserLocation(location);
+                setMapTarget({ ...location, zoom: 13 });
                 setIsRequestingLocation(false);
                 setIsLocationPromptOpen(false);
                 setIsStoppingPointDialogOpen(true);
@@ -898,6 +907,14 @@ export default function TripItineraryDetail() {
                                         position={[Number(selectedLocation.latitude), Number(selectedLocation.longitude)]}
                                         icon={openStreetMapMarkerIcon}
                                     />
+                                )}
+                                {userLocation && hasValidCoordinates(userLocation) && (
+                                    <Marker
+                                        position={[Number(userLocation.latitude), Number(userLocation.longitude)]}
+                                        icon={userLocationMarkerIcon}
+                                    >
+                                        <Tooltip>Your current location</Tooltip>
+                                    </Marker>
                                 )}
                             </MapContainer>
                         </div>

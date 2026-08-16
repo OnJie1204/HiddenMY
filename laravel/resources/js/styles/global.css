@@ -1779,6 +1779,50 @@ img.avatar {
     transform: rotate(-45deg);
 }
 
+.user-location-marker-icon {
+    background: transparent;
+    border: 0;
+    position: relative;
+}
+
+.user-location-marker-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: block;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #2563eb;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
+}
+
+.user-location-marker-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: block;
+    width: 22px;
+    height: 22px;
+    margin: -11px 0 0 -11px;
+    border-radius: 50%;
+    background: rgba(37, 99, 235, 0.35);
+    animation: user-location-pulse 1.8s ease-out infinite;
+}
+
+@keyframes user-location-pulse {
+    0% {
+        transform: scale(0.4);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+}
+
 .stopping-point-map-status {
     margin-top: 0.65rem;
     color: #475569;
