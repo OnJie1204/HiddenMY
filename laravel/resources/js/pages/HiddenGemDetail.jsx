@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getHiddenGemDetail } from "../api/hiddenGems";
-import GemImage from "../components/GemImage";
 
 import "../styles/global.css";
 
@@ -62,18 +61,29 @@ export default function HiddenGemDetail() {
                 {/* Image Gallery */}
                 <div className="gem-detail-gallery">
                     <div className="gem-detail-main-image">
-                        <GemImage
-                            src={gem.images?.[0]?.image_url}
-                            alt={gem.place_name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
+                        {gem.images && gem.images.length > 0 ? (
+                            <img
+                                src={gem.images[0].image_url}
+                                alt={gem.place_name}
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.parentElement.innerHTML = `<div class="gem-detail-main-placeholder">No Image</div>`;
+                                }}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                        ) : (
+                            <div className="gem-detail-main-placeholder">No Image</div>
+                        )}
                     </div>
                     <div className="gem-detail-thumbnails">
                         {gem.images && gem.images.slice(1, 4).map((img, index) => (
                             <div key={index} className="gem-detail-thumbnail">
-                                <GemImage
+                                <img
                                     src={img.image_url}
                                     alt={`${gem.place_name} ${index + 2}`}
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                    }}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
                             </div>

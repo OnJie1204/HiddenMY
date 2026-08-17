@@ -576,9 +576,8 @@ img.avatar {
 }
 
 /* ===== Home Page - Fun Adventure Style ===== */
-
 .home-page {
-    max-width: 1080px;  /* 改长 */
+    max-width: 1080px;
     margin: 0 auto;
     padding: 20px 24px 40px;
 }
@@ -591,25 +590,6 @@ img.avatar {
     margin-bottom: 24px;
     position: relative;
     overflow: hidden;
-}
-
-.home-hero-fun::before {
-    content: '🎈';
-    position: absolute;
-    top: -10px;
-    right: 40px;
-    font-size: 80px;
-    opacity: 0.15;
-    transform: rotate(15deg);
-}
-
-.home-hero-fun::after {
-    content: '⭐';
-    position: absolute;
-    bottom: 10px;
-    right: 100px;
-    font-size: 50px;
-    opacity: 0.12;
 }
 
 .home-hero-fun-content {
@@ -706,7 +686,7 @@ img.avatar {
     font-weight: 600;
 }
 
-/* Trending */
+/* Trending - Horizontal Scroll */
 .home-trending {
     margin-bottom: 32px;
 }
@@ -730,73 +710,149 @@ img.avatar {
     color: #888;
     text-decoration: none;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.3s ease;
 }
 
 .home-trending-seeall:hover {
     color: #667eea;
+    gap: 8px;
 }
 
-.home-trending-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+.home-trending-scroll {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    padding: 8px 4px 16px 4px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
-.home-trending-item {
+.home-trending-scroll::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+}
+
+.home-trending-card {
+    flex: 0 0 220px;
+    min-width: 220px;
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    scroll-snap-align: start;
+}
+
+.home-trending-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+    border-color: #667eea;
+}
+
+.home-trending-card-image {
+    width: 100%;
+    height: 150px;
+    background: #f5f5f5;
+    overflow: hidden;
+    position: relative;
+}
+
+.home-trending-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.home-trending-card-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 14px;
+    color: #ccc;
+    background: #f5f5f5;
+}
+
+.home-trending-card-body {
+    padding: 14px 16px 16px;
+}
+
+.home-trending-card-header-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 18px;
-    background: #fff;
-    border-radius: 16px;
-    border: 1px solid #f0f0f0;
-    cursor: pointer;
-    transition: all 0.25s ease;
+    margin-bottom: 4px;
 }
 
-.home-trending-item:hover {
-    transform: translateY(-3px);
-    border-color: #667eea;
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.1);
-}
-
-.home-trending-item-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.home-trending-item-emoji {
-    font-size: 30px;
-}
-
-.home-trending-item-info h4 {
-    font-size: 15px;
+.home-trending-card-body h4 {
+    font-size: 16px;
     font-weight: 700;
     color: #1a1a2e;
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.home-trending-item-info p {
-    font-size: 13px;
-    color: #888;
-    margin: 0;
+.home-trending-card-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.home-trending-item-right {
+.home-trending-card-status.verified {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.home-trending-card-status.pending {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.home-trending-card-tags {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
 }
 
-.home-trending-item-rating {
+.home-trending-card-category {
+    font-size: 12px;
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 2px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.home-trending-card-state {
+    font-size: 12px;
+    background: #f5f5f5;
+    color: #666;
+    padding: 2px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.home-trending-card-rating {
     font-size: 13px;
     font-weight: 600;
     color: #f59e0b;
-}
-
-.home-trending-item-badge {
-    font-size: 14px;
+    display: block;
+    margin-top: 2px;
 }
 
 /* Adventures */
@@ -831,21 +887,22 @@ img.avatar {
 
 .home-adventures-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
 }
 
 .home-adventure-card {
     display: flex;
-    align-items: center;
-    gap: 14px;
+    flex-direction: column;
+    justify-content: space-between;
     padding: 16px 18px;
-    background: #fff;
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
     border-radius: 16px;
-    border: 1px solid #f0f0f0;
+    border: 1px solid #bbf7d0;
     text-decoration: none;
     color: #1a1a2e;
     transition: all 0.25s ease;
+    min-height: 110px;
 }
 
 .home-adventure-card:hover {
@@ -854,56 +911,59 @@ img.avatar {
     box-shadow: 0 4px 16px rgba(102, 126, 234, 0.1);
 }
 
+.home-adventure-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .home-adventure-card-icon {
-    font-size: 30px;
+    font-size: 24px;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.6);
+    border-radius: 12px;
 }
 
 .home-adventure-card-content {
     flex: 1;
+    min-width: 0;
 }
 
 .home-adventure-card-content h4 {
     font-size: 15px;
     font-weight: 700;
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .home-adventure-card-content p {
-    font-size: 13px;
+    font-size: 12px;
     color: #888;
     margin: 2px 0 0;
 }
 
+.home-adventure-card-bottom {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 6px;
+}
+
 .home-adventure-card-arrow {
-    color: #ccc;
-    font-size: 18px;
-    transition: color 0.2s;
+    font-size: 13px;
+    font-weight: 600;
+    color: #667eea;
+    transition: all 0.25s ease;
 }
 
 .home-adventure-card:hover .home-adventure-card-arrow {
-    color: #667eea;
-}
-
-/* Create Trip CTA */
-.home-create-trip {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 14px;
-    padding: 18px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    border-radius: 16px;
-    text-decoration: none;
-    color: #fff;
-    font-weight: 700;
-    font-size: 17px;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-}
-
-.home-create-trip:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 28px rgba(102, 126, 234, 0.4);
+    transform: translateX(4px);
 }
 
 /* Empty States */
@@ -947,8 +1007,7 @@ img.avatar {
     grid-column: 1 / -1;
 }
 
-/* ===== Plan & Explore ===== */
-
+/* Plan & Explore */
 .home-plan-explore {
     margin-top: 8px;
     margin-bottom: 8px;
@@ -967,20 +1026,20 @@ img.avatar {
 
 .home-plan-explore-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
 }
 
 .home-plan-card {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 20px 22px 18px;
-    border-radius: 18px;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-radius: 16px;
     text-decoration: none;
     color: #1a1a2e;
     transition: all 0.3s ease;
+    min-height: 110px;
     position: relative;
     overflow: hidden;
 }
@@ -990,55 +1049,61 @@ img.avatar {
     box-shadow: 0 8px 28px rgba(0,0,0,0.12);
 }
 
-.home-plan-card-map {
-    background: linear-gradient(135deg, #e6f6f3, #b4e6e0);
-    border: 1px solid #b4e6e0;
+.home-plan-card-trip {
+    background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+    border: 1px solid #7dd3fc;
 }
 
-.home-plan-card-trip {
-    background: linear-gradient(135deg, #e0f2fe, #a8d8ea);
-    border: 1px solid #a8d8ea;
+.home-plan-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .home-plan-card-icon {
-    font-size: 32px;
+    font-size: 28px;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.home-plan-card h3 {
-    font-size: 17px;
+.home-plan-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.home-plan-card-content h3 {
+    font-size: 15px;
     font-weight: 700;
     margin: 0;
     color: #1a1a2e;
 }
 
-.home-plan-card p {
-    font-size: 14px;
+.home-plan-card-content p {
+    font-size: 12px;
     color: #555;
     margin: 0;
-    line-height: 1.4;
+    line-height: 1.3;
+}
+
+.home-plan-card-bottom {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 6px;
 }
 
 .home-plan-card-arrow {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    color: #555;
+    color: #667eea;
     transition: all 0.3s ease;
-    margin-top: 4px;
 }
 
 .home-plan-card:hover .home-plan-card-arrow {
     transform: translateX(6px);
-    color: #1a1a2e;
-}
-
-/* Decorative dots for map card */
-.home-plan-card-map::after {
-    content: '🌍';
-    position: absolute;
-    bottom: -10px;
-    right: -10px;
-    font-size: 60px;
-    opacity: 0.15;
 }
 
 .home-plan-card-trip::after {
@@ -1046,35 +1111,245 @@ img.avatar {
     position: absolute;
     bottom: -10px;
     right: -10px;
-    font-size: 60px;
-    opacity: 0.15;
+    font-size: 50px;
+    opacity: 0.1;
+}
+
+/* ===== Map Preview - Flight Style ===== */
+
+.home-map-flight {
+    background: #fff;
+    border-radius: 20px;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    overflow: hidden;
+    margin-bottom: 28px;
+}
+
+.home-map-flight-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 22px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.home-map-flight-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a2e;
+}
+
+.home-map-flight-link {
+    font-size: 13px;
+    color: #888;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.home-map-flight-link:hover {
+    color: #667eea;
+}
+
+.home-map-flight-body {
+    display: flex;
+    gap: 0;
+    min-height: 260px;
+}
+
+/* Left Side - List */
+.home-map-flight-list {
+    flex: 0 0 45%;
+    padding: 12px 16px 16px;
+    border-right: 1px solid #f0f0f0;
+    display: flex;
+    flex-direction: column;
+}
+
+.home-map-flight-list-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: #888;
+    padding: 4px 8px 10px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 8px;
+}
+
+.home-map-flight-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    margin-bottom: 2px;
+}
+
+.home-map-flight-item:hover {
+    background: #f8f9fa;
+}
+
+.home-map-flight-item.active {
+    background: #eef2ff;
+    border: 1px solid #667eea;
+}
+
+.home-map-flight-rank {
+    font-size: 13px;
+    font-weight: 700;
+    color: #888;
+    margin-top: 2px;
+    min-width: 24px;
+}
+
+.home-map-flight-item.active .home-map-flight-rank {
+    color: #667eea;
+}
+
+.home-map-flight-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.home-map-flight-item-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.home-map-flight-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a2e;
+}
+
+.home-map-flight-item-status {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.home-map-flight-item-status.verified {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.home-map-flight-item-status.pending {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.home-map-flight-item-category {
+    font-size: 12px;
+    color: #888;
+    display: block;
+}
+
+.home-map-flight-item-state {
+    font-size: 12px;
+    color: #aaa;
+    display: block;
+}
+
+.home-map-flight-stats {
+    display: flex;
+    gap: 16px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+    font-size: 13px;
+    color: #888;
+}
+
+/* Right Side - Map (Leaflet) */
+.home-map-flight-map {
+    flex: 1;
+    padding: 12px 16px;
+    background: #e8ecf1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 320px;
+    border-radius: 0 0 12px 0;
+}
+
+.home-map-flight-map .leaflet-container {
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 280px;
+}
+
+.home-map-flight-map .leaflet-marker-icon {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.home-map-flight-map-empty {
+    text-align: center;
+    color: #888;
+}
+
+.home-map-flight-map-empty span {
+    font-size: 40px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.home-map-flight-loading,
+.home-map-flight-empty {
+    padding: 20px;
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+    flex: 1;
 }
 
 /* Responsive */
-@media (max-width: 600px) {
-    .home-plan-explore-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .home-plan-card {
-        padding: 16px 18px;
-    }
-}
-
-/* ===== Responsive ===== */
-
-/* Tablet */
 @media (max-width: 820px) {
-    .home-trending-list {
-        grid-template-columns: 1fr 1fr;
-    }
-
     .home-adventures-grid {
         grid-template-columns: 1fr 1fr;
     }
+
+    .home-plan-explore-grid {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
-/* Mobile Large */
+@media (max-width: 700px) {
+    .home-map-flight-body {
+        flex-direction: column;
+    }
+
+    .home-map-flight-list {
+        flex: 1;
+        border-right: none;
+        border-bottom: 1px solid #f0f0f0;
+        max-height: 200px;
+    }
+
+    .home-map-flight-map {
+        min-height: 220px;
+        padding: 8px 12px;
+    }
+
+    .home-map-flight-map .leaflet-container {
+        min-height: 200px;
+    }
+
+    .home-map-flight-header {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+}
+
 @media (max-width: 600px) {
     .home-page {
         padding: 12px 14px 28px;
@@ -1091,16 +1366,6 @@ img.avatar {
 
     .home-hero-fun p {
         font-size: 15px;
-    }
-
-    .home-hero-fun::before {
-        font-size: 50px;
-        right: 20px;
-    }
-
-    .home-hero-fun::after {
-        font-size: 35px;
-        right: 60px;
     }
 
     .home-search-fun {
@@ -1129,8 +1394,26 @@ img.avatar {
         font-size: 12px;
     }
 
-    .home-trending-list {
-        grid-template-columns: 1fr;
+    .home-trending-card {
+        flex: 0 0 180px;
+        min-width: 180px;
+    }
+
+    .home-trending-card-image {
+        height: 120px;
+    }
+
+    .home-trending-card-body h4 {
+        font-size: 14px;
+    }
+
+    .home-trending-card-body p {
+        font-size: 12px;
+    }
+
+    .home-trending-scroll {
+        gap: 14px;
+        padding: 4px 2px 12px 2px;
     }
 
     .home-trending-header h2,
@@ -1138,26 +1421,25 @@ img.avatar {
         font-size: 17px;
     }
 
-    .home-trending-item {
-        padding: 14px 16px;
-    }
-
     .home-adventures-grid {
         grid-template-columns: 1fr;
     }
 
     .home-adventure-card {
+        min-height: 80px;
         padding: 14px 16px;
     }
 
-    .home-create-trip {
-        padding: 14px;
-        font-size: 15px;
-        border-radius: 14px;
+    .home-plan-explore-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .home-plan-card {
+        min-height: 80px;
+        padding: 14px 16px;
     }
 }
 
-/* Mobile Small */
 @media (max-width: 380px) {
     .home-hero-fun h1 {
         font-size: 18px;
@@ -1173,15 +1455,13 @@ img.avatar {
         padding: 10px 12px;
     }
 
-    .home-trending-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 6px;
+    .home-trending-card {
+        flex: 0 0 160px;
+        min-width: 160px;
     }
 
-    .home-trending-item-right {
-        width: 100%;
-        justify-content: flex-start;
+    .home-trending-card-image {
+        height: 100px;
     }
 }
 
