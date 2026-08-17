@@ -1,13 +1,6 @@
 import {Marker,Popup} from "react-leaflet";
-import L from "leaflet";
 import {useRef} from "react";
-
-
-const attractionIcon = new L.Icon({
-    iconUrl:"/images/attraction_marker.png",
-    iconSize:[40, 40],
-    iconAnchor:[20, 40]
-});
+import {createAttractionIcon} from "./AttractionIcon";
 
 function AttractionMarker({
     place,
@@ -22,7 +15,7 @@ function AttractionMarker({
             Number(place.latitude),
             Number(place.longitude)
         ]}
-        icon={attractionIcon}
+        icon={createAttractionIcon(place.type)}
         riseOnHover={true}
         eventHandlers={{
             click:()=>{
@@ -41,7 +34,7 @@ function AttractionMarker({
             <Popup offset={[0, -25]}>
                 <b>📍 {place.name}</b>
                 <br/>
-                <small>Attraction</small>
+                <small>{place.type ? place.type.replace(/_/g, " ") : "Attraction"}</small>
             </Popup>
         </Marker>
     );
