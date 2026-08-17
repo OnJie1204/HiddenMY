@@ -7,10 +7,15 @@ function SearchBar({ onSelect }) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
 
     const debounceRef = useRef(null);
     const latestRequestId = useRef(0);
     const containerRef = useRef(null);
+    // Pagination cursors for "load more" — see HiddenGemController::search().
+    // Not state: they don't drive a render on their own, only via hasMore/results.
+    const offsetsRef = useRef({ dbOffset: 0, osmOffset: 0 });
 
     function handleChange(value) {
         setQuery(value);
@@ -21,27 +26,37 @@ function SearchBar({ onSelect }) {
 
         if (value.length < 2) {
             setResults([]);
+            setHasMore(false);
             setLoading(false);
             return;
         }
 
         debounceRef.current = setTimeout(() => {
-            runSearch(value);
+            runSearch(value, { append: false });
         }, DEBOUNCE_MS);
     }
 
-    async function runSearch(value) {
+    async function runSearch(value, { append }) {
         const requestId = ++latestRequestId.current;
 
         try {
-            setLoading(true);
-            const res = await searchHiddenGems(value);
+            append ? setLoadingMore(true) : setLoading(true);
+
+            const { dbOffset, osmOffset } = append ? offsetsRef.current : { dbOffset: 0, osmOffset: 0 };
+            const res = await searchHiddenGems(value, { dbOffset, osmOffset });
 
             if (requestId !== latestRequestId.current) return;
 
             const database = res.data.database || [];
             const osm = res.data.openStreetMap || [];
-            setResults([...database, ...osm]);
+            const page = [...database, ...osm];
+
+            setResults(prev => (append ? [...prev, ...page] : page));
+            setHasMore(!!res.data.hasMore);
+            offsetsRef.current = {
+                dbOffset: res.data.nextDbOffset ?? 0,
+                osmOffset: res.data.nextOsmOffset ?? 0,
+            };
         } catch (error) {
             if (requestId === latestRequestId.current) {
                 console.log("Search error:", error);
@@ -49,8 +64,14 @@ function SearchBar({ onSelect }) {
         } finally {
             if (requestId === latestRequestId.current) {
                 setLoading(false);
+                setLoadingMore(false);
             }
         }
+    }
+
+    function loadMore() {
+        if (loadingMore || !hasMore) return;
+        runSearch(query, { append: true });
     }
 
     useEffect(() => {
@@ -64,6 +85,7 @@ function SearchBar({ onSelect }) {
         function handleClickOutside(e) {
             if (containerRef.current && !containerRef.current.contains(e.target)) {
                 setResults([]);
+                setHasMore(false);
             }
         }
 
@@ -74,6 +96,7 @@ function SearchBar({ onSelect }) {
     function selectResult(item) {
         setQuery(item.name);
         setResults([]);
+        setHasMore(false);
         onSelect(item);
     }
 
@@ -105,6 +128,17 @@ function SearchBar({ onSelect }) {
                             <small>{item.source === "database" ? "Hidden Gem" : "Attraction"}</small>
                         </div>
                     ))}
+
+                    {hasMore && (
+                        <button
+                            type="button"
+                            className="search-load-more-btn"
+                            onClick={loadMore}
+                            disabled={loadingMore}
+                        >
+                            {loadingMore ? "Loading…" : "Load more results"}
+                        </button>
+                    )}
                 </div>
             )}
         </div>

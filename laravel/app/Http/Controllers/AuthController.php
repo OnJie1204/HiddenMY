@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 
 class AuthController extends Controller
 {
@@ -50,10 +51,21 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
+        // Device-level lockout: keyed by IP, independent of which account is being tried.
+        $deviceKey = 'login-device:' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($deviceKey, 5)) {
+            $secondsLeft = RateLimiter::availableIn($deviceKey);
+            return response()->json([
+                'message' => "Too many login attempts from this device. Please try again in {$secondsLeft} second(s).",
+            ], 429);
+        }
+
         $user = User::where('email', $request->email)->first();
         Log::info('After first query: ' . (microtime(true) - $start) . 's');
 
         if (!$user) {
+            RateLimiter::hit($deviceKey, 60); // demo: 1 minute (normally 900s / 15 min)
             throw ValidationException::withMessages([
                 'email' => ['The provided account or password is incorrect.'],
             ]);
@@ -61,21 +73,22 @@ class AuthController extends Controller
 
         // Check if the account is locked.
         if ($user->locked_until && $user->locked_until->isFuture()) {
-            $minutesLeft = now()->diffInMinutes($user->locked_until);
+            $secondsLeft = now()->diffInSeconds($user->locked_until);
             return response()->json([
-                'message' => "Too many failed attempts. Please try again in {$minutesLeft} minute(s).",
+                'message' => "Too many failed attempts. Please try again in {$secondsLeft} second(s).",
             ], 423); // 423 Locked
         }
 
         if (!Hash::check($request->password, $user->password)) {
+            RateLimiter::hit($deviceKey, 60); // demo: 1 minute (normally 900s / 15 min)
             $user->increment('failed_login_attempts');
 
             if ($user->failed_login_attempts >= 5) {
-                $user->locked_until = now()->addMinutes(15);
+                $user->locked_until = now()->addSeconds(60); // demo: 1 minute (normally 15 min)
                 $user->save();
 
                 return response()->json([
-                    'message' => 'Too many failed attempts. Your account has been locked for 15 minutes.',
+                    'message' => 'Too many failed attempts. Your account has been locked for 1 minute.',
                 ], 423);
             }
 
@@ -92,10 +105,11 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Login successful; reset failed attempt count.
+        // Login successful; reset failed attempt counts for both the account and this device.
         $user->failed_login_attempts = 0;
         $user->locked_until = null;
         $user->save();
+        RateLimiter::clear($deviceKey);
 
         $token = $user->createToken('auth_token')->plainTextToken;
         Log::info('Total time: ' . (microtime(true) - $start) . 's');
