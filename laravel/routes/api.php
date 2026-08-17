@@ -70,11 +70,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);
     Route::get('hidden-gems/geocode', [HiddenGemController::class, 'geocode']);
     Route::get('hidden-gems/reverse-geocode', [HiddenGemController::class, 'reverseGeocode']);
+    Route::get('hidden-gems/reverse-geocode-address', [HiddenGemController::class, 'reverseGeocodeAddress']);
     Route::post('hidden-gems', [HiddenGemController::class, 'store']);
     Route::get('my-hidden-gems', [HiddenGemController::class, 'myHiddenGems']);
     Route::patch('hidden-gems/{id}/status', [HiddenGemController::class, 'updateStatus']);
     Route::get('hidden-gems-in-bounds', [HiddenGemController::class, 'inBounds']);
     Route::get('nearby-attractions', [HiddenGemController::class, 'nearbyAttractions']);
+     Route::put('hidden-gems/{id}', [HiddenGemController::class, 'update']);
     Route::get('hidden-gems/{id}/nearby', [HiddenGemController::class, 'nearby']);
     Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
 });

@@ -182,14 +182,16 @@ export default function MyHiddenGems() {
 
                                 <div className="my-hidden-gems-actions">
 
-                                    <button
-                                        className="my-hidden-gems-edit-btn"
-                                        onClick={() =>
-                                            navigate(`/my-hidden-gems/edit/${gem.id}`)
-                                        }
-                                    >
-                                        Edit
-                                    </button>
+                                    {gem.status === "pending" && (
+                                        <button
+                                            className="my-hidden-gems-edit-btn"
+                                            onClick={() =>
+                                                navigate(`/my-hidden-gems/edit/${gem.id}`)
+                                            }
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
 
                                     <button
                                         className="my-hidden-gems-delete-btn"
