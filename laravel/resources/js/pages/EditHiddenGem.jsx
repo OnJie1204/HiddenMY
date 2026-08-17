@@ -31,6 +31,7 @@ export default function EditHiddenGem() {
     const [message, setMessage] = useState("");
     const [geocoding, setGeocoding] = useState(false);
     const [geocodeStatus, setGeocodeStatus] = useState("");
+    const [mapFocusRequest, setMapFocusRequest] = useState(null);
 
     useEffect(() => {
         const loadData = async () => {
@@ -106,11 +107,19 @@ export default function EditHiddenGem() {
 
         try {
             const response = await geocodeAddress(query);
+            const latitude = String(response.data.latitude);
+            const longitude = String(response.data.longitude);
 
             setFormData((prev) => ({
                 ...prev,
-                latitude: String(response.data.latitude),
-                longitude: String(response.data.longitude),
+                latitude,
+                longitude,
+            }));
+
+            setMapFocusRequest((previousRequest) => ({
+                latitude,
+                longitude,
+                requestId: (previousRequest?.requestId || 0) + 1,
             }));
 
             setGeocodeStatus(`success:Found: ${response.data.name}`);
@@ -243,12 +252,13 @@ export default function EditHiddenGem() {
                     <LocationPickerMap
                         latitude={formData.latitude}
                         longitude={formData.longitude}
+                        focusRequest={mapFocusRequest}
                         onLocationSelected={(location) => {
                             setFormData((prev) => ({
                                 ...prev,
                                 address: location.address || prev.address,
                                 state: location.state || prev.state,
-                                postcode: location.postcode || prev.postcode,
+                                postcode: location.postcode ?? "",
                                 latitude: String(location.latitude),
                                 longitude: String(location.longitude),
                             }));

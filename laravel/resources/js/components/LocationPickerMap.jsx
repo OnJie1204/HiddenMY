@@ -25,7 +25,7 @@ const customIcon = new L.Icon({
     shadowSize: [41, 41],
 });
 
-const MALAYSIA_CENTER = [4.5, 109.0];
+const MALAYSIA_CENTER = [4.2105, 101.9758];
 
 const MALAYSIA_BOUNDS = [
     [0.5, 99.5],
@@ -47,14 +47,18 @@ function MapClickHandler({ onSelect }) {
     return null;
 }
 
-function RecenterMap({ position }) {
+function FocusMap({ request }) {
     const map = useMap();
 
     useEffect(() => {
-        if (position) {
-            map.flyTo(position, 15, FLY_TO_OPTIONS);
+        if (request) {
+            map.flyTo(
+                [Number(request.latitude), Number(request.longitude)],
+                15,
+                FLY_TO_OPTIONS
+            );
         }
-    }, [position, map]);
+    }, [request, map]);
 
     return null;
 }
@@ -62,7 +66,8 @@ function RecenterMap({ position }) {
 export default function LocationPickerMap({
     latitude,
     longitude,
-    onLocationSelected
+    onLocationSelected,
+    focusRequest
 }) {
     const initialPosition =
         latitude && longitude
@@ -127,8 +132,8 @@ export default function LocationPickerMap({
 
             <div className="hidden-gem-map-picker-map">
                 <MapContainer
-                    center={position || MALAYSIA_CENTER}
-                    zoom={6}
+                    center={MALAYSIA_CENTER}
+                    zoom={7}
                     minZoom={6}
                     zoomSnap={0.5}
                     zoomDelta={0.5}
@@ -162,7 +167,7 @@ export default function LocationPickerMap({
                         onSelect={handleMapClick}
                     />
 
-                    <RecenterMap position={position} />
+                    <FocusMap request={focusRequest} />
 
                     {position && (
                         <Marker
