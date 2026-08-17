@@ -6,8 +6,12 @@ export const getHiddenGems = (params = {}) =>
 export const getHiddenGemDetail = (id) => 
     api.get(`/hidden-gems/${id}`);
 
-export function searchHiddenGems(query) {
-    return api.get('/hidden-gems/search', { params: { query } });}
+export function searchHiddenGems(query, { signal, latitude, longitude } = {}) {
+    return api.get('/hidden-gems/search', {
+        params: { query, latitude, longitude },
+        signal,
+    });
+}
 
 export const getCategories = () => 
     api.get('/hidden-gems/categories');
@@ -17,6 +21,9 @@ export const getStates = () =>
 
 export const geocodeAddress = (query) =>
     api.get('/hidden-gems/geocode', { params: { query } });
+
+export const reverseGeocodeLocation = (latitude, longitude) =>
+    api.get('/hidden-gems/reverse-geocode', { params: { latitude, longitude } });
 
 export const createHiddenGem = (data) =>
     api.post('/hidden-gems', data, {

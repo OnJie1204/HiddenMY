@@ -51,6 +51,9 @@ class HiddenGemController extends Controller
         'natural' => 'beach|peak|cave_entrance',
     ];
 
+    // Roughly +/-55km, used to softly bias OSM results toward the user's location.
+    private const NEARBY_VIEWBOX_DEGREES = 0.5;
+
     // ==================== API METHODS ====================
     public function store(Request $request): JsonResponse
     {
@@ -301,9 +304,13 @@ class HiddenGemController extends Controller
     {
         $validated = $request->validate([
             'query' => ['required', 'string', 'min:2', 'max:100'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
         $query = trim($validated['query']);
+        $latitude = isset($validated['latitude']) ? (float) $validated['latitude'] : null;
+        $longitude = isset($validated['longitude']) ? (float) $validated['longitude'] : null;
 
         if ($query === '') {
             return response()->json([
@@ -312,6 +319,7 @@ class HiddenGemController extends Controller
             ]);
         }
 
+        // Hidden Gems are always searched and displayed first, regardless of location.
         $databaseLocations = Location::query()
             ->where(function ($q) use ($query) {
                 $q->where('place_name', 'ILIKE', '%'.$query.'%')
@@ -327,7 +335,9 @@ class HiddenGemController extends Controller
         $openStreetMapLocations = collect();
 
         if ($remainingResults > 0) {
-            $openStreetMapLocations = $this->searchOpenStreetMap($query, $remainingResults);
+            // Only OSM results are affected by the optional user location: when present,
+            // they're fetched with a nearby bias and sorted by distance.
+            $openStreetMapLocations = $this->searchOpenStreetMap($query, $remainingResults, $latitude, $longitude);
         }
 
         return response()->json([
@@ -356,6 +366,64 @@ class HiddenGemController extends Controller
             'longitude' => $match['longitude'],
             'name' => $match['name'],
         ]);
+    }
+
+    /**
+     * Identify the location under a coordinate the user clicked on the map
+     * (reverse geocoding via Nominatim). The clicked coordinate itself is
+     * always used as the stopping point's position — Nominatim is only
+     * used to look up a human-readable name and an osm_id for it.
+     */
+    public function reverseGeocode(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        $latitude = (float) $validated['latitude'];
+        $longitude = (float) $validated['longitude'];
+
+        $cacheKey = 'osm-reverse:'.md5(round($latitude, 5).':'.round($longitude, 5));
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return response()->json($cached);
+        }
+
+        try {
+            $result = Http::acceptJson()
+                ->withUserAgent(config('app.name', 'HiddenMY').' location search')
+                ->timeout(5)
+                ->get('https://nominatim.openstreetmap.org/reverse', [
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'format' => 'jsonv2',
+                ])
+                ->throw()
+                ->json();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to identify a location at this point. Please try again.'], 502);
+        }
+
+        if (empty($result['osm_id']) || empty($result['display_name'])) {
+            return response()->json(['message' => 'No location found at this point. Try clicking closer to a road or landmark.'], 404);
+        }
+
+        $location = [
+            'id' => 'osm-'.($result['osm_type'] ?? 'node').'-'.$result['osm_id'],
+            'osm_id' => (int) $result['osm_id'],
+            'name' => $result['display_name'],
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'source' => 'openstreetmap',
+        ];
+
+        Cache::put($cacheKey, $location, now()->addHours(self::OSM_CACHE_TTL_HOURS));
+
+        return response()->json($location);
     }
 
     /**
@@ -420,9 +488,9 @@ class HiddenGemController extends Controller
 
     // ==================== PRIVATE METHODS ====================
 
-    private function searchOpenStreetMap(string $query, int $remainingResults): Collection
+    private function searchOpenStreetMap(string $query, int $remainingResults, ?float $latitude = null, ?float $longitude = null): Collection
     {
-        $cacheKey = 'osm-search:'.md5($query.':'.$remainingResults);
+        $cacheKey = 'osm-search:'.md5($query.':'.$remainingResults.':'.($latitude ?? 'x').':'.($longitude ?? 'x'));
 
         $cached = Cache::get($cacheKey);
         if ($cached !== null) {
@@ -430,7 +498,7 @@ class HiddenGemController extends Controller
         }
 
         try {
-            $results = $this->fetchFromNominatim($query, $remainingResults);
+            $results = $this->fetchFromNominatim($query, $remainingResults, $latitude, $longitude);
             Cache::put($cacheKey, $results, now()->addHours(self::OSM_CACHE_TTL_HOURS));
 
             return $results;
@@ -441,18 +509,30 @@ class HiddenGemController extends Controller
         }
     }
 
-    private function fetchFromNominatim(string $query, int $remainingResults): Collection
+    private function fetchFromNominatim(string $query, int $remainingResults, ?float $latitude = null, ?float $longitude = null): Collection
     {
-        return collect(
+        $hasLocation = $latitude !== null && $longitude !== null;
+
+        $params = [
+            'q' => $query,
+            'format' => 'jsonv2',
+            // Fetch extra candidates when biasing by location so sorting by distance has more to work with.
+            'limit' => $hasLocation ? max($remainingResults, self::SEARCH_RESULT_LIMIT) : $remainingResults,
+            'countrycodes' => 'my', // Restrict search to Malaysia
+        ];
+
+        if ($hasLocation) {
+            $radius = self::NEARBY_VIEWBOX_DEGREES;
+            // Soft bias (bounded=0) toward the viewbox around the user without excluding results outside it.
+            $params['viewbox'] = ($longitude - $radius).','.($latitude + $radius).','.($longitude + $radius).','.($latitude - $radius);
+            $params['bounded'] = 0;
+        }
+
+        $results = collect(
             Http::acceptJson()
                 ->withUserAgent(config('app.name', 'HiddenMY').' location search')
                 ->timeout(5)
-                ->get('https://nominatim.openstreetmap.org/search', [
-                    'q' => $query,
-                    'format' => 'jsonv2',
-                    'limit' => $remainingResults,
-                    'countrycodes' => 'my', // Restrict search to Malaysia
-                ])
+                ->get('https://nominatim.openstreetmap.org/search', $params)
                 ->throw()
                 ->json()
         )->map(fn (array $location) => [
@@ -463,6 +543,27 @@ class HiddenGemController extends Controller
             'longitude' => (float) $location['lon'],
             'source' => 'openstreetmap',
         ]);
+
+        if ($hasLocation) {
+            $results = $results
+                ->sortBy(fn (array $location) => $this->distanceInKm($latitude, $longitude, $location['latitude'], $location['longitude']))
+                ->values();
+        }
+
+        return $results->take($remainingResults)->values();
+    }
+
+    private function distanceInKm(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadiusKm = 6371;
+
+        $latDelta = deg2rad($lat2 - $lat1);
+        $lonDelta = deg2rad($lon2 - $lon1);
+
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
+
+        return $earthRadiusKm * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     private function locationSearchResult(Location $location): array
