@@ -209,6 +209,74 @@ class HiddenGemController extends Controller
         ]);
     }
 
+    public function update(Request $request, $id): JsonResponse
+    {
+        $gem = Location::findOrFail($id);
+
+        if ($gem->user_id !== Auth::id()) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        if ($gem->status !== 'pending') {
+            return response()->json([
+                'message' => 'Only pending hidden gems can be edited.'
+            ], 403);
+        }
+
+        $hasVotes = $gem->vote_count > 0 || $gem->votes()->exists();
+
+        if ($hasVotes) {
+            $validated = $request->validate([
+                'description' => 'required|string',
+                'category_id' => 'prohibited',
+                'place_name' => 'prohibited',
+                'address' => 'prohibited',
+                'state' => 'prohibited',
+                'postcode' => 'prohibited',
+                'latitude' => 'prohibited',
+                'longitude' => 'prohibited',
+            ]);
+
+            $gem->update([
+                'description' => $validated['description'],
+            ]);
+
+            return response()->json([
+                'message' => 'Hidden gem description updated successfully.',
+                'data' => $gem->load(['category', 'images'])
+            ]);
+        }
+
+        $validated = $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'place_name' => 'required|string|max:255',
+            'address' => 'required|string|max:255',
+            'state' => 'required|string|max:100',
+            'postcode' => 'required',
+            'description' => 'required|string',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+        ]);
+
+        // Update hidden gem information
+        $gem->update($validated);
+
+        // Reset verification progress after editing
+        $gem->vote_count = 0;
+        $gem->status = 'pending';
+        $gem->save();
+
+        // Remove previous vote records
+        $gem->votes()->delete();
+
+        return response()->json([
+            'message' => 'Hidden gem updated successfully. Verification progress has been reset.',
+            'data' => $gem->load(['category', 'images'])
+        ]);
+    }
+
     /**
      * Display a single Hidden Gem detail.
      */
@@ -427,6 +495,60 @@ class HiddenGemController extends Controller
         Cache::put($cacheKey, $location, now()->addHours(self::OSM_CACHE_TTL_HOURS));
 
         return response()->json($location);
+    }
+
+    public function reverseGeocodeAddress(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        $latitude = (float) $validated['latitude'];
+        $longitude = (float) $validated['longitude'];
+
+        try {
+            $result = Http::acceptJson()
+                ->withUserAgent(config('app.name', 'Gemora').' hidden gem location picker')
+                ->timeout(5)
+                ->get('https://nominatim.openstreetmap.org/reverse', [
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'format' => 'jsonv2',
+                    'addressdetails' => 1,
+                ])
+                ->throw()
+                ->json();
+
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Unable to identify this location. Please try again.'
+            ], 502);
+        }
+
+        if (empty($result['display_name'])) {
+            return response()->json([
+                'message' => 'No address found for this location.'
+            ], 404);
+        }
+
+        $addressDetails = $result['address'] ?? [];
+
+        $state = $addressDetails['state']
+            ?? $addressDetails['region']
+            ?? '';
+
+        $postcode = $addressDetails['postcode'] ?? '';
+
+        return response()->json([
+            'address' => $result['display_name'],
+            'state' => $state,
+            'postcode' => $postcode,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ]);
     }
 
     /**

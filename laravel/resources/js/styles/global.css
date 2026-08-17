@@ -4061,6 +4061,103 @@ img.avatar {
     transform: none;
 }
 
+.hidden-gem-coordinate-box {
+    margin: 14px 0 18px;
+    padding: 16px 18px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.hidden-gem-coordinate-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.hidden-gem-coordinate-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.hidden-gem-coordinate-header h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.hidden-gem-coordinate-header p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.hidden-gem-coordinate-values {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.hidden-gem-coordinate-item {
+    padding: 12px 14px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.hidden-gem-coordinate-item span {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.hidden-gem-coordinate-item strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    word-break: break-all;
+}
+
+.hidden-gem-map-picker {
+    margin: 18px 0;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+}
+
+.hidden-gem-map-picker-header {
+    margin-bottom: 12px;
+}
+
+.hidden-gem-map-picker-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.hidden-gem-map-picker-header p {
+    margin: 5px 0 0;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.hidden-gem-map-picker-map {
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.hidden-gem-map-status {
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: #4b5563;
+}
+
 @keyframes deleteModalFadeIn {
     from {
         opacity: 0;
