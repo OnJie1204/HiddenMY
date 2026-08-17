@@ -55,9 +55,9 @@ class AuthController extends Controller
         $deviceKey = 'login-device:' . $request->ip();
 
         if (RateLimiter::tooManyAttempts($deviceKey, 5)) {
-            $minutesLeft = ceil(RateLimiter::availableIn($deviceKey) / 60);
+            $secondsLeft = RateLimiter::availableIn($deviceKey);
             return response()->json([
-                'message' => "Too many login attempts from this device. Please try again in {$minutesLeft} minute(s).",
+                'message' => "Too many login attempts from this device. Please try again in {$secondsLeft} second(s).",
             ], 429);
         }
 
@@ -65,7 +65,7 @@ class AuthController extends Controller
         Log::info('After first query: ' . (microtime(true) - $start) . 's');
 
         if (!$user) {
-            RateLimiter::hit($deviceKey, 900); // 15 minutes
+            RateLimiter::hit($deviceKey, 60); // demo: 1 minute (normally 900s / 15 min)
             throw ValidationException::withMessages([
                 'email' => ['The provided account or password is incorrect.'],
             ]);
@@ -73,22 +73,22 @@ class AuthController extends Controller
 
         // Check if the account is locked.
         if ($user->locked_until && $user->locked_until->isFuture()) {
-            $minutesLeft = now()->diffInMinutes($user->locked_until);
+            $secondsLeft = now()->diffInSeconds($user->locked_until);
             return response()->json([
-                'message' => "Too many failed attempts. Please try again in {$minutesLeft} minute(s).",
+                'message' => "Too many failed attempts. Please try again in {$secondsLeft} second(s).",
             ], 423); // 423 Locked
         }
 
         if (!Hash::check($request->password, $user->password)) {
-            RateLimiter::hit($deviceKey, 900); // 15 minutes
+            RateLimiter::hit($deviceKey, 60); // demo: 1 minute (normally 900s / 15 min)
             $user->increment('failed_login_attempts');
 
             if ($user->failed_login_attempts >= 5) {
-                $user->locked_until = now()->addMinutes(15);
+                $user->locked_until = now()->addSeconds(60); // demo: 1 minute (normally 15 min)
                 $user->save();
 
                 return response()->json([
-                    'message' => 'Too many failed attempts. Your account has been locked for 15 minutes.',
+                    'message' => 'Too many failed attempts. Your account has been locked for 1 minute.',
                 ], 423);
             }
 
