@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
@@ -123,6 +124,9 @@ function groupKey(lat, lng) {
 }
 
 function Maps(){
+    const location = useLocation();
+    const highlightGem = location.state?.highlightGem || null;
+    const highlightId = location.state?.highlightId || null;
     const [hiddenGems,setHiddenGems]=useState([]);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [userPosition,setUserPosition]=useState(null);
@@ -217,11 +221,21 @@ function Maps(){
     },[]);
 
     // Load the user's trip itineraries so gems can be added straight from the map
-    useEffect(()=>{
-        getTripItineraries()
-            .then(res => setItineraries(res.data || []))
-            .catch(err => console.log(err));
-    },[]);
+    useEffect(() => {
+        if (highlightGem && highlightGem.id) {
+            // Open the side panel with the highlighted gem
+            setSelectedGroup([normalizeGem(highlightGem, "database")]);
+            setPanelOpen(true);
+            // Fly to the gem on the map
+            if (mapRef.current) {
+                mapRef.current.flyTo(
+                    [Number(highlightGem.latitude), Number(highlightGem.longitude)], 
+                    15, 
+                    { duration: 1.5, easeLinearity: 0.25 }
+                );
+            }
+        }
+    }, [highlightGem]);
 
     // Debounce viewport changes so panning doesn't spam the API
     const handleViewportChange = useCallback((next) => {

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
-import GemImage from "../components/GemImage";
 
 import "../styles/global.css";
 
@@ -190,11 +189,21 @@ export default function HiddenGems() {
                             onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                         >
                             <div className="hidden-gems-card-image">
-                                <GemImage
-                                    src={gem.images?.[0]?.image_url}
-                                    alt={gem.place_name}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
+                                {gem.images && gem.images.length > 0 ? (
+                                    <img
+                                        src={gem.images[0].image_url}
+                                        alt={gem.place_name}
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.parentElement.innerHTML = `<div class="hidden-gems-card-no-image">No Image</div>`;
+                                        }}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                ) : (
+                                    <div className="hidden-gems-card-no-image">
+                                        No Image
+                                    </div>
+                                )}
                             </div>
 
                             <div className="hidden-gems-card-content">
