@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getHiddenGemDetail } from "../api/hiddenGems";
+import VoteModal from "../components/VoteModal";
 
 import "../styles/global.css";
 
@@ -11,22 +12,36 @@ export default function HiddenGemDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState("details");
+    const [showVoteModal, setShowVoteModal] = useState(false);
+    const [voteSuccess, setVoteSuccess] = useState(false);
+    const [voteMessage, setVoteMessage] = useState("");
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
+
+    const fetchDetail = async () => {
+        try {
+            const response = await getHiddenGemDetail(id);
+            setGem(response.data.data);
+        } catch (err) {
+            console.error("Error fetching gem detail:", err);
+            setError("Failed to load hidden gem details.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchDetail = async () => {
-            try {
-                const response = await getHiddenGemDetail(id);
-                setGem(response.data.data);
-            } catch (err) {
-                console.error("Error fetching gem detail:", err);
-                setError("Failed to load hidden gem details.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchDetail();
     }, [id]);
+
+    const handleVoteSuccess = (data) => {
+        setVoteSuccess(true);
+        setVoteMessage(data.message);
+        fetchDetail();
+        setTimeout(() => {
+            setVoteSuccess(false);
+            setVoteMessage("");
+        }, 5000);
+    };
 
     if (loading) {
         return (
@@ -51,14 +66,18 @@ export default function HiddenGemDetail() {
     return (
         <div className="gem-detail-page">
 
-            {/* Back Button */}
+            {voteSuccess && (
+                <div className="gem-detail-vote-success">
+                    🎉 {voteMessage}
+                </div>
+            )}
+
             <Link to="/hidden-gems" className="gem-detail-back-link">
                 ← Back to Hidden Gems
             </Link>
 
             <div className="gem-detail-container">
 
-                {/* Image Gallery */}
                 <div className="gem-detail-gallery">
                     <div className="gem-detail-main-image">
                         {gem.images && gem.images.length > 0 ? (
@@ -96,7 +115,6 @@ export default function HiddenGemDetail() {
                     </div>
                 </div>
 
-                {/* Title & Meta */}
                 <div className="gem-detail-header">
                     <h1 className="gem-detail-title">🌟 {gem.place_name}</h1>
                     <div className="gem-detail-meta-row">
@@ -118,7 +136,6 @@ export default function HiddenGemDetail() {
                     </div>
                 </div>
 
-                {/* Tab Navigation */}
                 <div className="gem-detail-tabs">
                     <button
                         className={`gem-detail-tab ${activeTab === "details" ? "active" : ""}`}
@@ -134,14 +151,11 @@ export default function HiddenGemDetail() {
                     </button>
                 </div>
 
-                {/* Tab Content */}
                 <div className="gem-detail-content">
 
-                    {/* Details Tab */}
                     {activeTab === "details" && (
                         <div>
 
-                            {/* Description */}
                             <div className="gem-detail-section">
                                 <h3>💬 Description</h3>
                                 <p className="gem-detail-description-text">
@@ -149,7 +163,6 @@ export default function HiddenGemDetail() {
                                 </p>
                             </div>
 
-                            {/* Location */}
                             <div className="gem-detail-section">
                                 <h3>📍 Location</h3>
                                 <p className="gem-detail-address">
@@ -160,7 +173,6 @@ export default function HiddenGemDetail() {
                                 </p>
                             </div>
 
-                            {/* Vote Progress */}
                             {gem.status === "pending" && (
                                 <div className="gem-detail-section">
                                     <h3>📊 Vote Progress</h3>
@@ -177,7 +189,6 @@ export default function HiddenGemDetail() {
                                 </div>
                             )}
 
-                            {/* Submitted By */}
                             <div className="gem-detail-section">
                                 <h3>👤 Discovered by</h3>
                                 <p className="gem-detail-submitter">
@@ -185,10 +196,12 @@ export default function HiddenGemDetail() {
                                 </p>
                             </div>
 
-                            {/* Vote Button */}
                             <div className="gem-detail-vote-section">
                                 {gem.status === "pending" ? (
-                                    <button className="gem-detail-vote-btn">
+                                    <button 
+                                        className="gem-detail-vote-btn"
+                                        onClick={() => setShowVoteModal(true)}
+                                    >
                                         🗳️ Vote Now
                                     </button>
                                 ) : (
@@ -201,7 +214,6 @@ export default function HiddenGemDetail() {
                         </div>
                     )}
 
-                    {/* Votes Tab */}
                     {activeTab === "votes" && (
                         <div className="gem-detail-votes-list">
                             {gem.votes && gem.votes.length > 0 ? (
@@ -212,6 +224,19 @@ export default function HiddenGemDetail() {
                                         </div>
                                         <div className="gem-detail-vote-info">
                                             <p className="gem-detail-vote-user">{vote.user?.name || "Unknown User"}</p>
+                                            {vote.photo_path && (
+                                                <img 
+                                                    src={`http://localhost:8000/storage/${vote.photo_path}`}
+                                                    alt="Vote photo"
+                                                    className="gem-detail-vote-photo"
+                                                    onClick={() => setSelectedPhoto(vote.photo_path)}
+                                                    style={{ cursor: 'pointer' }}
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                />
+                                            )}
+                                            {vote.travel_description && (
+                                                <p className="gem-detail-vote-comment">"{vote.travel_description}"</p>
+                                            )}
                                             <p className="gem-detail-vote-date">
                                                 Voted on {new Date(vote.created_at).toLocaleDateString("en-GB", {
                                                     day: "numeric",
@@ -231,6 +256,28 @@ export default function HiddenGemDetail() {
                 </div>
 
             </div>
+
+            <VoteModal
+                locationId={gem.id}
+                isOpen={showVoteModal}
+                onClose={() => setShowVoteModal(false)}
+                onVoteSuccess={handleVoteSuccess}
+            />
+
+            {/* Photo Modal */}
+            {selectedPhoto && (
+                <div className="photo-modal-overlay" onClick={() => setSelectedPhoto(null)}>
+                    <div className="photo-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <button className="photo-modal-close" onClick={() => setSelectedPhoto(null)}>✕</button>
+                        <img 
+                            src={`http://localhost:8000/storage/${selectedPhoto}`}
+                            alt="Vote photo enlarged"
+                            className="photo-modal-image"
+                        />
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
