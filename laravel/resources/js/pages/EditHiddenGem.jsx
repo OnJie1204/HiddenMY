@@ -32,6 +32,7 @@ export default function EditHiddenGem() {
     const [geocoding, setGeocoding] = useState(false);
     const [geocodeStatus, setGeocodeStatus] = useState("");
     const [mapFocusRequest, setMapFocusRequest] = useState(null);
+    const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
@@ -249,16 +250,28 @@ export default function EditHiddenGem() {
                         required
                     />
 
+                    {postcodeDetectionFailed && !formData.postcode && (
+                        <small className="edit-hidden-gem-warning">
+                            Postcode could not be detected automatically. Please enter it manually.
+                        </small>
+                    )}
+
                     <LocationPickerMap
                         latitude={formData.latitude}
                         longitude={formData.longitude}
                         focusRequest={mapFocusRequest}
                         onLocationSelected={(location) => {
+                            const postcode = String(location.postcode ?? "").trim()
+                                || String(location.address ?? "").match(/\b\d{5}\b/)?.[0]
+                                || "";
+
+                            setPostcodeDetectionFailed(!postcode);
+
                             setFormData((prev) => ({
                                 ...prev,
                                 address: location.address || prev.address,
                                 state: location.state || prev.state,
-                                postcode: location.postcode ?? "",
+                                postcode,
                                 latitude: String(location.latitude),
                                 longitude: String(location.longitude),
                             }));
