@@ -33,6 +33,7 @@ export default function EditHiddenGem() {
     const [geocodeStatus, setGeocodeStatus] = useState("");
     const [mapFocusRequest, setMapFocusRequest] = useState(null);
     const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
+    const [coreFieldsLocked, setCoreFieldsLocked] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
@@ -60,6 +61,8 @@ export default function EditHiddenGem() {
                     latitude: gem.latitude || "",
                     longitude: gem.longitude || "",
                 });
+
+                setCoreFieldsLocked(Number(gem.vote_count) > 0);
 
                 setCategories(categoryRes.data.data || []);
 
@@ -89,6 +92,8 @@ export default function EditHiddenGem() {
     }, [message]);
 
     const handleFindCoordinates = async () => {
+        if (coreFieldsLocked) return;
+
         const query = [
             formData.address,
             formData.state,
@@ -144,7 +149,12 @@ export default function EditHiddenGem() {
         setSaving(true);
 
         try {
-            const response = await updateHiddenGem(id, formData);
+            const response = await updateHiddenGem(
+                id,
+                coreFieldsLocked
+                    ? { description: formData.description }
+                    : formData
+            );
 
             setMessage(response.data.message);
 
@@ -197,12 +207,19 @@ export default function EditHiddenGem() {
 
                 <form onSubmit={handleSubmit}>
 
+                    {coreFieldsLocked && (
+                        <small className="edit-hidden-gem-warning">
+                            Community verification has started. Location details can no longer be changed, but you can still update the description.
+                        </small>
+                    )}
+
                     <input
                         className="form-input"
                         name="place_name"
                         placeholder="Place Name"
                         value={formData.place_name}
                         onChange={handleChange}
+                        disabled={coreFieldsLocked}
                         required
                     />
 
@@ -212,6 +229,7 @@ export default function EditHiddenGem() {
                         placeholder="Address"
                         value={formData.address}
                         onChange={handleChange}
+                        disabled={coreFieldsLocked}
                         required
                     />
 
@@ -220,6 +238,7 @@ export default function EditHiddenGem() {
                         name="state"
                         value={formData.state}
                         onChange={handleChange}
+                        disabled={coreFieldsLocked}
                         required
                     >
                         <option value="">Select State</option>
@@ -247,6 +266,7 @@ export default function EditHiddenGem() {
                         placeholder="Postcode"
                         value={formData.postcode}
                         onChange={handleChange}
+                        disabled={coreFieldsLocked}
                         required
                     />
 
@@ -260,6 +280,7 @@ export default function EditHiddenGem() {
                         latitude={formData.latitude}
                         longitude={formData.longitude}
                         focusRequest={mapFocusRequest}
+                        disabled={coreFieldsLocked}
                         onLocationSelected={(location) => {
                             const postcode = String(location.postcode ?? "").trim()
                                 || String(location.address ?? "").match(/\b\d{5}\b/)?.[0]
@@ -283,7 +304,7 @@ export default function EditHiddenGem() {
                             type="button"
                             className="hidden-gem-geocode-btn"
                             onClick={handleFindCoordinates}
-                            disabled={geocoding}
+                            disabled={geocoding || coreFieldsLocked}
                         >
                             {geocoding
                                 ? "Finding…"
@@ -346,6 +367,7 @@ export default function EditHiddenGem() {
                         name="category_id"
                         value={formData.category_id}
                         onChange={handleChange}
+                        disabled={coreFieldsLocked}
                         required
                     >
                         <option value="">Select Category</option>
@@ -360,9 +382,11 @@ export default function EditHiddenGem() {
                         ))}
                     </select>
 
-                    <small className="edit-hidden-gem-warning">
-                        Editing this hidden gem will reset its verification progress.
-                    </small>
+                    {!coreFieldsLocked && (
+                        <small className="edit-hidden-gem-warning">
+                            Editing this hidden gem will reset its verification progress.
+                        </small>
+                    )}
 
                     <button
                         type="submit"

@@ -67,7 +67,8 @@ export default function LocationPickerMap({
     latitude,
     longitude,
     onLocationSelected,
-    focusRequest
+    focusRequest,
+    disabled = false
 }) {
     const initialPosition =
         latitude && longitude
@@ -163,9 +164,11 @@ export default function LocationPickerMap({
                         }}
                     />
 
-                    <MapClickHandler
-                        onSelect={handleMapClick}
-                    />
+                    {!disabled && (
+                        <MapClickHandler
+                            onSelect={handleMapClick}
+                        />
+                    )}
 
                     <FocusMap request={focusRequest} />
 

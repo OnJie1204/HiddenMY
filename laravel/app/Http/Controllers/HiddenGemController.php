@@ -225,6 +225,30 @@ class HiddenGemController extends Controller
             ], 403);
         }
 
+        $hasVotes = $gem->vote_count > 0 || $gem->votes()->exists();
+
+        if ($hasVotes) {
+            $validated = $request->validate([
+                'description' => 'required|string',
+                'category_id' => 'prohibited',
+                'place_name' => 'prohibited',
+                'address' => 'prohibited',
+                'state' => 'prohibited',
+                'postcode' => 'prohibited',
+                'latitude' => 'prohibited',
+                'longitude' => 'prohibited',
+            ]);
+
+            $gem->update([
+                'description' => $validated['description'],
+            ]);
+
+            return response()->json([
+                'message' => 'Hidden gem description updated successfully.',
+                'data' => $gem->load(['category', 'images'])
+            ]);
+        }
+
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
             'place_name' => 'required|string|max:255',
