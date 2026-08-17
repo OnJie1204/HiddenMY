@@ -17,6 +17,9 @@ class HiddenGemController extends Controller
 {
     private const SEARCH_RESULT_LIMIT = 20;
 
+    /** Nominatim's own documented hard cap on `limit` — asking for more does nothing. */
+    private const OSM_SEARCH_FETCH_LIMIT = 50;
+
     private const OSM_CACHE_TTL_HOURS = 6;
 
     private const NEARBY_RADIUS_METERS = 1500;
@@ -24,22 +27,7 @@ class HiddenGemController extends Controller
     private const NEARBY_RESULT_LIMIT = 60;
 
     private const VIEWPORT_RESULT_LIMIT = 300;
-
-    /**
-     * Overpass is a free, shared, per-IP rate-limited service whose latency swings
-     * between ~0.8s and >12s (and answers 429 when busy). To keep the map inside its
-     * performance budget we (a) fail fast rather than hanging, (b) snap cache keys to
-     * a coarse grid so panning reuses one entry, (c) cache successes for a long time,
-     * and (d) cache failures briefly so a bad patch isn't retried on every pan.
-     */
     private const OVERPASS_TIMEOUT_SECONDS = 5;
-
-    private const NEARBY_CACHE_TTL_DAYS = 7;
-
-    private const NEARBY_FAILURE_TTL_MINUTES = 5;
-
-    /** ~1.1km grid — coarse enough that small pans share a cache entry. */
-    private const NEARBY_GRID_PRECISION = 2;
 
     /** Place types worth showing on the map, grouped by their OSM tag. */
     private const NEARBY_TAG_FILTERS = [
@@ -297,52 +285,73 @@ class HiddenGemController extends Controller
         ]);
     }
 
-    /**
-     * Search approved Hidden Gems first, then supplement the results with OSM.
-     */
     public function search(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'query' => ['required', 'string', 'min:2', 'max:100'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'db_offset' => ['nullable', 'integer', 'min:0'],
+            'osm_offset' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $query = trim($validated['query']);
         $latitude = isset($validated['latitude']) ? (float) $validated['latitude'] : null;
         $longitude = isset($validated['longitude']) ? (float) $validated['longitude'] : null;
+        $dbOffset = (int) ($validated['db_offset'] ?? 0);
+        $osmOffset = (int) ($validated['osm_offset'] ?? 0);
 
         if ($query === '') {
             return response()->json([
                 'database' => [],
                 'openStreetMap' => [],
+                'nextDbOffset' => 0,
+                'nextOsmOffset' => 0,
+                'hasMore' => false,
             ]);
         }
 
         // Hidden Gems are always searched and displayed first, regardless of location.
-        $databaseLocations = Location::query()
+        $databaseQuery = Location::query()
             ->where(function ($q) use ($query) {
                 $q->where('place_name', 'ILIKE', '%'.$query.'%')
                 ->orWhere('state', 'ILIKE', '%'.$query.'%');
-            })
+            });
+
+        $totalDatabaseMatches = (clone $databaseQuery)->count();
+
+        $databaseLocations = $databaseQuery
             ->select(['id', 'place_name', 'state', 'latitude', 'longitude'])
             ->orderBy('place_name')
+            ->skip($dbOffset)
             ->limit(self::SEARCH_RESULT_LIMIT)
             ->get()
             ->map(fn (Location $location) => $this->locationSearchResult($location));
 
+        $nextDbOffset = $dbOffset + $databaseLocations->count();
+        $hasMoreDatabase = $nextDbOffset < $totalDatabaseMatches;
+
         $remainingResults = self::SEARCH_RESULT_LIMIT - $databaseLocations->count();
         $openStreetMapLocations = collect();
+        $nextOsmOffset = $osmOffset;
+        $hasMoreOsm = false;
 
         if ($remainingResults > 0) {
             // Only OSM results are affected by the optional user location: when present,
             // they're fetched with a nearby bias and sorted by distance.
-            $openStreetMapLocations = $this->searchOpenStreetMap($query, $remainingResults, $latitude, $longitude);
+            $allOsmMatches = $this->searchOpenStreetMap($query, $latitude, $longitude);
+
+            $openStreetMapLocations = $allOsmMatches->slice($osmOffset, $remainingResults)->values();
+            $nextOsmOffset = $osmOffset + $openStreetMapLocations->count();
+            $hasMoreOsm = $nextOsmOffset < $allOsmMatches->count();
         }
 
         return response()->json([
             'database' => $databaseLocations,
             'openStreetMap' => $openStreetMapLocations,
+            'nextDbOffset' => $nextDbOffset,
+            'nextOsmOffset' => $nextOsmOffset,
+            'hasMore' => $hasMoreDatabase || $hasMoreOsm,
         ]);
     }
 
@@ -368,12 +377,6 @@ class HiddenGemController extends Controller
         ]);
     }
 
-    /**
-     * Identify the location under a coordinate the user clicked on the map
-     * (reverse geocoding via Nominatim). The clicked coordinate itself is
-     * always used as the stopping point's position — Nominatim is only
-     * used to look up a human-readable name and an osm_id for it.
-     */
     public function reverseGeocode(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -488,9 +491,12 @@ class HiddenGemController extends Controller
 
     // ==================== PRIVATE METHODS ====================
 
-    private function searchOpenStreetMap(string $query, int $remainingResults, ?float $latitude = null, ?float $longitude = null): Collection
-    {
-        $cacheKey = 'osm-search:'.md5($query.':'.$remainingResults.':'.($latitude ?? 'x').':'.($longitude ?? 'x'));
+    private function searchOpenStreetMap(
+        string $query,
+        ?float $latitude = null,
+        ?float $longitude = null
+    ): Collection {
+        $cacheKey = 'osm-search:'.md5($query.':'.($latitude ?? 'x').':'.($longitude ?? 'x'));
 
         $cached = Cache::get($cacheKey);
         if ($cached !== null) {
@@ -498,7 +504,7 @@ class HiddenGemController extends Controller
         }
 
         try {
-            $results = $this->fetchFromNominatim($query, $remainingResults, $latitude, $longitude);
+            $results = $this->fetchFromNominatim($query, $latitude, $longitude);
             Cache::put($cacheKey, $results, now()->addHours(self::OSM_CACHE_TTL_HOURS));
 
             return $results;
@@ -509,15 +515,14 @@ class HiddenGemController extends Controller
         }
     }
 
-    private function fetchFromNominatim(string $query, int $remainingResults, ?float $latitude = null, ?float $longitude = null): Collection
+    private function fetchFromNominatim(string $query, ?float $latitude = null, ?float $longitude = null): Collection
     {
         $hasLocation = $latitude !== null && $longitude !== null;
 
         $params = [
             'q' => $query,
             'format' => 'jsonv2',
-            // Fetch extra candidates when biasing by location so sorting by distance has more to work with.
-            'limit' => $hasLocation ? max($remainingResults, self::SEARCH_RESULT_LIMIT) : $remainingResults,
+            'limit' => self::OSM_SEARCH_FETCH_LIMIT,
             'countrycodes' => 'my', // Restrict search to Malaysia
         ];
 
@@ -550,7 +555,7 @@ class HiddenGemController extends Controller
                 ->values();
         }
 
-        return $results->take($remainingResults)->values();
+        return $results;
     }
 
     private function distanceInKm(float $lat1, float $lon1, float $lat2, float $lon2): float
@@ -579,66 +584,23 @@ class HiddenGemController extends Controller
     }
 
     /**
-     * Named OSM points (attractions, museums, restaurants, cafes, ...) within
-     * NEARBY_RADIUS_METERS of a coordinate, via the free Overpass API — no
-     * ratings/reviews available from OSM, just name/type/distance.
+     * Always calls Overpass live — no caching. (This used to cache successes for
+     * 7 days and failures for 5 minutes, keyed to a coarse grid. Removed on request:
+     * it meant a bad/empty result from one attempt kept getting served back for the
+     * next 5 minutes instead of trying again.)
      */
     private function fetchNearbyFromOverpass(float $lat, float $lng, ?int $radius = null): Collection
     {
         $radius = $radius ?? self::NEARBY_RADIUS_METERS;
 
-        // Snap the cache key to a coarse grid. Keying on the exact coordinate meant
-        // moving a few metres missed the cache and paid the full Overpass round-trip.
-        $cacheKey = sprintf(
-            'osm-nearby:%s:%s:%d',
-            number_format(round($lat, self::NEARBY_GRID_PRECISION), self::NEARBY_GRID_PRECISION, '.', ''),
-            number_format(round($lng, self::NEARBY_GRID_PRECISION), self::NEARBY_GRID_PRECISION, '.', ''),
-            $radius
-        );
-
-        $places = Cache::get($cacheKey);
-
-        if ($places === null) {
-            $places = $this->requestNearbyFromOverpass($lat, $lng, $radius);
-        }
-
-        // Distances are measured from the caller's exact position, not the grid
-        // centre the results were cached under.
-        return $places
-            ->map(function (array $place) use ($lat, $lng) {
-                $place['distance'] = (int) round(
-                    $this->haversineMeters($lat, $lng, $place['latitude'], $place['longitude'])
-                );
-
-                return $place;
-            })
-            ->sortBy('distance')
-            ->values();
-    }
-
-    /**
-     * One Overpass round-trip, writing whatever it learns (including failure) to cache.
-     */
-    private function requestNearbyFromOverpass(float $lat, float $lng, int $radius): Collection
-    {
-        $cacheKey = sprintf(
-            'osm-nearby:%s:%s:%d',
-            number_format(round($lat, self::NEARBY_GRID_PRECISION), self::NEARBY_GRID_PRECISION, '.', ''),
-            number_format(round($lng, self::NEARBY_GRID_PRECISION), self::NEARBY_GRID_PRECISION, '.', ''),
-            $radius
-        );
-
-        // `nwr` (node/way/relation) rather than `node` alone: parks, malls, museums and
-        // most large attractions are mapped as ways or relations, so a node-only query
-        // silently missed them. `out center` gives those a usable centre point.
         $clauses = '';
         foreach (self::NEARBY_TAG_FILTERS as $tag => $pattern) {
-            $clauses .= "nwr[\"{$tag}\"~\"^({$pattern})$\"](around:{$radius},{$lat},{$lng});";
+            $clauses .= "node[\"{$tag}\"~\"^({$pattern})$\"](around:{$radius},{$lat},{$lng});";
         }
 
         $overpassQuery = '[out:json][timeout:'.self::OVERPASS_TIMEOUT_SECONDS.'];'
             . "({$clauses});"
-            . 'out center '.self::NEARBY_RESULT_LIMIT.';';
+            . 'out body '.self::NEARBY_RESULT_LIMIT.';';
 
         try {
             // Overpass answers 406 Not Acceptable to Guzzle's default User-Agent,
@@ -679,24 +641,43 @@ class HiddenGemController extends Controller
                         'latitude' => (float) $placeLat,
                         'longitude' => (float) $placeLng,
                         'source' => 'openstreetmap',
+                        'address' => $this->formatOsmAddress($tags),
+                        'openingHours' => $tags['opening_hours'] ?? null,
+                        'phone' => $tags['phone'] ?? $tags['contact:phone'] ?? null,
+                        'website' => $tags['website'] ?? $tags['contact:website'] ?? null,
                     ];
                 })
                 ->filter()
                 ->unique('id')
                 ->values();
 
-            Cache::put($cacheKey, $places, now()->addDays(self::NEARBY_CACHE_TTL_DAYS));
+            return $places
+                ->map(function (array $place) use ($lat, $lng) {
+                    $place['distance'] = (int) round(
+                        $this->haversineMeters($lat, $lng, $place['latitude'], $place['longitude'])
+                    );
 
-            return $places;
+                    return $place;
+                })
+                ->sortBy('distance')
+                ->values();
         } catch (\Throwable $exception) {
             report($exception);
 
-            // Cache the miss briefly. Overpass rate-limits per IP (429) and a bad call
-            // costs the full timeout, so retrying it on every pan makes things worse.
-            Cache::put($cacheKey, collect(), now()->addMinutes(self::NEARBY_FAILURE_TTL_MINUTES));
-
             return collect();
         }
+    }
+
+    private function formatOsmAddress(array $tags): ?string
+    {
+        $street = trim(($tags['addr:housenumber'] ?? '').' '.($tags['addr:street'] ?? ''));
+        $parts = array_filter([
+            $street !== '' ? $street : null,
+            $tags['addr:city'] ?? null,
+            $tags['addr:postcode'] ?? null,
+        ]);
+
+        return $parts ? implode(', ', $parts) : null;
     }
 
     private function haversineMeters(float $lat1, float $lng1, float $lat2, float $lng2): float

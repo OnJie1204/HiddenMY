@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMyHiddenGems, deleteHiddenGem } from "../api/hiddenGems";
+import GemImage from "../components/GemImage";
 
 import "../styles/global.css";
 
@@ -133,16 +134,7 @@ export default function MyHiddenGems() {
                             key={gem.id}
                         >
                             <div className="hidden-gems-card-image">
-                                {gem.images && gem.images.length > 0 ? (
-                                    <img
-                                        src={gem.images[0].image_url}
-                                        alt={gem.place_name}
-                                    />
-                                ) : (
-                                    <div className="hidden-gems-card-no-image">
-                                        No Image
-                                    </div>
-                                )}
+                                <GemImage src={gem.images?.[0]?.image_url} alt={gem.place_name} />
                             </div>
 
                             <div className="hidden-gems-card-content">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, GeoJSON, ZoomControl, ScaleControl, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -21,8 +21,6 @@ import SearchBar from "../components/SearchBar";
 import SidePanel from "../components/SidePanel";
 import AttractionMarker from "../components/AttractionMarker";
 import GemCarousel from "../components/GemCarousel";
-
-import malaysia from "../assets/MYS.geo.json";
 
 import api from "../api";
 
@@ -46,21 +44,15 @@ const MALAYSIA_BOUNDS = [
 
 // Shared fly-to easing so pans/zooms feel smooth rather than snapping instantly
 const FLY_TO_OPTIONS = { duration: 1.1, easeLinearity: 0.25 };
-
-// Zoomed in at least this far before we start pulling OSM places for the viewport.
-// Any wider and the radius covers half a state, which Overpass won't answer usefully.
 const EXPLORE_MIN_ZOOM = 14;
-
 const VIEWPORT_DEBOUNCE_MS = 500;
-
-// Overpass is rate-limited per IP, so the explore fetch is gated to a ~1.1km grid
-// (matching the server's cache grid): panning within one cell reuses the last result
-// instead of firing a fresh request on every pan.
-const EXPLORE_GRID = 100; // 1/0.01 degrees
+const EXPLORE_GRID = 100;
 
 function gridCell(lat, lng) {
     return `${Math.round(lat * EXPLORE_GRID)}:${Math.round(lng * EXPLORE_GRID)}`;
 }
+
+const CLICK_EXPLORE_RADIUS = 3000;
 
 function FlyToUser({ position }) {
     const map = useMap();
@@ -113,6 +105,19 @@ function ViewportWatcher({ onChange }) {
     return null;
 }
 
+function MapClickExplorer({ onMapClick }) {
+    useMapEvents({
+        click(e) {
+            const target = e.originalEvent?.target;
+            if (target?.closest?.('.leaflet-marker-icon, .leaflet-interactive')) {
+                return;
+            }
+            onMapClick(e.latlng.lat, e.latlng.lng);
+        },
+    });
+    return null;
+}
+
 function groupKey(lat, lng) {
     return `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
 }
@@ -133,10 +138,62 @@ function Maps(){
     const [explorePlaces, setExplorePlaces] = useState([]);
     const [exploreLoading, setExploreLoading] = useState(false);
     const [exploreOn, setExploreOn] = useState(true);
+    // Off by default — click-to-search hits Overpass on every click, so it's
+    // opt-in rather than always listening.
+    const [clickExploreOn, setClickExploreOn] = useState(false);
     const [viewport, setViewport] = useState(null);
+    const [clickedPoint, setClickedPoint] = useState(null);
+    const [clickedPlaces, setClickedPlaces] = useState([]);
+    const [clickedLoading, setClickedLoading] = useState(false);
     const [itineraries, setItineraries] = useState([]);
+    const [mapFullscreen, setMapFullscreen] = useState(false);
     const mapRef = useRef(null);
     const viewportTimer = useRef(null);
+    const heroRef = useRef(null);
+    const clickedMarkerRef = useRef(null);
+
+    // Open the "X places found nearby" popup as soon as a click lands, rather
+    // than making the user click the little dot a second time to see it.
+    useEffect(() => {
+        if (clickedPoint) clickedMarkerRef.current?.openPopup();
+    }, [clickedPoint, clickedLoading, clickedPlaces]);
+
+    // Clear any dot/results left on the map when the feature is switched off,
+    // rather than leaving a stale marker with no way to have produced it.
+    useEffect(() => {
+        if (!clickExploreOn) {
+            setClickedPoint(null);
+            setClickedPlaces([]);
+        }
+    }, [clickExploreOn]);
+
+    // Lock background scroll while the map covers the screen, so the page behind
+    // it can't scroll out from underneath the fixed-position hero.
+    useEffect(() => {
+        if (!mapFullscreen) return;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = previousOverflow; };
+    }, [mapFullscreen]);
+
+    useEffect(() => {
+        if (!mapRef.current) return;
+        const id = setTimeout(() => mapRef.current?.invalidateSize(), 260);
+        return () => clearTimeout(id);
+    }, [mapFullscreen]);
+
+    useEffect(() => {
+        const navbar = document.querySelector('.navbar');
+        if (!navbar) return;
+
+        function measure() {
+            document.documentElement.style.setProperty('--navbar-height', `${navbar.offsetHeight}px`);
+        }
+
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, []);
 
     // Load recent hidden gems
     useEffect(()=>{
@@ -188,9 +245,6 @@ function Maps(){
             .catch(err => console.log(err));
     }, [viewport, statusFilter]);
 
-    // Once zoomed in far enough, surface OSM places for the visible area.
-    // Keyed on the grid cell rather than the raw viewport so small pans don't
-    // re-request (Overpass 429s aggressively and each failure costs the timeout).
     const exploreCell = exploreOn && viewport && viewport.zoom >= EXPLORE_MIN_ZOOM
         ? gridCell(viewport.centerLat, viewport.centerLng)
         : null;
@@ -232,7 +286,6 @@ function Maps(){
                 status: raw.status,
             };
         }
-        // OSM / attraction result
         return {
             id: raw.id,
             osmId: raw.osm_id,
@@ -241,6 +294,11 @@ function Maps(){
             latitude: raw.latitude,
             longitude: raw.longitude,
             image: null,
+            attractionType: raw.type,
+            address: raw.address,
+            openingHours: raw.openingHours,
+            phone: raw.phone,
+            website: raw.website,
         };
     }
 
@@ -252,11 +310,11 @@ function Maps(){
 
     function selectGem(raw) {
         openGroup([normalizeGem(raw, "database")]);
+        // Cards live below the map, so without this the map flies to the gem
+        // off-screen and the user never sees it happen.
+        heroRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    // Fires whenever the panel's displayed gem changes (reported up from SidePanel).
-    // Fetches the "Near this gem" list. Wrapped in useCallback so SidePanel's effect
-    // doesn't re-fire — and re-hit Overpass — on unrelated re-renders.
     const handleActiveGemChange = useCallback((activeGem) => {
         if (!activeGem || activeGem.source !== "database") {
             setNearby([]);
@@ -276,6 +334,19 @@ function Maps(){
 
     const selectNearby = useCallback((place) => {
         openGroup([normalizeGem(place, "attraction")]);
+    }, []);
+
+    // Click anywhere on the map (not a marker) to see what's nearby that point.
+    const handleMapClick = useCallback((lat, lng) => {
+        setClickedPoint([lat, lng]);
+        setClickedLoading(true);
+        getNearbyAttractionsAt(lat, lng, CLICK_EXPLORE_RADIUS)
+            .then(res => setClickedPlaces(res.data.data || []))
+            .catch(err => {
+                console.log(err);
+                setClickedPlaces([]);
+            })
+            .finally(() => setClickedLoading(false));
     }, []);
 
     const handleAddToItinerary = useCallback((trip, gem) => {
@@ -305,14 +376,14 @@ function Maps(){
     }, [hiddenGems]);
 
     // OSM markers to draw: the selected gem's neighbours, the zoom-in discovery
-    // results, and any search hits — de-duplicated by id.
+    // results, a map-click explore, and any search hits — de-duplicated by id.
     const osmMarkers = useMemo(() => {
         const byId = new Map();
-        [...nearby, ...explorePlaces, ...searchResults].forEach(p => {
+        [...nearby, ...explorePlaces, ...clickedPlaces, ...searchResults].forEach(p => {
             if (p && p.id != null && !byId.has(p.id)) byId.set(p.id, p);
         });
         return Array.from(byId.values());
-    }, [nearby, explorePlaces, searchResults]);
+    }, [nearby, explorePlaces, clickedPlaces, searchResults]);
 
     // Get user location
     useEffect(()=>{
@@ -346,7 +417,7 @@ function Maps(){
 
     return (
         <div className="maps-page">
-            <div className="maps-hero">
+            <div className={`maps-hero ${mapFullscreen ? "fullscreen" : ""}`} ref={heroRef}>
                 <MapContainer
                     ref={mapRef}
                     center={userPosition || defaultCenter}
@@ -367,15 +438,7 @@ function Maps(){
                 <ZoomControl position="bottomright" />
                 <ScaleControl position="bottomright" imperial={false} />
                 <ViewportWatcher onChange={handleViewportChange} />
-                <GeoJSON
-                    data={malaysia}
-                    style={{
-                        color: "#14b8a6",
-                        weight: 2,
-                        fillColor: "#14b8a6",
-                        fillOpacity: 0.12,
-                    }}
-                />
+                {clickExploreOn && <MapClickExplorer onMapClick={handleMapClick} />}
                 {userPosition &&
                     <>
                     <Marker position={userPosition} icon={customIcon}>
@@ -401,6 +464,20 @@ function Maps(){
                         onClick={() => selectNearby(place)}
                     />
                 ))}
+                {clickedPoint && (
+                    <CircleMarker
+                        ref={clickedMarkerRef}
+                        center={clickedPoint}
+                        radius={8}
+                        pathOptions={{ color: '#0f766e', fillColor: '#14b8a6', fillOpacity: 0.9, weight: 2 }}
+                    >
+                        <Popup>
+                            {clickedLoading
+                                ? "Looking for nearby attractions"
+                                : `${clickedPlaces.length} place${clickedPlaces.length === 1 ? "" : "s"} found nearby`}
+                        </Popup>
+                    </CircleMarker>
+                )}
                 <FlyToGem gem={selectedGroup ? selectedGroup[0] : null}/>
                 </MapContainer>
 
@@ -464,16 +541,27 @@ function Maps(){
                             type="button"
                             className={`maps-category-pill ${exploreOn ? "active" : ""}`}
                             onClick={() => setExploreOn(o => !o)}
-                            title={`Show nearby places from OpenStreetMap once zoomed in (level ${EXPLORE_MIN_ZOOM}+)`}
+                            title={`Show nearby attractions from OpenStreetMap once zoomed in (level ${EXPLORE_MIN_ZOOM}+)`}
                         >
-                            🔎 Nearby places
+                            🔎 Nearby attractions
+                        </button>
+                        <button
+                            type="button"
+                            className={`maps-category-pill ${clickExploreOn ? "active" : ""}`}
+                            onClick={() => setClickExploreOn(o => !o)}
+                            title="When on, clicking anywhere on the map searches for nearby attractions at that point"
+                        >
+                            👆 Click to scan
                         </button>
                     </div>
+                    {clickExploreOn && (
+                        <p className="maps-hero-hint">Click anywhere on the map to search nearby</p>
+                    )}
                     {exploreOn && viewport && viewport.zoom < EXPLORE_MIN_ZOOM && (
-                        <p className="maps-hero-hint">Zoom in to load nearby places</p>
+                        <p className="maps-hero-hint">Zoom in to load nearby attractions</p>
                     )}
                     {exploreLoading && (
-                        <p className="maps-hero-hint">Loading nearby places…</p>
+                        <p className="maps-hero-hint">Loading nearby attractions</p>
                     )}
                     {!exploreLoading && exploreOn && explorePlaces.length > 0 && (
                         <p className="maps-hero-hint">{explorePlaces.length} places in view</p>
@@ -491,6 +579,16 @@ function Maps(){
                         🎯
                     </button>
                 )}
+
+                <button
+                    type="button"
+                    className="maps-fullscreen-btn"
+                    onClick={() => setMapFullscreen(f => !f)}
+                    aria-label={mapFullscreen ? "Exit fullscreen" : "Fullscreen map"}
+                    title={mapFullscreen ? "Exit fullscreen" : "Fullscreen map"}
+                >
+                    {mapFullscreen ? "⤡" : "⤢"}
+                </button>
             </div>
 
             <div className="maps-discover">

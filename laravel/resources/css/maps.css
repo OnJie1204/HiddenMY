@@ -26,16 +26,26 @@
     box-shadow: 0 12px 24px rgba(15, 42, 38, 0.12);
 }
 
+.maps-hero.fullscreen {
+    position: fixed;
+    top: var(--navbar-height, 64px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: auto;
+    margin: 0;
+    z-index: 90;
+    border-radius: 0;
+    box-shadow: none;
+}
+
 .leaflet-container {
   position: relative;
   z-index: 0; /* creates a new stacking context capped low */
   height: 100%;
 }
 
-/* Floating title + status chip, top-right of the map (Google Maps style) —
-   the left side is reserved for the docked search/gem panel.
-   z-index kept below the sticky navbar (100) and the nav hamburger panel (1000)
-   so nothing floats over them while scrolling through the hero. */
 .maps-hero-topbar {
     position: absolute;
     top: 16px;
@@ -140,22 +150,42 @@
     transform: scale(1.08);
 }
 
-/* ============================================================
-   Left column over the map: search box always on top (Google Maps
-   style), gem-detail panel docked directly beneath it.
-   ============================================================ */
+/* Floating fullscreen toggle — stacked above the locate button */
+.maps-fullscreen-btn {
+    position: absolute;
+    right: 16px;
+    bottom: 146px;
+    z-index: 40;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-surface, #fff);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+}
+
+.maps-fullscreen-btn:hover {
+    transform: scale(1.08);
+}
+
 .maps-left-stack {
     position: absolute;
     top: 0;
     left: 0;
     height: 100%;
     width: min(380px, calc(100% - 24px));
-    z-index: 40; /* below the sticky navbar (100) and the nav hamburger panel (1000) */
+    z-index: 40; 
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding: 12px;
-    pointer-events: none; /* let map drags pass through the gaps */
+    pointer-events: none; 
 }
 
 .maps-search-float {
@@ -199,28 +229,28 @@
     overflow-y: auto;
 }
 
-.search-item {
-    padding: 14px;
+.search-load-more-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    background: var(--color-surface-muted, #f1f4f2);
+    color: var(--color-primary-dark, #0f766e);
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    border-bottom: 1px solid #eee;
     transition: background 0.15s;
 }
 
-.search-item:hover {
+.search-load-more-btn:hover {
     background: var(--color-primary-soft, #e6f6f3);
 }
 
-/* ============================================================
-   Gem-detail side panel — SidePanel.jsx mode="gems".
-   Everything here only ever renders inside that panel, so it's kept
-   out of the shared global.css.
-   ============================================================ */
+.search-load-more-btn:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
 
-/* Flows inside .maps-left-stack rather than using the viewport-fixed
-   positioning global.css gives the nav hamburger panel. That keeps it out of
-   the hamburger panel's way entirely — different stacking contexts instead of
-   two fixed panels fighting over the same one.
-   `width` is set inline by the resize drag, so it's left alone here. */
 .side-panel.side-panel-embedded {
     position: relative;
     top: auto;
@@ -228,13 +258,13 @@
     right: auto;
     height: auto;
     flex: 1;
-    min-height: 0; /* lets the inner body scroll instead of overflowing the stack */
+    min-height: 0; 
     max-width: 100%;
     pointer-events: auto;
     border: 1px solid var(--color-border);
     border-radius: 14px;
     overflow: hidden;
-    transition: none; /* the fixed panel's left-slide transition doesn't apply here */
+    transition: none;
 }
 
 /* Fullscreen from inside the stack: cover the whole map area */
@@ -242,37 +272,6 @@
     position: absolute;
     inset: 0;
     border-radius: 0;
-}
-
-/* Optional right-docked variant, kept for reuse elsewhere */
-.side-panel.open.side-panel-right {
-    left: auto;
-    right: 0;
-    border-right: none;
-    border-left: 1px solid var(--color-border);
-    transition: right 0.3s ease, width 0.2s ease;
-}
-
-.side-panel.side-panel-right:not(.open) {
-    left: auto;
-    right: -420px;
-}
-
-@media (max-width: 600px) {
-    .side-panel.side-panel-right:not(.open) {
-        right: -100%;
-    }
-}
-
-/* Resize handle sits on the left edge when the panel is docked on the right */
-.side-panel-resize-handle.side-panel-resize-handle-left {
-    right: auto;
-    left: -4px;
-}
-
-.side-panel-resize-handle.side-panel-resize-handle-left::after {
-    right: auto;
-    left: 2px;
 }
 
 /* Fullscreen toggle button in the panel header */
@@ -351,21 +350,6 @@
     margin: 0;
 }
 
-/* Gem detail card */
-.side-panel-back {
-    background: none;
-    border: none;
-    color: var(--color-text-muted, #64766f);
-    font-size: 0.85rem;
-    cursor: pointer;
-    padding: 0.25rem 0;
-    margin-bottom: 0.5rem;
-}
-
-.side-panel-back:hover {
-    color: var(--color-text, #1c2b28);
-}
-
 .side-panel-gem-header {
     margin-bottom: 0.75rem;
 }
@@ -440,15 +424,28 @@
     transition: background 0.15s, transform 0.15s;
 }
 
+/* The Google Maps / Waze source images are brand lockups (logo + padding),
+   not edge-to-edge tiles — object-fit:cover cropped most of the Google Maps
+   mark away since its padding is much larger than Waze's. `contain` on a
+   white backing shows both logos whole instead of guessing at a crop. */
+.side-panel-icon-btn-icon:has(img) {
+    background: #fff;
+    padding: 4px;
+}
+
 .side-panel-icon-btn-icon img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .side-panel-icon-btn:hover .side-panel-icon-btn-icon {
     background: var(--color-primary-dark, #0f766e);
     transform: translateY(-2px);
+}
+
+.side-panel-icon-btn:hover .side-panel-icon-btn-icon:has(img) {
+    background: #fff;
 }
 
 .side-panel-icon-btn-label {
@@ -475,6 +472,16 @@
     font-size: 0.85rem;
     color: var(--color-text, #1c2b28);
     line-height: 1.4;
+    word-break: break-word;
+}
+
+.side-panel-info-row p a {
+    color: var(--color-primary-dark, #0f766e);
+    text-decoration: none;
+}
+
+.side-panel-info-row p a:hover {
+    text-decoration: underline;
 }
 
 /* Vote */
@@ -861,6 +868,25 @@
     border: 2px solid #fff;
 }
 
+/* Attraction marker — teardrop pin, colored/iconed by category (see AttractionIcon.js) */
+.attraction-marker-pin {
+    width: 30px;
+    height: 30px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border: 2px solid #fff;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.attraction-marker-pin span {
+    transform: rotate(45deg);
+    font-size: 13px;
+    line-height: 1;
+}
+
 /* Mobile */
 @media (max-width: 768px) {
     .maps-hero {
@@ -873,5 +899,12 @@
     }
     .maps-locate-btn {
         bottom: 84px;
+    }
+    .maps-fullscreen-btn {
+        bottom: 134px;
+    }
+    .maps-hero.fullscreen {
+        height: 100vh;
+        min-height: 0;
     }
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
+import GemImage from "./GemImage";
 
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 420;
@@ -9,8 +10,10 @@ const MAX_WIDTH = 420;
 // mode="nav"  -> the hamburger-menu panel (Layout.jsx): fixed to the viewport, full nav chrome.
 // mode="gems" -> the Maps page's gem-detail panel: docked inside the map's left column
 //                (see .side-panel-embedded in maps.css), no nav chrome.
+// Always docks left — a side="right" variant existed here previously but had no
+// caller, so it (and its CSS in maps.css) was removed rather than kept unused.
 function SidePanel({
-    group, isOpen, onClose, user, setUser, side = "left", mode = "nav", headerExtra = null,
+    group, isOpen, onClose, user, setUser, mode = "nav", headerExtra = null,
     nearby = [], nearbyLoading = false, onSelectNearby, onGemChange,
     itineraries = [], onAddToItinerary,
 }) {
@@ -20,7 +23,6 @@ function SidePanel({
     const [isResizing, setIsResizing] = useState(false);
     const [itineraryOpen, setItineraryOpen] = useState(false);
     const [itineraryStatus, setItineraryStatus] = useState(null);
-    const panelRef = useRef(null);
     const bodyRef = useRef(null);
     const navigate = useNavigate();
 
@@ -47,8 +49,7 @@ function SidePanel({
         if (!isResizing) return;
 
         function handleMouseMove(e) {
-            const raw = side === "right" ? window.innerWidth - e.clientX : e.clientX;
-            const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, raw));
+            const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
             setWidth(newWidth);
         }
         function handleMouseUp() {
@@ -61,7 +62,7 @@ function SidePanel({
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseUp);
         };
-    }, [isResizing, side]);
+    }, [isResizing]);
 
     // Press 'esc' to close panel
     useEffect(() => {
@@ -129,8 +130,7 @@ function SidePanel({
 
     return (
         <div
-            ref={panelRef}
-            className={`side-panel open ${side === "right" ? "side-panel-right" : ""} ${embedded ? "side-panel-embedded" : ""} ${isFullscreen ? "fullscreen" : ""} ${isResizing ? "resizing" : ""}`}
+            className={`side-panel open ${embedded ? "side-panel-embedded" : ""} ${isFullscreen ? "fullscreen" : ""} ${isResizing ? "resizing" : ""}`}
             style={!isFullscreen ? { width: `${width}px` } : undefined}
         >
             {/* Header: Logo + Close */}
@@ -202,9 +202,12 @@ function SidePanel({
                 {gem && (
                     <>
                         <div className="side-panel-gem-header">
-                            {gem.image && <img src={gem.image} alt={gem.title} className="side-panel-gem-image" />}
+                            <GemImage src={gem.image} alt={gem.title} className="side-panel-gem-image" />
                             <div className="side-panel-badges">
                                 {gem.category && <span className="badge badge-neutral">{gem.category}</span>}
+                                {gem.attractionType && (
+                                    <span className="badge badge-neutral">{gem.attractionType.replace(/_/g, " ")}</span>
+                                )}
                                 {gem.source === "database" && gem.status === "verified" && (
                                     <span className="badge badge-success">✓ Verified</span>
                                 )}
@@ -289,6 +292,27 @@ function SidePanel({
                             </div>
                         )}
 
+                        {gem.openingHours && (
+                            <div className="side-panel-info-row">
+                                <span className="side-panel-info-icon">🕒</span>
+                                <p>{gem.openingHours}</p>
+                            </div>
+                        )}
+
+                        {gem.phone && (
+                            <div className="side-panel-info-row">
+                                <span className="side-panel-info-icon">📞</span>
+                                <p><a href={`tel:${gem.phone}`}>{gem.phone}</a></p>
+                            </div>
+                        )}
+
+                        {gem.website && (
+                            <div className="side-panel-info-row">
+                                <span className="side-panel-info-icon">🔗</span>
+                                <p><a href={gem.website} target="_blank" rel="noopener noreferrer">{gem.website}</a></p>
+                            </div>
+                        )}
+
                         {gem.source === "database" && gem.voteCount != null && (
                             <div className="side-panel-vote">
                                 <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes to verify</span>
@@ -322,7 +346,7 @@ function SidePanel({
                                                 bodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
                                             }}
                                         >
-                                            {g.image && <img src={g.image} alt={g.title} />}
+                                            <GemImage src={g.image} alt={g.title} />
                                             <div>
                                                 <strong>{g.title}</strong>
                                                 <p>{g.category}</p>
@@ -374,7 +398,7 @@ function SidePanel({
 
             {!isFullscreen && (
                 <div
-                    className={`side-panel-resize-handle ${side === "right" ? "side-panel-resize-handle-left" : ""}`}
+                    className="side-panel-resize-handle"
                     onMouseDown={() => setIsResizing(true)}
                 />
             )}

@@ -1,12 +1,12 @@
+import GemImage from "./GemImage";
+
 function RecentHiddenGemCard({
     post,
     onClick
 }){
     return (
         <div className="recent-card" onClick={onClick}>
-            {post.images?.[0]?.image_url && (
-                <img src={post.images[0].image_url} alt={post.place_name} className="recent-image"/>
-            )}
+            <GemImage src={post.images?.[0]?.image_url} alt={post.place_name} className="recent-image" />
             <div className="recent-content">
                 <h3>💎 {post.place_name}</h3>
                 <p className="recent-state">
