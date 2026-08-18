@@ -32,6 +32,7 @@ class Location extends Model
         'verification_model',
         'ai_review_reason',
         'ai_reviewed_at',
+        'verification_attempts',
     ];
 
     protected $fillable = [
@@ -49,6 +50,7 @@ class Location extends Model
         'verification_threshold',
         'ai_review_reason',
         'ai_reviewed_at',
+        'verification_attempts',
         'verification_score',
         'verification_confidence',
         'google_visibility_level',

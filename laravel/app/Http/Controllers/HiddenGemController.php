@@ -325,6 +325,7 @@ class HiddenGemController extends Controller
         $gem->vote_count = 0;
         $gem->status = 'pending';
         $gem->ai_review_reason = null;
+        $gem->verification_attempts = 0;
         $gem->save();
 
         // Remove previous vote records

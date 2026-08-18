@@ -37,6 +37,9 @@ class VerifyHiddenGemSubmission implements ShouldQueue
     /** Weighted-score decision threshold: >= this proceeds to community voting. */
     private const PASS_SCORE = 60;
 
+    /** After this many technical-failure attempts, the scheduled retry command stops auto-retrying a submission (it still stays 'pending' and can always be retried by editing it). */
+    public const MAX_VERIFICATION_ATTEMPTS = 5;
+
     /** hiddenness_score, PHP-computed from google_visibility_level per the fixed table (never taken from Gemini's own number). */
     private const HIDDENNESS_BY_VISIBILITY = [
         'VERY_LOW' => 100,
@@ -263,6 +266,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
             'ai_reviewed_at' => now(),
             'verification_result_json' => $parsed,
             'verification_model' => self::MODEL,
+            'verification_attempts' => 0,
         ]);
     }
 
@@ -271,6 +275,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         Log::warning('Hidden gem AI verification failed; leaving submission pending for retry.', [
             'location_id' => $location->id,
             'error' => $technicalError,
+            'attempt' => $location->verification_attempts + 1,
         ]);
 
         // Clear every AI-derived field from a prior review cycle rather than
@@ -280,6 +285,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         $location->update([
             'status' => 'pending',
             'ai_review_reason' => 'Automated verification could not be completed and will be retried.',
+            'verification_attempts' => $location->verification_attempts + 1,
             'verification_score' => null,
             'verification_confidence' => null,
             'google_visibility_level' => null,
