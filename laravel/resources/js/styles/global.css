@@ -315,22 +315,25 @@ h1, h2, h3 {
 }
 
 .auth-brand-panel::before {
-  content: '🌏';
+  content: '';
   position: absolute;
-  top: -20px;
-  right: -10px;
-  font-size: 160px;
-  opacity: 0.12;
-  transform: rotate(12deg);
+  top: -60px;
+  right: -60px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .auth-brand-panel::after {
-  content: '✨';
+  content: '';
   position: absolute;
-  bottom: 40px;
+  bottom: -90px;
   left: 40px;
-  font-size: 70px;
-  opacity: 0.15;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .auth-brand-content {
@@ -373,13 +376,8 @@ h1, h2, h3 {
 .auth-brand-features li {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
   font-size: 0.95rem;
   font-weight: 600;
-}
-
-.auth-brand-features li span {
-  font-size: 1.4rem;
 }
 
 .auth-form-panel {
@@ -2699,8 +2697,8 @@ img.avatar {
 
 .hidden-gems-card-pending {
     font-size: 13px;
-    color: #f57f17;
-    background: #fff8e1;
+    color: #6B7280;
+    background: #F3F4F6;
     padding: 4px 12px;
     border-radius: 20px;
     display: inline-block;
@@ -3038,7 +3036,7 @@ img.avatar {
 .gem-detail-main-image {
     width: 100%;
     height: 340px;
-    background: #e8e0d8;
+    background: #F3F4F6;
     position: relative;
     overflow: hidden;
     display: flex;
@@ -3094,7 +3092,7 @@ img.avatar {
 .gem-detail-thumbnail-more {
     flex: 1;
     height: 80px;
-    background: #2c3e50;
+    background: #1F2937;
     color: white;
     border-radius: 8px;
     display: flex;
@@ -3150,8 +3148,8 @@ img.avatar {
 }
 
 .gem-detail-status-verified {
-    background: #d4edda;
-    color: #155724;
+    background: #FFF7ED;
+    color: #C2410C;
     padding: 4px 14px;
     border-radius: 20px;
     font-size: 13px;
@@ -3159,8 +3157,8 @@ img.avatar {
 }
 
 .gem-detail-status-pending {
-    background: #fff3cd;
-    color: #856404;
+    background: #F3F4F6;
+    color: #6B7280;
     padding: 4px 14px;
     border-radius: 20px;
     font-size: 13px;
@@ -3307,16 +3305,17 @@ img.avatar {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
-    box-shadow: 0 4px 16px rgba(212, 163, 115, 0.3);
+    box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
 }
 
 .gem-detail-vote-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(212, 163, 115, 0.4);
+    box-shadow: 0 6px 24px rgba(249, 115, 22, 0.4);
 }
 
 .gem-detail-vote-btn-verified {
-    background: #a8c4a0 !important;
+    background: #E5E7EB !important;
+    color: #6B7280 !important;
     cursor: not-allowed;
     box-shadow: none !important;
     opacity: 0.8;
@@ -3392,7 +3391,7 @@ img.avatar {
     object-fit: cover;
     border-radius: 6px;
     margin-top: 4px;
-    border: 1px solid #eee;
+    border: 1px solid #E5E7EB;
 }
 
 .gem-detail-vote-comment {
@@ -3433,17 +3432,17 @@ img.avatar {
     width: 28px;
     height: 28px;
     padding: 0;
-    border: 1px solid #e5ded7;
+    border: 1px solid #E5E7EB;
     border-radius: 6px;
     background: #fff;
-    color: #6b625b;
+    color: #6B7280;
     cursor: pointer;
     font-size: 13px;
 }
 
 .gem-detail-vote-icon-btn:hover:not(:disabled) {
-    background: #f7f2ed;
-    color: #9f5f36;
+    background: #F3F4F6;
+    color: #C2410C;
 }
 
 .gem-detail-vote-icon-btn:disabled {
@@ -4088,12 +4087,12 @@ img.avatar {
 }
 
 .my-hidden-gems-edit-btn {
-    background-color: #4570cf;
+    background-color: #1F2937;
     color: #ffffff;
 }
 
 .my-hidden-gems-edit-btn:hover {
-    background-color: #1d4ed8;
+    background-color: #111827;
 }
 
 .my-hidden-gems-edit-btn:active {
@@ -4454,7 +4453,7 @@ img.avatar {
 .vote-textarea:focus {
     outline: none;
     border-color: #1F2937;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.1);
 }
 
 .vote-char-count {
@@ -4554,7 +4553,7 @@ img.avatar {
 
 .vote-btn-primary:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 16px rgba(31, 41, 55, 0.3);
 }
 
 .vote-btn-primary:disabled {
@@ -4837,7 +4836,7 @@ img.avatar {
 .vote-manual-input:focus {
     outline: none;
     border-color: #1F2937;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.1);
 }
 
 .vote-manual-detect-btn {

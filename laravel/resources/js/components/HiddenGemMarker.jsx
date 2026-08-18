@@ -50,7 +50,7 @@ function HiddenGemMarker({
         }}
         >
             <Popup offset={[0, -25]}>
-                <b>💎 {gem.title}</b>
+                <b>{gem.title}</b>
                 <br />
                 <small>
                     {gem.state}

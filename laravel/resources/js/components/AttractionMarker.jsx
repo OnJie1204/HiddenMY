@@ -32,7 +32,7 @@ function AttractionMarker({
         }}
         >
             <Popup offset={[0, -25]}>
-                <b>📍 {place.name}</b>
+                <b>{place.name}</b>
                 <br/>
                 <small>{place.type ? place.type.replace(/_/g, " ") : "Attraction"}</small>
             </Popup>

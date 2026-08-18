@@ -39,15 +39,15 @@ function Register({ onRegisterSuccess }) {
       <div className="auth-brand-panel">
         <div className="auth-brand-content">
           <span className="auth-brand-logo">
-            <span className="navbar-logo-mark" aria-hidden="true">💎</span>
+            <span className="navbar-logo-mark" aria-hidden="true"></span>
             HiddenMY
           </span>
           <h1>Discover Malaysia's Hidden Gems</h1>
           <p>Every state has spots that never make the travel guides. Find them, visit them, and add your own.</p>
           <ul className="auth-brand-features">
-            <li><span>🗺️</span> Explore hand-picked hidden gems across Malaysia</li>
-            <li><span>✈️</span> Plan and organize your own trip itineraries</li>
-            <li><span>📍</span> Submit and share the spots only you know about</li>
+            <li>Explore hand-picked hidden gems across Malaysia</li>
+            <li>Plan and organize your own trip itineraries</li>
+            <li>Submit and share the spots only you know about</li>
           </ul>
         </div>
       </div>

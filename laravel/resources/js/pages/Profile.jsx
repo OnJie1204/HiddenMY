@@ -189,22 +189,18 @@ function Profile({ setAppUser }) {
       {activeTab === 'overview' && (
         <div className="stats-grid">
           <div className="stat-card">
-            <span className="stat-card-icon">📍</span>
             <span className="stat-card-value">{statsLoading ? '—' : stats.totalGems}</span>
             <span className="stat-card-label">Hidden Gems Submitted</span>
           </div>
           <div className="stat-card">
-            <span className="stat-card-icon">✅</span>
             <span className="stat-card-value">{statsLoading ? '—' : stats.verifiedGems}</span>
             <span className="stat-card-label">Hidden Gems</span>
           </div>
           <div className="stat-card">
-            <span className="stat-card-icon">⏳</span>
             <span className="stat-card-value">{statsLoading ? '—' : stats.pendingGems}</span>
             <span className="stat-card-label">In Progress</span>
           </div>
           <div className="stat-card">
-            <span className="stat-card-icon">✈️</span>
             <span className="stat-card-value">{statsLoading ? '—' : stats.totalTrips}</span>
             <span className="stat-card-label">Trip Itineraries</span>
           </div>

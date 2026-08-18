@@ -119,10 +119,9 @@ function SearchBar({ onSelect }) {
                             style={{
                                 padding: "12px",
                                 cursor: "pointer",
-                                borderBottom: "1px solid #ddd",
+                                borderBottom: "1px solid #E5E7EB",
                             }}
                         >
-                            {item.source === "database" ? "💎" : "📍"}{" "}
                             <b>{item.name}</b>
                             <br />
                             <small>{item.source === "database" ? "Hidden Gem" : "Attraction"}</small>

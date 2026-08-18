@@ -136,7 +136,7 @@ export default function LocationPickerMap({
 
             <div className="hidden-gem-map-picker-header">
                 <div>
-                    <h4>🗺️ Select Location on Map</h4>
+                    <h4>Select Location on Map</h4>
                     <p>
                         Click on the map to automatically fill
                         the address and coordinates.

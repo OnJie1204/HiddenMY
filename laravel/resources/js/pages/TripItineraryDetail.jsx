@@ -158,16 +158,6 @@ function SortableLocationCard({
 
             </div>
 
-            <div className="trip-detail-location-icon">
-
-                {location.type === "hidden"
-
-                    ? "💎"
-
-                    : "📍"}
-
-            </div>
-
             <div className="trip-detail-location-name">
                 {index + 1}. {location.name}
             </div>
@@ -177,10 +167,12 @@ function SortableLocationCard({
                 className="trip-detail-delete-stop-btn"
 
                 onClick={() => onDelete(location.id)}
+                aria-label="Remove stop"
+                title="Remove stop"
 
             >
 
-                🗑
+                ✕
 
             </button>
 
@@ -713,13 +705,13 @@ export default function TripItineraryDetail() {
                             className="trip-detail-btn trip-detail-rename-btn"
                             onClick={() => setIsRenaming(true)}
                         >
-                            ✏ Rename
+                            Rename
                         </button>
                     )}
 
 
                     <button className="trip-detail-btn trip-detail-delete-btn" onClick={handleDelete}>
-                        🗑 Delete
+                        Delete
                     </button>
 
                 </div>
@@ -870,7 +862,7 @@ export default function TripItineraryDetail() {
 
                         {userLocation && (
                             <p className="stopping-point-search-status">
-                                📍 Showing OpenStreetMap results nearest to your current location first.
+                                Showing OpenStreetMap results nearest to your current location first.
                             </p>
                         )}
 
@@ -902,9 +894,6 @@ export default function TripItineraryDetail() {
                                         className="stopping-point-search-result"
                                         onClick={() => selectSearchResult(location)}
                                     >
-                                        <span className="stopping-point-search-result-prefix" aria-hidden="true">
-                                            {location.source === "database" ? "💎" : "📍"}
-                                        </span>
                                         {location.name}
                                     </button>
                                 ))}
@@ -1036,7 +1025,7 @@ export default function TripItineraryDetail() {
                 className="trip-detail-btn trip-detail-route-btn"
                 onClick={handleOpenRouteInGoogleMaps}
             >
-                🗺 Open Route in Google Maps
+                Open Route in Google Maps
             </button>
 
 

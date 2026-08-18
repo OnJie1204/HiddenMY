@@ -251,7 +251,7 @@ export default function HiddenGemSubmission() {
                             onClick={handleFindCoordinates}
                             disabled={geocoding}
                         >
-                            {geocoding ? "Finding…" : "📍 Find Coordinates from Address"}
+                            {geocoding ? "Finding…" : "Find Coordinates from Address"}
                         </button>
 
                         {geocodeStatus && (

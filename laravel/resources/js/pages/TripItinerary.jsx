@@ -144,7 +144,7 @@ export default function TripItinerary() {
                         <div className="trip-itinerary-card-dates">
 
                             <p className="trip-itinerary-created-date">
-                                📅 Created:
+                                Created:
                                 {" "}
                                 {new Date(trip.created_at).toLocaleDateString(
                                     "en-GB",
@@ -159,7 +159,7 @@ export default function TripItinerary() {
                             {trip.created_at !== trip.updated_at && (
 
                                 <p className="trip-itinerary-modified-date">
-                                    ✏️ Last Modified:
+                                    Last Modified:
                                     {" "}
                                     {new Date(trip.updated_at).toLocaleDateString(
                                         "en-GB",
@@ -221,7 +221,7 @@ export default function TripItinerary() {
                                         className="trip-create-modal-confirm-btn"
                                         disabled={!tripName.trim()}
                                     >
-                                        ✈ Create Itinerary
+                                        Create Itinerary
                                     </button>
 
                                 </div>

@@ -182,7 +182,7 @@ export default function MyHiddenGems() {
 
             <div className="hidden-gems-header">
                 <div>
-                    <h1>📍 My Hidden Gems</h1>
+                    <h1>My Hidden Gems</h1>
                 </div>
 
                 <button
@@ -325,18 +325,18 @@ export default function MyHiddenGems() {
                                             className={getGemStatusDisplay(gem).badgeClass}
                                             title={gem.ai_review_reason || ""}
                                         >
-                                            {getGemStatusDisplay(gem).icon} {getGemStatusDisplay(gem).label}
+                                            {getGemStatusDisplay(gem).label}
                                             {gem.ai_review_reason
                                                 ? `: ${gem.ai_review_reason}`
                                                 : ""}
                                         </span>
                                     ) : gem.status === "pending_community_vote" ? (
                                         <span className={getGemStatusDisplay(gem).badgeClass}>
-                                            {getGemStatusDisplay(gem).icon} {voteProgressLabel(gem)}
+                                            {voteProgressLabel(gem)}
                                         </span>
                                     ) : (
                                         <span className={getGemStatusDisplay(gem).badgeClass}>
-                                            {getGemStatusDisplay(gem).icon} {getGemStatusDisplay(gem).label}
+                                            {getGemStatusDisplay(gem).label}
                                         </span>
                                     )}
                                 </div>
@@ -444,10 +444,6 @@ export default function MyHiddenGems() {
                         className="delete-modal"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="delete-modal-icon">
-                            🗑️
-                        </div>
-
                         <h2>Delete Hidden Gem?</h2>
 
                         <p>

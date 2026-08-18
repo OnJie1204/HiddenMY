@@ -308,7 +308,6 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
 
                     {step === 'checkin' && (
                         <div className="vote-checkin">
-                            <div className="vote-checkin-icon">📍</div>
                             <h3>Check-in Required</h3>
                             <p>You need to check-in at this location before you can vote.</p>
 
@@ -332,7 +331,6 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                                     onClick={getCurrentLocation}
                                     disabled={checkingIn}
                                 >
-                                    <span className="vote-checkin-option-icon">📡</span>
                                     <span className="vote-checkin-option-label">Use My Current Location</span>
                                     <span className="vote-checkin-option-desc">Auto-detect your GPS position</span>
                                 </button>
@@ -342,7 +340,6 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                                     onClick={handleManualCheckIn}
                                     disabled={checkingIn}
                                 >
-                                    <span className="vote-checkin-option-icon">📌</span>
                                     <span className="vote-checkin-option-label">Enter Current Location</span>
                                     <span className="vote-checkin-option-desc">Manually enter your GPS coordinates</span>
                                 </button>
@@ -378,7 +375,6 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                                 ← Back
                             </button>
 
-                            <div className="vote-checkin-icon">📌</div>
                             <h3>Enter Your Current Location</h3>
 
                             {gemLocation && (
@@ -421,7 +417,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                                 className="vote-manual-detect-btn"
                                 onClick={useCurrentLocationForManual}
                             >
-                                📡 Detect My Location
+                                Detect My Location
                             </button>
 
                             {gpsStatus && (
@@ -457,7 +453,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                     {step === 'voting' && (
                         <div className="vote-form">
                             <div className="vote-location-info">
-                                <p>📍 {eligibility?.location?.place_name}</p>
+                                <p>{eligibility?.location?.place_name}</p>
                                 <p className="vote-location-address">{eligibility?.location?.address}</p>
                             </div>
 
@@ -480,7 +476,6 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                                         <img src={photoPreview} alt="Preview" className="vote-photo-preview" />
                                     ) : (
                                         <div className="vote-upload-placeholder">
-                                            <span>📷</span>
                                             <p>Click to upload a photo</p>
                                         </div>
                                     )}
@@ -532,7 +527,6 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
 
                     {step === 'success' && (
                         <div className="vote-success">
-                            <div className="vote-success-icon">🎉</div>
                             <h3>Vote Submitted!</h3>
                             <p>{message}</p>
                             <button className="vote-btn-primary" onClick={handleClose}>
@@ -543,7 +537,6 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
 
                     {step === 'error' && (
                         <div className="vote-error">
-                            <div className="vote-error-icon">😕</div>
                             <h3>Cannot Vote</h3>
                             <p>{message}</p>
                             {message.includes('login') ? (

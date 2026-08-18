@@ -121,12 +121,12 @@ function SidePanel({
     };
 
     const menuItems = [
-        { to: '/', icon: '🏠', label: 'Home' },
-        { to: '/map', icon: '🗺️', label: 'Map' },
-        { to: '/hidden-gems', icon: '💎', label: 'Hidden Gems' },
-        { to: '/my-hidden-gems', icon: '📍', label: 'My Hidden Gems' },
-        { to: '/trip-itinerary', icon: '✈️', label: 'Trip Itinerary' },
-        { to: '/profile', icon: '👤', label: 'Profile' },
+        { to: '/', label: 'Home' },
+        { to: '/map', label: 'Map' },
+        { to: '/hidden-gems', label: 'Hidden Gems' },
+        { to: '/my-hidden-gems', label: 'My Hidden Gems' },
+        { to: '/trip-itinerary', label: 'Trip Itinerary' },
+        { to: '/profile', label: 'Profile' },
     ];
 
     return (
@@ -176,14 +176,13 @@ function SidePanel({
 
             {showNavChrome && (
                 <nav className="side-panel-nav">
-                    {menuItems.map(({ to, icon, label }) => (
+                    {menuItems.map(({ to, label }) => (
                         <Link
                             key={to}
                             to={to}
                             className="side-panel-nav-item"
                             onClick={onClose}
                         >
-                            <span className="side-panel-nav-icon">{icon}</span>
                             <span className="side-panel-nav-label">{label}</span>
                         </Link>
                     ))}
@@ -210,21 +209,21 @@ function SidePanel({
                                     <span className="badge badge-neutral">{gem.attractionType.replace(/_/g, " ")}</span>
                                 )}
                                 {gem.source === "database" && gem.status === "hidden_gem" && (
-                                    <span className="badge badge-success">✓ Hidden Gem</span>
+                                    <span className="badge badge-success">Hidden Gem</span>
                                 )}
                                 {gem.source === "database" && gem.status === "pending_community_vote" && (
-                                    <span className="badge badge-pending">🗳️ Awaiting Votes</span>
+                                    <span className="badge badge-pending">Awaiting Votes</span>
                                 )}
                                 {gem.source === "database" && gem.status === "ai_rejected" && (
-                                    <span className="badge badge-pending">❌ Not Accepted</span>
+                                    <span className="badge badge-pending">Not Accepted</span>
                                 )}
                             </div>
                         </div>
 
                         <h2 className="side-panel-gem-title">
-                            {gem.source === "database" ? "💎" : "📍"} {gem.title}
+                            {gem.title}
                         </h2>
-                        {gem.state && <p className="side-panel-gem-meta">📍 {gem.state}</p>}
+                        {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
                         <p className="side-panel-gem-desc">{gem.description || "No description available."}</p>
 
                         {/* Icon action row, Google Maps style: icon tile + label underneath */}
@@ -275,7 +274,7 @@ function SidePanel({
                                                 className="side-panel-itinerary-option"
                                                 onClick={() => handleAddToItinerary(trip)}
                                             >
-                                                ✈️ {trip.trip_name}
+                                                {trip.trip_name}
                                             </button>
                                         ))}
                                     </>
@@ -291,28 +290,28 @@ function SidePanel({
 
                         {gem.address && (
                             <div className="side-panel-info-row">
-                                <span className="side-panel-info-icon">📍</span>
+                                <span className="side-panel-info-label">Address</span>
                                 <p>{gem.address}</p>
                             </div>
                         )}
 
                         {gem.openingHours && (
                             <div className="side-panel-info-row">
-                                <span className="side-panel-info-icon">🕒</span>
+                                <span className="side-panel-info-label">Hours</span>
                                 <p>{gem.openingHours}</p>
                             </div>
                         )}
 
                         {gem.phone && (
                             <div className="side-panel-info-row">
-                                <span className="side-panel-info-icon">📞</span>
+                                <span className="side-panel-info-label">Phone</span>
                                 <p><a href={`tel:${gem.phone}`}>{gem.phone}</a></p>
                             </div>
                         )}
 
                         {gem.website && (
                             <div className="side-panel-info-row">
-                                <span className="side-panel-info-icon">🔗</span>
+                                <span className="side-panel-info-label">Website</span>
                                 <p><a href={gem.website} target="_blank" rel="noopener noreferrer">{gem.website}</a></p>
                             </div>
                         )}
@@ -376,7 +375,6 @@ function SidePanel({
                                                 className="side-panel-nearby-item"
                                                 onClick={() => onSelectNearby?.(place)}
                                             >
-                                                <span className="side-panel-nearby-icon">📍</span>
                                                 <div>
                                                     <strong>{place.name}</strong>
                                                     <p>{place.type.replace(/_/g, " ")} · {place.distance}m away</p>
@@ -395,7 +393,7 @@ function SidePanel({
             {showNavChrome && (
                 <div className="side-panel-footer">
                     <button className="side-panel-logout-btn" onClick={handleLogout}>
-                        🚪 Logout
+                        Logout
                     </button>
                 </div>
             )}

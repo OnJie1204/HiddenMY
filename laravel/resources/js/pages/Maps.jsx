@@ -431,8 +431,8 @@ function Maps(){
 
     const statusFilters = [
         { value: null, label: "All" },
-        { value: "hidden_gem", label: "✓ Hidden Gem" },
-        { value: "pending_community_vote", label: "🗳️ Awaiting Votes" },
+        { value: "hidden_gem", label: "Hidden Gem" },
+        { value: "pending_community_vote", label: "Awaiting Votes" },
     ];
 
     return (
@@ -563,7 +563,7 @@ function Maps(){
                             onClick={() => setExploreOn(o => !o)}
                             title={`Show nearby attractions from OpenStreetMap once zoomed in (level ${EXPLORE_MIN_ZOOM}+)`}
                         >
-                            🔎 Nearby attractions
+                            Nearby attractions
                         </button>
                         <button
                             type="button"
@@ -571,7 +571,7 @@ function Maps(){
                             onClick={() => setClickExploreOn(o => !o)}
                             title="When on, clicking anywhere on the map searches for nearby attractions at that point"
                         >
-                            👆 Click to scan
+                            Click to scan
                         </button>
                     </div>
                     {clickExploreOn && (

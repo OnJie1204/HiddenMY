@@ -204,7 +204,7 @@ export default function HiddenGemDetail() {
     if (error || !gem) {
         return (
             <div className="gem-detail-error">
-                <p>😕 {error || "Hidden gem not found."}</p>
+                <p>{error || "Hidden gem not found."}</p>
                 <Link to="/hidden-gems" className="gem-detail-back-link">
                     ← Back to List
                 </Link>
@@ -217,7 +217,7 @@ export default function HiddenGemDetail() {
 
             {voteSuccess && (
                 <div className="gem-detail-vote-success">
-                    🎉 {voteMessage}
+                    {voteMessage}
                 </div>
             )}
 
@@ -285,29 +285,29 @@ export default function HiddenGemDetail() {
                 </div>
 
                 <div className="gem-detail-header">
-                    <h1 className="gem-detail-title">🌟 {gem.place_name}</h1>
+                    <h1 className="gem-detail-title">{gem.place_name}</h1>
                     <div className="gem-detail-meta-row">
                         <span className="gem-detail-category-tag">
-                            🏷️ {gem.category?.name || "Uncategorized"}
+                            {gem.category?.name || "Uncategorized"}
                         </span>
                         <span className="gem-detail-location-tag">
-                            📍 {gem.state || "Unknown"}
+                            {gem.state || "Unknown"}
                         </span>
                     </div>
                     <div className="gem-detail-status-row">
                         {gem.status === "hidden_gem" ? (
-                            <span className="gem-detail-status-verified">✅ Hidden Gem</span>
+                            <span className="gem-detail-status-verified">Hidden Gem</span>
                         ) : gem.status === "pending_community_vote" ? (
                             <span className="gem-detail-status-pending">
-                                🗳️ {voteProgressLabel(gem)}
+                                {voteProgressLabel(gem)}
                             </span>
                         ) : gem.status === "ai_rejected" ? (
                             <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
-                                ❌ Not Accepted
+                                Not Accepted
                             </span>
                         ) : (
                             <span className="gem-detail-status-pending">
-                                ⏳ Being Verified by AI
+                                Being Verified by AI
                             </span>
                         )}
                     </div>
@@ -318,13 +318,13 @@ export default function HiddenGemDetail() {
                         className={`gem-detail-tab ${activeTab === "details" ? "active" : ""}`}
                         onClick={() => setActiveTab("details")}
                     >
-                        📋 Details
+                        Details
                     </button>
                     <button
                         className={`gem-detail-tab ${activeTab === "votes" ? "active" : ""}`}
                         onClick={() => setActiveTab("votes")}
                     >
-                        🗳️ Votes ({gem.votes?.length || 0})
+                        Votes ({gem.votes?.length || 0})
                     </button>
                 </div>
 
@@ -334,14 +334,14 @@ export default function HiddenGemDetail() {
                         <div>
 
                             <div className="gem-detail-section">
-                                <h3>💬 Description</h3>
+                                <h3>Description</h3>
                                 <p className="gem-detail-description-text">
                                     "{gem.description || "No description available."}"
                                 </p>
                             </div>
 
                             <div className="gem-detail-section">
-                                <h3>📍 Location</h3>
+                                <h3>Location</h3>
                                 <p className="gem-detail-address">
                                     {gem.address}
                                 </p>
@@ -352,7 +352,7 @@ export default function HiddenGemDetail() {
 
                             {gem.status === "pending_community_vote" && (
                                 <div className="gem-detail-section">
-                                    <h3>📊 Vote Progress</h3>
+                                    <h3>Vote Progress</h3>
                                     <div className="gem-detail-progress-bar">
                                         <div
                                             className="gem-detail-progress-fill"
@@ -368,7 +368,7 @@ export default function HiddenGemDetail() {
 
                             {gem.status === "ai_rejected" && (
                                 <div className="gem-detail-section">
-                                    <h3>❌ AI Verification Result</h3>
+                                    <h3>AI Verification Result</h3>
                                     <p className="gem-detail-description-text">
                                         {gem.ai_review_reason || "This submission did not meet HiddenMY's hidden gem requirements."}
                                     </p>
@@ -376,7 +376,7 @@ export default function HiddenGemDetail() {
                             )}
 
                             <div className="gem-detail-section">
-                                <h3>👤 Discovered by</h3>
+                                <h3>Discovered by</h3>
                                 <p className="gem-detail-submitter">
                                     {gem.user?.name || "Unknown User"}
                                 </p>
@@ -388,15 +388,15 @@ export default function HiddenGemDetail() {
                                         className="gem-detail-vote-btn"
                                         onClick={() => setShowVoteModal(true)}
                                     >
-                                        🗳️ Vote Now
+                                        Vote Now
                                     </button>
                                 ) : gem.status === "hidden_gem" ? (
                                     <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                        ✅ Already a Hidden Gem
+                                        Already a Hidden Gem
                                     </button>
                                 ) : gem.status === "ai_rejected" ? null : (
                                     <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                        ⏳ Being Verified by AI
+                                        Being Verified by AI
                                     </button>
                                 )}
                             </div>
@@ -452,7 +452,7 @@ export default function HiddenGemDetail() {
                                                                 setDeleteConfirmation({ type: "photo", vote });
                                                             }}
                                                         >
-                                                            🗑
+                                                            ✕
                                                         </button>
                                                     )}
                                                 </div>
@@ -512,7 +512,7 @@ export default function HiddenGemDetail() {
                                                                     setDeleteConfirmation({ type: "comment", vote });
                                                                 }}
                                                             >
-                                                                🗑
+                                                                ✕
                                                             </button>
                                                         </div>
                                                     )}
@@ -555,7 +555,6 @@ export default function HiddenGemDetail() {
                         className="delete-modal vote-delete-modal"
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <div className="delete-modal-icon">🗑️</div>
                         <h2>
                             {deleteConfirmation.type === "comment"
                                 ? "Delete Comment?"
