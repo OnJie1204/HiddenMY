@@ -519,6 +519,22 @@ class HiddenGemController extends Controller
 
         $state = $stateAliases[$state] ?? $state;
 
+        $specificAddressFields = [
+            'house_number',
+            'road',
+            'pedestrian',
+            'footway',
+            'path',
+            'residential',
+            'neighbourhood',
+            'suburb',
+            'quarter',
+        ];
+
+        $isSpecific = collect($specificAddressFields)->contains(
+            fn (string $field) => !empty($addressDetails[$field])
+        );
+
         return response()->json([
             'latitude' => (float) $match['lat'],
             'longitude' => (float) $match['lon'],
@@ -526,6 +542,7 @@ class HiddenGemController extends Controller
             'state' => $state,
             'postcode' => $addressDetails['postcode'] ?? '',
             'country_code' => $addressDetails['country_code'] ?? '',
+            'is_specific' => $isSpecific,
         ]);
     }
 

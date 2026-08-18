@@ -160,6 +160,22 @@ export default function EditHiddenGem() {
                     });
 
                 if (locationChanged) {
+                    const normalizedAddress = currentLocation.address.toLowerCase();
+                    const normalizedState = currentLocation.state.toLowerCase();
+
+                    if (
+                        normalizedAddress === normalizedState
+                        || normalizedAddress === "malaysia"
+                        || normalizedAddress === `${normalizedState}, malaysia`
+                        || normalizedAddress === `${normalizedState} malaysia`
+                    ) {
+                        setMessageType("error");
+                        setMessage(
+                            "Unable to identify this location. Please check the address."
+                        );
+                        return;
+                    }
+
                     const query = [
                         currentLocation.address,
                         currentLocation.state,
@@ -171,25 +187,14 @@ export default function EditHiddenGem() {
 
                     try {
                         const geocodeResponse = await geocodeAddress(query);
+                        const countryCode = String(
+                            geocodeResponse.data.country_code ?? ""
+                        ).trim().toLowerCase();
 
-                        const geocodedState = String(
-                            geocodeResponse.data.state ?? ""
-                        ).trim();
-
-                        const geocodedPostcode = String(
-                            geocodeResponse.data.postcode ?? ""
-                        ).trim();
-
-                        const stateMatches =
-                            geocodedState !== ""
-                            && geocodedState.toLowerCase()
-                                === currentLocation.state.toLowerCase();
-
-                        const postcodeMatches =
-                            geocodedPostcode === ""
-                            || geocodedPostcode === currentLocation.postcode;
-
-                        if (!stateMatches || !postcodeMatches) {
+                        if (
+                            countryCode !== "my"
+                            || geocodeResponse.data.is_specific !== true
+                        ) {
                             setMessageType("error");
                             setMessage(
                                 "Unable to identify this location. Please check the address."

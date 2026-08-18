@@ -70,23 +70,38 @@ export default function LocationPickerMap({
     focusRequest,
     disabled = false
 }) {
-    const initialPosition =
-        latitude && longitude
-            ? [Number(latitude), Number(longitude)]
-            : null;
+    const parsedLatitude = Number(latitude);
+    const parsedLongitude = Number(longitude);
+    const hasValidCoordinates =
+        latitude !== ""
+        && latitude !== null
+        && latitude !== undefined
+        && longitude !== ""
+        && longitude !== null
+        && longitude !== undefined
+        && Number.isFinite(parsedLatitude)
+        && Number.isFinite(parsedLongitude)
+        && parsedLatitude >= -90
+        && parsedLatitude <= 90
+        && parsedLongitude >= -180
+        && parsedLongitude <= 180;
+
+    const initialPosition = hasValidCoordinates
+        ? [parsedLatitude, parsedLongitude]
+        : null;
 
     const [position, setPosition] = useState(initialPosition);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
 
     useEffect(() => {
-        if (latitude && longitude) {
+        if (hasValidCoordinates) {
             setPosition([
-                Number(latitude),
-                Number(longitude)
+                parsedLatitude,
+                parsedLongitude
             ]);
         }
-    }, [latitude, longitude]);
+    }, [hasValidCoordinates, parsedLatitude, parsedLongitude]);
 
     const handleMapClick = async (lat, lng) => {
         setPosition([lat, lng]);
@@ -133,8 +148,8 @@ export default function LocationPickerMap({
 
             <div className="hidden-gem-map-picker-map">
                 <MapContainer
-                    center={MALAYSIA_CENTER}
-                    zoom={7}
+                    center={initialPosition || MALAYSIA_CENTER}
+                    zoom={initialPosition ? 15 : 7}
                     minZoom={6}
                     zoomSnap={0.5}
                     zoomDelta={0.5}
