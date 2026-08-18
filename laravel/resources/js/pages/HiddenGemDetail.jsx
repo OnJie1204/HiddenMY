@@ -8,6 +8,7 @@ import {
     deleteVotePhoto
 } from "../api/votes";
 import VoteModal from "../components/VoteModal";
+import { voteProgressLabel } from "../utils/gemStatus";
 
 import "../styles/global.css";
 
@@ -294,11 +295,19 @@ export default function HiddenGemDetail() {
                         </span>
                     </div>
                     <div className="gem-detail-status-row">
-                        {gem.status === "verified" ? (
-                            <span className="gem-detail-status-verified">✅ Verified</span>
+                        {gem.status === "hidden_gem" ? (
+                            <span className="gem-detail-status-verified">✅ Hidden Gem</span>
+                        ) : gem.status === "pending_community_vote" ? (
+                            <span className="gem-detail-status-pending">
+                                🗳️ {voteProgressLabel(gem)}
+                            </span>
+                        ) : gem.status === "ai_rejected" ? (
+                            <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
+                                ❌ Not Accepted
+                            </span>
                         ) : (
                             <span className="gem-detail-status-pending">
-                                ⏳ Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                                ⏳ Being Verified by AI
                             </span>
                         )}
                     </div>
@@ -341,18 +350,27 @@ export default function HiddenGemDetail() {
                                 </p>
                             </div>
 
-                            {gem.status === "pending" && (
+                            {gem.status === "pending_community_vote" && (
                                 <div className="gem-detail-section">
                                     <h3>📊 Vote Progress</h3>
                                     <div className="gem-detail-progress-bar">
-                                        <div 
-                                            className="gem-detail-progress-fill" 
+                                        <div
+                                            className="gem-detail-progress-fill"
                                             style={{ width: `${Math.min((gem.vote_count / (gem.verification_threshold || 10)) * 100, 100)}%` }}
                                         ></div>
                                     </div>
                                     <p className="gem-detail-progress-text">
                                         {gem.vote_count || 0} of {gem.verification_threshold || 10} votes
                                         ({(gem.verification_threshold || 10) - (gem.vote_count || 0)} more needed)
+                                    </p>
+                                </div>
+                            )}
+
+                            {gem.status === "ai_rejected" && (
+                                <div className="gem-detail-section">
+                                    <h3>❌ AI Verification Result</h3>
+                                    <p className="gem-detail-description-text">
+                                        {gem.ai_review_reason || "This submission did not meet HiddenMY's hidden gem requirements."}
                                     </p>
                                 </div>
                             )}
@@ -365,16 +383,20 @@ export default function HiddenGemDetail() {
                             </div>
 
                             <div className="gem-detail-vote-section">
-                                {gem.status === "pending" ? (
-                                    <button 
+                                {gem.status === "pending_community_vote" ? (
+                                    <button
                                         className="gem-detail-vote-btn"
                                         onClick={() => setShowVoteModal(true)}
                                     >
                                         🗳️ Vote Now
                                     </button>
-                                ) : (
+                                ) : gem.status === "hidden_gem" ? (
                                     <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                        ✅ Already Verified
+                                        ✅ Already a Hidden Gem
+                                    </button>
+                                ) : gem.status === "ai_rejected" ? null : (
+                                    <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                        ⏳ Being Verified by AI
                                     </button>
                                 )}
                             </div>

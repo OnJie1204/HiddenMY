@@ -315,7 +315,7 @@ export default function TripItineraryDetail() {
             setHiddenGemsError("");
 
             try {
-                const response = await getHiddenGems({ status: "verified" });
+                const response = await getHiddenGems({ status: "hidden_gem" });
                 const gems = Array.isArray(response.data?.data) ? response.data.data : [];
 
                 if (isCurrent) {

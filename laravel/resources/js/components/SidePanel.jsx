@@ -92,11 +92,12 @@ function SidePanel({
         navigate(`/hidden-gems/${g.id}`);
     }
 
-    // The backend only accepts verified gems as itinerary stops
-    // (TripItineraryController uses the hiddenGems() scope), so pending ones
-    // are blocked here rather than failing with a 422 after the fact.
+    // The backend only accepts recognized Hidden Gems as itinerary stops
+    // (TripItineraryController uses the hiddenGems() scope), so anything still
+    // awaiting AI review or community votes is blocked here rather than
+    // failing with a 422 after the fact.
     const canAddToItinerary = gem
-        && (gem.source === "attraction" || gem.status === "verified");
+        && (gem.source === "attraction" || gem.status === "hidden_gem");
 
     async function handleAddToItinerary(itinerary) {
         setItineraryStatus({ type: "loading", message: `Adding to "${itinerary.trip_name}"…` });
@@ -208,11 +209,14 @@ function SidePanel({
                                 {gem.attractionType && (
                                     <span className="badge badge-neutral">{gem.attractionType.replace(/_/g, " ")}</span>
                                 )}
-                                {gem.source === "database" && gem.status === "verified" && (
-                                    <span className="badge badge-success">✓ Verified</span>
+                                {gem.source === "database" && gem.status === "hidden_gem" && (
+                                    <span className="badge badge-success">✓ Hidden Gem</span>
                                 )}
-                                {gem.source === "database" && gem.status !== "verified" && (
-                                    <span className="badge badge-pending">⏳ Unverified</span>
+                                {gem.source === "database" && gem.status === "pending_community_vote" && (
+                                    <span className="badge badge-pending">🗳️ Awaiting Votes</span>
+                                )}
+                                {gem.source === "database" && gem.status === "ai_rejected" && (
+                                    <span className="badge badge-pending">❌ Not Accepted</span>
                                 )}
                             </div>
                         </div>
@@ -313,9 +317,9 @@ function SidePanel({
                             </div>
                         )}
 
-                        {gem.source === "database" && gem.voteCount != null && (
+                        {gem.source === "database" && gem.status === "pending_community_vote" && gem.voteCount != null && (
                             <div className="side-panel-vote">
-                                <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes to verify</span>
+                                <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes toward Hidden Gem status</span>
                                 <div className="side-panel-vote-bar">
                                     <div className="side-panel-vote-fill" style={{ width: `${Math.min(100, (gem.voteCount / (gem.verificationThreshold ?? 10)) * 100)}%` }} />
                                 </div>

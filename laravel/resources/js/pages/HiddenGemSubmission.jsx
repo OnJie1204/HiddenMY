@@ -119,9 +119,11 @@ export default function HiddenGemSubmission() {
             }
 
 
-            const response = await createHiddenGem(data);
+            await createHiddenGem(data);
 
-            setMessage(response.data.message);
+            setMessage(
+                "Hidden gem submitted! It's now being reviewed by AI before it can go up for community voting — check 'My Hidden Gems' for its status."
+            );
 
             setFormData({
                 category_id: "",

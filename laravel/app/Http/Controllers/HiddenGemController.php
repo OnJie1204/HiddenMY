@@ -6,6 +6,7 @@ use App\Jobs\VerifyHiddenGemSubmission;
 use App\Models\Location;
 use App\Models\Category;
 use App\Models\LocationImage;
+use App\Support\Geo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -138,11 +139,13 @@ class HiddenGemController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        // Public listing — only AI-approved (or already community-verified) gems
+        // may be discoverable; anything still awaiting/failing AI review must stay hidden.
         $query = Location::with(['user', 'category', 'images'])
-            ->where('status', '!=', 'deleted');
+            ->publiclyVisible();
 
-        // Filter by status (verified / pending)
-        if ($request->has('status') && in_array($request->status, ['verified', 'pending'])) {
+        // Filter by status (hidden_gem / pending_community_vote)
+        if ($request->has('status') && in_array($request->status, ['hidden_gem', 'pending_community_vote'])) {
             $query->where('status', $request->status);
         }
 
@@ -222,9 +225,11 @@ class HiddenGemController extends Controller
             ], 403);
         }
 
-        if ($gem->status !== 'pending') {
+        $editableStatuses = ['pending', 'ai_rejected', 'pending_community_vote'];
+
+        if (! in_array($gem->status, $editableStatuses, true)) {
             return response()->json([
-                'message' => 'Only pending hidden gems can be edited.'
+                'message' => 'This hidden gem can no longer be edited.'
             ], 403);
         }
 
@@ -311,13 +316,17 @@ class HiddenGemController extends Controller
         // Reset verification progress after editing
         $gem->vote_count = 0;
         $gem->status = 'pending';
+        $gem->ai_review_reason = null;
         $gem->save();
 
         // Remove previous vote records
         $gem->votes()->delete();
 
+        // Re-run Stage 1 AI verification against the updated submission.
+        VerifyHiddenGemSubmission::dispatch($gem->id);
+
         return response()->json([
-            'message' => 'Hidden gem updated successfully. Verification progress has been reset.',
+            'message' => 'Hidden gem updated successfully and is being re-verified.',
             'data' => $gem->load(['category', 'images'])
         ]);
     }
@@ -381,11 +390,11 @@ class HiddenGemController extends Controller
             'south' => ['required', 'numeric', 'between:-90,90'],
             'east' => ['required', 'numeric', 'between:-180,180'],
             'west' => ['required', 'numeric', 'between:-180,180'],
-            'status' => ['nullable', 'in:verified,pending'],
+            'status' => ['nullable', 'in:hidden_gem,pending_community_vote'],
         ]);
 
         $query = Location::with(['category', 'images'])
-            ->where('status', '!=', 'deleted')
+            ->publiclyVisible()
             ->whereBetween('latitude', [$validated['south'], $validated['north']])
             ->whereBetween('longitude', [$validated['west'], $validated['east']]);
 
@@ -426,6 +435,7 @@ class HiddenGemController extends Controller
 
         // Hidden Gems are always searched and displayed first, regardless of location.
         $databaseQuery = Location::query()
+            ->publiclyVisible()
             ->where(function ($q) use ($query) {
                 $q->where('place_name', 'ILIKE', '%'.$query.'%')
                 ->orWhere('state', 'ILIKE', '%'.$query.'%');
@@ -741,6 +751,7 @@ class HiddenGemController extends Controller
     public function recent(): JsonResponse
     {
         $recentLocations = Location::with(['user', 'category', 'images'])
+            ->publiclyVisible()
             ->latest()
             ->take(6)
             ->get();
@@ -749,12 +760,12 @@ class HiddenGemController extends Controller
     }
 
     /**
-     * Top-voted, verified Hidden Gems (used by the "Popular" row on the map page).
+     * Top-voted Hidden Gems (used by the "Popular" row on the map page).
      */
     public function popular(): JsonResponse
     {
         $popularLocations = Location::with(['user', 'category', 'images'])
-            ->where('status', 'verified')
+            ->where('status', 'hidden_gem')
             ->orderByDesc('vote_count')
             ->take(6)
             ->get();
@@ -833,15 +844,7 @@ class HiddenGemController extends Controller
 
     private function distanceInKm(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
-        $earthRadiusKm = 6371;
-
-        $latDelta = deg2rad($lat2 - $lat1);
-        $lonDelta = deg2rad($lon2 - $lon1);
-
-        $a = sin($latDelta / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
-
-        return $earthRadiusKm * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return Geo::distanceMeters($lat1, $lon1, $lat2, $lon2) / 1000;
     }
 
     private function locationSearchResult(Location $location): array
@@ -955,13 +958,6 @@ class HiddenGemController extends Controller
 
     private function haversineMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $earthRadiusMeters = 6371000;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-
-        $a = sin($dLat / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return $earthRadiusMeters * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return Geo::distanceMeters($lat1, $lng1, $lat2, $lng2);
     }
 }

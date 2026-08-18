@@ -2804,6 +2804,15 @@ img.avatar {
     display: inline-block;
 }
 
+.hidden-gems-card-voting {
+    font-size: 13px;
+    color: #1565c0;
+    background: #e3f2fd;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
 /* Submit Hidden Gem Button */
 
 .hidden-gem-submit-header {
@@ -3244,6 +3253,15 @@ img.avatar {
 .gem-detail-status-pending {
     background: #fff3cd;
     color: #856404;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.gem-detail-status-rejected {
+    background: #fef2f2;
+    color: #be123c;
     padding: 4px 14px;
     border-radius: 20px;
     font-size: 13px;

@@ -3,10 +3,37 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Location extends Model
 {
+    use HasFactory;
+
+    /**
+     * AI-written verification fields — never mass-assignable from user input.
+     * store()/update() must not pass these through $request->validate()'d data.
+     */
+    public const AI_VERIFICATION_FIELDS = [
+        'status',
+        'verification_score',
+        'verification_confidence',
+        'google_visibility_level',
+        'hiddenness_score',
+        'legitimacy_score',
+        'legitimacy_level',
+        'tourism_value_score',
+        'tourism_value_level',
+        'evidence_score',
+        'evidence_level',
+        'duplicate_status',
+        'duplicate_of_location_id',
+        'verification_result_json',
+        'verification_model',
+        'ai_review_reason',
+        'ai_reviewed_at',
+    ];
+
     protected $fillable = [
         'user_id',
         'category_id',
@@ -22,6 +49,25 @@ class Location extends Model
         'verification_threshold',
         'ai_review_reason',
         'ai_reviewed_at',
+        'verification_score',
+        'verification_confidence',
+        'google_visibility_level',
+        'hiddenness_score',
+        'legitimacy_score',
+        'legitimacy_level',
+        'tourism_value_score',
+        'tourism_value_level',
+        'evidence_score',
+        'evidence_level',
+        'duplicate_status',
+        'duplicate_of_location_id',
+        'verification_result_json',
+        'verification_model',
+    ];
+
+    protected $casts = [
+        'verification_result_json' => 'array',
+        'ai_reviewed_at' => 'datetime',
     ];
 
     public function user()
@@ -49,24 +95,38 @@ class Location extends Model
         return $this->hasMany(CheckIn::class);
     }
 
-    public function isVerified()
-    {
-        return $this->status === 'verified';
-    }
-
     public function isPending()
     {
         return $this->status === 'pending';
     }
 
-    public function isRejected()
+    public function isAiRejected()
     {
-        return $this->status === 'rejected';
+        return $this->status === 'ai_rejected';
+    }
+
+    public function isPendingCommunityVote()
+    {
+        return $this->status === 'pending_community_vote';
+    }
+
+    public function isHiddenGem()
+    {
+        return $this->status === 'hidden_gem';
     }
 
     public function scopeHiddenGems(Builder $query)
     {
-        return $query->where('status', 'verified');
+        return $query->where('status', 'hidden_gem');
+    }
+
+    /**
+     * Statuses safe to surface on public (unauthenticated) listings — everything
+     * that hasn't passed AI hiddenness verification yet must stay invisible.
+     */
+    public function scopePubliclyVisible(Builder $query)
+    {
+        return $query->whereIn('status', ['pending_community_vote', 'hidden_gem']);
     }
 
     public function getVoteProgressAttribute()

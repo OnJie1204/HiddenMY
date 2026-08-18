@@ -36,8 +36,8 @@ function Home({ user }) {
                 let allGems = gemsRes.data.data || [];
 
                 allGems = allGems.sort((a, b) => {
-                    if (a.status === 'verified' && b.status !== 'verified') return -1;
-                    if (b.status === 'verified' && a.status !== 'verified') return 1;
+                    if (a.status === 'hidden_gem' && b.status !== 'hidden_gem') return -1;
+                    if (b.status === 'hidden_gem' && a.status !== 'hidden_gem') return 1;
 
                     if (a.vote_count !== b.vote_count) {
                         return (b.vote_count || 0) - (a.vote_count || 0);
@@ -196,10 +196,10 @@ function Home({ user }) {
                                     <div className="home-map-flight-item-content">
                                         <div className="home-map-flight-item-top">
                                             <span className="home-map-flight-item-name">{gem.place_name}</span>
-                                            {gem.status === 'verified' ? (
-                                                <span className="home-map-flight-item-status verified">✅ Verified</span>
+                                            {gem.status === 'hidden_gem' ? (
+                                                <span className="home-map-flight-item-status verified">✅ Hidden Gem</span>
                                             ) : (
-                                                <span className="home-map-flight-item-status pending">⏳ Pending</span>
+                                                <span className="home-map-flight-item-status pending">🗳️ Awaiting Votes</span>
                                             )}
                                         </div>
                                         <span className="home-map-flight-item-category">{gem.category?.name || 'Uncategorized'}</span>
@@ -287,10 +287,10 @@ function Home({ user }) {
                                 <div className="home-trending-card-body">
                                     <div className="home-trending-card-header-row">
                                         <h4>{gem.place_name}</h4>
-                                        {gem.status === 'verified' ? (
-                                            <span className="home-trending-card-status verified">✅ Verified</span>
+                                        {gem.status === 'hidden_gem' ? (
+                                            <span className="home-trending-card-status verified">✅ Hidden Gem</span>
                                         ) : (
-                                            <span className="home-trending-card-status pending">⏳ Pending</span>
+                                            <span className="home-trending-card-status pending">🗳️ Awaiting Votes</span>
                                         )}
                                     </div>
                                     <div className="home-trending-card-tags">

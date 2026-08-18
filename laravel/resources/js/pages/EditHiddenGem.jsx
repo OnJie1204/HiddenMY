@@ -59,7 +59,8 @@ export default function EditHiddenGem() {
                 const gem = gemRes.data.data;
 
                 // Extra frontend protection
-                if (gem.status !== "pending") {
+                const editableStatuses = ["pending", "ai_rejected", "pending_community_vote"];
+                if (!editableStatuses.includes(gem.status)) {
                     navigate("/my-hidden-gems");
                     return;
                 }
@@ -322,7 +323,7 @@ export default function EditHiddenGem() {
 
                     {coreFieldsLocked && (
                         <small className="edit-hidden-gem-warning">
-                            Community verification has started.
+                            Community voting has started.
                             Location details can no longer be changed,
                             but you can still update the description.
                         </small>
@@ -583,8 +584,8 @@ export default function EditHiddenGem() {
 
                     {!coreFieldsLocked && (
                         <small className="edit-hidden-gem-warning">
-                            Editing this hidden gem will reset its
-                            verification progress.
+                            Editing this hidden gem will reset it for
+                            re-verification by AI.
                         </small>
                     )}
 

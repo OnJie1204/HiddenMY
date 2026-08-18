@@ -8,6 +8,7 @@ import {
 } from "../api/hiddenGems";
 import { getMyVotes } from "../api/votes";
 import GemImage from "../components/GemImage";
+import { getGemStatusDisplay, voteProgressLabel } from "../utils/gemStatus";
 
 import "../styles/global.css";
 
@@ -217,8 +218,10 @@ export default function MyHiddenGems() {
                         onChange={(event) => updateFilter("status", event.target.value)}
                     >
                         <option value="">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="verified">Verified</option>
+                        <option value="pending">Being Verified</option>
+                        <option value="ai_rejected">Not Accepted</option>
+                        <option value="pending_community_vote">Awaiting Votes</option>
+                        <option value="hidden_gem">Hidden Gem</option>
                     </select>
 
                     <select
@@ -317,26 +320,23 @@ export default function MyHiddenGems() {
                                 </p>
 
                                 <div className="hidden-gems-card-status">
-                                    {gem.status === "verified" ? (
-                                        <span className="hidden-gems-card-verified">
-                                            Verified
-                                        </span>
-                                    ) : gem.status === "rejected" ? (
+                                    {gem.status === "ai_rejected" ? (
                                         <span
-                                            className="hidden-gems-card-rejected"
+                                            className={getGemStatusDisplay(gem).badgeClass}
                                             title={gem.ai_review_reason || ""}
                                         >
-                                            Rejected
+                                            {getGemStatusDisplay(gem).icon} {getGemStatusDisplay(gem).label}
                                             {gem.ai_review_reason
                                                 ? `: ${gem.ai_review_reason}`
                                                 : ""}
                                         </span>
+                                    ) : gem.status === "pending_community_vote" ? (
+                                        <span className={getGemStatusDisplay(gem).badgeClass}>
+                                            {getGemStatusDisplay(gem).icon} {voteProgressLabel(gem)}
+                                        </span>
                                     ) : (
-                                        <span className="hidden-gems-card-pending">
-                                            Pending (
-                                            {gem.vote_count || 0}/
-                                            {gem.verification_threshold || 10}
-                                            votes)
+                                        <span className={getGemStatusDisplay(gem).badgeClass}>
+                                            {getGemStatusDisplay(gem).icon} {getGemStatusDisplay(gem).label}
                                         </span>
                                     )}
                                 </div>
@@ -346,7 +346,7 @@ export default function MyHiddenGems() {
                                     onClick={(event) => event.stopPropagation()}
                                 >
 
-                                    {gem.status === "pending" && (
+                                    {["pending", "ai_rejected", "pending_community_vote"].includes(gem.status) && (
                                         <button
                                             className="my-hidden-gems-edit-btn"
                                             onClick={() =>

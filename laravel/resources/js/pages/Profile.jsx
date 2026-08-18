@@ -49,12 +49,13 @@ function Profile({ setAppUser }) {
       .then(([gemsRes, tripsRes]) => {
         const gems = gemsRes.data.data || [];
         const trips = tripsRes.data || [];
-        const verifiedGems = gems.filter((gem) => gem.status === 'verified').length;
+        const verifiedGems = gems.filter((gem) => gem.status === 'hidden_gem').length;
+        const pendingGems = gems.filter((gem) => gem.status === 'pending' || gem.status === 'pending_community_vote').length;
 
         setStats({
           totalGems: gems.length,
           verifiedGems,
-          pendingGems: gems.length - verifiedGems,
+          pendingGems,
           totalTrips: trips.length,
         });
         setRecentGems(gems.slice(0, 3));
@@ -195,12 +196,12 @@ function Profile({ setAppUser }) {
           <div className="stat-card">
             <span className="stat-card-icon">✅</span>
             <span className="stat-card-value">{statsLoading ? '—' : stats.verifiedGems}</span>
-            <span className="stat-card-label">Verified</span>
+            <span className="stat-card-label">Hidden Gems</span>
           </div>
           <div className="stat-card">
             <span className="stat-card-icon">⏳</span>
             <span className="stat-card-value">{statsLoading ? '—' : stats.pendingGems}</span>
-            <span className="stat-card-label">Pending Verification</span>
+            <span className="stat-card-label">In Progress</span>
           </div>
           <div className="stat-card">
             <span className="stat-card-icon">✈️</span>
@@ -250,12 +251,16 @@ function Profile({ setAppUser }) {
                       <span className="hidden-gems-card-state">{gem.state || 'Unknown'}</span>
                     </div>
                     <div className="hidden-gems-card-status">
-                      {gem.status === 'verified' ? (
-                        <span className="hidden-gems-card-verified">Verified</span>
-                      ) : (
-                        <span className="hidden-gems-card-pending">
-                          Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                      {gem.status === 'hidden_gem' ? (
+                        <span className="hidden-gems-card-verified">Hidden Gem</span>
+                      ) : gem.status === 'ai_rejected' ? (
+                        <span className="hidden-gems-card-rejected">Not Accepted</span>
+                      ) : gem.status === 'pending_community_vote' ? (
+                        <span className="hidden-gems-card-voting">
+                          {gem.vote_count || 0}/{gem.verification_threshold || 10} votes
                         </span>
+                      ) : (
+                        <span className="hidden-gems-card-pending">Being Verified</span>
                       )}
                     </div>
                   </div>

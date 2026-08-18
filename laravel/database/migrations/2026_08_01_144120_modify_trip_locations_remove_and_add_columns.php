@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('trip_locations', function (Blueprint $table) {
-            $table->dropColumn(['name', 'type', 'latitude', 'longitude']);
+            $table->dropColumn(['location_name', 'location_type', 'latitude', 'longitude']);
             $table->boolean('isHidden')->default(false);
         });
     }
@@ -18,8 +18,8 @@ return new class extends Migration
     {
         Schema::table('trip_locations', function (Blueprint $table) {
             $table->dropColumn('isHidden');
-            $table->string('name')->nullable();
-            $table->string('type')->nullable();
+            $table->string('location_name')->nullable();
+            $table->string('location_type')->nullable();
             $table->float('latitude')->nullable();
             $table->float('longitude')->nullable();
         });

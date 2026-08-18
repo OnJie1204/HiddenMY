@@ -141,8 +141,8 @@ export default function HiddenGems() {
                     onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 >
                     <option value="">Select Status</option>
-                    <option value="verified">Verified</option>
-                    <option value="pending">Pending</option>
+                    <option value="hidden_gem">Hidden Gem</option>
+                    <option value="pending_community_vote">Awaiting Votes</option>
                 </select>
 
                 <select
@@ -223,13 +223,13 @@ export default function HiddenGems() {
                                 </p>
 
                                 <div className="hidden-gems-card-status">
-                                    {gem.status === 'verified' ? (
+                                    {gem.status === 'hidden_gem' ? (
                                         <span className="hidden-gems-card-verified">
-                                            Verified
+                                            Hidden Gem
                                         </span>
                                     ) : (
-                                        <span className="hidden-gems-card-pending">
-                                            Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                                        <span className="hidden-gems-card-voting">
+                                            {gem.vote_count || 0}/{gem.verification_threshold || 10} votes
                                         </span>
                                     )}
                                 </div>

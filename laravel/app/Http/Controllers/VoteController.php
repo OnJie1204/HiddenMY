@@ -30,10 +30,10 @@ class VoteController extends Controller
             ]);
         }
 
-        if ($location->status === 'verified') {
+        if ($location->status !== 'pending_community_vote') {
             return response()->json([
                 'eligible' => false,
-                'message' => 'This location is already verified'
+                'message' => $this->notVotableMessage($location->status)
             ]);
         }
 
@@ -81,9 +81,9 @@ class VoteController extends Controller
             ], 403);
         }
 
-        if ($location->status === 'verified') {
+        if ($location->status !== 'pending_community_vote') {
             return response()->json([
-                'message' => 'This location is already verified'
+                'message' => $this->notVotableMessage($location->status)
             ], 400);
         }
 
@@ -146,15 +146,28 @@ class VoteController extends Controller
 
         $threshold = $location->verification_threshold ?? 10;
         if ($location->vote_count >= $threshold) {
-            $location->update(['status' => 'verified']);
+            $location->update(['status' => 'hidden_gem']);
         }
 
         return response()->json([
             'message' => 'Vote submitted successfully!',
             'vote' => $vote,
             'location' => $location->fresh(),
-            'is_verified' => $location->status === 'verified'
+            'is_verified' => $location->status === 'hidden_gem'
         ], 201);
+    }
+
+    /**
+     * Voting is only open on AI-approved candidates (Stage 2 of the two-stage
+     * verification flow) — everything else gets a status-appropriate reason.
+     */
+    private function notVotableMessage(string $status): string
+    {
+        return match ($status) {
+            'hidden_gem' => 'This location is already a recognized Hidden Gem.',
+            'ai_rejected' => 'This location did not pass AI verification and is not open for voting.',
+            default => 'This location has not yet passed AI verification, so it cannot be voted on.',
+        };
     }
 
     public function getVotes($locationId)

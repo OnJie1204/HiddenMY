@@ -136,7 +136,7 @@ function Maps(){
     const [myGems,setMyGems]=useState([]);
     const [popularPosts,setPopularPosts]=useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
-    const [statusFilter, setStatusFilter] = useState(null); // null | 'verified' | 'pending'
+    const [statusFilter, setStatusFilter] = useState(null); // null | 'hidden_gem' | 'pending_community_vote'
     const [nearby, setNearby] = useState([]);
     const [nearbyLoading, setNearbyLoading] = useState(false);
     const [explorePlaces, setExplorePlaces] = useState([]);
@@ -425,8 +425,8 @@ function Maps(){
 
     const statusFilters = [
         { value: null, label: "All" },
-        { value: "verified", label: "✓ Verified" },
-        { value: "pending", label: "⏳ Unverified" },
+        { value: "hidden_gem", label: "✓ Hidden Gem" },
+        { value: "pending_community_vote", label: "🗳️ Awaiting Votes" },
     ];
 
     return (
