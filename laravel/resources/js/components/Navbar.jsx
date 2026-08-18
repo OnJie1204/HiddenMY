@@ -20,7 +20,7 @@ function Navbar({ user, setUser, onMenuClick }) {
                     ☰
                 </button>
                 <Link to="/" className="navbar-logo">
-                    <span className="navbar-logo-mark" aria-hidden="true">💎</span>
+                    <span className="navbar-logo-mark" aria-hidden="true"></span>
                     HiddenMY
                 </Link>
             </div>
