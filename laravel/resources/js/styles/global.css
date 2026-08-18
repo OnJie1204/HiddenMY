@@ -4158,6 +4158,14 @@ img.avatar {
     color: #4b5563;
 }
 
+.hidden-gem-snackbar-error {
+    background-color: #dc2626;
+}
+
+.hidden-gem-snackbar-success {
+    background-color: #16a34a;
+}
+
 @keyframes deleteModalFadeIn {
     from {
         opacity: 0;

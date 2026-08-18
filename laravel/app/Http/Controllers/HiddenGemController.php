@@ -432,16 +432,58 @@ class HiddenGemController extends Controller
             'query' => ['required', 'string', 'min:3', 'max:200'],
         ]);
 
-        $match = $this->searchOpenStreetMap(trim($validated['query']), 1)->first();
+        try {
+            $results = Http::acceptJson()
+                ->withUserAgent(config('app.name', 'Gemora').' hidden gem address geocoder')
+                ->timeout(5)
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'q' => trim($validated['query']),
+                    'format' => 'jsonv2',
+                    'limit' => 1,
+                    'countrycodes' => 'my',
+                    'addressdetails' => 1,
+                ])
+                ->throw()
+                ->json();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Unable to identify this location. Please try again.'
+            ], 502);
+        }
+
+        $match = $results[0] ?? null;
 
         if (! $match) {
             return response()->json(['message' => 'No matching location found.'], 404);
         }
 
+        $addressDetails = $match['address'] ?? [];
+
+        $state = $addressDetails['state']
+            ?? $addressDetails['region']
+            ?? '';
+
+        $stateAliases = [
+            'Pulau Pinang' => 'Penang',
+            'Wilayah Persekutuan Kuala Lumpur' => 'Kuala Lumpur',
+            'Federal Territory of Kuala Lumpur' => 'Kuala Lumpur',
+            'Wilayah Persekutuan Putrajaya' => 'Putrajaya',
+            'Federal Territory of Putrajaya' => 'Putrajaya',
+            'Wilayah Persekutuan Labuan' => 'Labuan',
+            'Federal Territory of Labuan' => 'Labuan',
+        ];
+
+        $state = $stateAliases[$state] ?? $state;
+
         return response()->json([
-            'latitude' => $match['latitude'],
-            'longitude' => $match['longitude'],
-            'name' => $match['name'],
+            'latitude' => (float) $match['lat'],
+            'longitude' => (float) $match['lon'],
+            'name' => $match['display_name'],
+            'state' => $state,
+            'postcode' => $addressDetails['postcode'] ?? '',
+            'country_code' => $addressDetails['country_code'] ?? '',
         ]);
     }
 
@@ -540,10 +582,57 @@ class HiddenGemController extends Controller
             ?? $addressDetails['region']
             ?? '';
 
+        $stateAliases = [
+            'Pulau Pinang' => 'Penang',
+            'Wilayah Persekutuan Kuala Lumpur' => 'Kuala Lumpur',
+            'Federal Territory of Kuala Lumpur' => 'Kuala Lumpur',
+            'Wilayah Persekutuan Putrajaya' => 'Putrajaya',
+            'Federal Territory of Putrajaya' => 'Putrajaya',
+            'Wilayah Persekutuan Labuan' => 'Labuan',
+            'Federal Territory of Labuan' => 'Labuan',
+        ];
+
+        $state = $stateAliases[$state] ?? $state;
+
         $postcode = $addressDetails['postcode'] ?? '';
 
+        $road = $addressDetails['road']
+            ?? $addressDetails['pedestrian']
+            ?? $addressDetails['footway']
+            ?? $addressDetails['path']
+            ?? $addressDetails['residential']
+            ?? '';
+
+        $street = trim(($addressDetails['house_number'] ?? '') . ' ' . $road);
+
+        $area = $addressDetails['neighbourhood']
+            ?? $addressDetails['suburb']
+            ?? $addressDetails['quarter']
+            ?? '';
+
+        $locality = $addressDetails['city']
+            ?? $addressDetails['town']
+            ?? $addressDetails['village']
+            ?? $addressDetails['municipality']
+            ?? '';
+
+        $addressParts = [];
+        $seenAddressParts = [];
+
+        foreach ([$street, $area, $locality] as $part) {
+            $part = trim($part);
+            $normalizedPart = strtolower($part);
+
+            if ($part !== '' && !in_array($normalizedPart, $seenAddressParts, true)) {
+                $addressParts[] = $part;
+                $seenAddressParts[] = $normalizedPart;
+            }
+        }
+
+        $address = implode(', ', $addressParts);
+
         return response()->json([
-            'address' => $result['display_name'],
+            'address' => $address,
             'state' => $state,
             'postcode' => $postcode,
             'latitude' => $latitude,
