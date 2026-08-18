@@ -3,7 +3,6 @@ import {
     MapContainer,
     TileLayer,
     Marker,
-    GeoJSON,
     ZoomControl,
     useMap,
     useMapEvents
@@ -12,7 +11,6 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-import malaysia from "../assets/MYS.geo.json";
 import { reverseGeocodeAddress } from "../api/hiddenGems";
 
 const customIcon = new L.Icon({
@@ -168,16 +166,6 @@ export default function LocationPickerMap({
                     />
 
                     <ZoomControl position="bottomright" />
-
-                    <GeoJSON
-                        data={malaysia}
-                        style={{
-                            color: "#14b8a6",
-                            weight: 2,
-                            fillColor: "#14b8a6",
-                            fillOpacity: 0.12,
-                        }}
-                    />
 
                     {!disabled && (
                         <MapClickHandler
