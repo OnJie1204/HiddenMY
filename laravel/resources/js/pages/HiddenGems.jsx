@@ -86,7 +86,7 @@ export default function HiddenGems() {
     return (
         <div className="hidden-gems-page">
             <div className="hidden-gems-header">
-                <h1>🔍 Hidden Gems Discovery</h1>
+                <h1>Hidden Gems Discovery</h1>
 
                 <button
                     className="hidden-gems-submit-btn"
@@ -119,7 +119,7 @@ export default function HiddenGems() {
                                 </button>
                             )}
                             <button type="submit" className="hidden-gems-search-btn">
-                                🔍 Search
+                                Search
                             </button>
                         </div>
                     </div>

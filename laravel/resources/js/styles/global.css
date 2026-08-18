@@ -1,31 +1,43 @@
 /* ---------- Design tokens ---------- */
 :root {
-  --color-primary: #0d9488;
-  --color-primary-dark: #0f766e;
-  --color-primary-light: #14b8a6;
-  --color-primary-soft: #e6f6f3;
-  --color-accent: #fb7185;
-  --color-accent-dark: #f43f5e;
-  --color-accent-soft: #ffe4e8;
+  /* Primary actions / links / focus — dark charcoal per the minimal
+     travel-discovery redesign (was teal). */
+  --color-primary: #1F2937;
+  --color-primary-dark: #111827;
+  --color-primary-light: #374151;
+  --color-primary-soft: #F3F4F6;
+
+  /* Accent is reserved for error/destructive UI app-wide (delete/remove
+     buttons, validation messages) — kept as a red family, not the Hidden
+     Gem orange, so danger states stay visually distinct from branding. */
+  --color-accent: #DC2626;
+  --color-accent-dark: #B91C1C;
+  --color-accent-soft: #FEF2F2;
+
+  /* Hidden Gem badge / brand-mark accent only — used sparingly. */
+  --color-gem-accent: #F97316;
+  --color-gem-accent-dark: #C2410C;
+  --color-gem-accent-soft: #FFF7ED;
+
   --color-warm: #f59e0b;
 
-  --color-bg: #f7f6f2;
+  --color-bg: #F8F8F7;
   --color-surface: #ffffff;
-  --color-surface-muted: #f1f4f2;
-  --color-text: #1c2b28;
-  --color-text-muted: #64766f;
-  --color-border: #e3e7e2;
+  --color-surface-muted: #F8F8F7;
+  --color-text: #1F1F1F;
+  --color-text-muted: #6B7280;
+  --color-border: #E5E7EB;
 
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 22px;
   --radius-full: 999px;
 
-  --shadow-sm: 0 1px 3px rgba(15, 42, 38, 0.08);
-  --shadow-md: 0 10px 26px rgba(15, 42, 38, 0.1);
-  --shadow-lg: 0 22px 50px rgba(15, 42, 38, 0.16);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 10px 26px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 22px 50px rgba(0, 0, 0, 0.12);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 html, body, #app {
@@ -164,7 +176,7 @@ h1, h2, h3 {
 
 .msg-error {
   background: var(--color-accent-soft);
-  color: #be123c;
+  color: #DC2626;
   padding: 0.6rem 0.9rem;
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
@@ -249,7 +261,7 @@ h1, h2, h3 {
 }
 
 .password-strength-seg.filled.level-3 {
-  background: #16a34a;
+  background: #22C55E;
 }
 
 .password-strength-label {
@@ -267,7 +279,7 @@ h1, h2, h3 {
 }
 
 .password-strength-label.strength-3 {
-  color: #16a34a;
+  color: #22C55E;
 }
 
 .password-hint {
@@ -277,7 +289,7 @@ h1, h2, h3 {
 }
 
 .password-hint-ok {
-  color: #16a34a;
+  color: #22C55E;
 }
 
 .password-hint-bad {
@@ -298,7 +310,7 @@ h1, h2, h3 {
   align-items: center;
   justify-content: center;
   padding: 3rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
   color: #fff;
 }
 
@@ -2407,7 +2419,7 @@ img.avatar {
 /* ===== Hidden Gems Page ===== */
 
 .hidden-gems-page {
-    padding: 20px;
+    padding: 32px 24px 56px;
     max-width: 1200px;
     margin: 0 auto;
 }
@@ -2422,7 +2434,7 @@ img.avatar {
 .hidden-gems-header h1 {
     font-size: 28px;
     font-weight: bold;
-    color: #333;
+    color: #1F1F1F;
 }
 
 /* Search */
@@ -2552,7 +2564,7 @@ img.avatar {
 
 .hidden-gems-filter-select {
     padding: 10px 16px;
-    border: 1px solid #ddd;
+    border: 1px solid #E5E7EB;
     border-radius: 8px;
     font-size: 14px;
     background: white;
@@ -2562,21 +2574,21 @@ img.avatar {
 }
 
 .hidden-gems-filter-select:focus {
-    border-color: #007bff;
+    border-color: #1F2937;
 }
 
 /* Loading */
 .hidden-gems-loading {
     text-align: center;
     padding: 40px;
-    color: #666;
+    color: #6B7280;
 }
 
 /* Empty */
 .hidden-gems-empty {
     text-align: center;
     padding: 40px;
-    color: #999;
+    color: #6B7280;
 }
 
 /* Cards Grid */
@@ -2589,23 +2601,24 @@ img.avatar {
 /* Card */
 .hidden-gems-card {
     background: white;
-    border-radius: 12px;
+    border: 1px solid #E5E7EB;
+    border-radius: 14px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: none;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .hidden-gems-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 /* Card Image */
 .hidden-gems-card-image {
     height: 200px;
     overflow: hidden;
-    background: #f5f5f5;
+    background: #F8F8F7;
 }
 
 .hidden-gems-card-image img {
@@ -2619,7 +2632,7 @@ img.avatar {
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #999;
+    color: #6B7280;
     font-size: 14px;
 }
 
@@ -2632,7 +2645,7 @@ img.avatar {
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 8px;
-    color: #333;
+    color: #1F1F1F;
 }
 
 .hidden-gems-card-tags {
@@ -2644,23 +2657,23 @@ img.avatar {
 
 .hidden-gems-card-category {
     font-size: 12px;
-    background: #e3f2fd;
-    color: #1976d2;
+    background: #F3F4F6;
+    color: #1F2937;
     padding: 4px 12px;
     border-radius: 20px;
 }
 
 .hidden-gems-card-state {
     font-size: 12px;
-    background: #f5f5f5;
-    color: #666;
+    background: #F8F8F7;
+    color: #6B7280;
     padding: 4px 12px;
     border-radius: 20px;
 }
 
 .hidden-gems-card-description {
     font-size: 14px;
-    color: #666;
+    color: #6B7280;
     margin-bottom: 10px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -2673,11 +2686,14 @@ img.avatar {
 }
 
 .hidden-gems-card-verified {
-    font-size: 13px;
-    color: #2e7d32;
-    background: #e8f5e9;
-    padding: 4px 12px;
-    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #C2410C;
+    background: #FFF7ED;
+    padding: 4px 10px;
+    border-radius: 6px;
     display: inline-block;
 }
 
@@ -2692,7 +2708,7 @@ img.avatar {
 
 .hidden-gems-card-rejected {
     font-size: 13px;
-    color: #be123c;
+    color: #DC2626;
     background: #fef2f2;
     padding: 4px 12px;
     border-radius: 20px;
@@ -2701,8 +2717,8 @@ img.avatar {
 
 .hidden-gems-card-voting {
     font-size: 13px;
-    color: #1565c0;
-    background: #e3f2fd;
+    color: #1F2937;
+    background: #F3F4F6;
     padding: 4px 12px;
     border-radius: 20px;
     display: inline-block;
@@ -2720,20 +2736,17 @@ img.avatar {
 .hidden-gems-submit-btn {
     padding:12px 22px;
     border:none;
-    border-radius:12px;
-    background:linear-gradient(135deg,#059669,#10b981);
+    border-radius:10px;
+    background:#1F2937;
     color:#fff;
-    font-size:15px;
-    font-weight:600;
+    font-size:14px;
+    font-weight:500;
     cursor:pointer;
-    transition:all .25s ease;
-    box-shadow:0 8px 18px rgba(5,150,105,.25);
+    transition:background .2s ease;
 }
 
 .hidden-gems-submit-btn:hover{
-    background:linear-gradient(135deg,#047857,#059669);
-    transform:translateY(-2px);
-    box-shadow:0 12px 22px rgba(5,150,105,.35);
+    background:#111827;
 }
 
 /* ===== Hidden Gem Submission ===== */
@@ -2783,7 +2796,7 @@ img.avatar {
 .hidden-gem-submit-card h2 {
     margin-bottom:20px;
     font-size:28px;
-    color:#333;
+    color:#1F1F1F;
 }
 
 
@@ -2844,7 +2857,7 @@ img.avatar {
     padding:6px 10px;
     border:none;
     border-radius:8px;
-    background:#ef4444;
+    background:#DC2626;
     color:white;
     cursor:pointer;
     font-size:13px;
@@ -2954,7 +2967,7 @@ img.avatar {
 }
 
 .hidden-gem-geocode-status-error {
-    color: #be123c;
+    color: #DC2626;
 }
 
 /* ===== Snackbar Message ===== */
@@ -2994,12 +3007,12 @@ img.avatar {
     max-width: 820px;
     margin: 0 auto;
     padding: 20px 16px 40px;
-    background: #faf8f5;
+    background: #F8F8F7;
 }
 
 .gem-detail-back-link {
     display: inline-block;
-    color: #8b7a6b;
+    color: #6B7280;
     text-decoration: none;
     font-size: 14px;
     font-weight: 500;
@@ -3009,7 +3022,7 @@ img.avatar {
 }
 
 .gem-detail-back-link:hover {
-    color: #d4a373;
+    color: #F97316;
 }
 
 /* Gallery */
@@ -3047,8 +3060,8 @@ img.avatar {
     height: 100%;
     width: 100%;
     font-size: 18px;
-    color: #aaa;
-    background: #f0ebe6;
+    color: #6B7280;
+    background: #F3F4F6;
 }
 
 .gem-detail-thumbnails {
@@ -3061,7 +3074,7 @@ img.avatar {
 .gem-detail-thumbnail {
     flex: 1;
     height: 80px;
-    background: #f0ebe6;
+    background: #F3F4F6;
     border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
@@ -3103,7 +3116,7 @@ img.avatar {
 .gem-detail-title {
     font-size: 26px;
     font-weight: 700;
-    color: #2d1b0f;
+    color: #1F1F1F;
     margin: 0 0 10px;
 }
 
@@ -3115,16 +3128,16 @@ img.avatar {
 }
 
 .gem-detail-category-tag {
-    background: #f0ebe6;
-    color: #5d4a3a;
+    background: #F3F4F6;
+    color: #6B7280;
     padding: 4px 14px;
     border-radius: 20px;
     font-size: 13px;
 }
 
 .gem-detail-location-tag {
-    background: #f0ebe6;
-    color: #5d4a3a;
+    background: #F3F4F6;
+    color: #6B7280;
     padding: 4px 14px;
     border-radius: 20px;
     font-size: 13px;
@@ -3156,7 +3169,7 @@ img.avatar {
 
 .gem-detail-status-rejected {
     background: #fef2f2;
-    color: #be123c;
+    color: #DC2626;
     padding: 4px 14px;
     border-radius: 20px;
     font-size: 13px;
@@ -3181,20 +3194,20 @@ img.avatar {
     background: white;
     font-size: 14px;
     font-weight: 500;
-    color: #8b7a6b;
+    color: #6B7280;
     cursor: pointer;
     transition: all 0.2s;
     border-bottom: 3px solid transparent;
 }
 
 .gem-detail-tab.active {
-    color: #2d1b0f;
-    border-bottom-color: #d4a373;
-    background: #fdfcfa;
+    color: #1F1F1F;
+    border-bottom-color: #F97316;
+    background: #F8F8F7;
 }
 
 .gem-detail-tab:hover {
-    background: #faf8f5;
+    background: #F8F8F7;
 }
 
 /* Content */
@@ -3208,7 +3221,7 @@ img.avatar {
 .gem-detail-section {
     margin-bottom: 24px;
     padding-bottom: 20px;
-    border-bottom: 1px solid #f0ebe6;
+    border-bottom: 1px solid #F3F4F6;
 }
 
 .gem-detail-section:last-child {
@@ -3219,31 +3232,31 @@ img.avatar {
 .gem-detail-section h3 {
     font-size: 14px;
     font-weight: 600;
-    color: #5d4a3a;
+    color: #6B7280;
     margin: 0 0 8px;
     letter-spacing: 0.5px;
 }
 
 .gem-detail-description-text {
     font-size: 15px;
-    color: #3d2c1d;
+    color: #1F1F1F;
     line-height: 1.8;
-    background: #fdfcfa;
+    background: #F8F8F7;
     padding: 14px 18px;
     border-radius: 12px;
-    border-left: 4px solid #d4a373;
+    border-left: 4px solid #F97316;
     margin: 0;
 }
 
 .gem-detail-address {
     font-size: 14px;
-    color: #3d2c1d;
+    color: #1F1F1F;
     margin: 4px 0;
 }
 
 .gem-detail-coords {
     font-size: 13px;
-    color: #8b7a6b;
+    color: #6B7280;
     margin: 2px 0 0;
 }
 
@@ -3251,7 +3264,7 @@ img.avatar {
 .gem-detail-progress-bar {
     width: 100%;
     height: 8px;
-    background: #f0ebe6;
+    background: #F3F4F6;
     border-radius: 10px;
     overflow: hidden;
     margin-top: 4px;
@@ -3259,21 +3272,21 @@ img.avatar {
 
 .gem-detail-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #d4a373, #e9c9a9);
+    background: linear-gradient(90deg, #F97316, #FB923C);
     border-radius: 10px;
     transition: width 0.8s ease;
 }
 
 .gem-detail-progress-text {
     font-size: 13px;
-    color: #8b7a6b;
+    color: #6B7280;
     margin: 6px 0 0;
 }
 
 .gem-detail-submitter {
     font-size: 14px;
     font-weight: 500;
-    color: #2d1b0f;
+    color: #1F1F1F;
     margin: 0;
 }
 
@@ -3285,7 +3298,7 @@ img.avatar {
 }
 
 .gem-detail-vote-btn {
-    background: linear-gradient(135deg, #d4a373, #e9c9a9);
+    background: linear-gradient(135deg, #F97316, #FB923C);
     color: white;
     border: none;
     padding: 14px 36px;
@@ -3325,21 +3338,21 @@ img.avatar {
     align-items: center;
     gap: 14px;
     padding: 12px 16px;
-    background: #fdfcfa;
+    background: #F8F8F7;
     border-radius: 12px;
-    border: 1px solid #f0ebe6;
+    border: 1px solid #F3F4F6;
     transition: border-color 0.2s;
 }
 
 .gem-detail-vote-item:hover {
-    border-color: #d4a373;
+    border-color: #F97316;
 }
 
 .gem-detail-vote-avatar {
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #d4a373, #e9c9a9);
+    background: linear-gradient(135deg, #F97316, #FB923C);
     color: white;
     display: flex;
     align-items: center;
@@ -3355,20 +3368,20 @@ img.avatar {
 
 .gem-detail-vote-user {
     font-weight: 500;
-    color: #2d1b0f;
+    color: #1F1F1F;
     margin: 0;
     font-size: 14px;
 }
 
 .gem-detail-vote-date {
     font-size: 12px;
-    color: #8b7a6b;
+    color: #6B7280;
     margin: 0;
 }
 
 .gem-detail-no-votes {
     text-align: center;
-    color: #8b7a6b;
+    color: #6B7280;
     padding: 30px 0;
 }
 
@@ -3384,13 +3397,13 @@ img.avatar {
 
 .gem-detail-vote-comment {
     font-size: 13px;
-    color: #555;
+    color: #6B7280;
     font-style: italic;
     margin: 2px 0 2px;
-    background: #f8f9fa;
+    background: #F8F8F7;
     padding: 6px 12px;
     border-radius: 8px;
-    border-left: 3px solid #d4a373;
+    border-left: 3px solid #F97316;
 }
 
 .gem-detail-own-vote {
@@ -3442,7 +3455,7 @@ img.avatar {
     width: 100%;
     min-height: 72px;
     padding: 8px;
-    border: 1px solid #d9cec4;
+    border: 1px solid #E5E7EB;
     border-radius: 8px;
     resize: vertical;
 }
@@ -3455,7 +3468,7 @@ img.avatar {
 
 .gem-detail-vote-comment-edit button {
     padding: 5px 10px;
-    border: 1px solid #d9cec4;
+    border: 1px solid #E5E7EB;
     border-radius: 6px;
     background: #fff;
     cursor: pointer;
@@ -3534,15 +3547,15 @@ img.avatar {
     align-items: center;
     justify-content: center;
     height: 300px;
-    background: #faf8f5;
+    background: #F8F8F7;
     border-radius: 16px;
 }
 
 .gem-detail-loading-spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid #f0ebe6;
-    border-top-color: #d4a373;
+    border: 3px solid #F3F4F6;
+    border-top-color: #F97316;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -3554,12 +3567,12 @@ img.avatar {
 .gem-detail-error {
     text-align: center;
     padding: 60px 20px;
-    background: #faf8f5;
+    background: #F8F8F7;
     border-radius: 16px;
 }
 
 .gem-detail-error p {
-    color: #8b7a6b;
+    color: #6B7280;
     font-size: 16px;
 }
 
@@ -4192,7 +4205,7 @@ img.avatar {
 }
 
 .delete-modal-confirm {
-    background: #ef4444;
+    background: #DC2626;
     color: #ffffff;
 }
 
@@ -4309,7 +4322,7 @@ img.avatar {
 }
 
 .hidden-gem-snackbar-success {
-    background-color: #16a34a;
+    background-color: #22C55E;
 }
 
 @keyframes deleteModalFadeIn {
@@ -4363,14 +4376,14 @@ img.avatar {
     justify-content: space-between;
     align-items: center;
     padding: 20px 24px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid #E5E7EB;
 }
 
 .vote-modal-header h2 {
     font-size: 18px;
     font-weight: 700;
     margin: 0;
-    color: #1a1a2e;
+    color: #1F1F1F;
 }
 
 .vote-modal-close {
@@ -4378,14 +4391,14 @@ img.avatar {
     border: none;
     font-size: 22px;
     cursor: pointer;
-    color: #999;
+    color: #6B7280;
     padding: 4px 8px;
     border-radius: 8px;
     transition: background 0.2s;
 }
 
 .vote-modal-close:hover {
-    background: #f5f5f5;
+    background: #F8F8F7;
 }
 
 .vote-modal-body {
@@ -4393,7 +4406,7 @@ img.avatar {
 }
 
 .vote-location-info {
-    background: #f8f9fa;
+    background: #F8F8F7;
     padding: 14px 16px;
     border-radius: 12px;
     margin-bottom: 20px;
@@ -4402,13 +4415,13 @@ img.avatar {
 .vote-location-info p {
     margin: 0;
     font-weight: 600;
-    color: #1a1a2e;
+    color: #1F1F1F;
     font-size: 15px;
 }
 
 .vote-location-address {
     font-weight: 400 !important;
-    color: #888;
+    color: #6B7280;
     font-size: 13px;
     margin-top: 2px !important;
 }
@@ -4430,7 +4443,7 @@ img.avatar {
     width: 100%;
     min-height: 90px;
     padding: 12px 14px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #E5E7EB;
     border-radius: 12px;
     font-size: 14px;
     resize: vertical;
@@ -4440,18 +4453,18 @@ img.avatar {
 
 .vote-textarea:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #1F2937;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .vote-char-count {
     text-align: right;
     font-size: 12px;
-    color: #999;
+    color: #6B7280;
 }
 
 .vote-upload-area {
-    border: 2px dashed #e0e0e0;
+    border: 2px dashed #E5E7EB;
     border-radius: 12px;
     padding: 24px;
     text-align: center;
@@ -4464,7 +4477,7 @@ img.avatar {
 }
 
 .vote-upload-area:hover {
-    border-color: #667eea;
+    border-color: #1F2937;
 }
 
 .vote-upload-placeholder span {
@@ -4474,13 +4487,13 @@ img.avatar {
 
 .vote-upload-placeholder p {
     margin: 6px 0 2px;
-    color: #666;
+    color: #6B7280;
     font-size: 14px;
 }
 
 .vote-upload-hint {
     font-size: 12px;
-    color: #999;
+    color: #6B7280;
 }
 
 .vote-photo-preview {
@@ -4492,7 +4505,7 @@ img.avatar {
 .vote-remove-photo {
     background: none;
     border: none;
-    color: #ef4444;
+    color: #DC2626;
     font-size: 13px;
     cursor: pointer;
     padding: 4px 0;
@@ -4531,7 +4544,7 @@ img.avatar {
     padding: 12px;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, #1F2937, #111827);
     color: #fff;
     font-weight: 600;
     font-size: 15px;
@@ -4552,10 +4565,10 @@ img.avatar {
 .vote-btn-secondary {
     flex: 1;
     padding: 12px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #E5E7EB;
     border-radius: 12px;
     background: #fff;
-    color: #666;
+    color: #6B7280;
     font-weight: 600;
     font-size: 15px;
     cursor: pointer;
@@ -4563,7 +4576,7 @@ img.avatar {
 }
 
 .vote-btn-secondary:hover {
-    background: #f5f5f5;
+    background: #F8F8F7;
 }
 
 /* Check-in screen */
@@ -4581,18 +4594,18 @@ img.avatar {
     font-size: 18px;
     font-weight: 700;
     margin: 0 0 8px;
-    color: #1a1a2e;
+    color: #1F1F1F;
 }
 
 .vote-checkin p {
-    color: #666;
+    color: #6B7280;
     font-size: 14px;
     margin: 0 0 4px;
 }
 
 .vote-checkin-hint {
     font-size: 13px !important;
-    color: #999 !important;
+    color: #6B7280 !important;
     margin-top: 8px !important;
 }
 
@@ -4624,11 +4637,11 @@ img.avatar {
     font-size: 20px;
     font-weight: 700;
     margin: 12px 0 8px;
-    color: #1a1a2e;
+    color: #1F1F1F;
 }
 
 .vote-success p {
-    color: #666;
+    color: #6B7280;
     margin-bottom: 16px;
 }
 
@@ -4646,25 +4659,25 @@ img.avatar {
     font-size: 18px;
     font-weight: 700;
     margin: 12px 0 8px;
-    color: #ef4444;
+    color: #DC2626;
 }
 
 .vote-error p {
-    color: #666;
+    color: #6B7280;
     margin-bottom: 16px;
 }
 
 .vote-loading {
     text-align: center;
     padding: 30px;
-    color: #888;
+    color: #6B7280;
 }
 
 .vote-loading-spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid #f0f0f0;
-    border-top-color: #667eea;
+    border: 3px solid #E5E7EB;
+    border-top-color: #1F2937;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin: 0 auto 12px;
@@ -4687,8 +4700,8 @@ img.avatar {
     flex-direction: column;
     align-items: center;
     padding: 16px 20px;
-    background: #f8f9fa;
-    border: 2px solid #e8e8e8;
+    background: #F8F8F7;
+    border: 2px solid #E5E7EB;
     border-radius: 14px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -4696,8 +4709,8 @@ img.avatar {
 }
 
 .vote-checkin-option:hover:not(:disabled) {
-    border-color: #667eea;
-    background: #f0f2ff;
+    border-color: #1F2937;
+    background: #F3F4F6;
 }
 
 .vote-checkin-option:disabled {
@@ -4713,39 +4726,39 @@ img.avatar {
 .vote-checkin-option-label {
     font-weight: 600;
     font-size: 15px;
-    color: #1a1a2e;
+    color: #1F1F1F;
 }
 
 .vote-checkin-option-desc {
     font-size: 12px;
-    color: #888;
+    color: #6B7280;
     margin-top: 2px;
 }
 
 .vote-checkin-location {
-    background: #f0f2ff;
+    background: #F3F4F6;
     padding: 14px 16px;
     border-radius: 12px;
     margin: 12px 0;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid #1F2937;
 }
 
 .vote-checkin-location-name {
     font-weight: 700;
     font-size: 15px;
     margin: 0;
-    color: #1a1a2e;
+    color: #1F1F1F;
 }
 
 .vote-checkin-location-address {
     font-size: 13px;
-    color: #666;
+    color: #6B7280;
     margin: 2px 0 0;
 }
 
 .vote-checkin-location-coords {
     font-size: 12px;
-    color: #999;
+    color: #6B7280;
     margin: 2px 0 0;
 }
 
@@ -4774,7 +4787,7 @@ img.avatar {
 .vote-manual-back {
     background: none;
     border: none;
-    color: #667eea;
+    color: #1F2937;
     font-size: 14px;
     cursor: pointer;
     padding: 6px 0;
@@ -4789,7 +4802,7 @@ img.avatar {
 }
 
 .vote-manual-hint {
-    color: #666;
+    color: #6B7280;
     font-size: 14px;
     margin: 12px 0 20px;
 }
@@ -4810,12 +4823,12 @@ img.avatar {
 .vote-manual-input-group label {
     font-size: 12px;
     font-weight: 600;
-    color: #666;
+    color: #6B7280;
 }
 
 .vote-manual-input {
     padding: 10px 12px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #E5E7EB;
     border-radius: 10px;
     font-size: 14px;
     transition: border-color 0.2s;
@@ -4823,17 +4836,17 @@ img.avatar {
 
 .vote-manual-input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #1F2937;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .vote-manual-detect-btn {
     width: 100%;
     padding: 10px;
-    border: 2px dashed #667eea;
+    border: 2px dashed #1F2937;
     border-radius: 10px;
     background: transparent;
-    color: #667eea;
+    color: #1F2937;
     font-weight: 600;
     font-size: 14px;
     cursor: pointer;
@@ -4842,7 +4855,7 @@ img.avatar {
 }
 
 .vote-manual-detect-btn:hover {
-    background: #f0f2ff;
-    border-color: #764ba2;
-    color: #764ba2;
+    background: #F3F4F6;
+    border-color: #111827;
+    color: #111827;
 }
