@@ -579,17 +579,38 @@ img.avatar {
 .home-page {
     max-width: 1080px;
     margin: 0 auto;
-    padding: 20px 24px 40px;
+    padding: 20px 24px 44px;
 }
 
 /* Hero */
 .home-hero-fun {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 24px;
-    padding: 36px 40px 32px;
-    margin-bottom: 24px;
+    background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 55%, var(--color-primary-light) 100%);
+    border-radius: 28px;
+    padding: 44px 44px 40px;
+    margin-bottom: 28px;
     position: relative;
     overflow: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+.home-hero-fun::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 88% 12%, rgba(245, 158, 11, 0.35), transparent 55%),
+        radial-gradient(circle at 8% 95%, rgba(251, 113, 133, 0.28), transparent 50%);
+    pointer-events: none;
+}
+
+.home-hero-fun::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1.5px, transparent 1.5px);
+    background-size: 22px 22px;
+    opacity: 0.5;
+    pointer-events: none;
 }
 
 .home-hero-fun-content {
@@ -598,31 +619,39 @@ img.avatar {
 }
 
 .home-hero-fun h1 {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 800;
     color: #ffffff;
-    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
 }
 
 .home-hero-fun h1 span {
     color: #ffffff;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.15);
 }
 
 .home-hero-fun p {
     font-size: 17px;
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 255, 255, 0.88);
     margin: 0;
     font-weight: 500;
 }
 
 /* Search */
 .home-search-fun {
-    background: #fff;
-    border-radius: 16px;
-    padding: 4px 4px 4px 20px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    border: 1px solid #f0f0f0;
-    margin-bottom: 24px;
+    background: var(--color-surface);
+    border-radius: var(--radius-full);
+    padding: 4px 4px 4px 22px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    margin-bottom: 26px;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.home-search-fun:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px var(--color-primary-soft);
 }
 
 .home-search-fun form {
@@ -632,7 +661,7 @@ img.avatar {
 
 .home-search-fun-icon {
     font-size: 18px;
-    color: #999;
+    color: var(--color-text-muted);
     margin-right: 12px;
 }
 
@@ -642,12 +671,12 @@ img.avatar {
     padding: 16px 0;
     font-size: 16px;
     background: transparent;
-    color: #1a1a2e;
+    color: var(--color-text);
     outline: none;
 }
 
 .home-search-fun input::placeholder {
-    color: #bbb;
+    color: #a9b3ae;
 }
 
 /* Quick Actions */
@@ -655,30 +684,38 @@ img.avatar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 14px;
-    margin-bottom: 32px;
+    margin-bottom: 34px;
 }
 
 .home-quick-fun-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 18px 12px;
-    border-radius: 18px;
+    gap: 8px;
+    padding: 20px 12px;
+    border-radius: var(--radius-lg);
     text-decoration: none;
-    color: #1a1a2e;
-    transition: all 0.25s ease;
+    color: var(--color-text);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
     border: 1px solid transparent;
 }
 
 .home-quick-fun-item:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-    border-color: #ddd;
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: rgba(15, 42, 38, 0.08);
 }
 
 .home-quick-fun-icon {
-    font-size: 32px;
+    font-size: 22px;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: var(--radius-full);
+    box-shadow: 0 2px 6px rgba(15, 42, 38, 0.08);
 }
 
 .home-quick-fun-label {
@@ -688,7 +725,7 @@ img.avatar {
 
 /* Trending - Horizontal Scroll */
 .home-trending {
-    margin-bottom: 32px;
+    margin-bottom: 34px;
 }
 
 .home-trending-header {
@@ -701,13 +738,13 @@ img.avatar {
 .home-trending-header h2 {
     font-size: 20px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--color-text);
     margin: 0;
 }
 
 .home-trending-seeall {
     font-size: 15px;
-    color: #888;
+    color: var(--color-text-muted);
     text-decoration: none;
     font-weight: 500;
     display: flex;
@@ -717,7 +754,7 @@ img.avatar {
 }
 
 .home-trending-seeall:hover {
-    color: #667eea;
+    color: var(--color-primary-dark);
     gap: 8px;
 }
 
@@ -739,13 +776,13 @@ img.avatar {
 }
 
 .home-trending-card {
-    flex: 0 0 220px;
-    min-width: 220px;
-    background: #fff;
-    border-radius: 16px;
+    flex: 0 0 224px;
+    min-width: 224px;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    border: 1px solid #f0f0f0;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
     cursor: pointer;
     transition: all 0.3s ease;
     scroll-snap-align: start;
@@ -753,14 +790,14 @@ img.avatar {
 
 .home-trending-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.10);
-    border-color: #667eea;
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-primary);
 }
 
 .home-trending-card-image {
     width: 100%;
     height: 150px;
-    background: #f5f5f5;
+    background: var(--color-surface-muted);
     overflow: hidden;
     position: relative;
 }
@@ -778,8 +815,8 @@ img.avatar {
     width: 100%;
     height: 100%;
     font-size: 14px;
-    color: #ccc;
-    background: #f5f5f5;
+    color: var(--color-text-muted);
+    background: var(--color-surface-muted);
 }
 
 .home-trending-card-body {
@@ -790,13 +827,14 @@ img.avatar {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     margin-bottom: 4px;
 }
 
 .home-trending-card-body h4 {
     font-size: 16px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--color-text);
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -813,13 +851,13 @@ img.avatar {
 }
 
 .home-trending-card-status.verified {
-    color: #10b981;
-    background: rgba(16, 185, 129, 0.08);
+    color: #0f9d68;
+    background: rgba(16, 185, 129, 0.1);
 }
 
 .home-trending-card-status.pending {
-    color: #f59e0b;
-    background: rgba(245, 158, 11, 0.08);
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.12);
 }
 
 .home-trending-card-tags {
@@ -831,8 +869,8 @@ img.avatar {
 
 .home-trending-card-category {
     font-size: 12px;
-    background: #e3f2fd;
-    color: #1976d2;
+    background: var(--color-primary-soft);
+    color: var(--color-primary-dark);
     padding: 2px 10px;
     border-radius: 20px;
     white-space: nowrap;
@@ -840,8 +878,8 @@ img.avatar {
 
 .home-trending-card-state {
     font-size: 12px;
-    background: #f5f5f5;
-    color: #666;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
     padding: 2px 10px;
     border-radius: 20px;
     white-space: nowrap;
@@ -850,14 +888,14 @@ img.avatar {
 .home-trending-card-rating {
     font-size: 13px;
     font-weight: 600;
-    color: #f59e0b;
+    color: var(--color-warm);
     display: block;
     margin-top: 2px;
 }
 
 /* Adventures */
 .home-adventures {
-    margin-bottom: 24px;
+    margin-bottom: 28px;
 }
 
 .home-adventures-header {
@@ -870,19 +908,20 @@ img.avatar {
 .home-adventures-header h2 {
     font-size: 20px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--color-text);
     margin: 0;
 }
 
 .home-adventures-seeall {
     font-size: 15px;
-    color: #888;
+    color: var(--color-text-muted);
     text-decoration: none;
     font-weight: 500;
+    transition: color 0.2s ease;
 }
 
 .home-adventures-seeall:hover {
-    color: #667eea;
+    color: var(--color-primary-dark);
 }
 
 .home-adventures-grid {
@@ -895,20 +934,20 @@ img.avatar {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 16px 18px;
-    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-    border-radius: 16px;
-    border: 1px solid #bbf7d0;
+    padding: 18px 20px;
+    background: linear-gradient(135deg, var(--color-primary-soft), #ffffff);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
     text-decoration: none;
-    color: #1a1a2e;
+    color: var(--color-text);
     transition: all 0.25s ease;
-    min-height: 110px;
+    min-height: 112px;
 }
 
 .home-adventure-card:hover {
     transform: translateY(-3px);
-    border-color: #667eea;
-    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.1);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
 }
 
 .home-adventure-card-top {
@@ -918,15 +957,16 @@ img.avatar {
 }
 
 .home-adventure-card-icon {
-    font-size: 24px;
+    font-size: 22px;
     flex-shrink: 0;
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255,255,255,0.6);
-    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.75);
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 4px rgba(15, 42, 38, 0.08);
 }
 
 .home-adventure-card-content {
@@ -941,24 +981,25 @@ img.avatar {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--color-text);
 }
 
 .home-adventure-card-content p {
     font-size: 12px;
-    color: #888;
+    color: var(--color-text-muted);
     margin: 2px 0 0;
 }
 
 .home-adventure-card-bottom {
     display: flex;
     justify-content: flex-end;
-    margin-top: 6px;
+    margin-top: 8px;
 }
 
 .home-adventure-card-arrow {
     font-size: 13px;
     font-weight: 600;
-    color: #667eea;
+    color: var(--color-primary-dark);
     transition: all 0.25s ease;
 }
 
@@ -969,19 +1010,19 @@ img.avatar {
 /* Empty States */
 .home-empty-trending {
     grid-column: 1 / -1;
-    padding: 30px;
+    padding: 32px;
     text-align: center;
-    color: #888;
-    background: #f8f9fa;
-    border-radius: 16px;
+    color: var(--color-text-muted);
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-md);
 }
 
 .home-empty-adventures {
     grid-column: 1 / -1;
     text-align: center;
-    padding: 30px;
-    background: #f8f9fa;
-    border-radius: 16px;
+    padding: 32px;
+    background: var(--color-surface-muted);
+    border-radius: var(--radius-md);
 }
 
 .home-empty-adventures span {
@@ -989,20 +1030,20 @@ img.avatar {
 }
 
 .home-empty-adventures p {
-    color: #888;
+    color: var(--color-text-muted);
     margin: 6px 0 10px;
     font-size: 15px;
 }
 
 .home-empty-adventures a {
-    color: #667eea;
+    color: var(--color-primary-dark);
     text-decoration: none;
     font-weight: 600;
 }
 
 .home-loading {
     text-align: center;
-    color: #888;
+    color: var(--color-text-muted);
     padding: 16px;
     grid-column: 1 / -1;
 }
@@ -1020,7 +1061,7 @@ img.avatar {
 .home-plan-explore-header h2 {
     font-size: 20px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--color-text);
     margin: 0;
 }
 
@@ -1034,24 +1075,24 @@ img.avatar {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 16px 18px;
-    border-radius: 16px;
+    padding: 18px 20px;
+    border-radius: var(--radius-md);
     text-decoration: none;
-    color: #1a1a2e;
+    color: var(--color-text);
     transition: all 0.3s ease;
-    min-height: 110px;
+    min-height: 112px;
     position: relative;
     overflow: hidden;
 }
 
 .home-plan-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 28px rgba(0,0,0,0.12);
+    box-shadow: var(--shadow-md);
 }
 
 .home-plan-card-trip {
-    background: linear-gradient(135deg, #e0f2fe, #bae6fd);
-    border: 1px solid #7dd3fc;
+    background: linear-gradient(135deg, var(--color-accent-soft), #ffffff);
+    border: 1px solid var(--color-border);
 }
 
 .home-plan-card-top {
@@ -1061,10 +1102,10 @@ img.avatar {
 }
 
 .home-plan-card-icon {
-    font-size: 28px;
+    font-size: 26px;
     flex-shrink: 0;
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1079,12 +1120,12 @@ img.avatar {
     font-size: 15px;
     font-weight: 700;
     margin: 0;
-    color: #1a1a2e;
+    color: var(--color-text);
 }
 
 .home-plan-card-content p {
     font-size: 12px;
-    color: #555;
+    color: var(--color-text-muted);
     margin: 0;
     line-height: 1.3;
 }
@@ -1092,13 +1133,13 @@ img.avatar {
 .home-plan-card-bottom {
     display: flex;
     justify-content: flex-end;
-    margin-top: 6px;
+    margin-top: 8px;
 }
 
 .home-plan-card-arrow {
     font-size: 13px;
     font-weight: 600;
-    color: #667eea;
+    color: var(--color-accent-dark);
     transition: all 0.3s ease;
 }
 
@@ -1111,45 +1152,45 @@ img.avatar {
     position: absolute;
     bottom: -10px;
     right: -10px;
-    font-size: 50px;
-    opacity: 0.1;
+    font-size: 56px;
+    opacity: 0.12;
 }
 
 /* ===== Map Preview - Flight Style ===== */
 
 .home-map-flight {
-    background: #fff;
-    border-radius: 20px;
-    border: 1px solid #f0f0f0;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
-    margin-bottom: 28px;
+    margin-bottom: 30px;
 }
 
 .home-map-flight-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 22px;
-    border-bottom: 1px solid #f0f0f0;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .home-map-flight-title {
     font-size: 16px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: var(--color-text);
 }
 
 .home-map-flight-link {
     font-size: 13px;
-    color: #888;
+    color: var(--color-text-muted);
     text-decoration: none;
     font-weight: 500;
     transition: color 0.2s;
 }
 
 .home-map-flight-link:hover {
-    color: #667eea;
+    color: var(--color-primary-dark);
 }
 
 .home-map-flight-body {
@@ -1162,7 +1203,7 @@ img.avatar {
 .home-map-flight-list {
     flex: 0 0 45%;
     padding: 12px 16px 16px;
-    border-right: 1px solid #f0f0f0;
+    border-right: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
 }
@@ -1170,9 +1211,9 @@ img.avatar {
 .home-map-flight-list-header {
     font-size: 13px;
     font-weight: 600;
-    color: #888;
+    color: var(--color-text-muted);
     padding: 4px 8px 10px 8px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--color-border);
     margin-bottom: 8px;
 }
 
@@ -1180,32 +1221,32 @@ img.avatar {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 8px 12px;
-    border-radius: 12px;
+    padding: 9px 12px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.25s ease;
     margin-bottom: 2px;
 }
 
 .home-map-flight-item:hover {
-    background: #f8f9fa;
+    background: var(--color-surface-muted);
 }
 
 .home-map-flight-item.active {
-    background: #eef2ff;
-    border: 1px solid #667eea;
+    background: var(--color-primary-soft);
+    border: 1px solid var(--color-primary);
 }
 
 .home-map-flight-rank {
     font-size: 13px;
     font-weight: 700;
-    color: #888;
+    color: var(--color-text-muted);
     margin-top: 2px;
     min-width: 24px;
 }
 
 .home-map-flight-item.active .home-map-flight-rank {
-    color: #667eea;
+    color: var(--color-primary-dark);
 }
 
 .home-map-flight-item-content {
@@ -1223,7 +1264,7 @@ img.avatar {
 .home-map-flight-item-name {
     font-size: 14px;
     font-weight: 600;
-    color: #1a1a2e;
+    color: var(--color-text);
 }
 
 .home-map-flight-item-status {
@@ -1235,25 +1276,26 @@ img.avatar {
 }
 
 .home-map-flight-item-status.verified {
-    color: #10b981;
-    background: rgba(16, 185, 129, 0.08);
+    color: #0f9d68;
+    background: rgba(16, 185, 129, 0.1);
 }
 
 .home-map-flight-item-status.pending {
-    color: #f59e0b;
-    background: rgba(245, 158, 11, 0.08);
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.12);
 }
 
 .home-map-flight-item-category {
     font-size: 12px;
-    color: #888;
+    color: var(--color-text-muted);
     display: block;
 }
 
 .home-map-flight-item-state {
     font-size: 12px;
-    color: #aaa;
+    color: var(--color-text-muted);
     display: block;
+    opacity: 0.8;
 }
 
 .home-map-flight-stats {
@@ -1261,26 +1303,26 @@ img.avatar {
     gap: 16px;
     margin-top: auto;
     padding-top: 12px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--color-border);
     font-size: 13px;
-    color: #888;
+    color: var(--color-text-muted);
 }
 
 /* Right Side - Map (Leaflet) */
 .home-map-flight-map {
     flex: 1;
     padding: 12px 16px;
-    background: #e8ecf1;
+    background: var(--color-primary-soft);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 320px;
-    border-radius: 0 0 12px 0;
+    border-radius: 0 0 var(--radius-md) 0;
 }
 
 .home-map-flight-map .leaflet-container {
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     overflow: hidden;
     width: 100% !important;
     height: 100% !important;
@@ -1293,7 +1335,7 @@ img.avatar {
 
 .home-map-flight-map-empty {
     text-align: center;
-    color: #888;
+    color: var(--color-text-muted);
 }
 
 .home-map-flight-map-empty span {
@@ -1306,7 +1348,7 @@ img.avatar {
 .home-map-flight-empty {
     padding: 20px;
     text-align: center;
-    color: #888;
+    color: var(--color-text-muted);
     font-size: 14px;
     flex: 1;
 }
@@ -1330,7 +1372,7 @@ img.avatar {
     .home-map-flight-list {
         flex: 1;
         border-right: none;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid var(--color-border);
         max-height: 200px;
     }
 
@@ -1356,12 +1398,12 @@ img.avatar {
     }
 
     .home-hero-fun {
-        padding: 24px 20px 20px;
-        border-radius: 18px;
+        padding: 26px 22px 22px;
+        border-radius: 22px;
     }
 
     .home-hero-fun h1 {
-        font-size: 22px;
+        font-size: 23px;
     }
 
     .home-hero-fun p {
@@ -1382,12 +1424,14 @@ img.avatar {
     }
 
     .home-quick-fun-item {
-        padding: 12px 6px;
-        border-radius: 14px;
+        padding: 14px 6px;
+        border-radius: 16px;
     }
 
     .home-quick-fun-icon {
-        font-size: 26px;
+        font-size: 18px;
+        width: 40px;
+        height: 40px;
     }
 
     .home-quick-fun-label {
@@ -1442,7 +1486,12 @@ img.avatar {
 
 @media (max-width: 380px) {
     .home-hero-fun h1 {
-        font-size: 18px;
+        font-size: 19px;
+    }
+
+    .home-hero-fun::after {
+        background-size: 16px 16px;
+        opacity: 0.35;
     }
 
     .home-quick-fun {
