@@ -1,21 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import "../../css/maps.css";
 
-import {getHiddenGems} from "../api/hiddenGems";
+import {
+    getMyHiddenGems,
+    getPopularHiddenGems,
+    getNearbyAttractions,
+    getNearbyAttractionsAt,
+    getHiddenGemsInBounds,
+    getHiddenGemDetail,
+} from "../api/hiddenGems";
+import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
 
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
 import SearchBar from "../components/SearchBar";
 import SidePanel from "../components/SidePanel";
 import AttractionMarker from "../components/AttractionMarker";
-import RecentHiddenGemCard from "../components/RecentHiddenGemCard";
-
-import malaysia from "../assets/MYS.geo.json";
+import GemCarousel from "../components/GemCarousel";
 
 import api from "../api";
 
@@ -37,13 +43,79 @@ const MALAYSIA_BOUNDS = [
     [7.5, 119.5],
 ];
 
+// Shared fly-to easing so pans/zooms feel smooth rather than snapping instantly
+const FLY_TO_OPTIONS = { duration: 1.1, easeLinearity: 0.25 };
+const EXPLORE_MIN_ZOOM = 14;
+const VIEWPORT_DEBOUNCE_MS = 500;
+const EXPLORE_GRID = 100;
+
+function gridCell(lat, lng) {
+    return `${Math.round(lat * EXPLORE_GRID)}:${Math.round(lng * EXPLORE_GRID)}`;
+}
+
+const CLICK_EXPLORE_RADIUS = 3000;
+
 function FlyToUser({ position }) {
     const map = useMap();
     useEffect(() => {
         if (position) {
-            map.flyTo(position, 15);
+            map.flyTo(position, 15, FLY_TO_OPTIONS);
         }
     }, [position, map]);
+    return null;
+}
+
+function FlyToGem({ gem }) {
+    const map = useMap();
+    useEffect(() => {
+        if (gem) {
+            map.flyTo(
+                [Number(gem.latitude), Number(gem.longitude)], 15, FLY_TO_OPTIONS
+            );
+        }
+    }, [gem, map]);
+    return null;
+}
+
+// Reports the map's visible bounds + zoom upward so the page can query
+// hidden gems (and OSM places) for exactly what's on screen.
+function ViewportWatcher({ onChange }) {
+    const map = useMapEvents({
+        moveend: () => report(),
+        zoomend: () => report(),
+    });
+
+    function report() {
+        const b = map.getBounds();
+        const c = b.getCenter();
+        onChange({
+            north: b.getNorth(),
+            south: b.getSouth(),
+            east: b.getEast(),
+            west: b.getWest(),
+            centerLat: c.lat,
+            centerLng: c.lng,
+            zoom: map.getZoom(),
+            // rough on-screen radius, capped to what the API accepts
+            radius: Math.min(3000, Math.round(map.distance(b.getNorthWest(), b.getSouthEast()) / 2)),
+        });
+    }
+
+    useEffect(() => { report(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    return null;
+}
+
+function MapClickExplorer({ onMapClick }) {
+    useMapEvents({
+        click(e) {
+            const target = e.originalEvent?.target;
+            if (target?.closest?.('.leaflet-marker-icon, .leaflet-interactive')) {
+                return;
+            }
+            onMapClick(e.latlng.lat, e.latlng.lng);
+        },
+    });
     return null;
 }
 
@@ -52,39 +124,162 @@ function groupKey(lat, lng) {
 }
 
 function Maps(){
+    const location = useLocation();
+    const highlightGem = location.state?.highlightGem || null;
+    const highlightId = location.state?.highlightId || null;
     const [hiddenGems,setHiddenGems]=useState([]);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [userPosition,setUserPosition]=useState(null);
     const [locationError,setLocationError]=useState("");
-    const [message,setMessage]=useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [recentPosts,setRecentPosts]=useState([]);
+    const [myGems,setMyGems]=useState([]);
+    const [popularPosts,setPopularPosts]=useState([]);
+    const [panelOpen, setPanelOpen] = useState(false);
+    const [statusFilter, setStatusFilter] = useState(null); // null | 'verified' | 'pending'
+    const [nearby, setNearby] = useState([]);
+    const [nearbyLoading, setNearbyLoading] = useState(false);
+    const [explorePlaces, setExplorePlaces] = useState([]);
+    const [exploreLoading, setExploreLoading] = useState(false);
+    const [exploreOn, setExploreOn] = useState(true);
+    // Off by default — click-to-search hits Overpass on every click, so it's
+    // opt-in rather than always listening.
+    const [clickExploreOn, setClickExploreOn] = useState(false);
+    const [viewport, setViewport] = useState(null);
+    const [clickedPoint, setClickedPoint] = useState(null);
+    const [clickedPlaces, setClickedPlaces] = useState([]);
+    const [clickedLoading, setClickedLoading] = useState(false);
+    const [itineraries, setItineraries] = useState([]);
+    const [mapFullscreen, setMapFullscreen] = useState(false);
+    const mapRef = useRef(null);
+    const viewportTimer = useRef(null);
+    const heroRef = useRef(null);
+    const clickedMarkerRef = useRef(null);
+
+    // Open the "X places found nearby" popup as soon as a click lands, rather
+    // than making the user click the little dot a second time to see it.
+    useEffect(() => {
+        if (clickedPoint) clickedMarkerRef.current?.openPopup();
+    }, [clickedPoint, clickedLoading, clickedPlaces]);
+
+    // Clear any dot/results left on the map when the feature is switched off,
+    // rather than leaving a stale marker with no way to have produced it.
+    useEffect(() => {
+        if (!clickExploreOn) {
+            setClickedPoint(null);
+            setClickedPlaces([]);
+        }
+    }, [clickExploreOn]);
+
+    // Lock background scroll while the map covers the screen, so the page behind
+    // it can't scroll out from underneath the fixed-position hero.
+    useEffect(() => {
+        if (!mapFullscreen) return;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = previousOverflow; };
+    }, [mapFullscreen]);
 
     useEffect(() => {
-        axios.get('http://127.0.0.1:8000/api/ping')
-            .then(res => setMessage(res.data.message))
-            .catch(err => setMessage('Error: ' + err.message));
-    }, []);
+        if (!mapRef.current) return;
+        const id = setTimeout(() => mapRef.current?.invalidateSize(), 260);
+        return () => clearTimeout(id);
+    }, [mapFullscreen]);
 
-    // Load hidden gems
-    useEffect(()=>{
-        getHiddenGems()
-            .then(res => {
-                console.log(res.data);
-                setHiddenGems(res.data.data);
-            })
-            .catch(err => {
-                console.log(err);
-            });
-    },[]);
+    useEffect(() => {
+        const navbar = document.querySelector('.navbar');
+        if (!navbar) return;
+
+        function measure() {
+            document.documentElement.style.setProperty('--navbar-height', `${navbar.offsetHeight}px`);
+        }
+
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, []);
 
     // Load recent hidden gems
     useEffect(()=>{
         api.get("/recent-hidden-gems")
-        .then(res=>{
-            setRecentPosts(res.data);
-        });
+            .then(res=>setRecentPosts(res.data))
+            .catch(err => console.log(err));
     },[]);
+
+    // Load the current user's own hidden gems
+    useEffect(()=>{
+        getMyHiddenGems()
+            .then(res => setMyGems(res.data.data || []))
+            .catch(err => console.log(err));
+    },[]);
+
+    // Load top-voted, verified hidden gems
+    useEffect(()=>{
+        getPopularHiddenGems()
+            .then(res => setPopularPosts(res.data || []))
+            .catch(err => console.log(err));
+    },[]);
+
+    // Load the user's trip itineraries so gems can be added straight from the map
+    useEffect(() => {
+        if (highlightGem && highlightGem.id) {
+            // Open the side panel with the highlighted gem
+            setSelectedGroup([normalizeGem(highlightGem, "database")]);
+            setPanelOpen(true);
+            // Fly to the gem on the map
+            if (mapRef.current) {
+                mapRef.current.flyTo(
+                    [Number(highlightGem.latitude), Number(highlightGem.longitude)], 
+                    15, 
+                    { duration: 1.5, easeLinearity: 0.25 }
+                );
+            }
+        }
+    }, [highlightGem]);
+
+    // Debounce viewport changes so panning doesn't spam the API
+    const handleViewportChange = useCallback((next) => {
+        clearTimeout(viewportTimer.current);
+        viewportTimer.current = setTimeout(() => setViewport(next), VIEWPORT_DEBOUNCE_MS);
+    }, []);
+
+    useEffect(() => () => clearTimeout(viewportTimer.current), []);
+
+    // Query hidden gems for whatever is currently on screen
+    useEffect(() => {
+        if (!viewport) return;
+
+        getHiddenGemsInBounds({
+            north: viewport.north,
+            south: viewport.south,
+            east: viewport.east,
+            west: viewport.west,
+        }, statusFilter)
+            .then(res => setHiddenGems(res.data.data || []))
+            .catch(err => console.log(err));
+    }, [viewport, statusFilter]);
+
+    const exploreCell = exploreOn && viewport && viewport.zoom >= EXPLORE_MIN_ZOOM
+        ? gridCell(viewport.centerLat, viewport.centerLng)
+        : null;
+
+    useEffect(() => {
+        if (!exploreCell) {
+            setExplorePlaces([]);
+            return;
+        }
+
+        let cancelled = false;
+        setExploreLoading(true);
+        const [cellLat, cellLng] = exploreCell.split(":").map(Number);
+
+        getNearbyAttractionsAt(cellLat / EXPLORE_GRID, cellLng / EXPLORE_GRID, 1500)
+            .then(res => { if (!cancelled) setExplorePlaces(res.data.data || []); })
+            .catch(err => { if (!cancelled) { console.log(err); setExplorePlaces([]); } })
+            .finally(() => { if (!cancelled) setExploreLoading(false); });
+
+        return () => { cancelled = true; };
+    }, [exploreCell]);
 
     // Normalize the gem shape
     function normalizeGem(raw, source) {
@@ -98,21 +293,89 @@ function Maps(){
                 description: raw.description,
                 latitude: raw.latitude,
                 longitude: raw.longitude,
-                image: raw.images?.[0]?.image_url ? `/storage/${raw.images[0].image_url}` : null,
+                image: raw.images?.[0]?.image_url || null,
                 voteCount: raw.vote_count,
+                verificationThreshold: raw.verification_threshold,
                 category: raw.category?.name,
+                status: raw.status,
             };
         }
-        // OSM / attraction result
         return {
             id: raw.id,
+            osmId: raw.osm_id,
             source: "attraction",
             title: raw.name,
             latitude: raw.latitude,
             longitude: raw.longitude,
             image: null,
+            attractionType: raw.type,
+            address: raw.address,
+            openingHours: raw.openingHours,
+            phone: raw.phone,
+            website: raw.website,
         };
     }
+
+    // Shows a group of gems in the side panel (reopening it if it was closed)
+    function openGroup(group) {
+        setSelectedGroup(group);
+        setPanelOpen(true);
+    }
+
+    function selectGem(raw) {
+        openGroup([normalizeGem(raw, "database")]);
+        // Cards live below the map, so without this the map flies to the gem
+        // off-screen and the user never sees it happen.
+        heroRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    const handleActiveGemChange = useCallback((activeGem) => {
+        if (!activeGem || activeGem.source !== "database") {
+            setNearby([]);
+            setNearbyLoading(false);
+            return;
+        }
+
+        setNearbyLoading(true);
+        getNearbyAttractions(activeGem.id)
+            .then(res => setNearby(res.data.data || []))
+            .catch(err => {
+                console.log(err);
+                setNearby([]);
+            })
+            .finally(() => setNearbyLoading(false));
+    }, []);
+
+    const selectNearby = useCallback((place) => {
+        openGroup([normalizeGem(place, "attraction")]);
+    }, []);
+
+    // Click anywhere on the map (not a marker) to see what's nearby that point.
+    const handleMapClick = useCallback((lat, lng) => {
+        setClickedPoint([lat, lng]);
+        setClickedLoading(true);
+        getNearbyAttractionsAt(lat, lng, CLICK_EXPLORE_RADIUS)
+            .then(res => setClickedPlaces(res.data.data || []))
+            .catch(err => {
+                console.log(err);
+                setClickedPlaces([]);
+            })
+            .finally(() => setClickedLoading(false));
+    }, []);
+
+    const handleAddToItinerary = useCallback((trip, gem) => {
+        const payload = gem.source === "database"
+            ? { source: "database", location_id: gem.id }
+            : {
+                source: "openstreetmap",
+                osm_id: gem.osmId,
+                osm_name: gem.title,
+                latitude: gem.latitude,
+                longitude: gem.longitude,
+            };
+
+        return addTripLocation(trip.id, payload);
+    }, []);
 
     // Group hidden gems by coordinate
     const groupedGems = useMemo(() => {
@@ -125,6 +388,16 @@ function Maps(){
         });
         return Array.from(map.values());
     }, [hiddenGems]);
+
+    // OSM markers to draw: the selected gem's neighbours, the zoom-in discovery
+    // results, a map-click explore, and any search hits — de-duplicated by id.
+    const osmMarkers = useMemo(() => {
+        const byId = new Map();
+        [...nearby, ...explorePlaces, ...clickedPlaces, ...searchResults].forEach(p => {
+            if (p && p.id != null && !byId.has(p.id)) byId.set(p.id, p);
+        });
+        return Array.from(byId.values());
+    }, [nearby, explorePlaces, clickedPlaces, searchResults]);
 
     // Get user location
     useEffect(()=>{
@@ -142,114 +415,219 @@ function Maps(){
         );
     }, []);
 
-    const defaultCenter = [4.2105, 101.9758];
-
-    function FlyToGem({ gem }) {
-        const map = useMap();
-        useEffect(() => {
-            if (gem) {
-                map.flyTo(
-                    [Number(gem.latitude), Number(gem.longitude)], 15
-                );
-            }
-        }, [gem]);
-        return null;
+    function recenterOnUser() {
+        if (userPosition && mapRef.current) {
+            mapRef.current.flyTo(userPosition, 15, FLY_TO_OPTIONS);
+        }
     }
 
-    return (    
+    const defaultCenter = [4.2105, 101.9758];
+
+    const statusFilters = [
+        { value: null, label: "All" },
+        { value: "verified", label: "✓ Verified" },
+        { value: "pending", label: "⏳ Unverified" },
+    ];
+
+    return (
         <div className="maps-page">
-            <h1 className="maps-title">HiddenMY Interactive Map</h1>
-            
-            <SearchBar
-                onSelect={(item) => {
-                    if (item.source === "database") {
-                        const gem = hiddenGems.find(g => g.id === item.id);
-                        if (gem) setSelectedGroup([normalizeGem(gem, "database")]);
-                        setSearchResults([]);
-                    } else {
-                        setSelectedGroup([normalizeGem(item, "attraction")]);
-                        setSearchResults([item]);
-                    }
-                }}
-            />
-
-            {locationError &&
-            <p className="maps-location-error">
-                {locationError}
-            </p>
-            }
-
-            <MapContainer
-                center={userPosition || defaultCenter}
-                zoom={7}
-                minZoom={6}
-                maxBounds={MALAYSIA_BOUNDS}
-                maxBoundsViscosity={1.0}
-                style={{ height: '500px', width: '100%' }}
-            >
-            <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            />
-            <GeoJSON
-                data={malaysia}
-                style={{
-                    color: "#14b8a6",
-                    weight: 2,
-                    fillColor: "#14b8a6",
-                    fillOpacity: 0.12,
-                }}
-            />
-            {userPosition &&
-                <>
-                <Marker position={userPosition} icon={customIcon}>
-                    <Popup>Your Current Location</Popup>
-                </Marker>
-                <FlyToUser position={userPosition}/>
-                </>
-            }
-            <MarkerClusterGroup iconCreateFunction={createGemClusterIcon} zoomToBoundsOnClick={true} spiderfyOnMaxZoom={true}>
-            {groupedGems.map((group) => (
-                <HiddenGemMarker
-                    key={groupKey(group[0].latitude, group[0].longitude)}
-                    gem={group[0]}
-                    postCount={group.length}
-                    onClick={() => setSelectedGroup(group)}
+            <div className={`maps-hero ${mapFullscreen ? "fullscreen" : ""}`} ref={heroRef}>
+                <MapContainer
+                    ref={mapRef}
+                    center={userPosition || defaultCenter}
+                    zoom={7}
+                    minZoom={6}
+                    zoomSnap={0.5}
+                    zoomDelta={0.5}
+                    wheelPxPerZoomLevel={70}
+                    maxBounds={MALAYSIA_BOUNDS}
+                    maxBoundsViscosity={1.0}
+                    zoomControl={false}
+                    style={{ height: '100%', width: '100%' }}
+                >
+                <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                 />
-            ))}
-        </MarkerClusterGroup>
-            {searchResults.map((place, index) => (
-                <AttractionMarker
-                    key={index}
-                    place={place}
-                    onClick={() => setSelectedGroup([normalizeGem(place, "attraction")])}
-                />
-            ))}
-            <FlyToGem gem={selectedGroup ? selectedGroup[0] : null}/>
-            </MapContainer>
-            {!selectedGroup && (
-                <div className="recent-section">
+                <ZoomControl position="bottomright" />
+                <ScaleControl position="bottomright" imperial={false} />
+                <ViewportWatcher onChange={handleViewportChange} />
+                {clickExploreOn && <MapClickExplorer onMapClick={handleMapClick} />}
+                {userPosition &&
+                    <>
+                    <Marker position={userPosition} icon={customIcon}>
+                        <Popup>Your Current Location</Popup>
+                    </Marker>
+                    <FlyToUser position={userPosition}/>
+                    </>
+                }
+                <MarkerClusterGroup iconCreateFunction={createGemClusterIcon} zoomToBoundsOnClick={true} spiderfyOnMaxZoom={true}>
+                {groupedGems.map((group) => (
+                    <HiddenGemMarker
+                        key={groupKey(group[0].latitude, group[0].longitude)}
+                        gem={group[0]}
+                        postCount={group.length}
+                        onClick={() => openGroup(group)}
+                    />
+                ))}
+            </MarkerClusterGroup>
+                {osmMarkers.map((place) => (
+                    <AttractionMarker
+                        key={place.id}
+                        place={place}
+                        onClick={() => selectNearby(place)}
+                    />
+                ))}
+                {clickedPoint && (
+                    <CircleMarker
+                        ref={clickedMarkerRef}
+                        center={clickedPoint}
+                        radius={8}
+                        pathOptions={{ color: '#0f766e', fillColor: '#14b8a6', fillOpacity: 0.9, weight: 2 }}
+                    >
+                        <Popup>
+                            {clickedLoading
+                                ? "Looking for nearby attractions"
+                                : `${clickedPlaces.length} place${clickedPlaces.length === 1 ? "" : "s"} found nearby`}
+                        </Popup>
+                    </CircleMarker>
+                )}
+                <FlyToGem gem={selectedGroup ? selectedGroup[0] : null}/>
+                </MapContainer>
 
-                    <h2>
-                        Recent Hidden Gems
-                    </h2>
-
-                    <div className="recent-list">
-                        {recentPosts.map(post => (
-                            <RecentHiddenGemCard
-                                key={post.id}
-                                post={post}
-                                onClick={() => setSelectedGroup([normalizeGem(post, "database")])}
-                            />
-                        ))}
+                {/* Left column: search box always visible, gem panel docked beneath it */}
+                <div className="maps-left-stack">
+                    <div className="maps-search-float">
+                        <SearchBar
+                            onSelect={(item) => {
+                                if (item.source === "database") {
+                                    setSearchResults([]);
+                                    // Gems load per-viewport, so a search hit may not be
+                                    // in `hiddenGems` yet — fall back to fetching it by id.
+                                    const loaded = hiddenGems.find(g => g.id === item.id);
+                                    if (loaded) {
+                                        selectGem(loaded);
+                                    } else {
+                                        getHiddenGemDetail(item.id)
+                                            .then(res => selectGem(res.data.data))
+                                            .catch(err => console.log(err));
+                                    }
+                                } else {
+                                    openGroup([normalizeGem(item, "attraction")]);
+                                    setSearchResults([item]);
+                                }
+                            }}
+                        />
                     </div>
 
+                    <SidePanel
+                        group={selectedGroup}
+                        isOpen={panelOpen}
+                        onClose={() => { setPanelOpen(false); setSelectedGroup(null); }}
+                        mode="gems"
+                        nearby={nearby}
+                        nearbyLoading={nearbyLoading}
+                        onSelectNearby={selectNearby}
+                        onGemChange={handleActiveGemChange}
+                        itineraries={itineraries}
+                        onAddToItinerary={handleAddToItinerary}
+                    />
                 </div>
-            )}
-            <SidePanel
-                group={selectedGroup}
-                onClose={() => setSelectedGroup(null)}
-            />
+
+                {/* Right column: title, status, filters */}
+                <div className="maps-hero-topbar">
+                    <h1 className="maps-hero-title">HiddenMY Interactive Map</h1>
+                    {locationError && (
+                        <p className="maps-hero-status">{locationError}</p>
+                    )}
+                    <div className="maps-category-pills">
+                        {statusFilters.map((f) => (
+                            <button
+                                type="button"
+                                key={f.label}
+                                className={`maps-category-pill ${statusFilter === f.value ? "active" : ""}`}
+                                onClick={() => setStatusFilter(f.value)}
+                            >
+                                {f.label}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            className={`maps-category-pill ${exploreOn ? "active" : ""}`}
+                            onClick={() => setExploreOn(o => !o)}
+                            title={`Show nearby attractions from OpenStreetMap once zoomed in (level ${EXPLORE_MIN_ZOOM}+)`}
+                        >
+                            🔎 Nearby attractions
+                        </button>
+                        <button
+                            type="button"
+                            className={`maps-category-pill ${clickExploreOn ? "active" : ""}`}
+                            onClick={() => setClickExploreOn(o => !o)}
+                            title="When on, clicking anywhere on the map searches for nearby attractions at that point"
+                        >
+                            👆 Click to scan
+                        </button>
+                    </div>
+                    {clickExploreOn && (
+                        <p className="maps-hero-hint">Click anywhere on the map to search nearby</p>
+                    )}
+                    {exploreOn && viewport && viewport.zoom < EXPLORE_MIN_ZOOM && (
+                        <p className="maps-hero-hint">Zoom in to load nearby attractions</p>
+                    )}
+                    {exploreLoading && (
+                        <p className="maps-hero-hint">Loading nearby attractions</p>
+                    )}
+                    {!exploreLoading && exploreOn && explorePlaces.length > 0 && (
+                        <p className="maps-hero-hint">{explorePlaces.length} places in view</p>
+                    )}
+                </div>
+
+                {userPosition && (
+                    <button
+                        type="button"
+                        className="maps-locate-btn"
+                        onClick={recenterOnUser}
+                        aria-label="Center on my location"
+                        title="Center on my location"
+                    >
+                        🎯
+                    </button>
+                )}
+
+                <button
+                    type="button"
+                    className="maps-fullscreen-btn"
+                    onClick={() => setMapFullscreen(f => !f)}
+                    aria-label={mapFullscreen ? "Exit fullscreen" : "Fullscreen map"}
+                    title={mapFullscreen ? "Exit fullscreen" : "Fullscreen map"}
+                >
+                    {mapFullscreen ? "⤡" : "⤢"}
+                </button>
+            </div>
+
+            <div className="maps-discover">
+                <GemCarousel
+                    title="Recent Hidden Gems"
+                    seeMoreTo="/hidden-gems"
+                    items={recentPosts}
+                    onItemClick={selectGem}
+                    emptyText="No recent gems yet."
+                />
+                <GemCarousel
+                    title="My Hidden Gems"
+                    seeMoreTo="/my-hidden-gems"
+                    items={myGems}
+                    onItemClick={selectGem}
+                    emptyText="You haven't posted any hidden gems yet."
+                />
+                <GemCarousel
+                    title="Popular Hidden Gems"
+                    seeMoreTo="/hidden-gems"
+                    items={popularPosts}
+                    onItemClick={selectGem}
+                    emptyText="No popular gems yet."
+                />
+            </div>
         </div>
     );
 }

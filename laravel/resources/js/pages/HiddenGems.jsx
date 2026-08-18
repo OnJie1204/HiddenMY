@@ -193,6 +193,10 @@ export default function HiddenGems() {
                                     <img
                                         src={gem.images[0].image_url}
                                         alt={gem.place_name}
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.parentElement.innerHTML = `<div class="hidden-gems-card-no-image">No Image</div>`;
+                                        }}
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
                                 ) : (

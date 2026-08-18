@@ -77,6 +77,8 @@ class TripItineraryController extends Controller
             'location_id' => ['nullable', 'integer'],
             'osm_id' => ['nullable', 'integer'],
             'osm_name' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
         if ($validated['source'] === 'database') {
@@ -101,12 +103,16 @@ class TripItineraryController extends Controller
             $request->validate([
                 'osm_id' => ['required', 'integer'],
                 'osm_name' => ['required', 'string', 'max:255'],
+                'latitude' => ['required', 'numeric', 'between:-90,90'],
+                'longitude' => ['required', 'numeric', 'between:-180,180'],
             ]);
 
             $attributes = [
                 'location_id' => null,
                 'osm_id' => $validated['osm_id'],
                 'osm_name' => $validated['osm_name'],
+                'latitude' => $validated['latitude'],
+                'longitude' => $validated['longitude'],
                 'isHidden' => false,
             ];
         }

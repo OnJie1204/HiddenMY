@@ -7,6 +7,13 @@ export const getMe = () => api.get('/me');
 export const forgotPassword = (email) => api.post('/forgot-password', { email });
 export const resetPassword = (data) => api.post('/reset-password', data);
 export const updateProfile = (data) => api.put('/profile', data);
+export const uploadAvatar = (file) => {
+  const formData = new FormData();
+  formData.append('avatar', file);
+  return api.post('/profile/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 export const changePassword = (data) => api.post('/change-password', data);
 export const verifyNewEmail = (token) => api.post('/verify-email', { token });
 export const verifyEmail = (id, hash, params) => api.get(`/email/verify/${id}/${hash}${params}`);

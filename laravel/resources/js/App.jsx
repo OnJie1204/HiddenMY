@@ -18,6 +18,7 @@ import HiddenGems from './pages/HiddenGems';
 import HiddenGemSubmission from './pages/HiddenGemSubmission';
 import MyHiddenGems from './pages/MyHiddenGems';
 import HiddenGemDetail from "./pages/HiddenGemDetail";
+import EditHiddenGem from './pages/EditHiddenGem';
 import { getMe } from './api/auth';
 import { getToken, clearToken } from './utils/tokenStorage';
 
@@ -140,6 +141,19 @@ function App() {
                 )
             }
         />
+
+        <Route
+          path="/my-hidden-gems/edit/:id"
+          element={
+              user ? (
+                  <Layout user={user} setUser={setUser}>
+                      <EditHiddenGem />
+                  </Layout>
+              ) : (
+                  <Navigate to="/login" />
+              )
+          }
+      />
 
       </Routes>
     </BrowserRouter>

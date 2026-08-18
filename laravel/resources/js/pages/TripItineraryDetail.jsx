@@ -8,7 +8,7 @@ import {
     updateTripItinerary,
     updateTripLocationOrder,
 } from "../api/TripItinerary";
-import { getHiddenGems, searchHiddenGems } from "../api/hiddenGems";
+import { getHiddenGems, searchHiddenGems, reverseGeocodeLocation } from "../api/hiddenGems";
 
 import {
     DndContext,
@@ -25,7 +25,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 import { MdDragIndicator } from "react-icons/md";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, Tooltip, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -53,6 +53,13 @@ const openStreetMapMarkerIcon = L.divIcon({
     iconAnchor: [12, 12],
 });
 
+const userLocationMarkerIcon = L.divIcon({
+    className: "user-location-marker-icon",
+    html: '<span class="user-location-marker-pulse" aria-hidden="true"></span><span class="user-location-marker-dot" aria-hidden="true"></span>',
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+});
+
 const hasValidCoordinates = ({ latitude, longitude }) =>
     Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 
@@ -60,6 +67,8 @@ const toDisplayLocation = (location) => ({
     id: location.id,
     name: location.location?.place_name ?? location.osm_name ?? `OpenStreetMap location (${location.osm_id})`,
     type: location.isHidden ? "hidden" : "osm",
+    latitude: location.isHidden ? location.location?.latitude : location.latitude,
+    longitude: location.isHidden ? location.location?.longitude : location.longitude,
 });
 
 function MapViewController({ target }) {
@@ -72,6 +81,16 @@ function MapViewController({ target }) {
             });
         }
     }, [map, target]);
+
+    return null;
+}
+
+function MapClickHandler({ onMapClick }) {
+    useMapEvents({
+        click(event) {
+            onMapClick(event.latlng);
+        },
+    });
 
     return null;
 }
@@ -201,6 +220,13 @@ export default function TripItineraryDetail() {
     const [addLocationError, setAddLocationError] = useState("");
     const [isSavingLocationOrder, setIsSavingLocationOrder] = useState(false);
     const [locationOrderError, setLocationOrderError] = useState("");
+    const [routeError, setRouteError] = useState("");
+    const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
+    const [userLocation, setUserLocation] = useState(null);
+    const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+    const [locationPromptError, setLocationPromptError] = useState("");
+    const [isIdentifyingClickedLocation, setIsIdentifyingClickedLocation] = useState(false);
+    const [mapClickError, setMapClickError] = useState("");
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -209,6 +235,52 @@ export default function TripItineraryDetail() {
         setSearchResults({ database: [], openStreetMap: [] });
         setMapTarget(null);
         setAddLocationError("");
+        setUserLocation(null);
+        setMapClickError("");
+    };
+
+    const openAddStoppingPointFlow = () => {
+        setLocationPromptError("");
+
+        if (typeof navigator === "undefined" || !navigator.geolocation) {
+            setUserLocation(null);
+            setIsStoppingPointDialogOpen(true);
+            return;
+        }
+
+        setIsLocationPromptOpen(true);
+    };
+
+    const skipLocationAndOpenDialog = () => {
+        setUserLocation(null);
+        setIsRequestingLocation(false);
+        setIsLocationPromptOpen(false);
+        setIsStoppingPointDialogOpen(true);
+    };
+
+    const shareLocationAndOpenDialog = () => {
+        setIsRequestingLocation(true);
+        setLocationPromptError("");
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const location = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                };
+                setUserLocation(location);
+                setMapTarget({ ...location, zoom: 13 });
+                setIsRequestingLocation(false);
+                setIsLocationPromptOpen(false);
+                setIsStoppingPointDialogOpen(true);
+            },
+            (error) => {
+                console.error("Failed to get user location.", error);
+                setIsRequestingLocation(false);
+                setLocationPromptError("Unable to access your location. You can skip and search without it.");
+            },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
+        );
     };
 
     const refreshItinerary = async () => {
@@ -289,7 +361,11 @@ export default function TripItineraryDetail() {
             setLocationSearchError("");
 
             try {
-                const response = await searchHiddenGems(query, { signal: controller.signal });
+                const response = await searchHiddenGems(query, {
+                    signal: controller.signal,
+                    latitude: userLocation?.latitude,
+                    longitude: userLocation?.longitude,
+                });
                 setSearchResults({
                     database: Array.isArray(response.data?.database) ? response.data.database : [],
                     openStreetMap: Array.isArray(response.data?.openStreetMap) ? response.data.openStreetMap : [],
@@ -311,7 +387,7 @@ export default function TripItineraryDetail() {
             window.clearTimeout(timeout);
             controller.abort();
         };
-    }, [isStoppingPointDialogOpen, searchQuery]);
+    }, [isStoppingPointDialogOpen, searchQuery, userLocation]);
 
     const selectSearchResult = (location) => {
         setSelectedLocation(location);
@@ -323,12 +399,49 @@ export default function TripItineraryDetail() {
         setSelectedLocation({ ...hiddenGem, name: hiddenGem.place_name, source: "database" });
     };
 
+    const handleMapClick = async (latlng) => {
+        const latitude = latlng.lat;
+        const longitude = latlng.lng;
+
+        setSelectedLocation(null);
+        setMapClickError("");
+        setIsIdentifyingClickedLocation(true);
+
+        try {
+            const response = await reverseGeocodeLocation(latitude, longitude);
+            const location = {
+                id: response.data.id,
+                osm_id: response.data.osm_id,
+                name: response.data.name,
+                latitude,
+                longitude,
+                source: "openstreetmap",
+            };
+
+            setSelectedLocation(location);
+            setMapTarget({ ...location, zoom: 16 });
+        } catch (error) {
+            console.error("Failed to identify the clicked location.", error);
+            setMapClickError(
+                error.response?.data?.message ?? "Unable to identify a location at this point. Please try again.",
+            );
+        } finally {
+            setIsIdentifyingClickedLocation(false);
+        }
+    };
+
     const handleAddLocation = async () => {
         if (!selectedLocation || isAddingLocation) return;
 
         const data = selectedLocation.source === "database"
             ? { source: "database", location_id: selectedLocation.id }
-            : { source: "openstreetmap", osm_id: selectedLocation.osm_id, osm_name: selectedLocation.name };
+            : {
+                source: "openstreetmap",
+                osm_id: selectedLocation.osm_id,
+                osm_name: selectedLocation.name,
+                latitude: selectedLocation.latitude,
+                longitude: selectedLocation.longitude,
+            };
 
         setIsAddingLocation(true);
         setAddLocationError("");
@@ -492,6 +605,35 @@ export default function TripItineraryDetail() {
 
 
 
+    const handleOpenRouteInGoogleMaps = () => {
+        const stopsWithCoordinates = locations.filter(hasValidCoordinates);
+
+        if (stopsWithCoordinates.length === 0) {
+            setRouteError("Add at least one stopping point with known coordinates before opening the route.");
+            return;
+        }
+
+        setRouteError("");
+
+        const destinationStop = stopsWithCoordinates[stopsWithCoordinates.length - 1];
+        const waypointStops = stopsWithCoordinates.slice(0, -1);
+
+        const params = new URLSearchParams({
+            api: "1",
+            destination: `${Number(destinationStop.latitude)},${Number(destinationStop.longitude)}`,
+            travelmode: "driving",
+        });
+
+        if (waypointStops.length > 0) {
+            params.set(
+                "waypoints",
+                waypointStops.map((stop) => `${Number(stop.latitude)},${Number(stop.longitude)}`).join("|"),
+            );
+        }
+
+        window.open(`https://www.google.com/maps/dir/?${params.toString()}`, "_blank");
+    };
+
     return (
 
         <div className="trip-detail-container">
@@ -611,7 +753,7 @@ export default function TripItineraryDetail() {
                 <button
                     type="button"
                     className="trip-detail-btn trip-detail-add-btn"
-                    onClick={() => setIsStoppingPointDialogOpen(true)}
+                    onClick={openAddStoppingPointFlow}
                 >
                     + Add Stopping Point
                 </button>
@@ -665,6 +807,53 @@ export default function TripItineraryDetail() {
 
 
 
+            {isLocationPromptOpen && (
+                <div
+                    className="stopping-point-dialog-backdrop"
+                    onMouseDown={() => setIsLocationPromptOpen(false)}
+                >
+                    <section
+                        className="stopping-point-dialog location-prompt-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="location-prompt-dialog-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <h2 id="location-prompt-dialog-title">Use your current location?</h2>
+
+                        <p className="location-prompt-description">
+                            Sharing your location lets us show nearby OpenStreetMap results first. This is
+                            optional — Hidden Gems are always searched first either way.
+                        </p>
+
+                        {locationPromptError && (
+                            <p className="stopping-point-map-status stopping-point-map-status-error" role="alert">
+                                {locationPromptError}
+                            </p>
+                        )}
+
+                        <div className="stopping-point-dialog-actions">
+                            <button
+                                type="button"
+                                className="stopping-point-cancel-btn"
+                                onClick={skipLocationAndOpenDialog}
+                                disabled={isRequestingLocation}
+                            >
+                                Skip
+                            </button>
+                            <button
+                                type="button"
+                                className="stopping-point-confirm-btn"
+                                onClick={shareLocationAndOpenDialog}
+                                disabled={isRequestingLocation}
+                            >
+                                {isRequestingLocation ? "Requesting…" : "Share Location"}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
+
             {isStoppingPointDialogOpen && (
                 <div
                     className="stopping-point-dialog-backdrop"
@@ -678,6 +867,12 @@ export default function TripItineraryDetail() {
                         onMouseDown={(event) => event.stopPropagation()}
                     >
                         <h2 id="stopping-point-dialog-title">Add Stopping Point</h2>
+
+                        {userLocation && (
+                            <p className="stopping-point-search-status">
+                                📍 Showing OpenStreetMap results nearest to your current location first.
+                            </p>
+                        )}
 
                         <label className="stopping-point-search-label" htmlFor="stopping-point-search">
                             Search hidden gems
@@ -716,6 +911,10 @@ export default function TripItineraryDetail() {
                             </div>
                         )}
 
+                        <p className="stopping-point-search-status">
+                            Or click anywhere on the map to select that location.
+                        </p>
+
                         <div className="stopping-point-map" aria-label="Map of hidden gems">
                             <MapContainer
                                 center={[4.2105, 101.9758]}
@@ -728,6 +927,7 @@ export default function TripItineraryDetail() {
                                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 />
                                 <MapViewController target={mapTarget} />
+                                <MapClickHandler onMapClick={handleMapClick} />
                                 {hiddenGems
                                     .filter(hasValidCoordinates)
                                     .map((hiddenGem) => (
@@ -755,7 +955,24 @@ export default function TripItineraryDetail() {
                                     <Marker
                                         position={[Number(selectedLocation.latitude), Number(selectedLocation.longitude)]}
                                         icon={openStreetMapMarkerIcon}
-                                    />
+                                    >
+                                        <Popup>
+                                            <div className="hidden-gem-marker-popup">
+                                                <strong>{selectedLocation.name}</strong>
+                                                <span>
+                                                    {Number(selectedLocation.latitude).toFixed(6)}, {Number(selectedLocation.longitude).toFixed(6)}
+                                                </span>
+                                            </div>
+                                        </Popup>
+                                    </Marker>
+                                )}
+                                {userLocation && hasValidCoordinates(userLocation) && (
+                                    <Marker
+                                        position={[Number(userLocation.latitude), Number(userLocation.longitude)]}
+                                        icon={userLocationMarkerIcon}
+                                    >
+                                        <Tooltip>Your current location</Tooltip>
+                                    </Marker>
                                 )}
                             </MapContainer>
                         </div>
@@ -772,6 +989,14 @@ export default function TripItineraryDetail() {
                         {hiddenGemsError && (
                             <p className="stopping-point-map-status stopping-point-map-status-error" role="alert">
                                 {hiddenGemsError}
+                            </p>
+                        )}
+                        {isIdentifyingClickedLocation && (
+                            <p className="stopping-point-map-status">Identifying selected location…</p>
+                        )}
+                        {mapClickError && (
+                            <p className="stopping-point-map-status stopping-point-map-status-error" role="alert">
+                                {mapClickError}
                             </p>
                         )}
                         {addLocationError && (
@@ -801,7 +1026,16 @@ export default function TripItineraryDetail() {
                 </div>
             )}
 
-            <button className="trip-detail-btn trip-detail-route-btn">
+            {routeError && (
+                <p className="trip-location-order-status trip-location-order-error" role="alert">
+                    {routeError}
+                </p>
+            )}
+
+            <button
+                className="trip-detail-btn trip-detail-route-btn"
+                onClick={handleOpenRouteInGoogleMaps}
+            >
                 🗺 Open Route in Google Maps
             </button>
 

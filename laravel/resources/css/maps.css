@@ -3,66 +3,221 @@
 .maps-page {
     min-height: 100vh;
     background-color: var(--color-bg, #f7f6f2);
-    border-radius: 20px;
     color: var(--color-text, #1c2b28);
     padding-bottom: 1rem;
 }
 
-/* Header */
-.maps-title {
-    text-align: center;
-    margin: 0;
-    padding: 24px 0 4px;
-    font-size: 32px;
-    font-weight: 800;
-    color: var(--color-text, #1c2b28);
-}
-
-.maps-location-error {
-    text-align: center;
-    color: #b45309;
-    font-size: 13px;
-    margin: 0 0 10px;
-}
-
-/* Map Container */
-.gemora-map {
-    height: 600px;
-    width: 100%;
-    border-radius: 20px;
+/* ============================================================
+   Map hero — full-bleed, edge-to-edge, flush against the navbar.
+   Busts out of the site's centered `.layout-main` container
+   (max-width: 1080px + 2.5rem/2rem padding) using the negative-
+   margin 100vw trick, so this file never has to touch global.css.
+   ============================================================ */
+.maps-hero {
+    position: relative;
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    margin-top: -2.5rem; /* cancels .layout-main's top padding so the map touches the navbar */
+    height: 70vh;
+    min-height: 420px;
+    max-height: 780px;
     overflow: hidden;
+    box-shadow: 0 12px 24px rgba(15, 42, 38, 0.12);
+}
+
+.maps-hero.fullscreen {
+    position: fixed;
+    top: var(--navbar-height, 64px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: auto;
+    margin: 0;
+    z-index: 90;
+    border-radius: 0;
+    box-shadow: none;
 }
 
 .leaflet-container {
   position: relative;
   z-index: 0; /* creates a new stacking context capped low */
+  height: 100%;
 }
 
-/* Search */
+.maps-hero-topbar {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 40;
+    max-width: calc(100% - 32px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    pointer-events: none;
+}
+
+.maps-hero-title {
+    margin: 0;
+    padding: 10px 18px;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-text, #1c2b28);
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    pointer-events: auto;
+}
+
+.maps-hero-status {
+    margin: 0;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #b45309;
+    background: rgba(255, 251, 235, 0.95);
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    pointer-events: auto;
+}
+
+/* Category filter pills, floating over the map (like Google's Restaurants/Hotels row) */
+.maps-category-pills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    max-width: 100%;
+}
+
+.maps-category-pill {
+    pointer-events: auto;
+    white-space: nowrap;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--color-text, #1c2b28);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    transition: background 0.15s, color 0.15s;
+}
+
+.maps-category-pill:hover {
+    background: var(--color-primary-soft, #e6f6f3);
+}
+
+.maps-category-pill.active {
+    background: var(--color-primary-dark, #0f766e);
+    color: #fff;
+}
+
+.maps-hero-hint {
+    margin: 0;
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--color-text-muted, #64766f);
+    background: rgba(255, 255, 255, 0.88);
+    border-radius: 999px;
+    pointer-events: auto;
+}
+
+/* Floating "locate me" button — bottom-right; the left side is reserved
+   for the always-docked search/gem-detail panel. */
+.maps-locate-btn {
+    position: absolute;
+    right: 16px;
+    bottom: 96px;
+    z-index: 40;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-surface, #fff);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+}
+
+.maps-locate-btn:hover {
+    transform: scale(1.08);
+}
+
+/* Floating fullscreen toggle — stacked above the locate button */
+.maps-fullscreen-btn {
+    position: absolute;
+    right: 16px;
+    bottom: 146px;
+    z-index: 40;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-surface, #fff);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+}
+
+.maps-fullscreen-btn:hover {
+    transform: scale(1.08);
+}
+
+.maps-left-stack {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: min(380px, calc(100% - 24px));
+    z-index: 40; 
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    pointer-events: none; 
+}
+
+.maps-search-float {
+    pointer-events: auto;
+    flex-shrink: 0;
+}
+
+/* Search bar */
 .search-container {
     position: relative;
-    width: 90%;
-    max-width: 500px;
-    margin: 20px auto;
+    width: 100%;
+    margin: 0;
 }
 
 .search-input {
     width: 100%;
-    padding: 14px 18px;
+    padding: 13px 18px;
     border-radius: var(--radius-full, 999px);
     border: none;
-    font-size: 16px;
-    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
+    font-size: 14px;
+    background: var(--color-surface, #fff);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
 }
 
 .search-input:focus {
     outline: 3px solid var(--color-primary-light, #14b8a6);
 }
 
-/* Dropdown */
+/* Dropdown — must clear the gem panel docked directly below the search box */
 .search-dropdown {
     position: absolute;
-    top: 60px;
+    top: 52px;
     width: 100%;
     background: white;
     color: #1c2b28;
@@ -74,66 +229,53 @@
     overflow-y: auto;
 }
 
-.search-item {
-    padding: 14px;
+.search-load-more-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    background: var(--color-surface-muted, #f1f4f2);
+    color: var(--color-primary-dark, #0f766e);
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    border-bottom: 1px solid #eee;
     transition: background 0.15s;
 }
 
-.search-item:hover {
+.search-load-more-btn:hover {
     background: var(--color-primary-soft, #e6f6f3);
 }
 
-/* Side Panel */
-:root {
-    --navbar-height: 72px; /* match your actual navbar height */
+.search-load-more-btn:disabled {
+    cursor: default;
+    opacity: 0.7;
 }
-.side-sheet {
-    position: fixed;
-    top: var(--navbar-height);
-    left: 0;
-    height: calc(100vh - var(--navbar-height));
-    width: 400px;
-    background: #fff;
-    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.15);
-    z-index: 1200; /* still above navbar's 1100 so it can slide over content, not under nav */
-    transform: translateX(-100%);
-    transition: transform 0.28s ease-out;
-    display: flex;
-    flex-direction: column;
+
+.side-panel.side-panel-embedded {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    height: auto;
+    flex: 1;
+    min-height: 0; 
+    max-width: 100%;
+    pointer-events: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: none;
 }
-.side-sheet.open {
-    transform: translateX(0);
-}
-.side-sheet.fullscreen {
-    width: 100vw !important;
-}
-.side-sheet.resizing {
-    transition: none; /* no easing lag while dragging */
-    user-select: none;
-}
-.side-sheet-resize-handle {
+
+/* Fullscreen from inside the stack: cover the whole map area */
+.side-panel.side-panel-embedded.fullscreen {
     position: absolute;
-    top: 0;
-    right: -4px;
-    width: 8px;
-    height: 100%;
-    cursor: ew-resize;
-    z-index: 10;
+    inset: 0;
+    border-radius: 0;
 }
-.side-sheet-resize-handle:hover,
-.side-sheet.resizing .side-sheet-resize-handle {
-    background: rgba(20, 184, 166, 0.35);
-}
-.side-sheet-topbar {
-    display: flex;
-    justify-content: flex-end;
-    gap: 4px;
-    padding: 10px 12px 0;
-    flex-shrink: 0;
-}
-.side-sheet-icon-btn {
+
+/* Fullscreen toggle button in the panel header */
+.side-panel-fullscreen-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -142,89 +284,236 @@
     border-radius: 6px;
     color: #555;
 }
-.side-sheet-icon-btn:hover {
+
+.side-panel-fullscreen-btn:hover {
     background: #f0f0f0;
 }
-.side-sheet-body {
-    padding: 8px 24px 24px;
-    overflow-y: auto;
-    flex: 1;
+
+/* Search slot pinned to the top of the panel, always visible */
+.side-panel-search {
+    padding: 0 1.25rem 0.75rem;
 }
-.side-sheet-back {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-weight: 600;
-    padding: 0;
-    margin-bottom: 12px;
-    color: #0f6b5c;
-}
-.post-list-item {
-    display: flex;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid #eee;
-    cursor: pointer;
-}
-.post-list-item img {
-    width: 56px;
-    height: 56px;
-    object-fit: cover;
-    border-radius: 8px;
-}
-/* Action row: Google Maps / Waze / Add to Itinerary, same size tiles */
-.action-buttons-row {
-    display: flex;
-    gap: 10px;
-    margin: 16px 0;
-}
-.map-action-tile {
-    flex: 0 0 auto;
-    width: 76px;
-    height: 44px;
-    border: none;
-    border-radius: 10px;
-    overflow: hidden;
-    cursor: pointer;
-    padding: 0;
-    background: transparent; /* no visible tile color behind the icon */
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.map-action-tile:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
-}
-.map-action-tile img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* fills the button edge-to-edge, no gaps */
-    display: block;
-}
-.map-action-tile.itinerary {
-    background: #e6f4f1;
-    color: #0f6b5c;
-    font-weight: 600;
-    font-size: 0.72rem;
-    line-height: 1.15;
-    text-align: center;
-    padding: 4px;
+
+/* "Nothing selected yet" placeholder */
+.side-panel-empty {
     display: flex;
     align-items: center;
     justify-content: center;
+    height: 100%;
+    color: var(--color-text-muted, #64766f);
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 2rem;
 }
-.map-action-tile.itinerary:hover {
-    background: #0f6b5c;
-    color: #fff;
+
+.side-panel-empty p {
+    margin: 0;
+}
+
+.side-panel-body h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #64766f);
+    margin: 0 0 0.75rem;
+}
+
+/* Post list (when multiple gems share a coordinate) */
+.side-panel-post-item {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    align-items: center;
+}
+
+.side-panel-post-item:hover {
+    background: var(--color-surface-muted, #f1f4f2);
+}
+
+.side-panel-post-item img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.side-panel-post-item strong {
+    font-size: 0.9rem;
+}
+
+.side-panel-post-item p {
+    font-size: 0.8rem;
+    color: var(--color-text-muted, #64766f);
+    margin: 0;
+}
+
+.side-panel-gem-header {
+    margin-bottom: 0.75rem;
+}
+
+.side-panel-gem-image {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+}
+
+.side-panel-badges {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.side-panel-gem-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 0.2rem;
+}
+
+.side-panel-gem-meta {
+    font-size: 0.85rem;
+    color: var(--color-text-muted, #64766f);
+    margin: 0 0 0.5rem;
+}
+
+.side-panel-gem-desc {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--color-text, #1c2b28);
+    margin: 0 0 0.75rem;
+}
+
+/* Actions — Directions / Waze / Itinerary / Details, side by side.
+   Rectangular icon tile + label underneath, Google Maps style. */
+.side-panel-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.4rem;
+    margin-top: 0.9rem;
+    padding: 0 0.25rem;
+}
+
+.side-panel-icon-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text, #1c2b28);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.side-panel-icon-btn-icon {
+    width: 100%;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--color-primary-soft, #e6f6f3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    overflow: hidden;
+    transition: background 0.15s, transform 0.15s;
+}
+
+/* The Google Maps / Waze source images are brand lockups (logo + padding),
+   not edge-to-edge tiles — object-fit:cover cropped most of the Google Maps
+   mark away since its padding is much larger than Waze's. `contain` on a
+   white backing shows both logos whole instead of guessing at a crop. */
+.side-panel-icon-btn-icon:has(img) {
+    background: #fff;
+    padding: 4px;
+}
+
+.side-panel-icon-btn-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.side-panel-icon-btn:hover .side-panel-icon-btn-icon {
+    background: var(--color-primary-dark, #0f766e);
+    transform: translateY(-2px);
+}
+
+.side-panel-icon-btn:hover .side-panel-icon-btn-icon:has(img) {
+    background: #fff;
+}
+
+.side-panel-icon-btn-label {
+    white-space: nowrap;
+}
+
+/* Info list (address, etc.) — icon + text row */
+.side-panel-info-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border, #d8ded9);
+}
+
+.side-panel-info-icon {
+    flex-shrink: 0;
+    font-size: 0.9rem;
+}
+
+.side-panel-info-row p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-text, #1c2b28);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.side-panel-info-row p a {
+    color: var(--color-primary-dark, #0f766e);
+    text-decoration: none;
+}
+
+.side-panel-info-row p a:hover {
+    text-decoration: underline;
+}
+
+/* Vote */
+.side-panel-vote {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border, #d8ded9);
+}
+
+.side-panel-vote span {
+    font-size: 0.8rem;
+    color: var(--color-text-muted, #64766f);
+    display: block;
+    margin-bottom: 0.3rem;
+}
+
+.side-panel-vote-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--color-surface-muted, #f1f4f2);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.side-panel-vote-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary-light, #14b8a6), var(--color-primary, #14b8a6));
+    border-radius: 10px;
+    transition: width 0.6s ease;
 }
 
 /* Badges */
-.bottom-sheet-badges {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-}
-
 .badge {
     display: inline-flex;
     align-items: center;
@@ -245,113 +534,237 @@
     color: var(--color-primary-dark, #0f766e);
 }
 
-/* Verification vote progress */
-.vote-progress {
-    margin-top: 14px;
+.badge-pending {
+    background: #fef3c7;
+    color: #92400e;
 }
 
-.vote-progress span {
-    font-size: 13px;
-    color: #4b5a56;
-    font-weight: 600;
+/* Attraction "no reviews in our DB" note */
+.side-panel-no-reviews {
+    color: var(--color-text-muted, #64766f);
+    font-size: 0.85rem;
 }
 
-.vote-bar {
-    margin-top: 6px;
-    height: 8px;
-    border-radius: 999px;
+.side-panel-no-reviews p {
+    color: inherit;
+    font-size: inherit;
+}
+
+/* Itinerary picker (revealed by the "Itinerary" action button) */
+.side-panel-itinerary-picker {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border, #d8ded9);
+    border-radius: 12px;
     background: var(--color-surface-muted, #f1f4f2);
-    overflow: hidden;
 }
 
-.vote-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--color-primary-light, #14b8a6), var(--color-primary-dark, #0f766e));
+.side-panel-itinerary-picker h3 {
+    margin: 0 0 0.5rem;
 }
 
-/* Animation */
-@keyframes slideUp {
-    from {
-        transform: translateY(100%);
-    }
-    to {
-        transform: translateY(0);
-    }
-}
-
-/* Bottom Sheet Image */
-.bottom-sheet-image {
+.side-panel-itinerary-option {
+    display: block;
     width: 100%;
-    height: 200px;
-    object-fit: cover;
-    border-radius: 16px;
-}
-
-/* Buttons */
-.action-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    margin-top: 22px;
-}
-
-.map-action-button {
-    width: 92px;
-    height: 78px;
-    border-radius: 18px;
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.35rem;
     border: none;
-    background: var(--color-surface-muted, #f1f4f2);
-    color: #1c2b28;
+    border-radius: 8px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #1c2b28);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.side-panel-itinerary-option:hover {
+    background: var(--color-primary-soft, #e6f6f3);
+}
+
+.side-panel-itinerary-status {
+    margin: 0.6rem 0 0;
+    font-size: 0.8rem;
+}
+
+.side-panel-itinerary-status.success { color: var(--color-primary-dark, #0f766e); }
+.side-panel-itinerary-status.error { color: #b42318; }
+.side-panel-itinerary-status.loading { color: var(--color-text-muted, #64766f); }
+
+.side-panel-icon-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.side-panel-icon-btn:disabled:hover .side-panel-icon-btn-icon {
+    background: var(--color-primary-soft, #e6f6f3);
+    transform: none;
+}
+
+/* Other posts sharing this gem's coordinates, listed under the detail */
+.side-panel-other-posts {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border, #d8ded9);
+}
+
+/* Nearby Attractions list (under a hidden gem's detail) */
+.side-panel-nearby {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border, #d8ded9);
+}
+
+.side-panel-nearby-status {
+    font-size: 0.85rem;
+    color: var(--color-text-muted, #64766f);
+    margin: 0;
+}
+
+.side-panel-nearby-list {
     display: flex;
     flex-direction: column;
+    gap: 0.4rem;
+}
+
+.side-panel-nearby-item {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
+    gap: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 10px;
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-    transition: 0.2s;
+    transition: background 0.15s;
 }
 
-.map-action-button:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+.side-panel-nearby-item:hover {
+    background: var(--color-surface-muted, #f1f4f2);
 }
 
-.map-action-button img {
-    width: 60%;
-    height: 60%;
-    object-fit: contain;
+.side-panel-nearby-icon {
+    flex-shrink: 0;
+    font-size: 0.9rem;
 }
 
-.itinerary {
-    background: var(--color-primary-dark, #0f766e);
-    color: white;
+.side-panel-nearby-item strong {
+    font-size: 0.85rem;
+    display: block;
 }
 
-.plus-icon {
-    font-size: 28px;
-    line-height: 20px;
+.side-panel-nearby-item p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #64766f);
+    text-transform: capitalize;
 }
 
-/* Recent Cards */
-.recent-section {
-    padding: 8px 20px 20px;
+/* Discover section below the map: horizontally-scrollable rows of gem cards.
+   Same full-viewport-width trick as .maps-hero, so "Recent / My Hidden Gems /
+   Popular" also fill left-to-right instead of sitting inside the site's
+   centered 1080px content column. */
+.maps-discover {
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    padding: 24px clamp(20px, 4vw, 56px) 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
 }
 
-.recent-section h2 {
-    margin: 10px;
+.gem-carousel-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 0 10px 12px;
+}
+
+.gem-carousel-header h2 {
+    margin: 0;
     font-size: 20px;
     color: var(--color-text, #1c2b28);
 }
 
-.recent-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+.gem-carousel-see-more {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-primary-dark, #0f766e);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.gem-carousel-see-more:hover {
+    text-decoration: underline;
+}
+
+.gem-carousel-empty {
+    margin: 0 10px;
+    padding: 20px;
+    color: var(--color-text-muted, #64766f);
+    font-size: 14px;
+    text-align: center;
+    background: var(--color-surface-muted, #f1f4f2);
+    border-radius: 14px;
+}
+
+.gem-carousel-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.gem-carousel-track {
+    display: flex;
     gap: 16px;
-    padding: 0 10px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-behavior: smooth;
+    padding: 4px 10px 10px;
+    scrollbar-width: thin;
+}
+
+.gem-carousel-track::-webkit-scrollbar {
+    height: 6px;
+}
+
+.gem-carousel-track::-webkit-scrollbar-thumb {
+    background: var(--color-border, #d8ded9);
+    border-radius: 999px;
+}
+
+.gem-carousel-item {
+    flex: 0 0 240px;
+    scroll-snap-align: start;
+}
+
+.gem-carousel-arrow {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: var(--color-surface, #fff);
+    box-shadow: var(--shadow-sm, 0 1px 3px rgba(15, 42, 38, 0.08));
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.gem-carousel-arrow:hover {
+    background: var(--color-primary-soft, #e6f6f3);
+}
+
+.gem-carousel-arrow-left {
+    margin-right: 4px;
+}
+
+.gem-carousel-arrow-right {
+    margin-left: 4px;
 }
 
 .recent-card {
@@ -404,6 +817,24 @@
     border-radius: 12px;
 }
 
+/* Marker interactivity — a hover "pop" instead of sitting static. Leaflet
+   positions markers via an inline `transform: translate3d(...)`, so hover
+   effects here stick to filter/z-index only — animating `transform` would
+   fight that inline positioning and make markers jump on hover. */
+.leaflet-marker-icon {
+    transition: filter 0.15s ease-out;
+}
+
+.leaflet-marker-icon:hover {
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4)) brightness(1.08);
+    z-index: 1000 !important;
+}
+
+/* Dimmed gem marker for hidden gems still pending community verification */
+.gem-marker-pending {
+    filter: grayscale(55%) opacity(0.75);
+}
+
 /* Cluster marker */
 .gem-cluster {
     display: flex;
@@ -437,15 +868,43 @@
     border: 2px solid #fff;
 }
 
+/* Attraction marker — teardrop pin, colored/iconed by category (see AttractionIcon.js) */
+.attraction-marker-pin {
+    width: 30px;
+    height: 30px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border: 2px solid #fff;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.attraction-marker-pin span {
+    transform: rotate(45deg);
+    font-size: 13px;
+    line-height: 1;
+}
+
 /* Mobile */
 @media (max-width: 768px) {
-    .gemora-map {
-        height: 500px;
+    .maps-hero {
+        height: 60vh;
+        min-height: 360px;
     }
-    .bottom-sheet {
-        max-height: 65vh;
+    .maps-hero-title {
+        font-size: 15px;
+        padding: 8px 14px;
     }
-    .maps-title {
-        font-size: 24px;
+    .maps-locate-btn {
+        bottom: 84px;
+    }
+    .maps-fullscreen-btn {
+        bottom: 134px;
+    }
+    .maps-hero.fullscreen {
+        height: 100vh;
+        min-height: 0;
     }
 }

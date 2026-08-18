@@ -16,4 +16,18 @@ export default defineConfig({
             ignored: ['**/storage/framework/views/**'],
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                // Split the heavy, rarely-changing dependencies into their own chunks so
+                // they cache across deploys instead of being re-downloaded inside one
+                // ~600 kB app bundle on every change.
+                manualChunks: {
+                    'vendor-leaflet': ['leaflet', 'react-leaflet', 'react-leaflet-cluster', 'leaflet.markercluster'],
+                    'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+                    'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+                },
+            },
+        },
+    },
 });

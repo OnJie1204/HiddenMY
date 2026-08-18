@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../api/auth';
 import { clearToken } from '../utils/tokenStorage';
+import Avatar from './Avatar';
 
 function Navbar({ user, setUser, onMenuClick }) {
     const navigate = useNavigate();
@@ -12,8 +13,6 @@ function Navbar({ user, setUser, onMenuClick }) {
         navigate('/login');
     };
 
-    const initial = user?.name?.trim()?.[0]?.toUpperCase() ?? '?';
-
     return (
         <nav className="navbar">
             <div className="navbar-left">
@@ -22,12 +21,12 @@ function Navbar({ user, setUser, onMenuClick }) {
                 </button>
                 <Link to="/" className="navbar-logo">
                     <span className="navbar-logo-mark" aria-hidden="true">💎</span>
-                    Gemora
+                    HiddenMY
                 </Link>
             </div>
             <div className="navbar-user">
                 <Link to="/profile" className="navbar-username">
-                    <span className="navbar-avatar" aria-hidden="true">{initial}</span>
+                    <Avatar name={user.name} avatarUrl={user.avatar_url} size="sm" />
                     {user.name}
                 </Link>
                 <button onClick={handleLogout} className="navbar-logout">Logout</button>

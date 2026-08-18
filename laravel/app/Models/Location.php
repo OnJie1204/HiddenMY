@@ -71,14 +71,16 @@ class Location extends Model
 
     public function getVoteProgressAttribute()
     {
-        if ($this->verification_threshold <= 0) {
+        $threshold = $this->verification_threshold ?? 10;
+        if ($threshold <= 0) {
             return 100;
         }
-        return min(100, round(($this->vote_count / $this->verification_threshold) * 100));
+        return min(100, round(($this->vote_count / $threshold) * 100));
     }
 
     public function getRemainingVotesAttribute()
     {
-        return max(0, $this->verification_threshold - $this->vote_count);
+        $threshold = $this->verification_threshold ?? 10;
+        return max(0, $threshold - $this->vote_count);
     }
 }

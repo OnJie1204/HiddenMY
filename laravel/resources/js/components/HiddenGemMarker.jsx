@@ -2,16 +2,24 @@ import { Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import { useRef } from "react";
 
-
 const gemIcon = new L.Icon({
+    iconUrl: "/images/gem_marker.png",
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+});
 
-    iconUrl:"/images/gem_marker.png",
-    iconSize:[40, 40],
-    iconAnchor:[20, 40]
+// Dimmed variant for gems that haven't been community-verified yet,
+// so verified vs. pending is visible at a glance on the map itself.
+const gemIconPending = new L.Icon({
+    iconUrl: "/images/gem_marker.png",
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    className: "gem-marker-pending",
 });
 
 function HiddenGemMarker({
     gem,
+    postCount,
     onClick
 }){
     const markerRef = useRef(null);
@@ -24,8 +32,9 @@ function HiddenGemMarker({
             Number(gem.longitude)
         ]}
 
-        icon={gemIcon}
-    
+        icon={gem.status === "pending" ? gemIconPending : gemIcon}
+        riseOnHover={true}
+
         eventHandlers={{
             click:()=>{
                 onClick();
@@ -41,9 +50,13 @@ function HiddenGemMarker({
         }}
         >
             <Popup offset={[0, -25]}>
-                <b>💎 {gem.place_name}</b>
+                <b>💎 {gem.title}</b>
                 <br />
-                <small>{gem.state}</small>
+                <small>
+                    {gem.state}
+                    {postCount > 1 && <> · {postCount} posts here</>}
+                    {gem.status === "pending" && <> · Pending verification</>}
+                </small>
             </Popup>
         </Marker>
     );
