@@ -222,6 +222,12 @@ function Maps(){
 
     // Load the user's trip itineraries so gems can be added straight from the map
     useEffect(() => {
+        getTripItineraries()
+            .then(res => setItineraries(res.data || []))
+            .catch(err => console.log(err));
+    }, []);
+
+    useEffect(() => {
         if (highlightGem && highlightGem.id) {
             // Open the side panel with the highlighted gem
             setSelectedGroup([normalizeGem(highlightGem, "database")]);

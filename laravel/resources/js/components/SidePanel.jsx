@@ -92,12 +92,12 @@ function SidePanel({
         navigate(`/hidden-gems/${g.id}`);
     }
 
-    // The backend only accepts recognized Hidden Gems as itinerary stops
-    // (TripItineraryController uses the hiddenGems() scope), so anything still
-    // awaiting AI review or community votes is blocked here rather than
-    // failing with a 422 after the fact.
+    // The backend only accepts publicly-visible gems as itinerary stops
+    // (TripItineraryController uses the publiclyVisible() scope: 'hidden_gem'
+    // and 'pending_community_vote'), so anything still awaiting AI review is
+    // blocked here rather than failing with a 422 after the fact.
     const canAddToItinerary = gem
-        && (gem.source === "attraction" || gem.status === "hidden_gem");
+        && (gem.source === "attraction" || gem.status === "hidden_gem" || gem.status === "pending_community_vote");
 
     async function handleAddToItinerary(itinerary) {
         setItineraryStatus({ type: "loading", message: `Adding to "${itinerary.trip_name}"…` });
@@ -247,7 +247,7 @@ function SidePanel({
                                 disabled={!canAddToItinerary}
                                 title={canAddToItinerary
                                     ? "Add to a trip itinerary"
-                                    : "Only verified hidden gems can be added to an itinerary"}
+                                    : "Only gems that have passed AI review can be added to an itinerary"}
                             >
                                 <span className="side-panel-icon-btn-icon">➕</span>
                                 <span className="side-panel-icon-btn-label">Itinerary</span>

@@ -64,7 +64,8 @@ class TripItineraryController extends Controller
     }
 
     /**
-     * Add either an approved Hidden Gem or an OpenStreetMap location as a stop.
+     * Add either a publicly-visible gem (confirmed Hidden Gem or one still in
+     * community voting) or an OpenStreetMap location as a stop.
      */
     public function storeLocation(Request $request, TripItinerary $tripItinerary)
     {
@@ -84,13 +85,16 @@ class TripItineraryController extends Controller
         if ($validated['source'] === 'database') {
             $request->validate(['location_id' => ['required', 'integer']]);
 
+            // Allow anything publicly visible on the map — confirmed Hidden
+            // Gems and gems still in community voting — not just fully
+            // confirmed ones, matching what the map itself shows.
             $location = Location::query()
-                ->hiddenGems()
+                ->publiclyVisible()
                 ->find($validated['location_id']);
 
             if (! $location) {
                 return response()->json([
-                    'message' => 'The selected location is not an approved Hidden Gem.',
+                    'message' => 'The selected location is not available to add to an itinerary.',
                 ], 422);
             }
 
