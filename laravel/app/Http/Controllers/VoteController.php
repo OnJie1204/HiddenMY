@@ -7,7 +7,7 @@ use App\Models\Vote;
 use App\Models\CheckIn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 
 class VoteController extends Controller
 {
@@ -110,8 +110,29 @@ class VoteController extends Controller
         $photoPath = null;
         if ($request->hasFile('photo')) {
             $photo = $request->file('photo');
-            $filename = time() . '_' . uniqid() . '.' . $photo->getClientOriginalExtension();
-            $photoPath = $photo->storeAs('votes', $filename, 'public');
+            $fileName = 'votes/' . uniqid() . '.' . $photo->getClientOriginalExtension();
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                'apikey' => env('SUPABASE_KEY'),
+                'Content-Type' => $photo->getMimeType(),
+            ])->withBody(
+                file_get_contents($photo->getRealPath()),
+                $photo->getMimeType()
+            )->post(
+                env('SUPABASE_URL') . '/storage/v1/object/vote_photos/' . $fileName
+            );
+
+            if ($response->failed()) {
+                return response()->json([
+                    'message' => 'Failed to upload vote photo.',
+                    'error' => $response->json()
+                ], 500);
+            }
+
+            $photoPath = env('SUPABASE_URL')
+                . '/storage/v1/object/public/vote_photos/'
+                . $fileName;
         }
 
         $vote = Vote::create([

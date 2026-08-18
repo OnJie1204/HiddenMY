@@ -5,6 +5,20 @@ import VoteModal from "../components/VoteModal";
 
 import "../styles/global.css";
 
+function getVotePhotoUrl(photoPath) {
+    if (!photoPath) return "";
+
+    if (/^https?:\/\//i.test(photoPath)) {
+        return photoPath;
+    }
+
+    const relativePath = String(photoPath).replace(/^\/+/, "");
+
+    return relativePath.startsWith("storage/")
+        ? `/${relativePath}`
+        : `/storage/${relativePath}`;
+}
+
 export default function HiddenGemDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -226,7 +240,7 @@ export default function HiddenGemDetail() {
                                             <p className="gem-detail-vote-user">{vote.user?.name || "Unknown User"}</p>
                                             {vote.photo_path && (
                                                 <img 
-                                                    src={`http://localhost:8000/storage/${vote.photo_path}`}
+                                                    src={getVotePhotoUrl(vote.photo_path)}
                                                     alt="Vote photo"
                                                     className="gem-detail-vote-photo"
                                                     onClick={() => setSelectedPhoto(vote.photo_path)}
@@ -269,7 +283,7 @@ export default function HiddenGemDetail() {
                     <div className="photo-modal-content" onClick={(e) => e.stopPropagation()}>
                         <button className="photo-modal-close" onClick={() => setSelectedPhoto(null)}>✕</button>
                         <img 
-                            src={`http://localhost:8000/storage/${selectedPhoto}`}
+                            src={getVotePhotoUrl(selectedPhoto)}
                             alt="Vote photo enlarged"
                             className="photo-modal-image"
                         />
