@@ -86,8 +86,15 @@ export default function HiddenGemDetail() {
                 </div>
             )}
 
-            <Link to="/hidden-gems" className="gem-detail-back-link">
-                ← Back to Hidden Gems
+            <Link
+                to="/hidden-gems"
+                className="gem-detail-back-link"
+                onClick={(event) => {
+                    event.preventDefault();
+                    navigate(-1);
+                }}
+            >
+                ← Back
             </Link>
 
             <div className="gem-detail-container">

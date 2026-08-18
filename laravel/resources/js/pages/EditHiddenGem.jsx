@@ -42,8 +42,11 @@ export default function EditHiddenGem() {
 
     const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
     const [coreFieldsLocked, setCoreFieldsLocked] = useState(false);
+    const [existingImages, setExistingImages] = useState([]);
+    const [newImages, setNewImages] = useState([]);
 
     const coordinateLocationRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         const loadData = async () => {
@@ -73,6 +76,7 @@ export default function EditHiddenGem() {
                 };
 
                 setFormData(loadedFormData);
+                setExistingImages(gem.images || []);
 
                 coordinateLocationRef.current = {
                     source: "loaded",
@@ -235,10 +239,21 @@ export default function EditHiddenGem() {
                 }
             }
 
-            const response = await updateHiddenGem(
-                id,
-                dataToSave
-            );
+            let updateData = dataToSave;
+
+            if (newImages.length > 0) {
+                updateData = new FormData();
+
+                Object.entries(dataToSave).forEach(([key, value]) => {
+                    updateData.append(key, value);
+                });
+
+                newImages.forEach(({ file }) => {
+                    updateData.append("images[]", file);
+                });
+            }
+
+            const response = await updateHiddenGem(id, updateData);
 
             setMessageType("success");
             setMessage(response.data.message);
@@ -298,7 +313,7 @@ export default function EditHiddenGem() {
                     <h2>Edit Hidden Gem</h2>
                 </div>
 
-                <form onSubmit={handleSubmit}>
+                <form className="edit-hidden-gem-form" onSubmit={handleSubmit}>
 
                     {coreFieldsLocked && (
                         <small className="edit-hidden-gem-warning">
@@ -456,6 +471,110 @@ export default function EditHiddenGem() {
                             </option>
                         ))}
                     </select>
+
+                    <div className="edit-hidden-gem-images-section">
+                        <h4>Existing Images</h4>
+                        <p className="edit-hidden-gem-images-note">
+                            Existing images cannot be edited or removed.
+                        </p>
+
+                        {existingImages.length > 0 ? (
+                            <div className="hidden-gem-image-preview">
+                                {existingImages.map((image) => (
+                                    <div key={image.id} className="hidden-gem-preview-item">
+                                        <img
+                                            src={image.image_url}
+                                            alt={`${formData.place_name} existing`}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="hidden-gem-file-status">
+                                No existing images.
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="edit-hidden-gem-images-section">
+                        <h4>Add New Images</h4>
+
+                        <div className="hidden-gem-upload-row">
+                            <label
+                                className={`hidden-gem-file-label ${
+                                    coreFieldsLocked
+                                        ? "edit-hidden-gem-file-label-disabled"
+                                        : ""
+                                }`}
+                            >
+                                Choose Images
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    hidden
+                                    disabled={coreFieldsLocked}
+                                    onChange={(event) => {
+                                        const selectedFiles = Array.from(
+                                            event.target.files
+                                        );
+
+                                        setNewImages((prev) => [
+                                            ...prev,
+                                            ...selectedFiles.map((file) => ({
+                                                file,
+                                                previewUrl: URL.createObjectURL(file),
+                                            })),
+                                        ]);
+
+                                        event.target.value = "";
+                                    }}
+                                />
+                            </label>
+
+                            <span className="hidden-gem-file-status">
+                                {coreFieldsLocked
+                                    ? "Image uploads are locked after voting starts."
+                                    : newImages.length > 0
+                                        ? `${newImages.length} file(s) selected`
+                                        : "No new images selected"}
+                            </span>
+                        </div>
+
+                        {newImages.length > 0 && (
+                            <div className="hidden-gem-image-preview">
+                                {newImages.map((image, index) => (
+                                    <div
+                                        key={image.previewUrl}
+                                        className="hidden-gem-preview-item"
+                                    >
+                                        <img
+                                            src={image.previewUrl}
+                                            alt={`new preview ${index + 1}`}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="hidden-gem-remove-image-btn"
+                                            onClick={() => {
+                                                URL.revokeObjectURL(
+                                                    image.previewUrl
+                                                );
+                                                setNewImages((prev) =>
+                                                    prev.filter(
+                                                        (_, imageIndex) =>
+                                                            imageIndex !== index
+                                                    )
+                                                );
+                                            }}
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     {!coreFieldsLocked && (
                         <small className="edit-hidden-gem-warning">

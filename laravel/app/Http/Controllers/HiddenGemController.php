@@ -237,6 +237,7 @@ class HiddenGemController extends Controller
                 'postcode' => 'prohibited',
                 'latitude' => 'prohibited',
                 'longitude' => 'prohibited',
+                'images' => 'prohibited',
             ]);
 
             $gem->update([
@@ -258,10 +259,51 @@ class HiddenGemController extends Controller
             'description' => 'required|string',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
+            'images' => 'nullable|array',
+            'images.*' => 'image|max:5120',
         ]);
+
+        $uploadedImageUrls = [];
+
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $fileName = 'hidden-gems/' . uniqid() . '.' . $image->getClientOriginalExtension();
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                    'Content-Type' => $image->getMimeType(),
+                ])->withBody(
+                    file_get_contents($image->getRealPath()),
+                    $image->getMimeType()
+                )->post(
+                    env('SUPABASE_URL') . '/storage/v1/object/location_images/' . $fileName
+                );
+
+                if ($response->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to upload image.',
+                        'error' => $response->json()
+                    ], 500);
+                }
+
+                $uploadedImageUrls[] = env('SUPABASE_URL')
+                    . '/storage/v1/object/public/location_images/'
+                    . $fileName;
+            }
+        }
+
+        unset($validated['images']);
 
         // Update hidden gem information
         $gem->update($validated);
+
+        foreach ($uploadedImageUrls as $imageUrl) {
+            LocationImage::create([
+                'location_id' => $gem->id,
+                'image_url' => $imageUrl
+            ]);
+        }
 
         // Reset verification progress after editing
         $gem->vote_count = 0;

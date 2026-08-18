@@ -132,6 +132,7 @@ export default function MyHiddenGems() {
                         <div
                             className="hidden-gems-card"
                             key={gem.id}
+                            onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                         >
                             <div className="hidden-gems-card-image">
                                 <GemImage src={gem.images?.[0]?.image_url} alt={gem.place_name} />
@@ -172,7 +173,10 @@ export default function MyHiddenGems() {
                                     )}
                                 </div>
 
-                                <div className="my-hidden-gems-actions">
+                                <div
+                                    className="my-hidden-gems-actions"
+                                    onClick={(event) => event.stopPropagation()}
+                                >
 
                                     {gem.status === "pending" && (
                                         <button

@@ -46,8 +46,14 @@ export const createHiddenGem = (data) =>
         }
     });
 
-export const updateHiddenGem = (id, data) =>
-    api.put(`/hidden-gems/${id}`, data);
+export const updateHiddenGem = (id, data) => {
+    if (data instanceof FormData) {
+        data.append('_method', 'PUT');
+        return api.post(`/hidden-gems/${id}`, data);
+    }
+
+    return api.put(`/hidden-gems/${id}`, data);
+};
 
 export const getMyHiddenGems = () =>
     api.get('/my-hidden-gems');
