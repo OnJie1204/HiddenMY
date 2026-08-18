@@ -179,12 +179,12 @@ export default function HiddenGemDetail() {
                                     <div className="gem-detail-progress-bar">
                                         <div 
                                             className="gem-detail-progress-fill" 
-                                            style={{ width: `${Math.min((gem.vote_count / gem.verification_threshold) * 100, 100)}%` }}
+                                            style={{ width: `${Math.min((gem.vote_count / (gem.verification_threshold || 10)) * 100, 100)}%` }}
                                         ></div>
                                     </div>
                                     <p className="gem-detail-progress-text">
                                         {gem.vote_count || 0} of {gem.verification_threshold || 10} votes
-                                        ({gem.remaining_votes || 0} more needed)
+                                        ({(gem.verification_threshold || 10) - (gem.vote_count || 0)} more needed)
                                     </p>
                                 </div>
                             )}
@@ -264,7 +264,6 @@ export default function HiddenGemDetail() {
                 onVoteSuccess={handleVoteSuccess}
             />
 
-            {/* Photo Modal */}
             {selectedPhoto && (
                 <div className="photo-modal-overlay" onClick={() => setSelectedPhoto(null)}>
                     <div className="photo-modal-content" onClick={(e) => e.stopPropagation()}>

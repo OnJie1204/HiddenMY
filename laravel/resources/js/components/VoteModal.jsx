@@ -101,6 +101,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
         setCheckInMethod('manual');
         setStep('manual_checkin');
         setMessage('');
+        setGpsStatus('');
     };
 
     const performCheckIn = async (latitude, longitude) => {
@@ -159,10 +160,12 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
         performCheckIn(lat, lng);
     };
 
-    // Use browser location for manual check-in
     const useCurrentLocationForManual = () => {
+        setGpsStatus('Detecting your location...');
+        
         if (!navigator.geolocation) {
-            setMessage('Geolocation is not supported by your browser');
+            setGpsStatus('error: Geolocation is not supported by your browser');
+            setMessage('Geolocation is not supported by your browser. Please enter coordinates manually.');
             return;
         }
 
@@ -171,10 +174,26 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                 const { latitude, longitude } = position.coords;
                 setManualLat(latitude.toString());
                 setManualLng(longitude.toString());
+                setGpsStatus('success: Location detected!');
                 setMessage('Location detected! Click "Confirm Check-in" to proceed.');
             },
             (error) => {
-                setMessage('Unable to get your location: ' + error.message);
+                let errorMsg = 'Unable to get your location. ';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMsg += 'Please allow location access in your browser.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMsg += 'Location information is unavailable.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMsg += 'Location request timed out.';
+                        break;
+                    default:
+                        errorMsg += error.message;
+                }
+                setGpsStatus('error: ' + errorMsg);
+                setMessage(errorMsg + ' Please enter coordinates manually.');
             },
             {
                 enableHighAccuracy: true,
@@ -372,7 +391,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                             )}
 
                             <p className="vote-manual-hint">
-                                Enter your current GPS coordinates to check in.
+                                Enter your current GPS coordinates to check in, or click "Detect My Location".
                             </p>
 
                             <div className="vote-manual-inputs">
@@ -404,6 +423,12 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                             >
                                 📡 Detect My Location
                             </button>
+
+                            {gpsStatus && (
+                                <div className={`vote-gps-status ${gpsStatus.startsWith('error:') ? 'error' : 'success'}`}>
+                                    {gpsStatus.replace(/^(error:|success:)/, '')}
+                                </div>
+                            )}
 
                             {message && (
                                 <div className={`vote-message ${message.includes('km') ? 'error' : 'success'}`}>
