@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { getMyHiddenGems, deleteHiddenGem } from "../api/hiddenGems";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import {
+    getMyHiddenGems,
+    deleteHiddenGem,
+    getCategories,
+    getStates,
+} from "../api/hiddenGems";
 import { getMyVotes } from "../api/votes";
 import GemImage from "../components/GemImage";
 
@@ -23,6 +28,7 @@ function getVotePhotoUrl(photoPath) {
 export default function MyHiddenGems() {
     const navigate = useNavigate();
     const routeLocation = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [gems, setGems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -37,6 +43,20 @@ export default function MyHiddenGems() {
     const [votesLoading, setVotesLoading] = useState(false);
     const [votesError, setVotesError] = useState("");
     const [votesLoaded, setVotesLoaded] = useState(false);
+    const [categories, setCategories] = useState([]);
+    const [states, setStates] = useState([]);
+
+    const filters = {
+        status: searchParams.get("status") || "",
+        category: searchParams.get("category") || "",
+        state: searchParams.get("state") || "",
+    };
+
+    const filteredGems = gems.filter((gem) =>
+        (!filters.status || gem.status === filters.status)
+        && (!filters.category || String(gem.category_id) === filters.category)
+        && (!filters.state || gem.state === filters.state)
+    );
 
     const fetchMyHiddenGems = async () => {
         setLoading(true);
@@ -62,6 +82,29 @@ export default function MyHiddenGems() {
     useEffect(() => {
         fetchMyHiddenGems();
     }, []);
+
+    useEffect(() => {
+        Promise.all([getCategories(), getStates()])
+            .then(([categoryResponse, stateResponse]) => {
+                setCategories(categoryResponse.data.data || []);
+                setStates(stateResponse.data.data || []);
+            })
+            .catch((error) => {
+                console.error("Error fetching Hidden Gem filters:", error);
+            });
+    }, []);
+
+    const updateFilter = (name, value) => {
+        const nextParams = new URLSearchParams(searchParams);
+
+        if (value) {
+            nextParams.set(name, value);
+        } else {
+            nextParams.delete(name);
+        }
+
+        setSearchParams(nextParams, { replace: true });
+    };
 
     const showMyVotes = async () => {
         setActiveTab("votes");
@@ -166,6 +209,46 @@ export default function MyHiddenGems() {
                 </button>
             </div>
 
+            {activeTab === "hidden-gems" && (
+                <div className="hidden-gems-filters">
+                    <select
+                        className="hidden-gems-filter-select"
+                        value={filters.status}
+                        onChange={(event) => updateFilter("status", event.target.value)}
+                    >
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="verified">Verified</option>
+                    </select>
+
+                    <select
+                        className="hidden-gems-filter-select"
+                        value={filters.category}
+                        onChange={(event) => updateFilter("category", event.target.value)}
+                    >
+                        <option value="">All Categories</option>
+                        {categories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                                {category.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    <select
+                        className="hidden-gems-filter-select"
+                        value={filters.state}
+                        onChange={(event) => updateFilter("state", event.target.value)}
+                    >
+                        <option value="">All States</option>
+                        {states.map((state) => (
+                            <option key={state} value={state}>
+                                {state}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
             {activeTab === "hidden-gems" ? (loading ? (
                 <div className="hidden-gems-loading">
                     <p>Loading your hidden gems...</p>
@@ -192,11 +275,18 @@ export default function MyHiddenGems() {
                     </button>
                 </div>
 
+            ) : filteredGems.length === 0 ? (
+
+                <div className="hidden-gems-empty">
+                    <h2>No Matching Hidden Gems</h2>
+                    <p>No hidden gems match the selected filters.</p>
+                </div>
+
             ) : (
 
                 <div className="hidden-gems-list">
 
-                    {gems.map((gem) => (
+                    {filteredGems.map((gem) => (
                         <div
                             className="hidden-gems-card"
                             key={gem.id}
