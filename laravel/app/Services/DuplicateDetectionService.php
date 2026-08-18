@@ -26,13 +26,6 @@ class DuplicateDetectionService
      */
     public function detect(Location $location): array
     {
-        $candidates = Location::where('id', '!=', $location->id)
-            ->where('status', '!=', 'deleted')
-            ->where('state', $location->state)
-            ->get();
-
-        $normalizedName = $this->normalize($location->place_name);
-
         $best = [
             'status' => 'NO_DUPLICATE',
             'location' => null,
@@ -40,9 +33,31 @@ class DuplicateDetectionService
             'distance_meters' => null,
         ];
 
+        if ($location->latitude === null || $location->longitude === null) {
+            return $best;
+        }
+
+        // No classify() branch can ever return anything but NO_DUPLICATE past
+        // POSSIBLE_DISTANCE_METERS, so pre-filtering to a bounding box at the
+        // DB level avoids loading every location in the state (which does not
+        // scale) while never excluding a genuine candidate.
+        [$minLat, $maxLat, $minLon, $maxLon] = Geo::boundingBox(
+            (float) $location->latitude,
+            (float) $location->longitude,
+            self::POSSIBLE_DISTANCE_METERS,
+        );
+
+        $candidates = Location::where('id', '!=', $location->id)
+            ->where('status', '!=', 'deleted')
+            ->where('state', $location->state)
+            ->whereBetween('latitude', [$minLat, $maxLat])
+            ->whereBetween('longitude', [$minLon, $maxLon])
+            ->get();
+
+        $normalizedName = $this->normalize($location->place_name);
+
         foreach ($candidates as $candidate) {
-            if ($candidate->latitude === null || $candidate->longitude === null
-                || $location->latitude === null || $location->longitude === null) {
+            if ($candidate->latitude === null || $candidate->longitude === null) {
                 continue;
             }
 

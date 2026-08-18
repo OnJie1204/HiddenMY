@@ -67,6 +67,7 @@ class HiddenGemController extends Controller
 
         $existingLocation = Location::where('place_name', $request->place_name)
             ->where('address', $request->address)
+            ->where('status', '!=', 'deleted')
             ->first();
 
         if ($existingLocation) {
@@ -109,6 +110,13 @@ class HiddenGemController extends Controller
                 );
 
                 if ($response->failed()) {
+                    // Undo the just-created Location (cascades to any images
+                    // already attached) so a failed submission never leaves a
+                    // stuck, undispatched 'pending' row behind — otherwise the
+                    // user can't even resubmit, since it collides with the
+                    // duplicate place_name+address check above.
+                    $location->delete();
+
                     return response()->json([
                         'message' => 'Failed to upload image.',
                         'error' => $response->json()

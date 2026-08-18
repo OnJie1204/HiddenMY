@@ -93,19 +93,17 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         try {
             [$groundingText, $visibilityUnknown] = $this->runVisibilityResearch($apiKey, $location);
             $parsed = $this->runStructuredScoring($apiKey, $location, $groundingText, $duplicate);
+
+            if ($parsed === null) {
+                $this->markPendingOnFailure($location, 'Gemini returned an invalid or unparseable verification response.');
+
+                return;
+            }
+
+            $this->applyResult($location, $parsed, $duplicate, $visibilityUnknown);
         } catch (Throwable $e) {
             $this->markPendingOnFailure($location, $e->getMessage());
-
-            return;
         }
-
-        if ($parsed === null) {
-            $this->markPendingOnFailure($location, 'Gemini returned an invalid or unparseable verification response.');
-
-            return;
-        }
-
-        $this->applyResult($location, $parsed, $duplicate, $visibilityUnknown);
     }
 
     // ==================== STAGE 1 PIPELINE ====================
@@ -230,7 +228,14 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         // A possible (unconfirmed) duplicate from the PHP check is stored for
         // reference but never forces a status on its own — only Gemini's own
         // score and the hard Malaysia override do.
-        $duplicateStatus = $duplicate['status'] !== 'NO_DUPLICATE' ? $duplicate['status'] : ($parsed['duplicate']['status'] ?? 'NO_DUPLICATE');
+        //
+        // The stored duplicate_status is sourced only from the PHP-side check,
+        // never from $parsed['duplicate']['status']: Gemini is never given
+        // candidate location IDs to match against, so its own duplicate read
+        // has no location to back it — storing it here would produce a
+        // duplicate_status with a null duplicate_of_location_id, which any
+        // consumer of this field would reasonably assume is always populated.
+        $duplicateStatus = $duplicate['status'];
 
         // Without live grounding, the visibility read is Gemini's own general
         // knowledge rather than a verified search result — reflect that with a
@@ -268,9 +273,28 @@ class VerifyHiddenGemSubmission implements ShouldQueue
             'error' => $technicalError,
         ]);
 
+        // Clear every AI-derived field from a prior review cycle rather than
+        // just status/reason — otherwise a failed retry after an edit leaves
+        // stale scores/duplicate info on screen that no longer correspond to
+        // the current submission content.
         $location->update([
             'status' => 'pending',
             'ai_review_reason' => 'Automated verification could not be completed and will be retried.',
+            'verification_score' => null,
+            'verification_confidence' => null,
+            'google_visibility_level' => null,
+            'hiddenness_score' => null,
+            'legitimacy_score' => null,
+            'legitimacy_level' => null,
+            'tourism_value_score' => null,
+            'tourism_value_level' => null,
+            'evidence_score' => null,
+            'evidence_level' => null,
+            'duplicate_status' => null,
+            'duplicate_of_location_id' => null,
+            'verification_result_json' => null,
+            'verification_model' => null,
+            'ai_reviewed_at' => null,
         ]);
     }
 
@@ -347,7 +371,8 @@ class VerifyHiddenGemSubmission implements ShouldQueue
           community (nature, food, culture, a small local business, a local specialty, etc).
           HiddenMY is not restricted to famous attractions — a small home-based business
           qualifies. A famous, mainstream destination should NOT score well here just because
-          it happens to be in a less-populated area.
+          it happens to be in a less-populated area. Rate its level on the same
+          VERY_LOW/LOW/MODERATE/HIGH/VERY_HIGH scale as google_visibility.
         - evidence: quality of the supporting evidence itself (photos, GPS, address specificity,
           description detail) — STRONG/MODERATE/WEAK/INSUFFICIENT.
         - duplicate: your own read on whether this looks like a duplicate of another submission,
@@ -395,7 +420,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
                     'type' => 'object',
                     'properties' => [
                         'score' => ['type' => 'integer'],
-                        'level' => ['type' => 'string'],
+                        'level' => ['type' => 'string', 'enum' => self::VALID_VISIBILITY_LEVELS],
                         'reason' => ['type' => 'string'],
                     ],
                     'required' => ['score', 'level', 'reason'],
@@ -508,16 +533,22 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         }
         $parsed['google_visibility']['level'] = $visibilityLevel;
 
+        // tourism_value uses the same VERY_LOW..VERY_HIGH scale as
+        // google_visibility (a "how much value" read), not the
+        // STRONG/MODERATE/WEAK/INSUFFICIENT "how much evidence" scale used by
+        // legitimacy/evidence.
+        $tourismLevel = strtoupper((string) ($parsed['tourism_value']['level'] ?? ''));
+        if (! in_array($tourismLevel, self::VALID_VISIBILITY_LEVELS, true) || ! is_numeric($parsed['tourism_value']['score'] ?? null)) {
+            return null;
+        }
+        $parsed['tourism_value']['level'] = $tourismLevel;
+
         foreach (['legitimacy', 'evidence'] as $group) {
             $level = strtoupper((string) ($parsed[$group]['level'] ?? ''));
             if (! in_array($level, self::VALID_QUALITY_LEVELS, true) || ! is_numeric($parsed[$group]['score'] ?? null)) {
                 return null;
             }
             $parsed[$group]['level'] = $level;
-        }
-
-        if (! is_numeric($parsed['tourism_value']['score'] ?? null) || empty($parsed['tourism_value']['level'])) {
-            return null;
         }
 
         $duplicateStatus = strtoupper((string) ($parsed['duplicate']['status'] ?? 'NO_DUPLICATE'));
