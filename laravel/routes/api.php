@@ -70,6 +70,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/votes/{locationId}', [VoteController::class, 'store']);
     Route::get('/votes/{locationId}', [VoteController::class, 'getVotes']);
     Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
+    Route::get('/my-votes', [VoteController::class, 'myVotes']);
+    Route::patch('/votes/{vote}/comment', [VoteController::class, 'updateComment']);
+    Route::delete('/votes/{vote}/comment', [VoteController::class, 'deleteComment']);
+    Route::delete('/votes/{vote}/photo', [VoteController::class, 'deletePhoto']);
 });
     // ===== Hidden Gems =====
     Route::get('hidden-gems', [HiddenGemController::class, 'index']);

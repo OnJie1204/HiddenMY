@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { getHiddenGemDetail } from "../api/hiddenGems";
+import { getMe } from "../api/auth";
+import {
+    updateVoteComment,
+    deleteVoteComment,
+    deleteVotePhoto
+} from "../api/votes";
 import VoteModal from "../components/VoteModal";
 
 import "../styles/global.css";
@@ -22,14 +28,24 @@ function getVotePhotoUrl(photoPath) {
 export default function HiddenGemDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const routeLocation = useLocation();
     const [gem, setGem] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [activeTab, setActiveTab] = useState("details");
+    const [activeTab, setActiveTab] = useState(
+        routeLocation.state?.openTab === "votes" ? "votes" : "details"
+    );
     const [showVoteModal, setShowVoteModal] = useState(false);
     const [voteSuccess, setVoteSuccess] = useState(false);
     const [voteMessage, setVoteMessage] = useState("");
     const [selectedPhoto, setSelectedPhoto] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [editingVoteId, setEditingVoteId] = useState(null);
+    const [editComment, setEditComment] = useState("");
+    const [voteActionMessage, setVoteActionMessage] = useState("");
+    const [voteActionLoading, setVoteActionLoading] = useState(false);
+    const [deleteConfirmation, setDeleteConfirmation] = useState(null);
+    const [voteActionSuccess, setVoteActionSuccess] = useState("");
 
     const fetchDetail = async () => {
         try {
@@ -47,6 +63,34 @@ export default function HiddenGemDetail() {
         fetchDetail();
     }, [id]);
 
+    useEffect(() => {
+        getMe()
+            .then((response) => setCurrentUser(response.data))
+            .catch(() => setCurrentUser(null));
+    }, []);
+
+    useEffect(() => {
+        if (!voteActionSuccess) return;
+
+        const timer = setTimeout(() => setVoteActionSuccess(""), 3000);
+
+        return () => clearTimeout(timer);
+    }, [voteActionSuccess]);
+
+    useEffect(() => {
+        if (
+            activeTab === "votes"
+            && gem
+            && routeLocation.state?.voteId
+        ) {
+            const voteElement = document.getElementById(
+                `vote-${routeLocation.state.voteId}`
+            );
+
+            voteElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, [activeTab, gem, routeLocation.state]);
+
     const handleVoteSuccess = (data) => {
         setVoteSuccess(true);
         setVoteMessage(data.message);
@@ -55,6 +99,96 @@ export default function HiddenGemDetail() {
             setVoteSuccess(false);
             setVoteMessage("");
         }, 5000);
+    };
+
+    const updateVoteLocally = (voteId, changes) => {
+        setGem((prev) => ({
+            ...prev,
+            votes: prev.votes.map((vote) =>
+                vote.id === voteId ? { ...vote, ...changes } : vote
+            ),
+        }));
+    };
+
+    const handleSaveComment = async (voteId) => {
+        if (!editComment.trim()) return;
+
+        setVoteActionLoading(true);
+        setVoteActionMessage("");
+
+        try {
+            await updateVoteComment(voteId, editComment.trim());
+            updateVoteLocally(voteId, {
+                travel_description: editComment.trim(),
+            });
+            setEditingVoteId(null);
+            setVoteActionSuccess("Comment updated successfully.");
+        } catch (error) {
+            setVoteActionMessage(
+                error.response?.data?.message || "Failed to update comment."
+            );
+        } finally {
+            setVoteActionLoading(false);
+        }
+    };
+
+    const handleDeleteComment = async (voteId) => {
+        setVoteActionLoading(true);
+        setVoteActionMessage("");
+
+        try {
+            await deleteVoteComment(voteId);
+            updateVoteLocally(voteId, { travel_description: null });
+            setDeleteConfirmation(null);
+            setVoteActionSuccess("Comment deleted successfully.");
+        } catch (error) {
+            setVoteActionMessage(
+                error.response?.data?.message || "Failed to delete comment."
+            );
+        } finally {
+            setVoteActionLoading(false);
+        }
+    };
+
+    const handleDeletePhoto = async (vote) => {
+        setVoteActionLoading(true);
+        setVoteActionMessage("");
+
+        try {
+            await deleteVotePhoto(vote.id);
+            updateVoteLocally(vote.id, { photo_path: null });
+
+            if (selectedPhoto === vote.photo_path) {
+                setSelectedPhoto(null);
+            }
+
+            setDeleteConfirmation(null);
+            setVoteActionSuccess("Photo deleted successfully.");
+        } catch (error) {
+            setVoteActionMessage(
+                error.response?.data?.message || "Failed to delete photo."
+            );
+        } finally {
+            setVoteActionLoading(false);
+        }
+    };
+
+    const handleConfirmDelete = () => {
+        if (deleteConfirmation?.type === "comment") {
+            handleDeleteComment(deleteConfirmation.vote.id);
+            return;
+        }
+
+        if (deleteConfirmation?.type === "photo") {
+            handleDeletePhoto(deleteConfirmation.vote);
+        }
+    };
+
+    const closeDeleteConfirmation = () => {
+        if (voteActionLoading) return;
+
+        setDeleteConfirmation(null);
+        setVoteActionMessage("");
     };
 
     if (loading) {
@@ -86,11 +220,24 @@ export default function HiddenGemDetail() {
                 </div>
             )}
 
+            {voteActionSuccess && (
+                <div className="hidden-gem-snackbar hidden-gem-snackbar-success">
+                    {voteActionSuccess}
+                </div>
+            )}
+
             <Link
                 to="/hidden-gems"
                 className="gem-detail-back-link"
                 onClick={(event) => {
                     event.preventDefault();
+                    if (routeLocation.state?.fromMyVotes) {
+                        navigate("/my-hidden-gems", {
+                            state: { activeTab: "votes" },
+                        });
+                        return;
+                    }
+
                     navigate(-1);
                 }}
             >
@@ -237,26 +384,117 @@ export default function HiddenGemDetail() {
 
                     {activeTab === "votes" && (
                         <div className="gem-detail-votes-list">
+                            {voteActionMessage && (
+                                <p className="gem-detail-vote-action-error">
+                                    {voteActionMessage}
+                                </p>
+                            )}
+
                             {gem.votes && gem.votes.length > 0 ? (
-                                gem.votes.map((vote, index) => (
-                                    <div key={index} className="gem-detail-vote-item">
+                                gem.votes.map((vote) => {
+                                    const isOwnVote = Number(vote.user_id)
+                                        === Number(currentUser?.id);
+
+                                    return (
+                                    <div
+                                        id={`vote-${vote.id}`}
+                                        key={vote.id}
+                                        className={`gem-detail-vote-item ${
+                                            isOwnVote ? "gem-detail-own-vote" : ""
+                                        }`}
+                                    >
                                         <div className="gem-detail-vote-avatar">
                                             {vote.user?.name?.charAt(0) || "U"}
                                         </div>
                                         <div className="gem-detail-vote-info">
                                             <p className="gem-detail-vote-user">{vote.user?.name || "Unknown User"}</p>
                                             {vote.photo_path && (
-                                                <img 
-                                                    src={getVotePhotoUrl(vote.photo_path)}
-                                                    alt="Vote photo"
-                                                    className="gem-detail-vote-photo"
-                                                    onClick={() => setSelectedPhoto(vote.photo_path)}
-                                                    style={{ cursor: 'pointer' }}
-                                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                                />
+                                                <div className="gem-detail-vote-photo-section">
+                                                    <img
+                                                        src={getVotePhotoUrl(vote.photo_path)}
+                                                        alt="Vote photo"
+                                                        className="gem-detail-vote-photo"
+                                                        onClick={() => setSelectedPhoto(vote.photo_path)}
+                                                        style={{ cursor: 'pointer' }}
+                                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                                    />
+                                                    {isOwnVote && (
+                                                        <button
+                                                            type="button"
+                                                            className="gem-detail-vote-icon-btn"
+                                                            title="Delete photo"
+                                                            aria-label="Delete photo"
+                                                            disabled={voteActionLoading}
+                                                            onClick={() => {
+                                                                setVoteActionMessage("");
+                                                                setDeleteConfirmation({ type: "photo", vote });
+                                                            }}
+                                                        >
+                                                            🗑
+                                                        </button>
+                                                    )}
+                                                </div>
                                             )}
-                                            {vote.travel_description && (
-                                                <p className="gem-detail-vote-comment">"{vote.travel_description}"</p>
+                                            {editingVoteId === vote.id ? (
+                                                <div className="gem-detail-vote-comment-edit">
+                                                    <textarea
+                                                        value={editComment}
+                                                        onChange={(event) => setEditComment(event.target.value)}
+                                                        maxLength={1000}
+                                                    />
+                                                    <div>
+                                                        <button
+                                                            type="button"
+                                                            disabled={voteActionLoading || !editComment.trim()}
+                                                            onClick={() => handleSaveComment(vote.id)}
+                                                        >
+                                                            Save
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={voteActionLoading}
+                                                            onClick={() => setEditingVoteId(null)}
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : vote.travel_description && (
+                                                <div className="gem-detail-vote-comment-row">
+                                                    <p className="gem-detail-vote-comment">
+                                                        "{vote.travel_description}"
+                                                    </p>
+                                                    {isOwnVote && (
+                                                        <div className="gem-detail-vote-owner-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="gem-detail-vote-icon-btn"
+                                                                title="Edit comment"
+                                                                aria-label="Edit comment"
+                                                                disabled={voteActionLoading}
+                                                                onClick={() => {
+                                                                    setEditingVoteId(vote.id);
+                                                                    setEditComment(vote.travel_description);
+                                                                }}
+                                                            >
+                                                                ✎
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="gem-detail-vote-icon-btn"
+                                                                title="Delete comment"
+                                                                aria-label="Delete comment"
+                                                                disabled={voteActionLoading}
+                                                                onClick={() => {
+                                                                    setVoteActionMessage("");
+                                                                    setDeleteConfirmation({ type: "comment", vote });
+                                                                }}
+                                                            >
+                                                                🗑
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                             <p className="gem-detail-vote-date">
                                                 Voted on {new Date(vote.created_at).toLocaleDateString("en-GB", {
@@ -267,7 +505,8 @@ export default function HiddenGemDetail() {
                                             </p>
                                         </div>
                                     </div>
-                                ))
+                                    );
+                                })
                             ) : (
                                 <p className="gem-detail-no-votes">No votes yet. Be the first to vote!</p>
                             )}
@@ -284,6 +523,59 @@ export default function HiddenGemDetail() {
                 onClose={() => setShowVoteModal(false)}
                 onVoteSuccess={handleVoteSuccess}
             />
+
+            {deleteConfirmation && (
+                <div
+                    className="delete-modal-overlay"
+                    onClick={closeDeleteConfirmation}
+                >
+                    <div
+                        className="delete-modal vote-delete-modal"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="delete-modal-icon">🗑️</div>
+                        <h2>
+                            {deleteConfirmation.type === "comment"
+                                ? "Delete Comment?"
+                                : "Delete Photo?"}
+                        </h2>
+                        <p>
+                            {deleteConfirmation.type === "comment"
+                                ? "Are you sure you want to delete your comment? Your vote will remain."
+                                : "Are you sure you want to delete this photo? Your vote will remain."}
+                        </p>
+
+                        {voteActionMessage && (
+                            <p className="vote-delete-modal-error">
+                                {voteActionMessage}
+                            </p>
+                        )}
+
+                        <div className="delete-modal-actions">
+                            <button
+                                type="button"
+                                className="delete-modal-cancel"
+                                onClick={closeDeleteConfirmation}
+                                disabled={voteActionLoading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="delete-modal-confirm"
+                                onClick={handleConfirmDelete}
+                                disabled={voteActionLoading}
+                            >
+                                {voteActionLoading
+                                    ? "Deleting..."
+                                    : deleteConfirmation.type === "comment"
+                                        ? "Delete Comment"
+                                        : "Delete Photo"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {selectedPhoto && (
                 <div className="photo-modal-overlay" onClick={() => setSelectedPhoto(null)}>

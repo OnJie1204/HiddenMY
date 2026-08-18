@@ -167,6 +167,112 @@ class VoteController extends Controller
         return response()->json(['data' => $votes]);
     }
 
+    public function myVotes()
+    {
+        $votes = Vote::with('location:id,place_name')
+            ->where('user_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get([
+                'id',
+                'user_id',
+                'location_id',
+                'travel_description',
+                'photo_path',
+                'created_at',
+            ])
+            ->map(fn (Vote $vote) => [
+                'id' => $vote->id,
+                'created_at' => $vote->created_at,
+                'comment' => $vote->travel_description,
+                'photo_path' => $vote->photo_path,
+                'location' => $vote->location ? [
+                    'id' => $vote->location->id,
+                    'place_name' => $vote->location->place_name,
+                ] : null,
+            ]);
+
+        return response()->json(['data' => $votes]);
+    }
+
+    public function updateComment(Request $request, Vote $vote)
+    {
+        if ($vote->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'comment' => 'required|string|max:1000',
+        ]);
+
+        $vote->update([
+            'travel_description' => $validated['comment'],
+        ]);
+
+        return response()->json([
+            'message' => 'Comment updated successfully.',
+            'data' => $vote,
+        ]);
+    }
+
+    public function deleteComment(Vote $vote)
+    {
+        if ($vote->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $vote->update(['travel_description' => null]);
+
+        return response()->json([
+            'message' => 'Comment deleted successfully.',
+            'data' => $vote,
+        ]);
+    }
+
+    public function deletePhoto(Vote $vote)
+    {
+        if ($vote->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $photoPath = $vote->photo_path;
+        $publicPrefix = rtrim((string) env('SUPABASE_URL'), '/')
+            . '/storage/v1/object/public/vote_photos/';
+
+        if ($photoPath && str_starts_with($photoPath, $publicPrefix)) {
+            $objectPath = substr($photoPath, strlen($publicPrefix));
+            $decodedObjectPath = rawurldecode($objectPath);
+
+            if (
+                $objectPath !== ''
+                && !str_starts_with($decodedObjectPath, '/')
+                && !str_contains($decodedObjectPath, '..')
+            ) {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                ])->delete(
+                    rtrim((string) env('SUPABASE_URL'), '/')
+                    . '/storage/v1/object/vote_photos/'
+                    . $objectPath
+                );
+
+                if ($response->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to delete vote photo.',
+                        'error' => $response->json(),
+                    ], 500);
+                }
+            }
+        }
+
+        $vote->update(['photo_path' => null]);
+
+        return response()->json([
+            'message' => 'Photo deleted successfully.',
+            'data' => $vote,
+        ]);
+    }
+
     public function checkIn(Request $request, $locationId)
     {
         $user = Auth::user();

@@ -1,12 +1,28 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getMyHiddenGems, deleteHiddenGem } from "../api/hiddenGems";
+import { getMyVotes } from "../api/votes";
 import GemImage from "../components/GemImage";
 
 import "../styles/global.css";
 
+function getVotePhotoUrl(photoPath) {
+    if (!photoPath) return "";
+
+    if (/^https?:\/\//i.test(photoPath)) {
+        return photoPath;
+    }
+
+    const relativePath = String(photoPath).replace(/^\/+/, "");
+
+    return relativePath.startsWith("storage/")
+        ? `/${relativePath}`
+        : `/storage/${relativePath}`;
+}
+
 export default function MyHiddenGems() {
     const navigate = useNavigate();
+    const routeLocation = useLocation();
 
     const [gems, setGems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,6 +30,13 @@ export default function MyHiddenGems() {
     const [deleteId, setDeleteId] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
+    const [activeTab, setActiveTab] = useState(
+        routeLocation.state?.activeTab === "votes" ? "votes" : "hidden-gems"
+    );
+    const [votes, setVotes] = useState([]);
+    const [votesLoading, setVotesLoading] = useState(false);
+    const [votesError, setVotesError] = useState("");
+    const [votesLoaded, setVotesLoaded] = useState(false);
 
     const fetchMyHiddenGems = async () => {
         setLoading(true);
@@ -38,6 +61,35 @@ export default function MyHiddenGems() {
 
     useEffect(() => {
         fetchMyHiddenGems();
+    }, []);
+
+    const showMyVotes = async () => {
+        setActiveTab("votes");
+
+        if (votesLoaded) return;
+
+        setVotesLoading(true);
+        setVotesError("");
+
+        try {
+            const response = await getMyVotes();
+            setVotes(response.data.data || []);
+            setVotesLoaded(true);
+        } catch (error) {
+            console.error("Error fetching my votes:", error);
+            setVotesError(
+                error.response?.data?.message ||
+                "Failed to load your votes."
+            );
+        } finally {
+            setVotesLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (routeLocation.state?.activeTab === "votes") {
+            showMyVotes();
+        }
     }, []);
 
     useEffect(() => {
@@ -87,7 +139,6 @@ export default function MyHiddenGems() {
             <div className="hidden-gems-header">
                 <div>
                     <h1>📍 My Hidden Gems</h1>
-                    <p>Manage the hidden gems you have submitted.</p>
                 </div>
 
                 <button
@@ -98,7 +149,24 @@ export default function MyHiddenGems() {
                 </button>
             </div>
 
-            {loading ? (
+            <div className="my-hidden-gems-tabs">
+                <button
+                    type="button"
+                    className={activeTab === "hidden-gems" ? "active" : ""}
+                    onClick={() => setActiveTab("hidden-gems")}
+                >
+                    My Hidden Gems
+                </button>
+                <button
+                    type="button"
+                    className={activeTab === "votes" ? "active" : ""}
+                    onClick={showMyVotes}
+                >
+                    My Votes
+                </button>
+            </div>
+
+            {activeTab === "hidden-gems" ? (loading ? (
                 <div className="hidden-gems-loading">
                     <p>Loading your hidden gems...</p>
                 </div>
@@ -202,6 +270,68 @@ export default function MyHiddenGems() {
                         </div>
                     ))}
 
+                </div>
+            )) : votesLoading ? (
+                <div className="hidden-gems-loading">
+                    <p>Loading your votes...</p>
+                </div>
+            ) : votesError ? (
+                <div className="hidden-gems-empty">
+                    <p>{votesError}</p>
+                </div>
+            ) : votes.length === 0 ? (
+                <div className="hidden-gems-empty">
+                    <h2>No Votes Yet</h2>
+                    <p>You have not voted for any hidden gems yet.</p>
+                </div>
+            ) : (
+                <div className="my-votes-feed">
+                    {votes.map((vote) => (
+                        <article
+                            key={vote.id}
+                            className="my-vote-card"
+                            onClick={() => navigate(
+                                `/hidden-gems/${vote.location?.id}`,
+                                {
+                                    state: {
+                                        openTab: "votes",
+                                        voteId: vote.id,
+                                        fromMyVotes: true,
+                                    },
+                                }
+                            )}
+                        >
+                            <div className="my-vote-card-content">
+                                <div className="my-vote-card-header">
+                                    <h2>
+                                        {vote.location?.place_name || "Hidden Gem"}
+                                    </h2>
+                                    <time>
+                                        {new Date(vote.created_at).toLocaleDateString(
+                                            "en-GB",
+                                            {
+                                                day: "numeric",
+                                                month: "short",
+                                                year: "numeric",
+                                            }
+                                        )}
+                                    </time>
+                                </div>
+                                <p>{vote.comment || "No comment"}</p>
+                            </div>
+
+                            {vote.photo_path && (
+                                <img
+                                    src={getVotePhotoUrl(vote.photo_path)}
+                                    alt="Your vote"
+                                    className="my-vote-thumbnail"
+                                    onError={(event) => {
+                                        event.currentTarget.style.display = "none";
+                                    }}
+                                />
+                            )}
+                        </article>
+                    ))}
                 </div>
             )}
             
