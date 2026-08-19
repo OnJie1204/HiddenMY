@@ -453,7 +453,7 @@ class HiddenGemController extends Controller
         $totalDatabaseMatches = (clone $databaseQuery)->count();
 
         $databaseLocations = $databaseQuery
-            ->select(['id', 'place_name', 'state', 'latitude', 'longitude'])
+            ->select(['id', 'place_name', 'state', 'latitude', 'longitude', 'status'])
             ->orderBy('place_name')
             ->skip($dbOffset)
             ->limit(self::SEARCH_RESULT_LIMIT)
@@ -864,6 +864,7 @@ class HiddenGemController extends Controller
             'state' => $location->state,
             'latitude' => $location->latitude,
             'longitude' => $location->longitude,
+            'status' => $location->status,
             'source' => 'database',
         ];
     }

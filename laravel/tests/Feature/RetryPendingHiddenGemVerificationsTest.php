@@ -34,7 +34,9 @@ class RetryPendingHiddenGemVerificationsTest extends TestCase
 
         $this->artisan('hidden-gems:retry-verification')->assertExitCode(0);
 
-        Http::assertSentCount(2); // grounding research call, then the structured-scoring fallback
+        // grounding research call + its retry, then the structured-scoring call + its retry
+        // (both calls retry once on a transient 503 before giving up).
+        Http::assertSentCount(4);
 
         $location->refresh();
         $this->assertSame('pending', $location->status);

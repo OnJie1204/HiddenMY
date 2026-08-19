@@ -118,7 +118,11 @@ class HiddenGemVerificationTest extends TestCase
         ]);
 
         Http::fake([
+            // Grounding retries once on a transient 503 (see VerifyHiddenGemSubmission::RETRYABLE_HTTP_STATUSES)
+            // before giving up and falling back to Call B's own best-effort read — so two 503s are needed to
+            // exhaust the grounding call before the scoring call's success response is reached.
             'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push(['error' => ['message' => 'unavailable']], 503)
                 ->push(['error' => ['message' => 'unavailable']], 503)
                 ->push([
                     'candidates' => [

@@ -1870,7 +1870,10 @@ img.avatar {
 }
 
 .stopping-point-search-result {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
     width: 100%;
     padding: 0.65rem 0.8rem;
     border: 0;
@@ -1879,6 +1882,20 @@ img.avatar {
     cursor: pointer;
     font: inherit;
     text-align: left;
+}
+
+.stopping-point-search-result-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stopping-point-search-result-status {
+    flex-shrink: 0;
+    font-size: 10px !important;
+    padding: 3px 9px !important;
 }
 
 .stopping-point-search-result-prefix {

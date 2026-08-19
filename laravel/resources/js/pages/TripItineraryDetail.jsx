@@ -9,6 +9,7 @@ import {
     updateTripLocationOrder,
 } from "../api/TripItinerary";
 import { getHiddenGems, searchHiddenGems, reverseGeocodeLocation } from "../api/hiddenGems";
+import { getGemStatusDisplay } from "../utils/gemStatus";
 
 import {
     DndContext,
@@ -894,7 +895,12 @@ export default function TripItineraryDetail() {
                                         className="stopping-point-search-result"
                                         onClick={() => selectSearchResult(location)}
                                     >
-                                        {location.name}
+                                        <span className="stopping-point-search-result-name">{location.name}</span>
+                                        {location.source === "database" && (
+                                            <span className={`stopping-point-search-result-status ${getGemStatusDisplay(location).badgeClass}`}>
+                                                {getGemStatusDisplay(location).label}
+                                            </span>
+                                        )}
                                     </button>
                                 ))}
                             </div>

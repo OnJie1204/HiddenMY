@@ -6,6 +6,8 @@ use App\Models\Location;
 use App\Services\DuplicateDetectionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -54,6 +56,15 @@ class VerifyHiddenGemSubmission implements ShouldQueue
     private const VALID_QUALITY_LEVELS = ['STRONG', 'MODERATE', 'WEAK', 'INSUFFICIENT'];
 
     private const VALID_DUPLICATE_STATUSES = ['NO_DUPLICATE', 'POSSIBLE_DUPLICATE', 'CONFIRMED_DUPLICATE'];
+
+    /**
+     * Gemini frequently returns 503 ("currently experiencing high demand") or
+     * 429 (rate limit) under normal load — these are transient, not a sign
+     * the request itself is bad, so they're worth one immediate retry rather
+     * than immediately failing the whole submission back to 'pending' and
+     * waiting for the next scheduled retry pass.
+     */
+    private const RETRYABLE_HTTP_STATUSES = [429, 500, 502, 503, 504];
 
     public function __construct(public int $locationId)
     {
@@ -124,6 +135,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         try {
             $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
                 ->timeout(20)
+                ->retry(2, 1000, fn (Throwable $e) => $this->isRetryableGeminiError($e))
                 ->post(
                     'https://generativelanguage.googleapis.com/v1beta/models/'.self::MODEL.':generateContent',
                     [
@@ -172,6 +184,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
     ): ?array {
         $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
             ->timeout(30)
+            ->retry(2, 1000, fn (Throwable $e) => $this->isRetryableGeminiError($e))
             ->post(
                 'https://generativelanguage.googleapis.com/v1beta/models/'.self::MODEL.':generateContent',
                 [
@@ -563,6 +576,17 @@ class VerifyHiddenGemSubmission implements ShouldQueue
             : 'NO_DUPLICATE';
 
         return $parsed;
+    }
+
+    /** Used as the `retry()` `when` callback for both Gemini calls — only transient failures are worth an immediate retry. */
+    private function isRetryableGeminiError(Throwable $exception): bool
+    {
+        if ($exception instanceof ConnectionException) {
+            return true;
+        }
+
+        return $exception instanceof RequestException
+            && in_array($exception->response->status(), self::RETRYABLE_HTTP_STATUSES, true);
     }
 
     private function clampScore(mixed $value): int
