@@ -8,6 +8,7 @@ import {
 } from "../api/hiddenGems";
 import { getMyVotes } from "../api/votes";
 import GemImage from "../components/GemImage";
+import HiddenGemJourneyMap from "../components/HiddenGemJourneyMap";
 import { getGemStatusDisplay, voteProgressLabel } from "../utils/gemStatus";
 
 import "../styles/global.css";
@@ -236,6 +237,20 @@ export default function MyHiddenGems() {
                     My Votes
                 </button>
             </div>
+
+            {activeTab === "hidden-gems" && (
+                <HiddenGemJourneyMap
+                    gems={gems}
+                    selectedRegion={filters.state}
+                    onRegionSelect={(region) =>
+                        updateFilter(
+                            "state",
+                            filters.state === region ? "" : region
+                        )
+                    }
+                    onViewDetails={(gemId) => navigate(`/hidden-gems/${gemId}`)}
+                />
+            )}
 
             {activeTab === "hidden-gems" && (
                 <div className="hidden-gems-filters">
