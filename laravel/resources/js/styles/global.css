@@ -1898,6 +1898,18 @@ img.avatar {
     padding: 3px 9px !important;
 }
 
+.stopping-point-wishlist-section {
+    margin-bottom: 1rem;
+}
+
+.stopping-point-wishlist-section .stopping-point-search-suggestions {
+    margin-bottom: 0;
+}
+
+.stopping-point-wishlist-section .stopping-point-search-status a {
+    color: var(--color-primary);
+}
+
 .stopping-point-search-result-prefix {
     display: inline-flex;
     width: 1.35rem;
@@ -2601,9 +2613,17 @@ img.avatar {
 
 /* Empty */
 .hidden-gems-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
     text-align: center;
     padding: 40px;
     color: #6B7280;
+}
+
+.hidden-gems-empty p {
+    margin: 0;
 }
 
 /* Cards Grid */
@@ -2737,6 +2757,99 @@ img.avatar {
     padding: 4px 12px;
     border-radius: 20px;
     display: inline-block;
+}
+
+/* ===== Wishlist ===== */
+.wishlist-card-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.wishlist-card-title-row h2 {
+    margin-bottom: 8px;
+}
+
+.wishlist-remove-btn {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--color-primary);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    transition: transform 0.1s;
+}
+
+.wishlist-remove-btn:hover {
+    transform: scale(1.15);
+}
+
+.wishlist-remove-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.wishlist-card-actions {
+    margin-top: 10px;
+}
+
+.wishlist-itinerary-picker {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.wishlist-itinerary-empty {
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+.wishlist-link {
+    color: var(--color-primary);
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.wishlist-itinerary-option {
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.wishlist-itinerary-option:hover {
+    background: var(--color-primary-soft);
+}
+
+.wishlist-action-status {
+    margin-top: 8px;
+    font-size: 13px;
+}
+
+.wishlist-action-status.success {
+    color: #16A34A;
+}
+
+.wishlist-action-status.error {
+    color: #DC2626;
+}
+
+.wishlist-action-status.loading {
+    color: var(--color-text-muted);
 }
 
 /* Submit Hidden Gem Button */
@@ -3128,10 +3241,54 @@ img.avatar {
     margin-bottom: 20px;
 }
 
+.gem-detail-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 .gem-detail-title {
     font-size: 26px;
     font-weight: 700;
     color: #1F1F1F;
+    margin: 0 0 10px;
+}
+
+.gem-detail-wishlist-btn {
+    flex-shrink: 0;
+    border: 1px solid var(--color-border, #E5E7EB);
+    background: white;
+    color: var(--color-primary);
+    font-size: 20px;
+    line-height: 1;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.gem-detail-wishlist-btn:hover {
+    transform: scale(1.08);
+}
+
+.gem-detail-wishlist-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.gem-detail-wishlist-btn.active {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.gem-detail-wishlist-error {
+    color: #DC2626;
+    font-size: 13px;
     margin: 0 0 10px;
 }
 
@@ -3776,20 +3933,6 @@ img.avatar {
     gap: 0.8rem;
     padding: 0.75rem 1.25rem;
     border-bottom: 1px solid var(--color-border);
-    flex-shrink: 0;
-}
-
-.side-panel-user-avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark));
-    color: #fff;
-    font-weight: 700;
-    font-size: 0.9rem;
     flex-shrink: 0;
 }
 

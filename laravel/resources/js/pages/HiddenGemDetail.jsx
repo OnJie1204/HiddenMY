@@ -9,6 +9,7 @@ import {
 } from "../api/votes";
 import VoteModal from "../components/VoteModal";
 import { voteProgressLabel } from "../utils/gemStatus";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 
 import "../styles/global.css";
 
@@ -47,6 +48,9 @@ export default function HiddenGemDetail() {
     const [voteActionLoading, setVoteActionLoading] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState(null);
     const [voteActionSuccess, setVoteActionSuccess] = useState("");
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [wishlistBusy, setWishlistBusy] = useState(false);
+    const [wishlistError, setWishlistError] = useState("");
 
     const fetchDetail = async () => {
         try {
@@ -71,6 +75,12 @@ export default function HiddenGemDetail() {
     }, []);
 
     useEffect(() => {
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
+            .catch(err => console.error("Error fetching wishlist:", err));
+    }, []);
+
+    useEffect(() => {
         if (!voteActionSuccess) return;
 
         const timer = setTimeout(() => setVoteActionSuccess(""), 3000);
@@ -91,6 +101,31 @@ export default function HiddenGemDetail() {
             voteElement?.scrollIntoView({ behavior: "smooth", block: "center" });
         }
     }, [activeTab, gem, routeLocation.state]);
+
+    const handleToggleWishlist = async () => {
+        if (!gem || wishlistBusy) return;
+
+        const isWishlisted = wishlistIds.has(gem.id);
+        setWishlistBusy(true);
+        setWishlistError("");
+        try {
+            if (isWishlisted) {
+                await removeFromWishlist(gem.id);
+                setWishlistIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(gem.id);
+                    return next;
+                });
+            } else {
+                await addToWishlist(gem.id);
+                setWishlistIds(prev => new Set(prev).add(gem.id));
+            }
+        } catch (err) {
+            setWishlistError(err.response?.data?.message || "Could not update your wishlist.");
+        } finally {
+            setWishlistBusy(false);
+        }
+    };
 
     const handleVoteSuccess = (data) => {
         setVoteSuccess(true);
@@ -285,7 +320,21 @@ export default function HiddenGemDetail() {
                 </div>
 
                 <div className="gem-detail-header">
-                    <h1 className="gem-detail-title">{gem.place_name}</h1>
+                    <div className="gem-detail-title-row">
+                        <h1 className="gem-detail-title">{gem.place_name}</h1>
+                        {(gem.status === "hidden_gem" || gem.status === "pending_community_vote") && (
+                            <button
+                                type="button"
+                                className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
+                                onClick={handleToggleWishlist}
+                                disabled={wishlistBusy}
+                                title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                            >
+                                {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                            </button>
+                        )}
+                    </div>
+                    {wishlistError && <p className="gem-detail-wishlist-error">{wishlistError}</p>}
                     <div className="gem-detail-meta-row">
                         <span className="gem-detail-category-tag">
                             {gem.category?.name || "Uncategorized"}

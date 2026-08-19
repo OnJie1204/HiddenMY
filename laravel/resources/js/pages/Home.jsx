@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { getTripItineraries } from '../api/tripItinerary';
 import { getHiddenGems } from '../api/hiddenGems';
+import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist';
 import HiddenGemMarker from '../components/HiddenGemMarker';
 
 // Fix leaflet default marker icons
@@ -23,7 +24,40 @@ function Home({ user }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [mapGems, setMapGems] = useState([]);
     const [selectedGem, setSelectedGem] = useState(null);
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [wishlistBusyId, setWishlistBusyId] = useState(null);
     const mapRef = useRef(null);
+
+    useEffect(() => {
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
+            .catch(err => console.error('Error fetching wishlist:', err));
+    }, []);
+
+    const handleToggleWishlist = async (e, gem) => {
+        e.stopPropagation();
+        if (wishlistBusyId) return;
+
+        const isWishlisted = wishlistIds.has(gem.id);
+        setWishlistBusyId(gem.id);
+        try {
+            if (isWishlisted) {
+                await removeFromWishlist(gem.id);
+                setWishlistIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(gem.id);
+                    return next;
+                });
+            } else {
+                await addToWishlist(gem.id);
+                setWishlistIds(prev => new Set(prev).add(gem.id));
+            }
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+        } finally {
+            setWishlistBusyId(null);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -291,6 +325,15 @@ function Home({ user }) {
                                 <div className="home-trending-card-body">
                                     <div className="home-trending-card-header-row">
                                         <h4>{gem.place_name}</h4>
+                                        <button
+                                            type="button"
+                                            className="wishlist-remove-btn"
+                                            disabled={wishlistBusyId === gem.id}
+                                            title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                            onClick={(e) => handleToggleWishlist(e, gem)}
+                                        >
+                                            {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                        </button>
                                         {gem.status === 'hidden_gem' ? (
                                             <span className="home-trending-card-status verified">✦ Hidden Gem</span>
                                         ) : (

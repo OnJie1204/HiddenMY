@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
+import Avatar from "./Avatar";
 
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 420;
@@ -16,6 +17,7 @@ function SidePanel({
     group, isOpen, onClose, user, setUser, mode = "nav", headerExtra = null,
     nearby = [], nearbyLoading = false, onSelectNearby, onGemChange,
     itineraries = [], onAddToItinerary,
+    wishlistIds = new Set(), onToggleWishlist,
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [width, setWidth] = useState(340);
@@ -23,6 +25,7 @@ function SidePanel({
     const [isResizing, setIsResizing] = useState(false);
     const [itineraryOpen, setItineraryOpen] = useState(false);
     const [itineraryStatus, setItineraryStatus] = useState(null);
+    const [wishlistBusy, setWishlistBusy] = useState(false);
     const bodyRef = useRef(null);
     const navigate = useNavigate();
 
@@ -99,6 +102,13 @@ function SidePanel({
     const canAddToItinerary = gem
         && (gem.source === "attraction" || gem.status === "hidden_gem" || gem.status === "pending_community_vote");
 
+    // OSM attractions aren't Location records, so there's nothing to wishlist —
+    // only our own database gems that have passed AI review qualify.
+    const canWishlist = gem
+        && gem.source === "database"
+        && (gem.status === "hidden_gem" || gem.status === "pending_community_vote");
+    const isWishlisted = gem && wishlistIds.has(gem.id);
+
     async function handleAddToItinerary(itinerary) {
         setItineraryStatus({ type: "loading", message: `Adding to "${itinerary.trip_name}"…` });
         try {
@@ -110,6 +120,23 @@ function SidePanel({
                 type: "error",
                 message: error?.response?.data?.message || "Could not add this stop.",
             });
+        }
+    }
+
+    async function handleToggleWishlist() {
+        if (!gem || wishlistBusy) return;
+        setWishlistBusy(true);
+        try {
+            await onToggleWishlist(gem, isWishlisted);
+        } catch (error) {
+            // Toggling is a single tap action — surface failures via the same
+            // itinerary status line rather than adding a second status area.
+            setItineraryStatus({
+                type: "error",
+                message: error?.response?.data?.message || "Could not update your wishlist.",
+            });
+        } finally {
+            setWishlistBusy(false);
         }
     }
 
@@ -125,6 +152,7 @@ function SidePanel({
         { to: '/map', label: 'Map' },
         { to: '/hidden-gems', label: 'Hidden Gems' },
         { to: '/my-hidden-gems', label: 'My Hidden Gems' },
+        { to: '/wishlist', label: 'Wishlist' },
         { to: '/trip-itinerary', label: 'Trip Itinerary' },
         { to: '/profile', label: 'Profile' },
     ];
@@ -164,9 +192,7 @@ function SidePanel({
 
             {showNavChrome && user && (
                 <div className="side-panel-user">
-                    <div className="side-panel-user-avatar">
-                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
+                    <Avatar name={user.name} avatarUrl={user.avatar_url} size="sm" />
                     <div className="side-panel-user-info">
                         <p className="side-panel-user-name">{user.name || 'User'}</p>
                         <p className="side-panel-user-email">{user.email || ''}</p>
@@ -251,6 +277,19 @@ function SidePanel({
                                 <span className="side-panel-icon-btn-icon">➕</span>
                                 <span className="side-panel-icon-btn-label">Itinerary</span>
                             </button>
+                            {onToggleWishlist && (
+                                <button
+                                    className={`side-panel-icon-btn ${isWishlisted ? "side-panel-icon-btn-active" : ""}`}
+                                    onClick={handleToggleWishlist}
+                                    disabled={!canWishlist || wishlistBusy}
+                                    title={canWishlist
+                                        ? (isWishlisted ? "Remove from wishlist" : "Save to wishlist")
+                                        : "Only gems that have passed AI review can be saved"}
+                                >
+                                    <span className="side-panel-icon-btn-icon">{isWishlisted ? "♥" : "♡"}</span>
+                                    <span className="side-panel-icon-btn-label">Wishlist</span>
+                                </button>
+                            )}
                             {gem.source === "database" && (
                                 <button className="side-panel-icon-btn" onClick={() => viewDetails(gem)}>
                                     <span className="side-panel-icon-btn-icon">ℹ️</span>

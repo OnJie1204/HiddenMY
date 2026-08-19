@@ -5,6 +5,7 @@ use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\HiddenGemController;
 use App\Http\Controllers\VoteController;
 use App\Http\Controllers\TripItineraryController;
+use App\Http\Controllers\WishlistController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +76,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/votes/{vote}/comment', [VoteController::class, 'deleteComment']);
     Route::delete('/votes/{vote}/photo', [VoteController::class, 'deletePhoto']);
 });
+
+    // ===== Wishlist =====
+    Route::get('/wishlist', [WishlistController::class, 'index']);
+    Route::post('/wishlist/{locationId}', [WishlistController::class, 'store']);
+    Route::delete('/wishlist/{locationId}', [WishlistController::class, 'destroy']);
+
     // ===== Hidden Gems =====
     Route::get('hidden-gems', [HiddenGemController::class, 'index']);
     Route::get('hidden-gems/search', [HiddenGemController::class, 'search']);

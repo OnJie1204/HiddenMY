@@ -602,6 +602,11 @@
     transform: none;
 }
 
+.side-panel-icon-btn-active .side-panel-icon-btn-icon {
+    background: var(--color-primary-dark, #0f766e);
+    color: #fff;
+}
+
 /* Other posts sharing this gem's coordinates, listed under the detail */
 .side-panel-other-posts {
     margin-top: 0.9rem;

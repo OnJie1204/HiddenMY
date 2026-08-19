@@ -15,6 +15,7 @@ import {
     getHiddenGemDetail,
 } from "../api/hiddenGems";
 import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
@@ -150,6 +151,7 @@ function Maps(){
     const [clickedPlaces, setClickedPlaces] = useState([]);
     const [clickedLoading, setClickedLoading] = useState(false);
     const [itineraries, setItineraries] = useState([]);
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [mapFullscreen, setMapFullscreen] = useState(false);
     const mapRef = useRef(null);
     const viewportTimer = useRef(null);
@@ -224,6 +226,13 @@ function Maps(){
     useEffect(() => {
         getTripItineraries()
             .then(res => setItineraries(res.data || []))
+            .catch(err => console.log(err));
+    }, []);
+
+    // Load the user's wishlist so the side panel can show which gems are already saved
+    useEffect(() => {
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(gem => gem.id))))
             .catch(err => console.log(err));
     }, []);
 
@@ -383,6 +392,20 @@ function Maps(){
         return addTripLocation(trip.id, payload);
     }, []);
 
+    const handleToggleWishlist = useCallback(async (gem, isWishlisted) => {
+        if (isWishlisted) {
+            await removeFromWishlist(gem.id);
+            setWishlistIds(prev => {
+                const next = new Set(prev);
+                next.delete(gem.id);
+                return next;
+            });
+        } else {
+            await addToWishlist(gem.id);
+            setWishlistIds(prev => new Set(prev).add(gem.id));
+        }
+    }, []);
+
     // Group hidden gems by coordinate
     const groupedGems = useMemo(() => {
         const map = new Map();
@@ -537,6 +560,8 @@ function Maps(){
                         onGemChange={handleActiveGemChange}
                         itineraries={itineraries}
                         onAddToItinerary={handleAddToItinerary}
+                        wishlistIds={wishlistIds}
+                        onToggleWishlist={handleToggleWishlist}
                     />
                 </div>
 

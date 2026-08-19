@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 
 import "../styles/global.css";
 
@@ -20,6 +21,8 @@ export default function HiddenGems() {
     const [states, setStates] = useState([]);
     const [totalResults, setTotalResults] = useState(0);
     const [lastSearch, setLastSearch] = useState('');
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [wishlistBusyId, setWishlistBusyId] = useState(null);
 
     const fetchGems = async () => {
         setLoading(true);
@@ -67,6 +70,37 @@ export default function HiddenGems() {
         fetchFilters();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search, filter]);
+
+    useEffect(() => {
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
+            .catch(err => console.error('Error fetching wishlist:', err));
+    }, []);
+
+    const handleToggleWishlist = async (e, gem) => {
+        e.stopPropagation();
+        if (wishlistBusyId) return;
+
+        const isWishlisted = wishlistIds.has(gem.id);
+        setWishlistBusyId(gem.id);
+        try {
+            if (isWishlisted) {
+                await removeFromWishlist(gem.id);
+                setWishlistIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(gem.id);
+                    return next;
+                });
+            } else {
+                await addToWishlist(gem.id);
+                setWishlistIds(prev => new Set(prev).add(gem.id));
+            }
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+        } finally {
+            setWishlistBusyId(null);
+        }
+    };
 
     const handleSearchSubmit = (e) => {
         e.preventDefault();
@@ -207,7 +241,18 @@ export default function HiddenGems() {
                             </div>
 
                             <div className="hidden-gems-card-content">
-                                <h2>{gem.place_name}</h2>
+                                <div className="wishlist-card-title-row">
+                                    <h2>{gem.place_name}</h2>
+                                    <button
+                                        type="button"
+                                        className="wishlist-remove-btn"
+                                        disabled={wishlistBusyId === gem.id}
+                                        title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                        onClick={(e) => handleToggleWishlist(e, gem)}
+                                    >
+                                        {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                    </button>
+                                </div>
 
                                 <div className="hidden-gems-card-tags">
                                     <span className="hidden-gems-card-category">
