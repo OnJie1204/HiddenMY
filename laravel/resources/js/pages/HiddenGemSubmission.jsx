@@ -1,6 +1,33 @@
 import { useState, useEffect, useRef } from "react";
 import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
 import { useNavigate } from "react-router-dom";
+import LocationPickerMap from "../components/LocationPickerMap";
+
+// Approximate state-capital coordinates, used only as a map-centering
+// fallback when the address itself can't be geocoded — never submitted as
+// the gem's actual location. Keeps the "point to the address" behavior
+// working even when Nominatim can't find the exact address, without relying
+// on a second, equally failure-prone geocoding call.
+const STATE_FALLBACK_CENTERS = {
+    "Johor": { latitude: 1.4927, longitude: 103.7414 },
+    "Kuala Lumpur": { latitude: 3.1390, longitude: 101.6869 },
+    "Penang": { latitude: 5.4141, longitude: 100.3288 },
+    "Selangor": { latitude: 3.0733, longitude: 101.5185 },
+    "Melaka": { latitude: 2.1896, longitude: 102.2501 },
+    "Perak": { latitude: 4.5975, longitude: 101.0901 },
+    "Pahang": { latitude: 3.8077, longitude: 103.3260 },
+    "Sarawak": { latitude: 1.5533, longitude: 110.3592 },
+    "Sabah": { latitude: 5.9804, longitude: 116.0735 },
+    "Terengganu": { latitude: 5.3117, longitude: 103.1324 },
+    "Kelantan": { latitude: 6.1254, longitude: 102.2381 },
+    "Kedah": { latitude: 6.1184, longitude: 100.3685 },
+    "Negeri Sembilan": { latitude: 2.7258, longitude: 101.9424 },
+    "Perlis": { latitude: 6.4414, longitude: 100.1986 },
+    "Putrajaya": { latitude: 2.9264, longitude: 101.6964 },
+    "Labuan": { latitude: 5.2831, longitude: 115.2308 },
+};
+
+const STATE_FALLBACK_ZOOM = 10;
 
 export default function HiddenGemSubmission() {
 
@@ -24,6 +51,7 @@ export default function HiddenGemSubmission() {
     const [imagePreview,setImagePreview] = useState([]);
     const [geocoding, setGeocoding] = useState(false);
     const [geocodeStatus, setGeocodeStatus] = useState("");
+    const [mapFocusRequest, setMapFocusRequest] = useState(null);
 
     useEffect(() => {
         fetchCategories();
@@ -68,37 +96,88 @@ export default function HiddenGemSubmission() {
     };
 
     const handleFindCoordinates = async () => {
-        const query = [formData.address, formData.state, formData.postcode, "Malaysia"]
-            .filter((part) => String(part).trim() !== "")
-            .join(", ");
-
         if (!formData.address.trim()) {
             setGeocodeStatus("error:Enter an address first.");
             return;
         }
 
+        // Try progressively coarser queries: the full address first, then
+        // just the postcode (Malaysian postcodes are narrow enough — usually
+        // a few km across — to still be a useful pin), then the state as a
+        // last resort before falling back to the hardcoded state-capital
+        // table. Nominatim often can't match an informal full address even
+        // though a plainer subset of the same fields resolves fine.
+        const attempts = [
+            {
+                query: [formData.address, formData.state, formData.postcode, "Malaysia"]
+                    .filter((part) => String(part).trim() !== "")
+                    .join(", "),
+                precision: "exact",
+                zoom: 15,
+            },
+            formData.postcode.trim() && formData.state
+                ? {
+                    query: `${formData.postcode.trim()}, ${formData.state}, Malaysia`,
+                    precision: "postcode",
+                    zoom: 13,
+                }
+                : null,
+            formData.state
+                ? {
+                    query: `${formData.state}, Malaysia`,
+                    precision: "state",
+                    zoom: STATE_FALLBACK_ZOOM,
+                }
+                : null,
+        ].filter(Boolean);
+
         setGeocoding(true);
         setGeocodeStatus("");
 
-        try {
-            const response = await geocodeAddress(query);
+        for (const attempt of attempts) {
+            try {
+                const response = await geocodeAddress(attempt.query);
 
-            setFormData((prev) => ({
-                ...prev,
-                latitude: String(response.data.latitude),
-                longitude: String(response.data.longitude),
-            }));
+                if (attempt.precision === "exact") {
+                    setFormData((prev) => ({
+                        ...prev,
+                        latitude: String(response.data.latitude),
+                        longitude: String(response.data.longitude),
+                    }));
+                }
 
-            setGeocodeStatus(`success:Found: ${response.data.name}`);
-        } catch (error) {
-            setGeocodeStatus(
-                error.response?.status === 404
-                    ? "error:No matching location found. Please enter coordinates manually."
-                    : "error:Unable to look up coordinates. Please enter them manually."
-            );
-        } finally {
-            setGeocoding(false);
+                setMapFocusRequest({
+                    latitude: response.data.latitude,
+                    longitude: response.data.longitude,
+                    zoom: attempt.zoom,
+                });
+
+                setGeocodeStatus(
+                    attempt.precision === "exact"
+                        ? `success:Found: ${response.data.name}`
+                        : `success:Couldn't match the exact address, but zoomed to your ${attempt.precision === "postcode" ? "postcode area" : "state"} below — click your spot on the map to pinpoint it.`
+                );
+
+                setGeocoding(false);
+                return;
+            } catch (error) {
+                // Try the next, coarser attempt.
+            }
         }
+
+        const stateFallback = STATE_FALLBACK_CENTERS[formData.state];
+
+        if (stateFallback) {
+            setMapFocusRequest({ ...stateFallback, zoom: STATE_FALLBACK_ZOOM });
+        }
+
+        setGeocodeStatus(
+            stateFallback
+                ? `error:Couldn't look up that address right now. The map below is now centred on ${formData.state} — click your spot on it instead.`
+                : `error:Couldn't look up that address right now. Try clicking your spot on the map below instead.`
+        );
+
+        setGeocoding(false);
     };
 
 
@@ -266,6 +345,25 @@ export default function HiddenGemSubmission() {
                             </span>
                         )}
                     </div>
+
+                    <LocationPickerMap
+                        latitude={formData.latitude}
+                        longitude={formData.longitude}
+                        focusRequest={mapFocusRequest}
+                        onLocationSelected={(location) => {
+                            setFormData((prev) => ({
+                                ...prev,
+                                address: location.address || prev.address,
+                                state: location.state || prev.state,
+                                postcode: location.postcode
+                                    ? String(location.postcode)
+                                    : prev.postcode,
+                                latitude: String(location.latitude),
+                                longitude: String(location.longitude),
+                            }));
+                            setGeocodeStatus("");
+                        }}
+                    />
 
                     <input
                         className="form-input"

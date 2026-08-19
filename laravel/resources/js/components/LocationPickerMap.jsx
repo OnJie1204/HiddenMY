@@ -52,7 +52,7 @@ function FocusMap({ request }) {
         if (request) {
             map.flyTo(
                 [Number(request.latitude), Number(request.longitude)],
-                15,
+                request.zoom ?? 15,
                 FLY_TO_OPTIONS
             );
         }
