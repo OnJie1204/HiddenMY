@@ -12,6 +12,8 @@ import { getGemStatusDisplay, voteProgressLabel } from "../utils/gemStatus";
 
 import "../styles/global.css";
 
+const MY_VOTES_SORT_KEY = "myVotesSortOrder";
+
 function getVotePhotoUrl(photoPath) {
     if (!photoPath) return "";
 
@@ -44,6 +46,11 @@ export default function MyHiddenGems() {
     const [votesLoading, setVotesLoading] = useState(false);
     const [votesError, setVotesError] = useState("");
     const [votesLoaded, setVotesLoaded] = useState(false);
+    const [voteSortOrder, setVoteSortOrder] = useState(() =>
+        sessionStorage.getItem(MY_VOTES_SORT_KEY) === "oldest"
+            ? "oldest"
+            : "newest"
+    );
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
 
@@ -58,6 +65,21 @@ export default function MyHiddenGems() {
         && (!filters.category || String(gem.category_id) === filters.category)
         && (!filters.state || gem.state === filters.state)
     );
+
+    const sortedVotes = [...votes].sort((firstVote, secondVote) => {
+        const firstDate = new Date(firstVote.created_at).getTime();
+        const secondDate = new Date(secondVote.created_at).getTime();
+        const firstDateIsValid = Number.isFinite(firstDate);
+        const secondDateIsValid = Number.isFinite(secondDate);
+
+        if (!firstDateIsValid && !secondDateIsValid) return 0;
+        if (!firstDateIsValid) return 1;
+        if (!secondDateIsValid) return -1;
+
+        return voteSortOrder === "oldest"
+            ? firstDate - secondDate
+            : secondDate - firstDate;
+    });
 
     const fetchMyHiddenGems = async () => {
         setLoading(true);
@@ -105,6 +127,11 @@ export default function MyHiddenGems() {
         }
 
         setSearchParams(nextParams, { replace: true });
+    };
+
+    const updateVoteSortOrder = (value) => {
+        setVoteSortOrder(value);
+        sessionStorage.setItem(MY_VOTES_SORT_KEY, value);
     };
 
     const showMyVotes = async () => {
@@ -252,6 +279,19 @@ export default function MyHiddenGems() {
                 </div>
             )}
 
+            {activeTab === "votes" && (
+                <div className="hidden-gems-filters">
+                    <select
+                        className="hidden-gems-filter-select"
+                        value={voteSortOrder}
+                        onChange={(event) => updateVoteSortOrder(event.target.value)}
+                    >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                </div>
+            )}
+
             {activeTab === "hidden-gems" ? (loading ? (
                 <div className="hidden-gems-loading">
                     <p>Loading your hidden gems...</p>
@@ -386,7 +426,7 @@ export default function MyHiddenGems() {
                 </div>
             ) : (
                 <div className="my-votes-feed">
-                    {votes.map((vote) => (
+                    {sortedVotes.map((vote) => (
                         <article
                             key={vote.id}
                             className="my-vote-card"
