@@ -1,4 +1,4 @@
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
     addTripLocation,
@@ -9,6 +9,8 @@ import {
     updateTripLocationOrder,
 } from "../api/TripItinerary";
 import { getHiddenGems, searchHiddenGems, reverseGeocodeLocation } from "../api/hiddenGems";
+import { getWishlist } from "../api/wishlist";
+import { getGemStatusDisplay } from "../utils/gemStatus";
 
 import {
     DndContext,
@@ -158,16 +160,6 @@ function SortableLocationCard({
 
             </div>
 
-            <div className="trip-detail-location-icon">
-
-                {location.type === "hidden"
-
-                    ? "💎"
-
-                    : "📍"}
-
-            </div>
-
             <div className="trip-detail-location-name">
                 {index + 1}. {location.name}
             </div>
@@ -177,10 +169,12 @@ function SortableLocationCard({
                 className="trip-detail-delete-stop-btn"
 
                 onClick={() => onDelete(location.id)}
+                aria-label="Remove stop"
+                title="Remove stop"
 
             >
 
-                🗑
+                ✕
 
             </button>
 
@@ -227,6 +221,8 @@ export default function TripItineraryDetail() {
     const [locationPromptError, setLocationPromptError] = useState("");
     const [isIdentifyingClickedLocation, setIsIdentifyingClickedLocation] = useState(false);
     const [mapClickError, setMapClickError] = useState("");
+    const [wishlistItems, setWishlistItems] = useState([]);
+    const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -315,7 +311,7 @@ export default function TripItineraryDetail() {
             setHiddenGemsError("");
 
             try {
-                const response = await getHiddenGems({ status: "verified" });
+                const response = await getHiddenGems({ status: "hidden_gem" });
                 const gems = Array.isArray(response.data?.data) ? response.data.data : [];
 
                 if (isCurrent) {
@@ -336,6 +332,31 @@ export default function TripItineraryDetail() {
         };
 
         loadHiddenGems();
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [isStoppingPointDialogOpen]);
+
+    useEffect(() => {
+        if (!isStoppingPointDialogOpen) return;
+
+        let isCurrent = true;
+
+        setIsLoadingWishlist(true);
+        getWishlist()
+            .then((response) => {
+                if (isCurrent) {
+                    setWishlistItems(Array.isArray(response.data?.data) ? response.data.data : []);
+                }
+            })
+            .catch((error) => {
+                console.error("Failed to load wishlist.", error);
+                if (isCurrent) setWishlistItems([]);
+            })
+            .finally(() => {
+                if (isCurrent) setIsLoadingWishlist(false);
+            });
 
         return () => {
             isCurrent = false;
@@ -713,13 +734,13 @@ export default function TripItineraryDetail() {
                             className="trip-detail-btn trip-detail-rename-btn"
                             onClick={() => setIsRenaming(true)}
                         >
-                            ✏ Rename
+                            Rename
                         </button>
                     )}
 
 
                     <button className="trip-detail-btn trip-detail-delete-btn" onClick={handleDelete}>
-                        🗑 Delete
+                        Delete
                     </button>
 
                 </div>
@@ -870,7 +891,7 @@ export default function TripItineraryDetail() {
 
                         {userLocation && (
                             <p className="stopping-point-search-status">
-                                📍 Showing OpenStreetMap results nearest to your current location first.
+                                Showing OpenStreetMap results nearest to your current location first.
                             </p>
                         )}
 
@@ -890,6 +911,40 @@ export default function TripItineraryDetail() {
                             }}
                         />
 
+                        <div className="stopping-point-wishlist-section">
+                            <p className="stopping-point-search-label">From your wishlist</p>
+                            {isLoadingWishlist && <p className="stopping-point-search-status">Loading your wishlist…</p>}
+                            {!isLoadingWishlist && wishlistItems.length === 0 && (
+                                <p className="stopping-point-search-status">
+                                    Nothing saved yet — <Link to="/wishlist">browse hidden gems</Link> and tap the heart to save some here.
+                                </p>
+                            )}
+                            {!isLoadingWishlist && wishlistItems.length > 0 && (
+                                <div className="stopping-point-search-suggestions" role="listbox" aria-label="Wishlist locations">
+                                    {wishlistItems.map((gem) => (
+                                        <button
+                                            key={`wishlist-${gem.id}`}
+                                            type="button"
+                                            className="stopping-point-search-result"
+                                            onClick={() => selectSearchResult({
+                                                id: gem.id,
+                                                name: gem.place_name,
+                                                source: "database",
+                                                status: gem.status,
+                                                latitude: gem.latitude,
+                                                longitude: gem.longitude,
+                                            })}
+                                        >
+                                            <span className="stopping-point-search-result-name">{gem.place_name}</span>
+                                            <span className={`stopping-point-search-result-status ${getGemStatusDisplay(gem).badgeClass}`}>
+                                                {getGemStatusDisplay(gem).label}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         {(isSearchingLocations || searchResults.database.length > 0 || searchResults.openStreetMap.length > 0 || locationSearchError) && (
                             <div className="stopping-point-search-suggestions" role="listbox" aria-label="Location search results">
                                 {isSearchingLocations && <p className="stopping-point-search-status">Searching locations…</p>}
@@ -902,10 +957,12 @@ export default function TripItineraryDetail() {
                                         className="stopping-point-search-result"
                                         onClick={() => selectSearchResult(location)}
                                     >
-                                        <span className="stopping-point-search-result-prefix" aria-hidden="true">
-                                            {location.source === "database" ? "💎" : "📍"}
-                                        </span>
-                                        {location.name}
+                                        <span className="stopping-point-search-result-name">{location.name}</span>
+                                        {location.source === "database" && (
+                                            <span className={`stopping-point-search-result-status ${getGemStatusDisplay(location).badgeClass}`}>
+                                                {getGemStatusDisplay(location).label}
+                                            </span>
+                                        )}
                                     </button>
                                 ))}
                             </div>
@@ -1036,7 +1093,7 @@ export default function TripItineraryDetail() {
                 className="trip-detail-btn trip-detail-route-btn"
                 onClick={handleOpenRouteInGoogleMaps}
             >
-                🗺 Open Route in Google Maps
+                Open Route in Google Maps
             </button>
 
 

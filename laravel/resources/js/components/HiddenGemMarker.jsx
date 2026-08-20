@@ -8,8 +8,8 @@ const gemIcon = new L.Icon({
     iconAnchor: [20, 40],
 });
 
-// Dimmed variant for gems that haven't been community-verified yet,
-// so verified vs. pending is visible at a glance on the map itself.
+// Dimmed variant for AI-approved gems still awaiting community votes,
+// so Hidden Gem vs. awaiting-votes is visible at a glance on the map itself.
 const gemIconPending = new L.Icon({
     iconUrl: "/images/gem_marker.png",
     iconSize: [40, 40],
@@ -32,7 +32,7 @@ function HiddenGemMarker({
             Number(gem.longitude)
         ]}
 
-        icon={gem.status === "pending" ? gemIconPending : gemIcon}
+        icon={gem.status === "pending_community_vote" ? gemIconPending : gemIcon}
         riseOnHover={true}
 
         eventHandlers={{
@@ -50,12 +50,12 @@ function HiddenGemMarker({
         }}
         >
             <Popup offset={[0, -25]}>
-                <b>💎 {gem.title}</b>
+                <b>{gem.title}</b>
                 <br />
                 <small>
                     {gem.state}
                     {postCount > 1 && <> · {postCount} posts here</>}
-                    {gem.status === "pending" && <> · Pending verification</>}
+                    {gem.status === "pending_community_vote" && <> · Awaiting community votes</>}
                 </small>
             </Popup>
         </Marker>

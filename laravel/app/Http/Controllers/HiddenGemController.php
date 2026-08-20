@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\VerifyHiddenGemSubmission;
 use App\Models\Location;
 use App\Models\Category;
 use App\Models\LocationImage;
+use App\Support\Geo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -56,7 +58,7 @@ class HiddenGemController extends Controller
             'place_name' => 'required|string',
             'address' => 'required|string',
             'state' => 'required|string',
-            'postcode' => 'required|integer',
+            'postcode' => 'required|digits:5',
             'description' => 'required|string',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
@@ -65,6 +67,7 @@ class HiddenGemController extends Controller
 
         $existingLocation = Location::where('place_name', $request->place_name)
             ->where('address', $request->address)
+            ->where('status', '!=', 'deleted')
             ->first();
 
         if ($existingLocation) {
@@ -107,6 +110,13 @@ class HiddenGemController extends Controller
                 );
 
                 if ($response->failed()) {
+                    // Undo the just-created Location (cascades to any images
+                    // already attached) so a failed submission never leaves a
+                    // stuck, undispatched 'pending' row behind — otherwise the
+                    // user can't even resubmit, since it collides with the
+                    // duplicate place_name+address check above.
+                    $location->delete();
+
                     return response()->json([
                         'message' => 'Failed to upload image.',
                         'error' => $response->json()
@@ -124,6 +134,8 @@ class HiddenGemController extends Controller
             }
         }
 
+        VerifyHiddenGemSubmission::dispatch($location->id);
+
         return response()->json([
             'message' => 'Hidden gem submitted successfully.',
             'data' => $location->load('images')
@@ -135,11 +147,13 @@ class HiddenGemController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        // Public listing — only AI-approved (or already community-verified) gems
+        // may be discoverable; anything still awaiting/failing AI review must stay hidden.
         $query = Location::with(['user', 'category', 'images'])
-            ->where('status', '!=', 'deleted');
+            ->publiclyVisible();
 
-        // Filter by status (verified / pending)
-        if ($request->has('status') && in_array($request->status, ['verified', 'pending'])) {
+        // Filter by status (hidden_gem / pending_community_vote)
+        if ($request->has('status') && in_array($request->status, ['hidden_gem', 'pending_community_vote'])) {
             $query->where('status', $request->status);
         }
 
@@ -209,6 +223,123 @@ class HiddenGemController extends Controller
         ]);
     }
 
+    public function update(Request $request, $id): JsonResponse
+    {
+        $gem = Location::findOrFail($id);
+
+        if ($gem->user_id !== Auth::id()) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        $editableStatuses = ['pending', 'ai_rejected', 'pending_community_vote'];
+
+        if (! in_array($gem->status, $editableStatuses, true)) {
+            return response()->json([
+                'message' => 'This hidden gem can no longer be edited.'
+            ], 403);
+        }
+
+        $hasVotes = $gem->vote_count > 0 || $gem->votes()->exists();
+
+        if ($hasVotes) {
+            $validated = $request->validate([
+                'description' => 'required|string',
+                'category_id' => 'prohibited',
+                'place_name' => 'prohibited',
+                'address' => 'prohibited',
+                'state' => 'prohibited',
+                'postcode' => 'prohibited',
+                'latitude' => 'prohibited',
+                'longitude' => 'prohibited',
+                'images' => 'prohibited',
+            ]);
+
+            $gem->update([
+                'description' => $validated['description'],
+            ]);
+
+            return response()->json([
+                'message' => 'Hidden gem description updated successfully.',
+                'data' => $gem->load(['category', 'images'])
+            ]);
+        }
+
+        $validated = $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'place_name' => 'required|string|max:255',
+            'address' => 'required|string|max:255',
+            'state' => 'required|string|max:100',
+            'postcode' => 'required|digits:5',
+            'description' => 'required|string',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'images' => 'nullable|array',
+            'images.*' => 'image|max:5120',
+        ]);
+
+        $uploadedImageUrls = [];
+
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $fileName = 'hidden-gems/' . uniqid() . '.' . $image->getClientOriginalExtension();
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                    'Content-Type' => $image->getMimeType(),
+                ])->withBody(
+                    file_get_contents($image->getRealPath()),
+                    $image->getMimeType()
+                )->post(
+                    env('SUPABASE_URL') . '/storage/v1/object/location_images/' . $fileName
+                );
+
+                if ($response->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to upload image.',
+                        'error' => $response->json()
+                    ], 500);
+                }
+
+                $uploadedImageUrls[] = env('SUPABASE_URL')
+                    . '/storage/v1/object/public/location_images/'
+                    . $fileName;
+            }
+        }
+
+        unset($validated['images']);
+
+        // Update hidden gem information
+        $gem->update($validated);
+
+        foreach ($uploadedImageUrls as $imageUrl) {
+            LocationImage::create([
+                'location_id' => $gem->id,
+                'image_url' => $imageUrl
+            ]);
+        }
+
+        // Reset verification progress after editing
+        $gem->vote_count = 0;
+        $gem->status = 'pending';
+        $gem->ai_review_reason = null;
+        $gem->verification_attempts = 0;
+        $gem->save();
+
+        // Remove previous vote records
+        $gem->votes()->delete();
+
+        // Re-run Stage 1 AI verification against the updated submission.
+        VerifyHiddenGemSubmission::dispatch($gem->id);
+
+        return response()->json([
+            'message' => 'Hidden gem updated successfully and is being re-verified.',
+            'data' => $gem->load(['category', 'images'])
+        ]);
+    }
+
     /**
      * Display a single Hidden Gem detail.
      */
@@ -268,11 +399,11 @@ class HiddenGemController extends Controller
             'south' => ['required', 'numeric', 'between:-90,90'],
             'east' => ['required', 'numeric', 'between:-180,180'],
             'west' => ['required', 'numeric', 'between:-180,180'],
-            'status' => ['nullable', 'in:verified,pending'],
+            'status' => ['nullable', 'in:hidden_gem,pending_community_vote'],
         ]);
 
         $query = Location::with(['category', 'images'])
-            ->where('status', '!=', 'deleted')
+            ->publiclyVisible()
             ->whereBetween('latitude', [$validated['south'], $validated['north']])
             ->whereBetween('longitude', [$validated['west'], $validated['east']]);
 
@@ -313,6 +444,7 @@ class HiddenGemController extends Controller
 
         // Hidden Gems are always searched and displayed first, regardless of location.
         $databaseQuery = Location::query()
+            ->publiclyVisible()
             ->where(function ($q) use ($query) {
                 $q->where('place_name', 'ILIKE', '%'.$query.'%')
                 ->orWhere('state', 'ILIKE', '%'.$query.'%');
@@ -321,7 +453,7 @@ class HiddenGemController extends Controller
         $totalDatabaseMatches = (clone $databaseQuery)->count();
 
         $databaseLocations = $databaseQuery
-            ->select(['id', 'place_name', 'state', 'latitude', 'longitude'])
+            ->select(['id', 'place_name', 'state', 'latitude', 'longitude', 'status'])
             ->orderBy('place_name')
             ->skip($dbOffset)
             ->limit(self::SEARCH_RESULT_LIMIT)
@@ -364,16 +496,75 @@ class HiddenGemController extends Controller
             'query' => ['required', 'string', 'min:3', 'max:200'],
         ]);
 
-        $match = $this->searchOpenStreetMap(trim($validated['query']), 1)->first();
+        try {
+            $results = Http::acceptJson()
+                ->withUserAgent(config('app.name', 'Gemora').' hidden gem address geocoder')
+                ->timeout(5)
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'q' => trim($validated['query']),
+                    'format' => 'jsonv2',
+                    'limit' => 1,
+                    'countrycodes' => 'my',
+                    'addressdetails' => 1,
+                ])
+                ->throw()
+                ->json();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Unable to identify this location. Please try again.'
+            ], 502);
+        }
+
+        $match = $results[0] ?? null;
 
         if (! $match) {
             return response()->json(['message' => 'No matching location found.'], 404);
         }
 
+        $addressDetails = $match['address'] ?? [];
+
+        $state = $addressDetails['state']
+            ?? $addressDetails['region']
+            ?? '';
+
+        $stateAliases = [
+            'Pulau Pinang' => 'Penang',
+            'Wilayah Persekutuan Kuala Lumpur' => 'Kuala Lumpur',
+            'Federal Territory of Kuala Lumpur' => 'Kuala Lumpur',
+            'Wilayah Persekutuan Putrajaya' => 'Putrajaya',
+            'Federal Territory of Putrajaya' => 'Putrajaya',
+            'Wilayah Persekutuan Labuan' => 'Labuan',
+            'Federal Territory of Labuan' => 'Labuan',
+        ];
+
+        $state = $stateAliases[$state] ?? $state;
+
+        $specificAddressFields = [
+            'house_number',
+            'road',
+            'pedestrian',
+            'footway',
+            'path',
+            'residential',
+            'neighbourhood',
+            'suburb',
+            'quarter',
+        ];
+
+        $isSpecific = collect($specificAddressFields)->contains(
+            fn (string $field) => !empty($addressDetails[$field])
+        );
+
         return response()->json([
-            'latitude' => $match['latitude'],
-            'longitude' => $match['longitude'],
-            'name' => $match['name'],
+            'latitude' => (float) $match['lat'],
+            'longitude' => (float) $match['lon'],
+            'name' => $match['display_name'],
+            'state' => $state,
+            'postcode' => $addressDetails['postcode'] ?? '',
+            'country_code' => $addressDetails['country_code'] ?? '',
+            'is_specific' => $isSpecific,
         ]);
     }
 
@@ -429,6 +620,107 @@ class HiddenGemController extends Controller
         return response()->json($location);
     }
 
+    public function reverseGeocodeAddress(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        $latitude = (float) $validated['latitude'];
+        $longitude = (float) $validated['longitude'];
+
+        try {
+            $result = Http::acceptJson()
+                ->withUserAgent(config('app.name', 'Gemora').' hidden gem location picker')
+                ->timeout(5)
+                ->get('https://nominatim.openstreetmap.org/reverse', [
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                    'format' => 'jsonv2',
+                    'addressdetails' => 1,
+                ])
+                ->throw()
+                ->json();
+
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Unable to identify this location. Please try again.'
+            ], 502);
+        }
+
+        if (empty($result['display_name'])) {
+            return response()->json([
+                'message' => 'No address found for this location.'
+            ], 404);
+        }
+
+        $addressDetails = $result['address'] ?? [];
+
+        $state = $addressDetails['state']
+            ?? $addressDetails['region']
+            ?? '';
+
+        $stateAliases = [
+            'Pulau Pinang' => 'Penang',
+            'Wilayah Persekutuan Kuala Lumpur' => 'Kuala Lumpur',
+            'Federal Territory of Kuala Lumpur' => 'Kuala Lumpur',
+            'Wilayah Persekutuan Putrajaya' => 'Putrajaya',
+            'Federal Territory of Putrajaya' => 'Putrajaya',
+            'Wilayah Persekutuan Labuan' => 'Labuan',
+            'Federal Territory of Labuan' => 'Labuan',
+        ];
+
+        $state = $stateAliases[$state] ?? $state;
+
+        $postcode = $addressDetails['postcode'] ?? '';
+
+        $road = $addressDetails['road']
+            ?? $addressDetails['pedestrian']
+            ?? $addressDetails['footway']
+            ?? $addressDetails['path']
+            ?? $addressDetails['residential']
+            ?? '';
+
+        $street = trim(($addressDetails['house_number'] ?? '') . ' ' . $road);
+
+        $area = $addressDetails['neighbourhood']
+            ?? $addressDetails['suburb']
+            ?? $addressDetails['quarter']
+            ?? '';
+
+        $locality = $addressDetails['city']
+            ?? $addressDetails['town']
+            ?? $addressDetails['village']
+            ?? $addressDetails['municipality']
+            ?? '';
+
+        $addressParts = [];
+        $seenAddressParts = [];
+
+        foreach ([$street, $area, $locality] as $part) {
+            $part = trim($part);
+            $normalizedPart = strtolower($part);
+
+            if ($part !== '' && !in_array($normalizedPart, $seenAddressParts, true)) {
+                $addressParts[] = $part;
+                $seenAddressParts[] = $normalizedPart;
+            }
+        }
+
+        $address = implode(', ', $addressParts);
+
+        return response()->json([
+            'address' => $address,
+            'state' => $state,
+            'postcode' => $postcode,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ]);
+    }
+
     /**
      * Get categories for filter.
      */
@@ -468,6 +760,7 @@ class HiddenGemController extends Controller
     public function recent(): JsonResponse
     {
         $recentLocations = Location::with(['user', 'category', 'images'])
+            ->publiclyVisible()
             ->latest()
             ->take(6)
             ->get();
@@ -476,12 +769,12 @@ class HiddenGemController extends Controller
     }
 
     /**
-     * Top-voted, verified Hidden Gems (used by the "Popular" row on the map page).
+     * Top-voted Hidden Gems (used by the "Popular" row on the map page).
      */
     public function popular(): JsonResponse
     {
         $popularLocations = Location::with(['user', 'category', 'images'])
-            ->where('status', 'verified')
+            ->where('status', 'hidden_gem')
             ->orderByDesc('vote_count')
             ->take(6)
             ->get();
@@ -560,15 +853,7 @@ class HiddenGemController extends Controller
 
     private function distanceInKm(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
-        $earthRadiusKm = 6371;
-
-        $latDelta = deg2rad($lat2 - $lat1);
-        $lonDelta = deg2rad($lon2 - $lon1);
-
-        $a = sin($latDelta / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
-
-        return $earthRadiusKm * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return Geo::distanceMeters($lat1, $lon1, $lat2, $lon2) / 1000;
     }
 
     private function locationSearchResult(Location $location): array
@@ -579,6 +864,7 @@ class HiddenGemController extends Controller
             'state' => $location->state,
             'latitude' => $location->latitude,
             'longitude' => $location->longitude,
+            'status' => $location->status,
             'source' => 'database',
         ];
     }
@@ -682,13 +968,6 @@ class HiddenGemController extends Controller
 
     private function haversineMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $earthRadiusMeters = 6371000;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-
-        $a = sin($dLat / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-
-        return $earthRadiusMeters * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return Geo::distanceMeters($lat1, $lng1, $lat2, $lng2);
     }
 }

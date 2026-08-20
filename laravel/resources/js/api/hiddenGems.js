@@ -19,6 +19,14 @@ export function searchHiddenGems(query, { signal, latitude, longitude, dbOffset,
     });
 }
 
+export const reverseGeocodeAddress = (latitude, longitude) =>
+    api.get('/hidden-gems/reverse-geocode-address', {
+        params: {
+            latitude,
+            longitude
+        }
+    });
+
 export const getCategories = () => 
     api.get('/hidden-gems/categories');
 
@@ -37,6 +45,15 @@ export const createHiddenGem = (data) =>
             'Content-Type': 'multipart/form-data'
         }
     });
+
+export const updateHiddenGem = (id, data) => {
+    if (data instanceof FormData) {
+        data.append('_method', 'PUT');
+        return api.post(`/hidden-gems/${id}`, data);
+    }
+
+    return api.put(`/hidden-gems/${id}`, data);
+};
 
 export const getMyHiddenGems = () =>
     api.get('/my-hidden-gems');

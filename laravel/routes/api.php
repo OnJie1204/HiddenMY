@@ -3,7 +3,9 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\HiddenGemController;
+use App\Http\Controllers\VoteController;
 use App\Http\Controllers\TripItineraryController;
+use App\Http\Controllers\WishlistController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -19,14 +21,14 @@ Route::get('/ping', function () {
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect']);
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
 
-// Public route (accessible without logging in)
+// ===== Public Auth Routes =====
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->name('login');  
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/resend-verification', [AuthController::class, 'resendVerification']);
 
-// Email verification after registration (accessible without logging in, as users typically haven't logged in yet when they click the link).
+// Email verification
 Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
     $user = User::findOrFail($id);
 
@@ -43,41 +45,61 @@ Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
     return response()->json(['message' => 'Email verified successfully. You can now log in.']);
 })->middleware(['signed'])->name('verification.verify');
 
-// Routes requiring login
+// ===== Protected Routes =====
 Route::middleware('auth:sanctum')->group(function () {
+    // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/profile', [AuthController::class, 'updateProfile']);
     Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
-    Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']); // 改 email 用，移到这里因为需要登入才能改自己的资料
+    Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']);
     Route::post('/email/resend', function (Request $request) {
         $request->user()->sendEmailVerificationNotification();
-
         return response()->json(['message' => 'Verification link sent']);
     });
 
-    // Trip Itineraries
+    // ===== Trip Itineraries =====
     Route::post('trip-itineraries/{tripItinerary}/locations', [TripItineraryController::class, 'storeLocation']);
     Route::put('trip-itineraries/{tripItinerary}/locations/order', [TripItineraryController::class, 'updateLocationOrder']);
     Route::delete('trip-itineraries/{tripItinerary}/locations/{location}', [TripItineraryController::class, 'destroyLocation']);
     Route::apiResource('trip-itineraries', TripItineraryController::class);
 
-    // ===== Hidden Gems API (for React) =====
+    // ===== Vote Routes =====
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/votes/check/{locationId}', [VoteController::class, 'checkEligibility']);
+    Route::post('/votes/{locationId}', [VoteController::class, 'store']);
+    Route::get('/votes/{locationId}', [VoteController::class, 'getVotes']);
+    Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
+    Route::get('/my-votes', [VoteController::class, 'myVotes']);
+    Route::patch('/votes/{vote}/comment', [VoteController::class, 'updateComment']);
+    Route::delete('/votes/{vote}/comment', [VoteController::class, 'deleteComment']);
+    Route::delete('/votes/{vote}/photo', [VoteController::class, 'deletePhoto']);
+});
+
+    // ===== Wishlist =====
+    Route::get('/wishlist', [WishlistController::class, 'index']);
+    Route::post('/wishlist/{locationId}', [WishlistController::class, 'store']);
+    Route::delete('/wishlist/{locationId}', [WishlistController::class, 'destroy']);
+
+    // ===== Hidden Gems =====
     Route::get('hidden-gems', [HiddenGemController::class, 'index']);
     Route::get('hidden-gems/search', [HiddenGemController::class, 'search']);
     Route::get('hidden-gems/categories', [HiddenGemController::class, 'getCategories']);
     Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);
     Route::get('hidden-gems/geocode', [HiddenGemController::class, 'geocode']);
     Route::get('hidden-gems/reverse-geocode', [HiddenGemController::class, 'reverseGeocode']);
+    Route::get('hidden-gems/reverse-geocode-address', [HiddenGemController::class, 'reverseGeocodeAddress']);
     Route::post('hidden-gems', [HiddenGemController::class, 'store']);
     Route::get('my-hidden-gems', [HiddenGemController::class, 'myHiddenGems']);
     Route::patch('hidden-gems/{id}/status', [HiddenGemController::class, 'updateStatus']);
     Route::get('hidden-gems-in-bounds', [HiddenGemController::class, 'inBounds']);
     Route::get('nearby-attractions', [HiddenGemController::class, 'nearbyAttractions']);
+     Route::put('hidden-gems/{id}', [HiddenGemController::class, 'update']);
     Route::get('hidden-gems/{id}/nearby', [HiddenGemController::class, 'nearby']);
     Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
 });
+
+// ===== Public Hidden Gems Routes =====
 Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);
 Route::get('popular-hidden-gems', [HiddenGemController::class, 'popular']);
-

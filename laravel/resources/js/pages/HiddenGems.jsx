@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
-import GemImage from "../components/GemImage";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 
 import "../styles/global.css";
 
@@ -21,6 +21,8 @@ export default function HiddenGems() {
     const [states, setStates] = useState([]);
     const [totalResults, setTotalResults] = useState(0);
     const [lastSearch, setLastSearch] = useState('');
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [wishlistBusyId, setWishlistBusyId] = useState(null);
 
     const fetchGems = async () => {
         setLoading(true);
@@ -69,6 +71,37 @@ export default function HiddenGems() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search, filter]);
 
+    useEffect(() => {
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
+            .catch(err => console.error('Error fetching wishlist:', err));
+    }, []);
+
+    const handleToggleWishlist = async (e, gem) => {
+        e.stopPropagation();
+        if (wishlistBusyId) return;
+
+        const isWishlisted = wishlistIds.has(gem.id);
+        setWishlistBusyId(gem.id);
+        try {
+            if (isWishlisted) {
+                await removeFromWishlist(gem.id);
+                setWishlistIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(gem.id);
+                    return next;
+                });
+            } else {
+                await addToWishlist(gem.id);
+                setWishlistIds(prev => new Set(prev).add(gem.id));
+            }
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+        } finally {
+            setWishlistBusyId(null);
+        }
+    };
+
     const handleSearchSubmit = (e) => {
         e.preventDefault();
         if (search) {
@@ -87,7 +120,7 @@ export default function HiddenGems() {
     return (
         <div className="hidden-gems-page">
             <div className="hidden-gems-header">
-                <h1>🔍 Hidden Gems Discovery</h1>
+                <h1>Hidden Gems Discovery</h1>
 
                 <button
                     className="hidden-gems-submit-btn"
@@ -120,7 +153,7 @@ export default function HiddenGems() {
                                 </button>
                             )}
                             <button type="submit" className="hidden-gems-search-btn">
-                                🔍 Search
+                                Search
                             </button>
                         </div>
                     </div>
@@ -142,8 +175,8 @@ export default function HiddenGems() {
                     onChange={(e) => setFilter({ ...filter, status: e.target.value })}
                 >
                     <option value="">Select Status</option>
-                    <option value="verified">Verified</option>
-                    <option value="pending">Pending</option>
+                    <option value="hidden_gem">Hidden Gem</option>
+                    <option value="pending_community_vote">Awaiting Votes</option>
                 </select>
 
                 <select
@@ -190,15 +223,36 @@ export default function HiddenGems() {
                             onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                         >
                             <div className="hidden-gems-card-image">
-                                <GemImage
-                                    src={gem.images?.[0]?.image_url}
-                                    alt={gem.place_name}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
+                                {gem.images && gem.images.length > 0 ? (
+                                    <img
+                                        src={gem.images[0].image_url}
+                                        alt={gem.place_name}
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.parentElement.innerHTML = `<div class="hidden-gems-card-no-image">No Image</div>`;
+                                        }}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                ) : (
+                                    <div className="hidden-gems-card-no-image">
+                                        No Image
+                                    </div>
+                                )}
                             </div>
 
                             <div className="hidden-gems-card-content">
-                                <h2>{gem.place_name}</h2>
+                                <div className="wishlist-card-title-row">
+                                    <h2>{gem.place_name}</h2>
+                                    <button
+                                        type="button"
+                                        className="wishlist-remove-btn"
+                                        disabled={wishlistBusyId === gem.id}
+                                        title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                        onClick={(e) => handleToggleWishlist(e, gem)}
+                                    >
+                                        {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                    </button>
+                                </div>
 
                                 <div className="hidden-gems-card-tags">
                                     <span className="hidden-gems-card-category">
@@ -214,13 +268,13 @@ export default function HiddenGems() {
                                 </p>
 
                                 <div className="hidden-gems-card-status">
-                                    {gem.status === 'verified' ? (
+                                    {gem.status === 'hidden_gem' ? (
                                         <span className="hidden-gems-card-verified">
-                                            Verified
+                                            Hidden Gem
                                         </span>
                                     ) : (
-                                        <span className="hidden-gems-card-pending">
-                                            Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                                        <span className="hidden-gems-card-voting">
+                                            {gem.vote_count || 0}/{gem.verification_threshold || 10} votes
                                         </span>
                                     )}
                                 </div>

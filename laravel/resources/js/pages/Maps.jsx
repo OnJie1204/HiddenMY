@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
@@ -14,6 +15,7 @@ import {
     getHiddenGemDetail,
 } from "../api/hiddenGems";
 import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
@@ -123,6 +125,9 @@ function groupKey(lat, lng) {
 }
 
 function Maps(){
+    const location = useLocation();
+    const highlightGem = location.state?.highlightGem || null;
+    const highlightId = location.state?.highlightId || null;
     const [hiddenGems,setHiddenGems]=useState([]);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [userPosition,setUserPosition]=useState(null);
@@ -132,7 +137,7 @@ function Maps(){
     const [myGems,setMyGems]=useState([]);
     const [popularPosts,setPopularPosts]=useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
-    const [statusFilter, setStatusFilter] = useState(null); // null | 'verified' | 'pending'
+    const [statusFilter, setStatusFilter] = useState(null); // null | 'hidden_gem' | 'pending_community_vote'
     const [nearby, setNearby] = useState([]);
     const [nearbyLoading, setNearbyLoading] = useState(false);
     const [explorePlaces, setExplorePlaces] = useState([]);
@@ -146,6 +151,7 @@ function Maps(){
     const [clickedPlaces, setClickedPlaces] = useState([]);
     const [clickedLoading, setClickedLoading] = useState(false);
     const [itineraries, setItineraries] = useState([]);
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [mapFullscreen, setMapFullscreen] = useState(false);
     const mapRef = useRef(null);
     const viewportTimer = useRef(null);
@@ -217,11 +223,34 @@ function Maps(){
     },[]);
 
     // Load the user's trip itineraries so gems can be added straight from the map
-    useEffect(()=>{
+    useEffect(() => {
         getTripItineraries()
             .then(res => setItineraries(res.data || []))
             .catch(err => console.log(err));
-    },[]);
+    }, []);
+
+    // Load the user's wishlist so the side panel can show which gems are already saved
+    useEffect(() => {
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(gem => gem.id))))
+            .catch(err => console.log(err));
+    }, []);
+
+    useEffect(() => {
+        if (highlightGem && highlightGem.id) {
+            // Open the side panel with the highlighted gem
+            setSelectedGroup([normalizeGem(highlightGem, "database")]);
+            setPanelOpen(true);
+            // Fly to the gem on the map
+            if (mapRef.current) {
+                mapRef.current.flyTo(
+                    [Number(highlightGem.latitude), Number(highlightGem.longitude)], 
+                    15, 
+                    { duration: 1.5, easeLinearity: 0.25 }
+                );
+            }
+        }
+    }, [highlightGem]);
 
     // Debounce viewport changes so panning doesn't spam the API
     const handleViewportChange = useCallback((next) => {
@@ -363,6 +392,20 @@ function Maps(){
         return addTripLocation(trip.id, payload);
     }, []);
 
+    const handleToggleWishlist = useCallback(async (gem, isWishlisted) => {
+        if (isWishlisted) {
+            await removeFromWishlist(gem.id);
+            setWishlistIds(prev => {
+                const next = new Set(prev);
+                next.delete(gem.id);
+                return next;
+            });
+        } else {
+            await addToWishlist(gem.id);
+            setWishlistIds(prev => new Set(prev).add(gem.id));
+        }
+    }, []);
+
     // Group hidden gems by coordinate
     const groupedGems = useMemo(() => {
         const map = new Map();
@@ -411,8 +454,8 @@ function Maps(){
 
     const statusFilters = [
         { value: null, label: "All" },
-        { value: "verified", label: "✓ Verified" },
-        { value: "pending", label: "⏳ Unverified" },
+        { value: "hidden_gem", label: "Hidden Gem" },
+        { value: "pending_community_vote", label: "Awaiting Votes" },
     ];
 
     return (
@@ -517,6 +560,8 @@ function Maps(){
                         onGemChange={handleActiveGemChange}
                         itineraries={itineraries}
                         onAddToItinerary={handleAddToItinerary}
+                        wishlistIds={wishlistIds}
+                        onToggleWishlist={handleToggleWishlist}
                     />
                 </div>
 
@@ -543,7 +588,7 @@ function Maps(){
                             onClick={() => setExploreOn(o => !o)}
                             title={`Show nearby attractions from OpenStreetMap once zoomed in (level ${EXPLORE_MIN_ZOOM}+)`}
                         >
-                            🔎 Nearby attractions
+                            Nearby attractions
                         </button>
                         <button
                             type="button"
@@ -551,7 +596,7 @@ function Maps(){
                             onClick={() => setClickExploreOn(o => !o)}
                             title="When on, clicking anywhere on the map searches for nearby attractions at that point"
                         >
-                            👆 Click to scan
+                            Click to scan
                         </button>
                     </div>
                     {clickExploreOn && (

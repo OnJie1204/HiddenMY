@@ -14,9 +14,13 @@ return new class extends Migration
                 ->after('verification_threshold');
         });
 
-        // Drop the FK + column on votes BEFORE dropping hidden_gems,
-        // otherwise Postgres blocks the drop (dependent object exists)
+        // Drop the unique index + FK + column on votes BEFORE dropping
+        // hidden_gems, otherwise Postgres blocks the drop (dependent object
+        // exists). The unique index must be dropped explicitly first — unlike
+        // Postgres, SQLite's DROP COLUMN doesn't cascade-drop a dependent
+        // unique index on its own.
         Schema::table('votes', function (Blueprint $table) {
+            $table->dropUnique(['user_id', 'hidden_gem_id']);
             $table->dropForeign(['hidden_gem_id']);
             $table->dropColumn('hidden_gem_id');
         });

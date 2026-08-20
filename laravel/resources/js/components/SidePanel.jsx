@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
+import Avatar from "./Avatar";
 
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 420;
@@ -16,6 +17,7 @@ function SidePanel({
     group, isOpen, onClose, user, setUser, mode = "nav", headerExtra = null,
     nearby = [], nearbyLoading = false, onSelectNearby, onGemChange,
     itineraries = [], onAddToItinerary,
+    wishlistIds = new Set(), onToggleWishlist,
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [width, setWidth] = useState(340);
@@ -23,6 +25,7 @@ function SidePanel({
     const [isResizing, setIsResizing] = useState(false);
     const [itineraryOpen, setItineraryOpen] = useState(false);
     const [itineraryStatus, setItineraryStatus] = useState(null);
+    const [wishlistBusy, setWishlistBusy] = useState(false);
     const bodyRef = useRef(null);
     const navigate = useNavigate();
 
@@ -92,11 +95,19 @@ function SidePanel({
         navigate(`/hidden-gems/${g.id}`);
     }
 
-    // The backend only accepts verified gems as itinerary stops
-    // (TripItineraryController uses the hiddenGems() scope), so pending ones
-    // are blocked here rather than failing with a 422 after the fact.
+    // The backend only accepts publicly-visible gems as itinerary stops
+    // (TripItineraryController uses the publiclyVisible() scope: 'hidden_gem'
+    // and 'pending_community_vote'), so anything still awaiting AI review is
+    // blocked here rather than failing with a 422 after the fact.
     const canAddToItinerary = gem
-        && (gem.source === "attraction" || gem.status === "verified");
+        && (gem.source === "attraction" || gem.status === "hidden_gem" || gem.status === "pending_community_vote");
+
+    // OSM attractions aren't Location records, so there's nothing to wishlist —
+    // only our own database gems that have passed AI review qualify.
+    const canWishlist = gem
+        && gem.source === "database"
+        && (gem.status === "hidden_gem" || gem.status === "pending_community_vote");
+    const isWishlisted = gem && wishlistIds.has(gem.id);
 
     async function handleAddToItinerary(itinerary) {
         setItineraryStatus({ type: "loading", message: `Adding to "${itinerary.trip_name}"…` });
@@ -112,6 +123,23 @@ function SidePanel({
         }
     }
 
+    async function handleToggleWishlist() {
+        if (!gem || wishlistBusy) return;
+        setWishlistBusy(true);
+        try {
+            await onToggleWishlist(gem, isWishlisted);
+        } catch (error) {
+            // Toggling is a single tap action — surface failures via the same
+            // itinerary status line rather than adding a second status area.
+            setItineraryStatus({
+                type: "error",
+                message: error?.response?.data?.message || "Could not update your wishlist.",
+            });
+        } finally {
+            setWishlistBusy(false);
+        }
+    }
+
     const handleLogout = async () => {
         localStorage.removeItem('token');
         setUser(null);
@@ -120,12 +148,13 @@ function SidePanel({
     };
 
     const menuItems = [
-        { to: '/', icon: '🏠', label: 'Home' },
-        { to: '/map', icon: '🗺️', label: 'Map' },
-        { to: '/hidden-gems', icon: '💎', label: 'Hidden Gems' },
-        { to: '/my-hidden-gems', icon: '📍', label: 'My Hidden Gems' },
-        { to: '/trip-itinerary', icon: '✈️', label: 'Trip Itinerary' },
-        { to: '/profile', icon: '👤', label: 'Profile' },
+        { to: '/', label: 'Home' },
+        { to: '/map', label: 'Map' },
+        { to: '/hidden-gems', label: 'Hidden Gems' },
+        { to: '/my-hidden-gems', label: 'My Hidden Gems' },
+        { to: '/wishlist', label: 'Wishlist' },
+        { to: '/trip-itinerary', label: 'Trip Itinerary' },
+        { to: '/profile', label: 'Profile' },
     ];
 
     return (
@@ -163,9 +192,7 @@ function SidePanel({
 
             {showNavChrome && user && (
                 <div className="side-panel-user">
-                    <div className="side-panel-user-avatar">
-                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
+                    <Avatar name={user.name} avatarUrl={user.avatar_url} size="sm" />
                     <div className="side-panel-user-info">
                         <p className="side-panel-user-name">{user.name || 'User'}</p>
                         <p className="side-panel-user-email">{user.email || ''}</p>
@@ -175,14 +202,13 @@ function SidePanel({
 
             {showNavChrome && (
                 <nav className="side-panel-nav">
-                    {menuItems.map(({ to, icon, label }) => (
+                    {menuItems.map(({ to, label }) => (
                         <Link
                             key={to}
                             to={to}
                             className="side-panel-nav-item"
                             onClick={onClose}
                         >
-                            <span className="side-panel-nav-icon">{icon}</span>
                             <span className="side-panel-nav-label">{label}</span>
                         </Link>
                     ))}
@@ -208,19 +234,22 @@ function SidePanel({
                                 {gem.attractionType && (
                                     <span className="badge badge-neutral">{gem.attractionType.replace(/_/g, " ")}</span>
                                 )}
-                                {gem.source === "database" && gem.status === "verified" && (
-                                    <span className="badge badge-success">✓ Verified</span>
+                                {gem.source === "database" && gem.status === "hidden_gem" && (
+                                    <span className="badge badge-success">Hidden Gem</span>
                                 )}
-                                {gem.source === "database" && gem.status !== "verified" && (
-                                    <span className="badge badge-pending">⏳ Unverified</span>
+                                {gem.source === "database" && gem.status === "pending_community_vote" && (
+                                    <span className="badge badge-pending">Awaiting Votes</span>
+                                )}
+                                {gem.source === "database" && gem.status === "ai_rejected" && (
+                                    <span className="badge badge-pending">Not Accepted</span>
                                 )}
                             </div>
                         </div>
 
                         <h2 className="side-panel-gem-title">
-                            {gem.source === "database" ? "💎" : "📍"} {gem.title}
+                            {gem.title}
                         </h2>
-                        {gem.state && <p className="side-panel-gem-meta">📍 {gem.state}</p>}
+                        {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
                         <p className="side-panel-gem-desc">{gem.description || "No description available."}</p>
 
                         {/* Icon action row, Google Maps style: icon tile + label underneath */}
@@ -243,11 +272,24 @@ function SidePanel({
                                 disabled={!canAddToItinerary}
                                 title={canAddToItinerary
                                     ? "Add to a trip itinerary"
-                                    : "Only verified hidden gems can be added to an itinerary"}
+                                    : "Only gems that have passed AI review can be added to an itinerary"}
                             >
                                 <span className="side-panel-icon-btn-icon">➕</span>
                                 <span className="side-panel-icon-btn-label">Itinerary</span>
                             </button>
+                            {onToggleWishlist && (
+                                <button
+                                    className={`side-panel-icon-btn ${isWishlisted ? "side-panel-icon-btn-active" : ""}`}
+                                    onClick={handleToggleWishlist}
+                                    disabled={!canWishlist || wishlistBusy}
+                                    title={canWishlist
+                                        ? (isWishlisted ? "Remove from wishlist" : "Save to wishlist")
+                                        : "Only gems that have passed AI review can be saved"}
+                                >
+                                    <span className="side-panel-icon-btn-icon">{isWishlisted ? "♥" : "♡"}</span>
+                                    <span className="side-panel-icon-btn-label">Wishlist</span>
+                                </button>
+                            )}
                             {gem.source === "database" && (
                                 <button className="side-panel-icon-btn" onClick={() => viewDetails(gem)}>
                                     <span className="side-panel-icon-btn-icon">ℹ️</span>
@@ -271,7 +313,7 @@ function SidePanel({
                                                 className="side-panel-itinerary-option"
                                                 onClick={() => handleAddToItinerary(trip)}
                                             >
-                                                ✈️ {trip.trip_name}
+                                                {trip.trip_name}
                                             </button>
                                         ))}
                                     </>
@@ -287,35 +329,35 @@ function SidePanel({
 
                         {gem.address && (
                             <div className="side-panel-info-row">
-                                <span className="side-panel-info-icon">📍</span>
+                                <span className="side-panel-info-label">Address</span>
                                 <p>{gem.address}</p>
                             </div>
                         )}
 
                         {gem.openingHours && (
                             <div className="side-panel-info-row">
-                                <span className="side-panel-info-icon">🕒</span>
+                                <span className="side-panel-info-label">Hours</span>
                                 <p>{gem.openingHours}</p>
                             </div>
                         )}
 
                         {gem.phone && (
                             <div className="side-panel-info-row">
-                                <span className="side-panel-info-icon">📞</span>
+                                <span className="side-panel-info-label">Phone</span>
                                 <p><a href={`tel:${gem.phone}`}>{gem.phone}</a></p>
                             </div>
                         )}
 
                         {gem.website && (
                             <div className="side-panel-info-row">
-                                <span className="side-panel-info-icon">🔗</span>
+                                <span className="side-panel-info-label">Website</span>
                                 <p><a href={gem.website} target="_blank" rel="noopener noreferrer">{gem.website}</a></p>
                             </div>
                         )}
 
-                        {gem.source === "database" && gem.voteCount != null && (
+                        {gem.source === "database" && gem.status === "pending_community_vote" && gem.voteCount != null && (
                             <div className="side-panel-vote">
-                                <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes to verify</span>
+                                <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes toward Hidden Gem status</span>
                                 <div className="side-panel-vote-bar">
                                     <div className="side-panel-vote-fill" style={{ width: `${Math.min(100, (gem.voteCount / (gem.verificationThreshold ?? 10)) * 100)}%` }} />
                                 </div>
@@ -372,7 +414,6 @@ function SidePanel({
                                                 className="side-panel-nearby-item"
                                                 onClick={() => onSelectNearby?.(place)}
                                             >
-                                                <span className="side-panel-nearby-icon">📍</span>
                                                 <div>
                                                     <strong>{place.name}</strong>
                                                     <p>{place.type.replace(/_/g, " ")} · {place.distance}m away</p>
@@ -391,7 +432,7 @@ function SidePanel({
             {showNavChrome && (
                 <div className="side-panel-footer">
                     <button className="side-panel-logout-btn" onClick={handleLogout}>
-                        🚪 Logout
+                        Logout
                     </button>
                 </div>
             )}
