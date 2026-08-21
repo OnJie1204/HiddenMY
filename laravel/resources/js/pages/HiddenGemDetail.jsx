@@ -10,6 +10,7 @@ import {
 import VoteModal from "../components/VoteModal";
 import { voteProgressLabel } from "../utils/gemStatus";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
+import { getTravelPostsForLocation } from "../api/travelPosts";
 
 import "../styles/global.css";
 
@@ -34,9 +35,10 @@ export default function HiddenGemDetail() {
     const [gem, setGem] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [activeTab, setActiveTab] = useState(
-        routeLocation.state?.openTab === "votes" ? "votes" : "details"
-    );
+    const [activeTab, setActiveTab] = useState(() => {
+        const openTab = routeLocation.state?.openTab;
+        return openTab === "votes" || openTab === "stories" ? openTab : "details";
+    });
     const [showVoteModal, setShowVoteModal] = useState(false);
     const [voteSuccess, setVoteSuccess] = useState(false);
     const [voteMessage, setVoteMessage] = useState("");
@@ -51,6 +53,10 @@ export default function HiddenGemDetail() {
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const [wishlistError, setWishlistError] = useState("");
+    const [storyPosts, setStoryPosts] = useState([]);
+    const [storiesLoading, setStoriesLoading] = useState(false);
+    const [storiesLoaded, setStoriesLoaded] = useState(false);
+    const [storiesError, setStoriesError] = useState("");
 
     const fetchDetail = async () => {
         try {
@@ -126,6 +132,34 @@ export default function HiddenGemDetail() {
             setWishlistBusy(false);
         }
     };
+
+    const showStories = async () => {
+        setActiveTab("stories");
+
+        if (storiesLoaded) return;
+
+        setStoriesLoading(true);
+        setStoriesError("");
+
+        try {
+            const response = await getTravelPostsForLocation(id);
+            setStoryPosts(response.data.data || []);
+            setStoriesLoaded(true);
+        } catch (err) {
+            console.error("Error fetching travel posts for gem:", err);
+            setStoriesError(err.response?.data?.message || "Failed to load community stories.");
+        } finally {
+            setStoriesLoading(false);
+        }
+    };
+
+    // Arriving via SidePanel's "Stories" button lands directly on this tab —
+    // it still needs the lazy fetch normally triggered by clicking the tab.
+    useEffect(() => {
+        if (routeLocation.state?.openTab === "stories") {
+            showStories();
+        }
+    }, []);
 
     const handleVoteSuccess = (data) => {
         setVoteSuccess(true);
@@ -375,6 +409,12 @@ export default function HiddenGemDetail() {
                     >
                         Votes ({gem.votes?.length || 0})
                     </button>
+                    <button
+                        className={`gem-detail-tab ${activeTab === "stories" ? "active" : ""}`}
+                        onClick={showStories}
+                    >
+                        Community Stories
+                    </button>
                 </div>
 
                 <div className="gem-detail-content">
@@ -580,6 +620,45 @@ export default function HiddenGemDetail() {
                                 })
                             ) : (
                                 <p className="gem-detail-no-votes">No votes yet. Be the first to vote!</p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === "stories" && (
+                        <div className="gem-detail-stories-list">
+                            {storiesLoading ? (
+                                <p className="gem-detail-no-votes">Loading community stories…</p>
+                            ) : storiesError ? (
+                                <p className="gem-detail-no-votes">{storiesError}</p>
+                            ) : storyPosts.length === 0 ? (
+                                <p className="gem-detail-no-votes">
+                                    No travel posts mention this gem yet. Be the first to write one!
+                                </p>
+                            ) : (
+                                storyPosts.map((post) => (
+                                    <div
+                                        key={post.id}
+                                        className="gem-detail-story-card"
+                                        onClick={() => navigate(`/travel-posts/${post.id}`)}
+                                    >
+                                        {(post.cover_image_url || post.images?.[0]?.image_url) ? (
+                                            <img
+                                                src={post.cover_image_url || post.images[0].image_url}
+                                                alt={post.title}
+                                                className="gem-detail-story-image"
+                                            />
+                                        ) : (
+                                            <div className="gem-detail-story-image" />
+                                        )}
+                                        <div className="gem-detail-story-info">
+                                            <p className="gem-detail-story-title">{post.title}</p>
+                                            <p className="gem-detail-story-author">
+                                                by {post.user?.name || "Traveler"}
+                                            </p>
+                                        </div>
+                                        <span className="gem-detail-story-arrow">→</span>
+                                    </div>
+                                ))
                             )}
                         </div>
                     )}

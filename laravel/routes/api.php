@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\HiddenGemController;
 use App\Http\Controllers\VoteController;
+use App\Http\Controllers\TravelPostController;
 use App\Http\Controllers\TripItineraryController;
 use App\Http\Controllers\WishlistController;
 use App\Models\User;
@@ -98,8 +99,19 @@ Route::middleware('auth:sanctum')->group(function () {
      Route::put('hidden-gems/{id}', [HiddenGemController::class, 'update']);
     Route::get('hidden-gems/{id}/nearby', [HiddenGemController::class, 'nearby']);
     Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
+
+    // ===== Travel Posts =====
+    Route::get('my-travel-posts', [TravelPostController::class, 'myPosts']);
+    Route::post('travel-posts', [TravelPostController::class, 'store']);
+    Route::put('travel-posts/{id}', [TravelPostController::class, 'update']);
+    Route::delete('travel-posts/{id}', [TravelPostController::class, 'destroy']);
 });
 
 // ===== Public Hidden Gems Routes =====
 Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);
 Route::get('popular-hidden-gems', [HiddenGemController::class, 'popular']);
+
+// ===== Public Travel Posts Routes =====
+Route::get('travel-posts', [TravelPostController::class, 'index']);
+Route::get('travel-posts/{id}', [TravelPostController::class, 'show']);
+Route::get('locations/{locationId}/travel-posts', [TravelPostController::class, 'forLocation']);

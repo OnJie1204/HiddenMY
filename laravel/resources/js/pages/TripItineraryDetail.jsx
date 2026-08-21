@@ -738,6 +738,15 @@ export default function TripItineraryDetail() {
                         </button>
                     )}
 
+                    {!isRenaming && (
+                        <button
+                            className="trip-detail-btn trip-detail-add-btn"
+                            onClick={() => navigate(`/travel-posts/create?trip=${trip.id}`)}
+                        >
+                            Write a Post
+                        </button>
+                    )}
+
 
                     <button className="trip-detail-btn trip-detail-delete-btn" onClick={handleDelete}>
                         Delete

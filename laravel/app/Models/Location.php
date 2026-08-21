@@ -97,6 +97,14 @@ class Location extends Model
         return $this->hasMany(CheckIn::class);
     }
 
+    public function posts()
+    {
+        return $this->belongsToMany(TravelPost::class, 'post_locations')
+            ->withPivot(['caption', 'order_number', 'visited'])
+            ->withTimestamps()
+            ->orderByDesc('post_locations.created_at');
+    }
+
     public function isPending()
     {
         return $this->status === 'pending';

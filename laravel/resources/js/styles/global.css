@@ -5309,3 +5309,473 @@ img.avatar {
     border-color: #111827;
     color: #111827;
 }
+
+/* ===== Travel Posts ===== */
+
+/* -- Feed card -- */
+.travel-post-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.travel-post-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.travel-post-card-image {
+    height: 180px;
+    overflow: hidden;
+    background: var(--color-surface-muted);
+}
+
+.travel-post-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.travel-post-card-content {
+    padding: 16px;
+}
+
+.travel-post-card-byline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.travel-post-card-byline-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.travel-post-card-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.travel-post-card-date {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.travel-post-card-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0 0 6px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.travel-post-card-excerpt {
+    font-size: 14px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin: 0 0 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.travel-post-gem-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* -- Detail page -- */
+
+/* Shared circular icon button — back / edit / delete toolbar on the detail
+   page, and the back button on the create/edit form. */
+.travel-post-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.travel-post-icon-btn:hover {
+    background: var(--color-surface-muted);
+    border-color: var(--color-text-muted);
+}
+
+.travel-post-icon-btn-danger:hover {
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.travel-post-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.travel-post-owner-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.travel-post-cover-wrap {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 24px;
+}
+
+.travel-post-cover {
+    width: 100%;
+    max-height: 380px;
+    object-fit: cover;
+    display: block;
+}
+
+.travel-post-title {
+    margin: 0;
+    font-size: 26px;
+    line-height: 1.3;
+    color: var(--color-text);
+}
+
+.travel-post-byline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 0 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.travel-post-byline-name {
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 14px;
+    margin: 0;
+}
+
+.travel-post-byline-meta {
+    color: var(--color-text-muted);
+    font-size: 13px;
+    margin: 2px 0 0;
+}
+
+.travel-post-byline-meta .wishlist-link {
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.travel-post-body {
+    white-space: pre-wrap;
+    line-height: 1.8;
+    font-size: 16px;
+    color: var(--color-text);
+    margin: 0 0 28px;
+}
+
+.travel-post-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin: 0 0 32px;
+}
+
+.travel-post-gallery-image {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+}
+
+.travel-post-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin: 0 0 14px;
+}
+
+.travel-post-map-btn {
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-top: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-muted);
+    color: var(--color-text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.travel-post-map-btn:hover {
+    background: var(--color-surface);
+    border-color: var(--color-text-muted);
+}
+
+.travel-post-visited-badge {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-dark);
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* -- Create/Edit form page -- */
+.travel-post-form-page {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 32px 16px 56px;
+}
+
+.travel-post-form-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 28px;
+}
+
+.travel-post-form-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.travel-post-form-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.travel-post-title-input {
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.travel-post-body-input {
+    min-height: 200px;
+    line-height: 1.6;
+    resize: vertical;
+}
+
+.travel-post-form-file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface-muted);
+    color: var(--color-text);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.travel-post-form-file-label:hover {
+    background: var(--color-surface);
+    border-color: var(--color-text-muted);
+}
+
+.travel-post-submit-btn {
+    width: 100%;
+    padding: 14px;
+    margin-top: 22px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-primary);
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.15s, transform 0.05s;
+}
+
+.travel-post-submit-btn:hover:not(:disabled) {
+    background: var(--color-primary-dark);
+}
+
+.travel-post-submit-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.travel-post-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.travel-post-snackbar {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-accent);
+    color: white;
+    padding: 14px 24px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: var(--shadow-md);
+    z-index: 1000;
+    max-width: 90vw;
+    text-align: center;
+}
+
+/* -- Tag editor (create/edit forms) -- */
+.travel-post-form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 22px 0 8px;
+}
+
+.travel-post-tag-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 10px 0 16px;
+}
+
+.travel-post-tag-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 8px 8px 14px;
+}
+
+.travel-post-tag-item .form-input {
+    margin: 0;
+    flex: 1;
+}
+
+.travel-post-tag-name {
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.travel-post-tag-remove-btn {
+    width: auto;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 20px;
+    line-height: 1;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.travel-post-tag-remove-btn:hover {
+    background: var(--color-border);
+    color: var(--color-accent);
+}
+
+/* -- "Community Stories" tab on a gem's detail page -- */
+.gem-detail-stories-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.gem-detail-story-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.gem-detail-story-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.gem-detail-story-image {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-muted);
+    flex-shrink: 0;
+}
+
+.gem-detail-story-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.gem-detail-story-title {
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gem-detail-story-author {
+    color: var(--color-text-muted);
+    font-size: 13px;
+    margin: 2px 0 0;
+}
+
+.gem-detail-story-arrow {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+    font-size: 18px;
+}
