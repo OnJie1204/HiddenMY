@@ -123,6 +123,9 @@ function SidePanel({
         }
         navigate(`/hidden-gems/${g.id}`);
     }
+    function viewStories(g) {
+        navigate(`/hidden-gems/${g.id}`, { state: { openTab: "stories" } });
+    }
 
     // The backend only accepts publicly-visible gems as itinerary stops
     // (TripItineraryController uses the publiclyVisible() scope: 'hidden_gem'
@@ -188,6 +191,7 @@ function SidePanel({
         { to: '/my-hidden-gems', label: 'My Hidden Gems' },
         { to: '/wishlist', label: 'Wishlist' },
         { to: '/trip-itinerary', label: 'Trip Itinerary' },
+        { to: '/travel-posts', label: 'Travel Posts' },
         { to: '/profile', label: 'Profile' },
     ];
 
@@ -345,12 +349,31 @@ function SidePanel({
                                 <span className="side-panel-icon-btn-icon">➕</span>
                                 <span className="side-panel-icon-btn-label">Itinerary</span>
                             </button>
-                            <button className="side-panel-icon-btn" onClick={() => viewDetails(gem)}>
-                                <span className="side-panel-icon-btn-icon">ℹ️</span>
-                                <span className="side-panel-icon-btn-label">
-                                    {gem.source === "attraction" ? "Search" : "Details"}
-                                </span>
-                            </button>
+                            {onToggleWishlist && (
+                                <button
+                                    className={`side-panel-icon-btn ${isWishlisted ? "side-panel-icon-btn-active" : ""}`}
+                                    onClick={handleToggleWishlist}
+                                    disabled={!canWishlist || wishlistBusy}
+                                    title={canWishlist
+                                        ? (isWishlisted ? "Remove from wishlist" : "Save to wishlist")
+                                        : "Only gems that have passed AI review can be saved"}
+                                >
+                                    <span className="side-panel-icon-btn-icon">{isWishlisted ? "♥" : "♡"}</span>
+                                    <span className="side-panel-icon-btn-label">Wishlist</span>
+                                </button>
+                            )}
+                            {gem.source === "database" && (
+                                <button className="side-panel-icon-btn" onClick={() => viewDetails(gem)}>
+                                    <span className="side-panel-icon-btn-icon">ℹ️</span>
+                                    <span className="side-panel-icon-btn-label">Details</span>
+                                </button>
+                            )}
+                            {gem.source === "database" && (
+                                <button className="side-panel-icon-btn" onClick={() => viewStories(gem)}>
+                                    <span className="side-panel-icon-btn-icon">📖</span>
+                                    <span className="side-panel-icon-btn-label">Stories</span>
+                                </button>
+                            )}
                         </div>
 
                         {itineraryOpen && (

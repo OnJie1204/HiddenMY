@@ -20,6 +20,10 @@ import MyHiddenGems from './pages/MyHiddenGems';
 import HiddenGemDetail from "./pages/HiddenGemDetail";
 import EditHiddenGem from './pages/EditHiddenGem';
 import Wishlist from './pages/Wishlist';
+import TravelPosts from './pages/TravelPosts';
+import TravelPostDetail from './pages/TravelPostDetail';
+import CreateTravelPost from './pages/CreateTravelPost';
+import EditTravelPost from './pages/EditTravelPost';
 import CompareGems from './pages/CompareGems';
 import { CompareProvider } from './context/CompareContext';
 import { getMe } from './api/auth';
@@ -164,6 +168,58 @@ function App() {
               )
           }
       />
+
+        <Route
+          path="/travel-posts"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <TravelPosts />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/travel-posts/create"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <CreateTravelPost />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/travel-posts/:id"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <TravelPostDetail />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/travel-posts/:id/edit"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <EditTravelPost />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
 
       </Routes>
       </CompareProvider>

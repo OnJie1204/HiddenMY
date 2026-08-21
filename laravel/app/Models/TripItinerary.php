@@ -20,4 +20,9 @@ class TripItinerary extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function posts()
+    {
+        return $this->hasMany(TravelPost::class);
+    }
 }
