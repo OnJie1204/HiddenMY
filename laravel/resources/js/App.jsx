@@ -20,6 +20,8 @@ import MyHiddenGems from './pages/MyHiddenGems';
 import HiddenGemDetail from "./pages/HiddenGemDetail";
 import EditHiddenGem from './pages/EditHiddenGem';
 import Wishlist from './pages/Wishlist';
+import CompareGems from './pages/CompareGems';
+import { CompareProvider } from './context/CompareContext';
 import { getMe } from './api/auth';
 import { getToken, clearToken } from './utils/tokenStorage';
 
@@ -43,6 +45,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <CompareProvider>
       <Routes>
         {/* 不需要 Navbar 的页面 */}
         <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLoginSuccess={setUser} />} />
@@ -66,6 +69,9 @@ function App() {
         } />
         <Route path="/wishlist" element={
           user ? <Layout user={user} setUser={setUser}><Wishlist /></Layout> : <Navigate to="/login" />
+        } />
+        <Route path="/compare" element={
+          user ? <Layout user={user} setUser={setUser}><CompareGems /></Layout> : <Navigate to="/login" />
         } />
 
         <Route
@@ -160,6 +166,7 @@ function App() {
       />
 
       </Routes>
+      </CompareProvider>
     </BrowserRouter>
   );
 }

@@ -11,3 +11,9 @@ Artisan::command('inspire', function () {
 // Sweep up hidden gem submissions stuck at 'pending' after a technical AI
 // verification failure (Gemini timeout/5xx) and retry them.
 Schedule::command('hidden-gems:retry-verification')->everyFiveMinutes();
+
+// Re-run daily rather than once: Overpass is unreliable enough that a single
+// pass reliably leaves some cells failed (timeouts, 5xx) — each cell that
+// failed stays un-synced and gets retried on the next run, so gaps close over
+// a few days instead of needing someone to notice and re-run it by hand.
+Schedule::command('osm:sync-attractions --delay=2')->daily();

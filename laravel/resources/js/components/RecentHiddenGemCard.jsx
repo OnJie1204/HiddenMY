@@ -1,4 +1,5 @@
 import GemImage from "./GemImage";
+import TruncatedText from "./TruncatedText";
 
 function RecentHiddenGemCard({
     post,
@@ -12,7 +13,7 @@ function RecentHiddenGemCard({
                 <p className="recent-state">
                     {post.state}
                 </p>
-                <p>{post.description}</p>
+                <p><TruncatedText text={post.description} limit={100} /></p>
                 <button onClick={(e) => { e.stopPropagation(); onClick(); }}>Explore</button>
             </div>
         </div>

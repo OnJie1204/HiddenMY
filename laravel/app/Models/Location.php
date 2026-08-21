@@ -87,6 +87,15 @@ class Location extends Model
         return $this->hasMany(LocationImage::class);
     }
 
+    /**
+     * Just the first photo, for callers (like the map's viewport query) that
+     * only ever render one thumbnail and shouldn't pay to eager-load every photo.
+     */
+    public function firstImage()
+    {
+        return $this->hasOne(LocationImage::class)->oldestOfMany();
+    }
+
     public function votes()
     {
         return $this->hasMany(Vote::class);
