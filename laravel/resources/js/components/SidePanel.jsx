@@ -4,6 +4,22 @@ import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
 import Avatar from "./Avatar";
+import TruncatedText from "./TruncatedText";
+import { useCompare } from "../context/CompareContext";
+
+function getVotePhotoUrl(photoPath) {
+    if (!photoPath) return "";
+
+    if (/^https?:\/\//i.test(photoPath)) {
+        return photoPath;
+    }
+
+    const relativePath = String(photoPath).replace(/^\/+/, "");
+
+    return relativePath.startsWith("storage/")
+        ? `/${relativePath}`
+        : `/storage/${relativePath}`;
+}
 
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 420;
@@ -18,6 +34,7 @@ function SidePanel({
     nearby = [], nearbyLoading = false, onSelectNearby, onGemChange,
     itineraries = [], onAddToItinerary,
     wishlistIds = new Set(), onToggleWishlist,
+    reviews = [], reviewsLoading = false,
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [width, setWidth] = useState(340);
@@ -28,6 +45,7 @@ function SidePanel({
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const bodyRef = useRef(null);
     const navigate = useNavigate();
+    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
     // A new selection always lands on the first post's detail view, and resets
     // any scroll from the previously-shown gem.
@@ -91,7 +109,18 @@ function SidePanel({
     function openWaze(g) {
         window.open(`https://www.waze.com/ul?ll=${g.latitude},${g.longitude}&navigate=yes`, "_blank");
     }
+    // Attractions come from OpenStreetMap, not our database, so there's no
+    // internal detail page for them — send the user to a Google search instead.
+    function openGoogleSearch(g) {
+        const query = encodeURIComponent([g.title, g.address].filter(Boolean).join(" "));
+        window.open(`https://www.google.com/search?q=${query}`, "_blank");
+    }
+
     function viewDetails(g) {
+        if (g.source === "attraction") {
+            openGoogleSearch(g);
+            return;
+        }
         navigate(`/hidden-gems/${g.id}`);
     }
     function viewStories(g) {
@@ -111,6 +140,11 @@ function SidePanel({
         && gem.source === "database"
         && (gem.status === "hidden_gem" || gem.status === "pending_community_vote");
     const isWishlisted = gem && wishlistIds.has(gem.id);
+
+    // Only our own database gems can be compared — OSM attractions don't carry
+    // enough of our own data (votes, verification) to compare meaningfully.
+    const canCompare = canWishlist;
+    const comparing = gem && isComparing(gem.id);
 
     async function handleAddToItinerary(itinerary) {
         setItineraryStatus({ type: "loading", message: `Adding to "${itinerary.trip_name}"…` });
@@ -250,11 +284,45 @@ function SidePanel({
                             </div>
                         </div>
 
-                        <h2 className="side-panel-gem-title">
-                            {gem.title}
-                        </h2>
+                        <div className="side-panel-title-row">
+                            <h2 className="side-panel-gem-title">
+                                {gem.title}
+                            </h2>
+                            <div className="hidden-gems-card-icon-actions">
+                                {onToggleWishlist && (
+                                    <button
+                                        type="button"
+                                        className="wishlist-remove-btn"
+                                        onClick={handleToggleWishlist}
+                                        disabled={!canWishlist || wishlistBusy}
+                                        title={canWishlist
+                                            ? (isWishlisted ? "Remove from wishlist" : "Save to wishlist")
+                                            : "Only gems that have passed AI review can be saved"}
+                                    >
+                                        {isWishlisted ? "♥" : "♡"}
+                                    </button>
+                                )}
+                                {gem.source === "database" && (
+                                    <button
+                                        type="button"
+                                        className={`compare-toggle-btn ${comparing ? "compare-toggle-btn-active" : ""}`}
+                                        onClick={() => toggleCompare(gem)}
+                                        disabled={!canCompare || (!comparing && !canAddMore)}
+                                        title={!canCompare
+                                            ? "Only gems that have passed AI review can be compared"
+                                            : comparing
+                                                ? "Remove from comparison"
+                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
+                                    >
+                                        {comparing ? "☑" : "☐"}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                         {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
-                        <p className="side-panel-gem-desc">{gem.description || "No description available."}</p>
+                        <p className="side-panel-gem-desc">
+                            <TruncatedText text={gem.description || "No description available."} limit={100} />
+                        </p>
 
                         {/* Icon action row, Google Maps style: icon tile + label underneath */}
                         <div className="side-panel-actions">
@@ -406,6 +474,53 @@ function SidePanel({
                                         </div>
                                     );
                                 })}
+                            </div>
+                        )}
+
+                        {/* Reviews are the votes left when someone verifies/visits this gem */}
+                        {gem.source === "database" && (
+                            <div className="side-panel-reviews">
+                                <div className="side-panel-reviews-header">
+                                    <h3>Reviews ({reviews.length})</h3>
+                                    <button
+                                        type="button"
+                                        className="side-panel-reviews-see-all"
+                                        onClick={() => navigate(`/hidden-gems/${gem.id}`, { state: { openTab: "votes" } })}
+                                    >
+                                        See all
+                                    </button>
+                                </div>
+                                {reviewsLoading && <p className="side-panel-nearby-status">Loading reviews…</p>}
+                                {!reviewsLoading && reviews.length === 0 && (
+                                    <p className="side-panel-nearby-status">No reviews yet.</p>
+                                )}
+                                {!reviewsLoading && reviews.length > 0 && (
+                                    <div className="side-panel-review-list">
+                                        {reviews.slice(0, 3).map((review) => (
+                                            <div key={review.id} className="side-panel-review-item">
+                                                <div className="side-panel-review-header">
+                                                    <strong>{review.user?.name || "Anonymous"}</strong>
+                                                    <span>
+                                                        {new Date(review.created_at).toLocaleDateString("en-GB", {
+                                                            day: "numeric", month: "short",
+                                                        })}
+                                                    </span>
+                                                </div>
+                                                {review.photo_path && (
+                                                    <img
+                                                        src={getVotePhotoUrl(review.photo_path)}
+                                                        alt="Review"
+                                                        className="side-panel-review-photo"
+                                                        onError={(e) => { e.target.style.display = "none"; }}
+                                                    />
+                                                )}
+                                                {review.travel_description && (
+                                                    <p className="side-panel-review-text">"{review.travel_description}"</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
 

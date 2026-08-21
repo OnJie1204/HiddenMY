@@ -54,13 +54,17 @@ function gridCell(lat, lng) {
     return `${Math.round(lat * EXPLORE_GRID)}:${Math.round(lng * EXPLORE_GRID)}`;
 }
 
-const CLICK_EXPLORE_RADIUS = 3000;
+const CLICK_EXPLORE_RADIUS = 1500;
+
+const FOCUS_ZOOM = 15;
+
+const GEM_FOCUS_ZOOM = 17;
 
 function FlyToUser({ position }) {
     const map = useMap();
     useEffect(() => {
         if (position) {
-            map.flyTo(position, 15, FLY_TO_OPTIONS);
+            map.flyTo(position, Math.max(map.getZoom(), FOCUS_ZOOM), FLY_TO_OPTIONS);
         }
     }, [position, map]);
     return null;
@@ -71,7 +75,9 @@ function FlyToGem({ gem }) {
     useEffect(() => {
         if (gem) {
             map.flyTo(
-                [Number(gem.latitude), Number(gem.longitude)], 15, FLY_TO_OPTIONS
+                [Number(gem.latitude), Number(gem.longitude)],
+                Math.max(map.getZoom(), GEM_FOCUS_ZOOM),
+                FLY_TO_OPTIONS
             );
         }
     }, [gem, map]);
@@ -107,13 +113,18 @@ function ViewportWatcher({ onChange }) {
     return null;
 }
 
+const CLICK_EXPLORE_ZOOM = 16;
+
 function MapClickExplorer({ onMapClick }) {
-    useMapEvents({
+    const map = useMapEvents({
         click(e) {
             const target = e.originalEvent?.target;
             if (target?.closest?.('.leaflet-marker-icon, .leaflet-interactive')) {
                 return;
             }
+            // Zoom into the clicked spot so results near it are actually visible
+            // as separate markers, rather than staying buried in a cluster.
+            map.flyTo(e.latlng, Math.max(map.getZoom(), CLICK_EXPLORE_ZOOM), FLY_TO_OPTIONS);
             onMapClick(e.latlng.lat, e.latlng.lng);
         },
     });
@@ -150,8 +161,11 @@ function Maps(){
     const [clickedPoint, setClickedPoint] = useState(null);
     const [clickedPlaces, setClickedPlaces] = useState([]);
     const [clickedLoading, setClickedLoading] = useState(false);
+    const [clickedError, setClickedError] = useState(false);
     const [itineraries, setItineraries] = useState([]);
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [gemReviews, setGemReviews] = useState([]);
+    const [gemReviewsLoading, setGemReviewsLoading] = useState(false);
     const [mapFullscreen, setMapFullscreen] = useState(false);
     const mapRef = useRef(null);
     const viewportTimer = useRef(null);
@@ -201,40 +215,37 @@ function Maps(){
         return () => window.removeEventListener('resize', measure);
     }, []);
 
-    // Load recent hidden gems
-    useEffect(()=>{
-        api.get("/recent-hidden-gems")
-            .then(res=>setRecentPosts(res.data))
-            .catch(err => console.log(err));
-    },[]);
-
-    // Load the current user's own hidden gems
-    useEffect(()=>{
-        getMyHiddenGems()
-            .then(res => setMyGems(res.data.data || []))
-            .catch(err => console.log(err));
-    },[]);
-
-    // Load top-voted, verified hidden gems
-    useEffect(()=>{
-        getPopularHiddenGems()
-            .then(res => setPopularPosts(res.data || []))
-            .catch(err => console.log(err));
-    },[]);
-
-    // Load the user's trip itineraries so gems can be added straight from the map
     useEffect(() => {
+        const id = setTimeout(() => {
+            api.get("/recent-hidden-gems")
+                .then(res => setRecentPosts(res.data))
+                .catch(err => console.log(err));
+
+            getMyHiddenGems()
+                .then(res => setMyGems(res.data.data || []))
+                .catch(err => console.log(err));
+
+            getPopularHiddenGems()
+                .then(res => setPopularPosts(res.data || []))
+                .catch(err => console.log(err));
+        }, 200);
+
+        return () => clearTimeout(id);
+    }, []);
+
+    const loadedPanelExtrasRef = useRef(false);
+    useEffect(() => {
+        if (!panelOpen || loadedPanelExtrasRef.current) return;
+        loadedPanelExtrasRef.current = true;
+
         getTripItineraries()
             .then(res => setItineraries(res.data || []))
             .catch(err => console.log(err));
-    }, []);
 
-    // Load the user's wishlist so the side panel can show which gems are already saved
-    useEffect(() => {
         getWishlist()
             .then(res => setWishlistIds(new Set((res.data.data || []).map(gem => gem.id))))
             .catch(err => console.log(err));
-    }, []);
+    }, [panelOpen]);
 
     useEffect(() => {
         if (highlightGem && highlightGem.id) {
@@ -244,17 +255,24 @@ function Maps(){
             // Fly to the gem on the map
             if (mapRef.current) {
                 mapRef.current.flyTo(
-                    [Number(highlightGem.latitude), Number(highlightGem.longitude)], 
-                    15, 
+                    [Number(highlightGem.latitude), Number(highlightGem.longitude)],
+                    Math.max(mapRef.current.getZoom(), GEM_FOCUS_ZOOM),
                     { duration: 1.5, easeLinearity: 0.25 }
                 );
             }
         }
     }, [highlightGem]);
 
-    // Debounce viewport changes so panning doesn't spam the API
+    const hasReportedViewportRef = useRef(false);
     const handleViewportChange = useCallback((next) => {
         clearTimeout(viewportTimer.current);
+
+        if (!hasReportedViewportRef.current) {
+            hasReportedViewportRef.current = true;
+            setViewport(next);
+            return;
+        }
+
         viewportTimer.current = setTimeout(() => setViewport(next), VIEWPORT_DEBOUNCE_MS);
     }, []);
 
@@ -308,7 +326,7 @@ function Maps(){
                 description: raw.description,
                 latitude: raw.latitude,
                 longitude: raw.longitude,
-                image: raw.images?.[0]?.image_url || null,
+                image: raw.first_image?.image_url || raw.images?.[0]?.image_url || null,
                 voteCount: raw.vote_count,
                 verificationThreshold: raw.verification_threshold,
                 category: raw.category?.name,
@@ -348,6 +366,8 @@ function Maps(){
         if (!activeGem || activeGem.source !== "database") {
             setNearby([]);
             setNearbyLoading(false);
+            setGemReviews([]);
+            setGemReviewsLoading(false);
             return;
         }
 
@@ -359,6 +379,16 @@ function Maps(){
                 setNearby([]);
             })
             .finally(() => setNearbyLoading(false));
+
+        // detail only for whichever gem is actually open in the panel.
+        setGemReviewsLoading(true);
+        getHiddenGemDetail(activeGem.id)
+            .then(res => setGemReviews(res.data.data?.votes || []))
+            .catch(err => {
+                console.log(err);
+                setGemReviews([]);
+            })
+            .finally(() => setGemReviewsLoading(false));
     }, []);
 
     const selectNearby = useCallback((place) => {
@@ -369,10 +399,13 @@ function Maps(){
     const handleMapClick = useCallback((lat, lng) => {
         setClickedPoint([lat, lng]);
         setClickedLoading(true);
+        setClickedError(false);
         getNearbyAttractionsAt(lat, lng, CLICK_EXPLORE_RADIUS)
             .then(res => setClickedPlaces(res.data.data || []))
             .catch(err => {
                 console.log(err);
+                // used to render as 0 places with no way to tell them apart.
+                setClickedError(true);
                 setClickedPlaces([]);
             })
             .finally(() => setClickedLoading(false));
@@ -446,7 +479,7 @@ function Maps(){
 
     function recenterOnUser() {
         if (userPosition && mapRef.current) {
-            mapRef.current.flyTo(userPosition, 15, FLY_TO_OPTIONS);
+            mapRef.current.flyTo(userPosition, Math.max(mapRef.current.getZoom(), FOCUS_ZOOM), FLY_TO_OPTIONS);
         }
     }
 
@@ -517,7 +550,9 @@ function Maps(){
                         <Popup>
                             {clickedLoading
                                 ? "Looking for nearby attractions"
-                                : `${clickedPlaces.length} place${clickedPlaces.length === 1 ? "" : "s"} found nearby`}
+                                : clickedError
+                                    ? "Couldn't reach OpenStreetMap — try again"
+                                    : `${clickedPlaces.length} place${clickedPlaces.length === 1 ? "" : "s"} found nearby`}
                         </Popup>
                     </CircleMarker>
                 )}
@@ -562,6 +597,8 @@ function Maps(){
                         onAddToItinerary={handleAddToItinerary}
                         wishlistIds={wishlistIds}
                         onToggleWishlist={handleToggleWishlist}
+                        reviews={gemReviews}
+                        reviewsLoading={gemReviewsLoading}
                     />
                 </div>
 

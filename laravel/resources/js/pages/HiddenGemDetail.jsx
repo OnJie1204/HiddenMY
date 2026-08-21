@@ -11,6 +11,7 @@ import VoteModal from "../components/VoteModal";
 import { voteProgressLabel } from "../utils/gemStatus";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTravelPostsForLocation } from "../api/travelPosts";
+import { useCompare } from "../context/CompareContext";
 
 import "../styles/global.css";
 
@@ -57,6 +58,7 @@ export default function HiddenGemDetail() {
     const [storiesLoading, setStoriesLoading] = useState(false);
     const [storiesLoaded, setStoriesLoaded] = useState(false);
     const [storiesError, setStoriesError] = useState("");
+    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
     const fetchDetail = async () => {
         try {
@@ -357,15 +359,28 @@ export default function HiddenGemDetail() {
                     <div className="gem-detail-title-row">
                         <h1 className="gem-detail-title">{gem.place_name}</h1>
                         {(gem.status === "hidden_gem" || gem.status === "pending_community_vote") && (
-                            <button
-                                type="button"
-                                className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
-                                onClick={handleToggleWishlist}
-                                disabled={wishlistBusy}
-                                title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
-                            >
-                                {wishlistIds.has(gem.id) ? "♥" : "♡"}
-                            </button>
+                            <div className="hidden-gems-card-icon-actions">
+                                <button
+                                    type="button"
+                                    className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
+                                    onClick={handleToggleWishlist}
+                                    disabled={wishlistBusy}
+                                    title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                >
+                                    {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
+                                    onClick={() => toggleCompare(gem)}
+                                    disabled={!isComparing(gem.id) && !canAddMore}
+                                    title={isComparing(gem.id)
+                                        ? "Remove from comparison"
+                                        : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
+                                >
+                                    {isComparing(gem.id) ? "☑" : "☐"}
+                                </button>
+                            </div>
                         )}
                     </div>
                     {wishlistError && <p className="gem-detail-wishlist-error">{wishlistError}</p>}

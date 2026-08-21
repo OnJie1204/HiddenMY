@@ -6,6 +6,7 @@ use App\Jobs\VerifyHiddenGemSubmission;
 use App\Models\Location;
 use App\Models\Category;
 use App\Models\LocationImage;
+use App\Services\OsmAttractionCache;
 use App\Support\Geo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,20 +27,7 @@ class HiddenGemController extends Controller
 
     private const NEARBY_RADIUS_METERS = 1500;
 
-    private const NEARBY_RESULT_LIMIT = 60;
-
     private const VIEWPORT_RESULT_LIMIT = 300;
-    private const OVERPASS_TIMEOUT_SECONDS = 5;
-
-    /** Place types worth showing on the map, grouped by their OSM tag. */
-    private const NEARBY_TAG_FILTERS = [
-        'tourism' => 'attraction|museum|viewpoint|gallery|zoo|theme_park|artwork|aquarium|picnic_site',
-        'leisure' => 'park|garden|nature_reserve|water_park|beach_resort',
-        'historic' => 'monument|memorial|ruins|castle|archaeological_site|temple',
-        'amenity' => 'restaurant|cafe|fast_food|bar|pub|cinema|theatre|marketplace|food_court|ice_cream',
-        'shop' => 'mall|department_store',
-        'natural' => 'beach|peak|cave_entrance',
-    ];
 
     // Roughly +/-55km, used to softly bias OSM results toward the user's location.
     private const NEARBY_VIEWBOX_DEGREES = 0.5;
@@ -362,7 +350,15 @@ class HiddenGemController extends Controller
         $radius = (int) $request->query('radius', self::NEARBY_RADIUS_METERS);
         $radius = max(100, min(3000, $radius));
 
-        $results = $this->fetchNearbyFromOverpass((float) $gem->latitude, (float) $gem->longitude, $radius);
+        // Unlike nearbyAttractions() below, a failure here stays silent (empty
+        // list) rather than surfacing an error — this powers the "Near this gem"
+        // list under a gem's own details, where that's the existing behaviour.
+        try {
+            $results = $this->fetchNearbyFromOverpass((float) $gem->latitude, (float) $gem->longitude, $radius);
+        } catch (\Throwable $exception) {
+            report($exception);
+            $results = collect();
+        }
 
         return response()->json(['data' => $results]);
     }
@@ -379,11 +375,23 @@ class HiddenGemController extends Controller
             'radius' => ['nullable', 'integer', 'between:100,3000'],
         ]);
 
-        $results = $this->fetchNearbyFromOverpass(
-            (float) $validated['latitude'],
-            (float) $validated['longitude'],
-            (int) ($validated['radius'] ?? self::NEARBY_RADIUS_METERS)
-        );
+        // Used by both the zoom-triggered "explore nearby" and the click-to-scan
+        // toggle. Unlike nearby() above, a real Overpass failure is surfaced as an
+        // error instead of an empty list — click-to-scan needs to tell "nothing
+        // found" apart from "the request failed", which used to look identical.
+        try {
+            $results = $this->fetchNearbyFromOverpass(
+                (float) $validated['latitude'],
+                (float) $validated['longitude'],
+                (int) ($validated['radius'] ?? self::NEARBY_RADIUS_METERS)
+            );
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Unable to reach OpenStreetMap. Please try again.',
+            ], 502);
+        }
 
         return response()->json(['data' => $results]);
     }
@@ -402,7 +410,18 @@ class HiddenGemController extends Controller
             'status' => ['nullable', 'in:hidden_gem,pending_community_vote'],
         ]);
 
-        $query = Location::with(['category', 'images'])
+        // Markers/popups only ever need one photo and the category name, not the
+        // full row + every photo — this endpoint can be asked for up to 300 rows
+        // on a single pan, so trimming it matters more than the other gem queries.
+        $query = Location::query()
+            ->select(['id', 'category_id', 'place_name', 'state', 'address', 'description', 'latitude', 'longitude', 'status', 'vote_count', 'verification_threshold'])
+            ->with([
+                'category:id,name',
+                // Table-qualified: the "of many" relation joins a subquery that
+                // also exposes location_id, so the bare `relation:col,col`
+                // shorthand is ambiguous between the two.
+                'firstImage' => fn ($q) => $q->select(['location_images.id', 'location_images.location_id', 'location_images.image_url']),
+            ])
             ->publiclyVisible()
             ->whereBetween('latitude', [$validated['south'], $validated['north']])
             ->whereBetween('longitude', [$validated['west'], $validated['east']]);
@@ -768,14 +787,14 @@ class HiddenGemController extends Controller
         return response()->json($recentLocations);
     }
 
-    /**
-     * Top-voted Hidden Gems (used by the "Popular" row on the map page).
-     */
     public function popular(): JsonResponse
     {
+        // Ranked by actual review count (votes with real rows) rather than the
+        // cached vote_count column, so a stale/drifted counter can't misrank.
         $popularLocations = Location::with(['user', 'category', 'images'])
+            ->withCount('votes')
             ->where('status', 'hidden_gem')
-            ->orderByDesc('vote_count')
+            ->orderByDesc('votes_count')
             ->take(6)
             ->get();
 
@@ -870,104 +889,15 @@ class HiddenGemController extends Controller
     }
 
     /**
-     * Always calls Overpass live — no caching. (This used to cache successes for
-     * 7 days and failures for 5 minutes, keyed to a coarse grid. Removed on request:
-     * it meant a bad/empty result from one attempt kept getting served back for the
-     * next 5 minutes instead of trying again.)
+     * Nearby attractions around a point — delegates to OsmAttractionCache,
+     * which serves from the local osm_attractions cache whenever possible and
+     * only falls back to a live Overpass call for a never-synced/stale cell.
+     * Lets failures propagate so callers can decide whether a failure should
+     * look like "nothing found" or be surfaced distinctly — see nearby() vs
+     * nearbyAttractions() above.
      */
     private function fetchNearbyFromOverpass(float $lat, float $lng, ?int $radius = null): Collection
     {
-        $radius = $radius ?? self::NEARBY_RADIUS_METERS;
-
-        $clauses = '';
-        foreach (self::NEARBY_TAG_FILTERS as $tag => $pattern) {
-            $clauses .= "node[\"{$tag}\"~\"^({$pattern})$\"](around:{$radius},{$lat},{$lng});";
-        }
-
-        $overpassQuery = '[out:json][timeout:'.self::OVERPASS_TIMEOUT_SECONDS.'];'
-            . "({$clauses});"
-            . 'out body '.self::NEARBY_RESULT_LIMIT.';';
-
-        try {
-            // Overpass answers 406 Not Acceptable to Guzzle's default User-Agent,
-            // so an explicit one is required here (same as the Nominatim call above).
-            $response = Http::asForm()
-                ->withUserAgent(config('app.name', 'HiddenMY').' nearby attractions')
-                ->timeout(self::OVERPASS_TIMEOUT_SECONDS)
-                ->post('https://overpass-api.de/api/interpreter', ['data' => $overpassQuery])
-                ->throw()
-                ->json();
-
-            $places = collect($response['elements'] ?? [])
-                ->map(function (array $element) {
-                    $tags = $element['tags'] ?? [];
-                    $name = $tags['name'] ?? null;
-
-                    // Nodes carry lat/lon directly; ways and relations get a centre.
-                    $placeLat = $element['lat'] ?? $element['center']['lat'] ?? null;
-                    $placeLng = $element['lon'] ?? $element['center']['lon'] ?? null;
-
-                    if (!$name || $placeLat === null || $placeLng === null) {
-                        return null;
-                    }
-
-                    $type = 'place';
-                    foreach (array_keys(self::NEARBY_TAG_FILTERS) as $tag) {
-                        if (!empty($tags[$tag])) {
-                            $type = $tags[$tag];
-                            break;
-                        }
-                    }
-
-                    return [
-                        'id' => 'osm-'.$element['type'].'-'.$element['id'],
-                        'osm_id' => $element['id'],
-                        'name' => $name,
-                        'type' => $type,
-                        'latitude' => (float) $placeLat,
-                        'longitude' => (float) $placeLng,
-                        'source' => 'openstreetmap',
-                        'address' => $this->formatOsmAddress($tags),
-                        'openingHours' => $tags['opening_hours'] ?? null,
-                        'phone' => $tags['phone'] ?? $tags['contact:phone'] ?? null,
-                        'website' => $tags['website'] ?? $tags['contact:website'] ?? null,
-                    ];
-                })
-                ->filter()
-                ->unique('id')
-                ->values();
-
-            return $places
-                ->map(function (array $place) use ($lat, $lng) {
-                    $place['distance'] = (int) round(
-                        $this->haversineMeters($lat, $lng, $place['latitude'], $place['longitude'])
-                    );
-
-                    return $place;
-                })
-                ->sortBy('distance')
-                ->values();
-        } catch (\Throwable $exception) {
-            report($exception);
-
-            return collect();
-        }
-    }
-
-    private function formatOsmAddress(array $tags): ?string
-    {
-        $street = trim(($tags['addr:housenumber'] ?? '').' '.($tags['addr:street'] ?? ''));
-        $parts = array_filter([
-            $street !== '' ? $street : null,
-            $tags['addr:city'] ?? null,
-            $tags['addr:postcode'] ?? null,
-        ]);
-
-        return $parts ? implode(', ', $parts) : null;
-    }
-
-    private function haversineMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
-    {
-        return Geo::distanceMeters($lat1, $lng1, $lat2, $lng2);
+        return app(OsmAttractionCache::class)->nearby($lat, $lng, $radius ?? self::NEARBY_RADIUS_METERS);
     }
 }
