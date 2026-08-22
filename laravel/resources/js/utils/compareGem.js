@@ -1,4 +1,4 @@
-export const MAX_COMPARE = 6;
+export const MAX_COMPARE = 5;
 
 export function toCompareGem(raw) {
     if (raw.source) return raw;

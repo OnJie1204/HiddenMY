@@ -134,15 +134,12 @@ function SidePanel({
     const canAddToItinerary = gem
         && (gem.source === "attraction" || gem.status === "hidden_gem" || gem.status === "pending_community_vote");
 
-    // OSM attractions aren't Location records, so there's nothing to wishlist —
-    // only our own database gems that have passed AI review qualify.
+    // OSM attractions aren't Location records, so there's nothing to wishlist
+    // or compare — only our own database gems that have passed AI review qualify.
     const canWishlist = gem
         && gem.source === "database"
         && (gem.status === "hidden_gem" || gem.status === "pending_community_vote");
     const isWishlisted = gem && wishlistIds.has(gem.id);
-
-    // Only our own database gems can be compared — OSM attractions don't carry
-    // enough of our own data (votes, verification) to compare meaningfully.
     const canCompare = canWishlist;
     const comparing = gem && isComparing(gem.id);
 
@@ -349,25 +346,12 @@ function SidePanel({
                                 <span className="side-panel-icon-btn-icon">➕</span>
                                 <span className="side-panel-icon-btn-label">Itinerary</span>
                             </button>
-                            {onToggleWishlist && (
-                                <button
-                                    className={`side-panel-icon-btn ${isWishlisted ? "side-panel-icon-btn-active" : ""}`}
-                                    onClick={handleToggleWishlist}
-                                    disabled={!canWishlist || wishlistBusy}
-                                    title={canWishlist
-                                        ? (isWishlisted ? "Remove from wishlist" : "Save to wishlist")
-                                        : "Only gems that have passed AI review can be saved"}
-                                >
-                                    <span className="side-panel-icon-btn-icon">{isWishlisted ? "♥" : "♡"}</span>
-                                    <span className="side-panel-icon-btn-label">Wishlist</span>
-                                </button>
-                            )}
-                            {gem.source === "database" && (
-                                <button className="side-panel-icon-btn" onClick={() => viewDetails(gem)}>
-                                    <span className="side-panel-icon-btn-icon">ℹ️</span>
-                                    <span className="side-panel-icon-btn-label">Details</span>
-                                </button>
-                            )}
+                            <button className="side-panel-icon-btn" onClick={() => viewDetails(gem)}>
+                                <span className="side-panel-icon-btn-icon">ℹ️</span>
+                                <span className="side-panel-icon-btn-label">
+                                    {gem.source === "attraction" ? "Search" : "Details"}
+                                </span>
+                            </button>
                             {gem.source === "database" && (
                                 <button className="side-panel-icon-btn" onClick={() => viewStories(gem)}>
                                     <span className="side-panel-icon-btn-icon">📖</span>
