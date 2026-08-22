@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 class OsmAttractionCache
 {
     private const NEARBY_RESULT_LIMIT = 60;
-    private const OVERPASS_TIMEOUT_SECONDS = 5;
+    private const OVERPASS_TIMEOUT_SECONDS = 3;
 
     /** Place types worth showing on the map, grouped by their OSM tag. */
     private const NEARBY_TAG_FILTERS = [

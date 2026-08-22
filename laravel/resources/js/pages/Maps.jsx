@@ -187,13 +187,16 @@ function Maps(){
         }
     }, [clickExploreOn]);
 
-    // Lock background scroll while the map covers the screen, so the page behind
-    // it can't scroll out from underneath the fixed-position hero.
     useEffect(() => {
         if (!mapFullscreen) return;
-        const previousOverflow = document.body.style.overflow;
+        const previousBodyOverflow = document.body.style.overflow;
+        const previousHtmlOverflow = document.documentElement.style.overflow;
         document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = previousOverflow; };
+        document.documentElement.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousBodyOverflow;
+            document.documentElement.style.overflow = previousHtmlOverflow;
+        };
     }, [mapFullscreen]);
 
     useEffect(() => {
@@ -238,13 +241,17 @@ function Maps(){
         if (!panelOpen || loadedPanelExtrasRef.current) return;
         loadedPanelExtrasRef.current = true;
 
-        getTripItineraries()
-            .then(res => setItineraries(res.data || []))
-            .catch(err => console.log(err));
+        const id = setTimeout(() => {
+            getTripItineraries()
+                .then(res => setItineraries(res.data || []))
+                .catch(err => console.log(err));
 
-        getWishlist()
-            .then(res => setWishlistIds(new Set((res.data.data || []).map(gem => gem.id))))
-            .catch(err => console.log(err));
+            getWishlist()
+                .then(res => setWishlistIds(new Set((res.data.data || []).map(gem => gem.id))))
+                .catch(err => console.log(err));
+        }, 300);
+
+        return () => clearTimeout(id);
     }, [panelOpen]);
 
     useEffect(() => {
@@ -362,7 +369,11 @@ function Maps(){
         heroRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
+    const activeGemIdRef = useRef(null);
+
     const handleActiveGemChange = useCallback((activeGem) => {
+        activeGemIdRef.current = activeGem?.id ?? null;
+
         if (!activeGem || activeGem.source !== "database") {
             setNearby([]);
             setNearbyLoading(false);
@@ -370,15 +381,6 @@ function Maps(){
             setGemReviewsLoading(false);
             return;
         }
-
-        setNearbyLoading(true);
-        getNearbyAttractions(activeGem.id)
-            .then(res => setNearby(res.data.data || []))
-            .catch(err => {
-                console.log(err);
-                setNearby([]);
-            })
-            .finally(() => setNearbyLoading(false));
 
         // detail only for whichever gem is actually open in the panel.
         setGemReviewsLoading(true);
@@ -389,6 +391,24 @@ function Maps(){
                 setGemReviews([]);
             })
             .finally(() => setGemReviewsLoading(false));
+
+        setNearbyLoading(true);
+        setTimeout(() => {
+            if (activeGemIdRef.current !== activeGem.id) return;
+
+            getNearbyAttractions(activeGem.id)
+                .then(res => {
+                    if (activeGemIdRef.current !== activeGem.id) return;
+                    setNearby(res.data.data || []);
+                })
+                .catch(err => {
+                    console.log(err);
+                    if (activeGemIdRef.current === activeGem.id) setNearby([]);
+                })
+                .finally(() => {
+                    if (activeGemIdRef.current === activeGem.id) setNearbyLoading(false);
+                });
+        }, 400);
     }, []);
 
     const selectNearby = useCallback((place) => {

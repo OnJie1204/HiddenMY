@@ -10,6 +10,20 @@ import TruncatedText from "../components/TruncatedText";
 
 import "../styles/global.css";
 
+function getVotePhotoUrl(photoPath) {
+    if (!photoPath) return "";
+
+    if (/^https?:\/\//i.test(photoPath)) {
+        return photoPath;
+    }
+
+    const relativePath = String(photoPath).replace(/^\/+/, "");
+
+    return relativePath.startsWith("storage/")
+        ? `/${relativePath}`
+        : `/storage/${relativePath}`;
+}
+
 export default function CompareGems() {
     const { items, removeCompare } = useCompare();
     const location = useLocation();
@@ -57,6 +71,18 @@ export default function CompareGems() {
             .map((id) => items.find((g) => String(g.id) === id) || fetched[id])
             .filter(Boolean);
     }, [urlIds, items, fetched]);
+
+    const [reviewsByGemId, setReviewsByGemId] = useState({});
+    useEffect(() => {
+        gems
+            .filter((g) => g.source === "database" && reviewsByGemId[g.id] === undefined)
+            .forEach((g) => {
+                getHiddenGemDetail(g.id)
+                    .then((res) => setReviewsByGemId((prev) => ({ ...prev, [g.id]: res.data.data?.votes || [] })))
+                    .catch(() => setReviewsByGemId((prev) => ({ ...prev, [g.id]: [] })));
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gems]);
 
     useEffect(() => {
         if (!urlIds && items.length > 0) {
@@ -118,7 +144,9 @@ export default function CompareGems() {
         <div className="compare-page">
             <div className="compare-page-header">
                 <h1>Compare Gems</h1>
-                <Link to="/map" className="compare-page-back">← Back to Map</Link>
+                <button type="button" className="compare-page-back" onClick={() => navigate(-1)}>
+                    ← Back
+                </button>
             </div>
 
             {gems.length === 0 && missing.length === 0 && (
@@ -203,6 +231,50 @@ export default function CompareGems() {
                                         <span><a href={gem.website} target="_blank" rel="noopener noreferrer">{gem.website}</a></span>
                                     </div>
                                 )}
+
+                                {gem.source === "database" && (() => {
+                                    const reviews = reviewsByGemId[gem.id];
+                                    return (
+                                        <div className="side-panel-reviews">
+                                            <div className="side-panel-reviews-header">
+                                                <h3>Reviews ({reviews?.length ?? 0})</h3>
+                                            </div>
+                                            {reviews === undefined && (
+                                                <p className="side-panel-nearby-status">Loading reviews…</p>
+                                            )}
+                                            {reviews && reviews.length === 0 && (
+                                                <p className="side-panel-nearby-status">No reviews yet.</p>
+                                            )}
+                                            {reviews && reviews.length > 0 && (
+                                                <div className="side-panel-review-list">
+                                                    {reviews.slice(0, 3).map((review) => (
+                                                        <div key={review.id} className="side-panel-review-item">
+                                                            <div className="side-panel-review-header">
+                                                                <strong>{review.user?.name || "Anonymous"}</strong>
+                                                                <span>
+                                                                    {new Date(review.created_at).toLocaleDateString("en-GB", {
+                                                                        day: "numeric", month: "short",
+                                                                    })}
+                                                                </span>
+                                                            </div>
+                                                            {review.photo_path && (
+                                                                <img
+                                                                    src={getVotePhotoUrl(review.photo_path)}
+                                                                    alt="Review"
+                                                                    className="side-panel-review-photo"
+                                                                    onError={(e) => { e.target.style.display = "none"; }}
+                                                                />
+                                                            )}
+                                                            {review.travel_description && (
+                                                                <p className="side-panel-review-text">"{review.travel_description}"</p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
 
                                 <div className="compare-card-actions">
                                     <button type="button" onClick={() => openGoogleMaps(gem)}>Directions</button>

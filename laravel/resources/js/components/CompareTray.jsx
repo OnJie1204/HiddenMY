@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useCompare } from "../context/CompareContext";
 import GemImage from "./GemImage";
 
@@ -7,6 +7,11 @@ function CompareTray() {
     const { items, removeCompare, clearCompare, maxCompare } = useCompare();
     const [expanded, setExpanded] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.pathname === "/compare") setExpanded(false);
+    }, [location.pathname]);
 
     if (items.length === 0) return null;
 
