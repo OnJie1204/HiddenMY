@@ -414,7 +414,7 @@ class HiddenGemController extends Controller
         // full row + every photo — this endpoint can be asked for up to 300 rows
         // on a single pan, so trimming it matters more than the other gem queries.
         $query = Location::query()
-            ->select(['id', 'category_id', 'place_name', 'state', 'address', 'description', 'latitude', 'longitude', 'status', 'vote_count', 'verification_threshold'])
+            ->select(['id', 'category_id', 'place_name', 'state', 'address', 'description', 'latitude', 'longitude', 'status', 'report_status', 'vote_count', 'verification_threshold'])
             ->with([
                 'category:id,name',
                 // Table-qualified: the "of many" relation joins a subquery that

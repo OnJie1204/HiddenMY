@@ -338,6 +338,7 @@ function Maps(){
                 verificationThreshold: raw.verification_threshold,
                 category: raw.category?.name,
                 status: raw.status,
+                reportStatus: raw.report_status,
             };
         }
         return {

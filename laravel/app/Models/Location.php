@@ -46,6 +46,7 @@ class Location extends Model
         'latitude',
         'longitude',
         'status',
+        'report_status',
         'vote_count',
         'verification_threshold',
         'ai_review_reason',
@@ -106,6 +107,18 @@ class Location extends Model
         return $this->hasMany(CheckIn::class);
     }
 
+    public function reports()
+    {
+        return $this->hasMany(Report::class);
+    }
+
+    /** The currently-open report, if any — a gem can only have one active
+     *  report at a time (see ReportController::store's status gate). */
+    public function activeReport()
+    {
+        return $this->hasOne(Report::class)->where('status', 'pending')->latestOfMany();
+    }
+
     public function posts()
     {
         return $this->belongsToMany(TravelPost::class, 'post_locations')
@@ -132,6 +145,19 @@ class Location extends Model
     public function isHiddenGem()
     {
         return $this->status === 'hidden_gem';
+    }
+
+    public function isDelisted()
+    {
+        return $this->status === 'delisted';
+    }
+
+    /** A report is open and the community hasn't yet confirmed or disputed
+     *  it. `status` stays 'hidden_gem' the whole time this is true — see the
+     *  report_status column comment on why it's a separate flag. */
+    public function isUnderReview()
+    {
+        return $this->report_status === 'under_review';
     }
 
     public function scopeHiddenGems(Builder $query)

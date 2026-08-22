@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\HiddenGemController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\VoteController;
 use App\Http\Controllers\TravelPostController;
 use App\Http\Controllers\TripItineraryController;
@@ -77,6 +78,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/votes/{vote}/comment', [VoteController::class, 'deleteComment']);
     Route::delete('/votes/{vote}/photo', [VoteController::class, 'deletePhoto']);
 });
+
+    // ===== Report Routes =====
+    Route::get('/reports/check/{locationId}', [ReportController::class, 'checkEligibility']);
+    Route::post('/reports/{locationId}', [ReportController::class, 'store']);
+    Route::get('/reports/location/{locationId}', [ReportController::class, 'show']);
+    Route::get('/reports/{report}/check', [ReportController::class, 'checkVerifyEligibility']);
+    Route::post('/reports/{report}/verify', [ReportController::class, 'verify']);
 
     // ===== Wishlist =====
     Route::get('/wishlist', [WishlistController::class, 'index']);

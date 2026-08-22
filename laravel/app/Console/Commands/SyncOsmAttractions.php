@@ -75,7 +75,7 @@ class SyncOsmAttractions extends Command
                 }
 
                 $this->line("Syncing {$cell['label']} ({$key})...");
-                $cache->ensureCellSynced($cell['lat'], $cell['lng']);
+                $cache->ensureCellSynced($cell['lat'], $cell['lng'], timeoutSeconds: 25);
                 $synced++;
             } catch (\Throwable $exception) {
                 $failed++;

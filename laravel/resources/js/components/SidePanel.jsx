@@ -5,7 +5,10 @@ import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
 import Avatar from "./Avatar";
 import TruncatedText from "./TruncatedText";
+import ReportModal from "./ReportModal";
+import VerifyReportModal from "./VerifyReportModal";
 import { useCompare } from "../context/CompareContext";
+import { getReportForLocation } from "../api/reports";
 
 function getVotePhotoUrl(photoPath) {
     if (!photoPath) return "";
@@ -24,11 +27,6 @@ function getVotePhotoUrl(photoPath) {
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 420;
 
-// mode="nav"  -> the hamburger-menu panel (Layout.jsx): fixed to the viewport, full nav chrome.
-// mode="gems" -> the Maps page's gem-detail panel: docked inside the map's left column
-//                (see .side-panel-embedded in maps.css), no nav chrome.
-// Always docks left — a side="right" variant existed here previously but had no
-// caller, so it (and its CSS in maps.css) was removed rather than kept unused.
 function SidePanel({
     group, isOpen, onClose, user, setUser, mode = "nav", headerExtra = null,
     nearby = [], nearbyLoading = false, onSelectNearby, onGemChange,
@@ -43,6 +41,13 @@ function SidePanel({
     const [itineraryOpen, setItineraryOpen] = useState(false);
     const [itineraryStatus, setItineraryStatus] = useState(null);
     const [wishlistBusy, setWishlistBusy] = useState(false);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+    const [activeReport, setActiveReport] = useState(null);
+    const [activeReportLoading, setActiveReportLoading] = useState(false);
+    const [localReportStatus, setLocalReportStatus] = useState(null);
+
+    const [localStatus, setLocalStatus] = useState(null);
     const bodyRef = useRef(null);
     const navigate = useNavigate();
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
@@ -54,10 +59,28 @@ function SidePanel({
         setIsFullscreen(false);
         setItineraryOpen(false);
         setItineraryStatus(null);
+        setLocalReportStatus(null);
+        setLocalStatus(null);
         bodyRef.current?.scrollTo({ top: 0 });
     }, [group]);
 
     const gem = group && group.length > 0 ? group[activeIndex] ?? group[0] : null;
+    const reportStatus = localReportStatus ?? gem?.reportStatus;
+    const status = localStatus ?? gem?.status;
+
+    useEffect(() => {
+        if (!gem || gem.source !== "database" || reportStatus !== "under_review") {
+            setActiveReport(null);
+            return;
+        }
+        let cancelled = false;
+        setActiveReportLoading(true);
+        getReportForLocation(gem.id)
+            .then((res) => { if (!cancelled) setActiveReport(res.data.data); })
+            .catch(() => { if (!cancelled) setActiveReport(null); })
+            .finally(() => { if (!cancelled) setActiveReportLoading(false); });
+        return () => { cancelled = true; };
+    }, [gem, reportStatus]);
 
     // Report the currently-displayed gem up to the parent, so it can fetch
     // nearby attractions and plot them on the map.
@@ -132,16 +155,23 @@ function SidePanel({
     // and 'pending_community_vote'), so anything still awaiting AI review is
     // blocked here rather than failing with a 422 after the fact.
     const canAddToItinerary = gem
-        && (gem.source === "attraction" || gem.status === "hidden_gem" || gem.status === "pending_community_vote");
+        && (gem.source === "attraction" || status === "hidden_gem" || status === "pending_community_vote");
 
     // OSM attractions aren't Location records, so there's nothing to wishlist
     // or compare — only our own database gems that have passed AI review qualify.
     const canWishlist = gem
         && gem.source === "database"
-        && (gem.status === "hidden_gem" || gem.status === "pending_community_vote");
+        && (status === "hidden_gem" || status === "pending_community_vote");
     const isWishlisted = gem && wishlistIds.has(gem.id);
     const canCompare = canWishlist;
     const comparing = gem && isComparing(gem.id);
+
+    // Same eligibility as wishlist/compare (matches the backend's own gate) —
+    // and only when there isn't already a report open on it.
+    const canReport = gem
+        && gem.source === "database"
+        && (status === "hidden_gem" || status === "pending_community_vote")
+        && reportStatus !== "under_review";
 
     async function handleAddToItinerary(itinerary) {
         setItineraryStatus({ type: "loading", message: `Adding to "${itinerary.trip_name}"…` });
@@ -269,14 +299,23 @@ function SidePanel({
                                 {gem.attractionType && (
                                     <span className="badge badge-neutral">{gem.attractionType.replace(/_/g, " ")}</span>
                                 )}
-                                {gem.source === "database" && gem.status === "hidden_gem" && (
+                                {/* A report is a provisional flag layered on top of `status`, not a
+                                    replacement for it (see gemStatus.js) — shown in the same badge
+                                    slot, in priority, without implying the gem's real status changed. */}
+                                {gem.source === "database" && reportStatus === "under_review" && (
+                                    <span className="badge badge-reported">⚠ Reported</span>
+                                )}
+                                {gem.source === "database" && reportStatus !== "under_review" && status === "hidden_gem" && (
                                     <span className="badge badge-success">Hidden Gem</span>
                                 )}
-                                {gem.source === "database" && gem.status === "pending_community_vote" && (
+                                {gem.source === "database" && reportStatus !== "under_review" && status === "pending_community_vote" && (
                                     <span className="badge badge-pending">Awaiting Votes</span>
                                 )}
-                                {gem.source === "database" && gem.status === "ai_rejected" && (
+                                {gem.source === "database" && reportStatus !== "under_review" && status === "ai_rejected" && (
                                     <span className="badge badge-pending">Not Accepted</span>
+                                )}
+                                {gem.source === "database" && reportStatus !== "under_review" && status === "delisted" && (
+                                    <span className="badge badge-reported">Delisted</span>
                                 )}
                             </div>
                         </div>
@@ -314,12 +353,48 @@ function SidePanel({
                                         {comparing ? "☑" : "☐"}
                                     </button>
                                 )}
+                                {gem.source === "database" && (status === "hidden_gem" || status === "pending_community_vote") && (
+                                    <button
+                                        type="button"
+                                        className="report-toggle-btn"
+                                        onClick={() => setReportModalOpen(true)}
+                                        disabled={!canReport}
+                                        title={reportStatus === "under_review"
+                                            ? "This gem already has a report under review"
+                                            : "Report a problem with this gem"}
+                                    >
+                                        ⚠
+                                    </button>
+                                )}
                             </div>
                         </div>
                         {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
                         <p className="side-panel-gem-desc">
                             <TruncatedText text={gem.description || "No description available."} limit={100} />
                         </p>
+
+                        {gem.source === "database" && reportStatus === "under_review" && (
+                            <div className="report-banner">
+                                <div className="report-banner-text">
+                                    <strong>⚠ This gem has been reported</strong>
+                                    <p>
+                                        {activeReportLoading
+                                            ? "Loading report details…"
+                                            : activeReport
+                                                ? `Reason: ${activeReport.reason.replace(/_/g, " ")}. The community is voting to confirm or dispute it (${activeReport.confirm_count} confirm / ${activeReport.dispute_count} dispute).`
+                                                : "The community is voting to confirm or dispute it."}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="report-banner-verify-btn"
+                                    onClick={() => setVerifyModalOpen(true)}
+                                    disabled={!activeReport}
+                                >
+                                    Help Verify
+                                </button>
+                            </div>
+                        )}
 
                         {/* Icon action row, Google Maps style: icon tile + label underneath */}
                         <div className="side-panel-actions">
@@ -417,7 +492,7 @@ function SidePanel({
                             </div>
                         )}
 
-                        {gem.source === "database" && gem.status === "pending_community_vote" && gem.voteCount != null && (
+                        {gem.source === "database" && status === "pending_community_vote" && gem.voteCount != null && (
                             <div className="side-panel-vote">
                                 <span>{gem.voteCount} of {gem.verificationThreshold ?? 10} votes toward Hidden Gem status</span>
                                 <div className="side-panel-vote-bar">
@@ -550,6 +625,31 @@ function SidePanel({
                 <div
                     className="side-panel-resize-handle"
                     onMouseDown={() => setIsResizing(true)}
+                />
+            )}
+
+            {gem && (
+                <ReportModal
+                    locationId={gem.id}
+                    isOpen={reportModalOpen}
+                    onClose={() => setReportModalOpen(false)}
+                    onReportSuccess={() => setLocalReportStatus("under_review")}
+                />
+            )}
+            {gem && (
+                <VerifyReportModal
+                    report={activeReport}
+                    isOpen={verifyModalOpen}
+                    onClose={() => setVerifyModalOpen(false)}
+                    onVerifySuccess={(data) => {
+                        if (data?.location?.report_status !== undefined) {
+                            setLocalReportStatus(data.location.report_status);
+                        }
+                        if (data?.location?.status !== undefined) {
+                            setLocalStatus(data.location.status);
+                        }
+                        setActiveReport(data?.report ?? null);
+                    }}
                 />
             )}
         </div>

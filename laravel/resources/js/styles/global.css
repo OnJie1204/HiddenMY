@@ -5633,6 +5633,182 @@ img.avatar {
     color: #111827;
 }
 
+/* ===== Report a Hidden Gem ===== */
+/* Icon button next to wishlist ♡ / compare ☐ — same reset as those, tinted
+   red so it reads as the "flag a problem" action even before hover. */
+.report-toggle-btn {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: #DC2626;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    transition: transform 0.1s;
+}
+
+.report-toggle-btn:hover:not(:disabled) {
+    transform: scale(1.1);
+}
+
+.report-toggle-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Status-badge slot used by CompareGems / MyHiddenGems / TripItineraryDetail
+   via getGemStatusDisplay() — same shape as .hidden-gems-card-rejected. */
+.hidden-gems-card-reported {
+    font-size: 13px;
+    font-weight: 600;
+    color: #DC2626;
+    background: #fef2f2;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+/* Same badge slot in SidePanel, which uses the smaller pill-shaped .badge
+   base class (maps.css) rather than the hidden-gems-card-* family. */
+.badge-reported {
+    background: #fef2f2;
+    color: #DC2626;
+}
+
+/* Inline "this gem is under review" banner, shown in place of the normal
+   action row while a report is open. */
+.report-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+
+.report-banner-text strong {
+    display: block;
+    color: #991b1b;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+
+.report-banner-text p {
+    color: #7f1d1d;
+    font-size: 12px;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.report-banner-verify-btn {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 10px;
+    background: #DC2626;
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.report-banner-verify-btn:hover:not(:disabled) {
+    background: #B91C1C;
+}
+
+.report-banner-verify-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Reason dropdown in ReportModal — same visual language as .vote-textarea */
+.report-reason-select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+    transition: border-color 0.2s;
+}
+
+.report-reason-select:focus {
+    outline: none;
+    border-color: #1F2937;
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.1);
+}
+
+/* The report being verified, shown at the top of VerifyReportModal's vote step */
+.report-summary {
+    background: #F8F8F7;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+
+.report-summary-label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6B7280;
+    margin-bottom: 2px;
+}
+
+.report-summary-desc {
+    color: #444;
+    font-size: 13px;
+    margin: 6px 0 0;
+    font-style: italic;
+}
+
+.report-verdict-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+    margin-bottom: 12px;
+}
+
+.report-verdict-btn {
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 1px solid transparent;
+}
+
+.report-verdict-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.report-verdict-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.report-verdict-dispute {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #065f46;
+}
+
+.report-verdict-confirm {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
 /* ===== Travel Posts ===== */
 
 /* -- Feed card -- */
