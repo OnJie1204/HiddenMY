@@ -8,6 +8,7 @@ import {
     deleteVotePhoto
 } from "../api/votes";
 import VoteModal from "../components/VoteModal";
+import ReportButton from "../components/ReportButton";
 import { voteProgressLabel } from "../utils/gemStatus";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTravelPostsForLocation } from "../api/travelPosts";
@@ -380,6 +381,7 @@ export default function HiddenGemDetail() {
                                 >
                                     {isComparing(gem.id) ? "☑" : "☐"}
                                 </button>
+                                <ReportButton gem={gem} />
                             </div>
                         )}
                     </div>

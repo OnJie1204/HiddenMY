@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
+import ReportButton from "../components/ReportButton";
 
 import "../styles/global.css";
 
@@ -116,14 +117,17 @@ export default function Wishlist() {
                             <div className="hidden-gems-card-content">
                                 <div className="wishlist-card-title-row">
                                     <h2 onClick={() => navigate(`/hidden-gems/${gem.id}`)}>{gem.place_name}</h2>
-                                    <button
-                                        type="button"
-                                        className="wishlist-remove-btn"
-                                        title="Remove from wishlist"
-                                        onClick={() => handleRemove(gem)}
-                                    >
-                                        ♥
-                                    </button>
+                                    <div className="hidden-gems-card-icon-actions">
+                                        <button
+                                            type="button"
+                                            className="wishlist-remove-btn"
+                                            title="Remove from wishlist"
+                                            onClick={() => handleRemove(gem)}
+                                        >
+                                            ♥
+                                        </button>
+                                        <ReportButton gem={gem} />
+                                    </div>
                                 </div>
 
                                 <div className="hidden-gems-card-tags">

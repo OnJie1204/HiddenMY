@@ -12,6 +12,7 @@ class OsmAttractionCache
 {
     private const NEARBY_RESULT_LIMIT = 60;
     private const OVERPASS_TIMEOUT_SECONDS = 3;
+    private const SYNC_TIMEOUT_SECONDS = 25;
 
     /** Place types worth showing on the map, grouped by their OSM tag. */
     private const NEARBY_TAG_FILTERS = [
@@ -84,7 +85,7 @@ class OsmAttractionCache
      * Refreshes the grid cell covering ($lat, $lng) from Overpass if it's
      * missing or older than the TTL. Only marks the cell synced on success 
      */
-    public function ensureCellSynced(float $lat, float $lng): void
+    public function ensureCellSynced(float $lat, float $lng, ?int $timeoutSeconds = null): void
     {
         $cellKey = $this->gridCellKey($lat, $lng);
 
@@ -96,7 +97,7 @@ class OsmAttractionCache
         $gridLat = (float) $gridLatPart;
         $gridLng = (float) $gridLngPart;
 
-        $places = $this->fetchLive($gridLat, $gridLng, self::SYNC_RADIUS_METERS);
+        $places = $this->fetchLive($gridLat, $gridLng, self::SYNC_RADIUS_METERS, $timeoutSeconds ?? self::OVERPASS_TIMEOUT_SECONDS);
 
         foreach ($places as $place) {
             OsmAttraction::updateOrCreate(
@@ -151,14 +152,16 @@ class OsmAttractionCache
      * The actual Overpass HTTP call — used directly for out-of-Malaysia points,
      * and by ensureCellSynced() to (re)populate the local cache.
      */
-    private function fetchLive(float $lat, float $lng, int $radius): Collection
+    private function fetchLive(float $lat, float $lng, int $radius, ?int $timeoutSeconds = null): Collection
     {
+        $timeoutSeconds ??= self::OVERPASS_TIMEOUT_SECONDS;
+
         $clauses = '';
         foreach (self::NEARBY_TAG_FILTERS as $tag => $pattern) {
             $clauses .= "node[\"{$tag}\"~\"^({$pattern})$\"](around:{$radius},{$lat},{$lng});";
         }
 
-        $overpassQuery = '[out:json][timeout:'.self::OVERPASS_TIMEOUT_SECONDS.'];'
+        $overpassQuery = '[out:json][timeout:'.$timeoutSeconds.'];'
             . "({$clauses});"
             . 'out body '.self::NEARBY_RESULT_LIMIT.';';
 
@@ -166,7 +169,7 @@ class OsmAttractionCache
         // so an explicit one is required here (same as the Nominatim calls).
         $response = Http::asForm()
             ->withUserAgent(config('app.name', 'HiddenMY').' nearby attractions')
-            ->timeout(self::OVERPASS_TIMEOUT_SECONDS)
+            ->timeout($timeoutSeconds)
             ->post('https://overpass-api.de/api/interpreter', ['data' => $overpassQuery])
             ->throw()
             ->json();

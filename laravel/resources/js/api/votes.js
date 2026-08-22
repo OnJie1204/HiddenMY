@@ -1,5 +1,8 @@
 import api from '../api';
 
+export const checkIn = (locationId, { latitude, longitude }) =>
+    api.post(`/votes/checkin/${locationId}`, { latitude, longitude, check_in_at: new Date().toISOString() });
+
 export const getMyVotes = () => api.get('/my-votes');
 
 export const updateVoteComment = (voteId, comment) =>

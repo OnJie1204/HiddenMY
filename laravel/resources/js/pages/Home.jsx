@@ -7,6 +7,7 @@ import { getTripItineraries } from '../api/tripItinerary';
 import { getHiddenGems } from '../api/hiddenGems';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist';
 import HiddenGemMarker from '../components/HiddenGemMarker';
+import ReportButton from '../components/ReportButton';
 
 // Fix leaflet default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -325,15 +326,18 @@ function Home({ user }) {
                                 <div className="home-trending-card-body">
                                     <div className="home-trending-card-header-row">
                                         <h4>{gem.place_name}</h4>
-                                        <button
-                                            type="button"
-                                            className="wishlist-remove-btn"
-                                            disabled={wishlistBusyId === gem.id}
-                                            title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
-                                            onClick={(e) => handleToggleWishlist(e, gem)}
-                                        >
-                                            {wishlistIds.has(gem.id) ? "♥" : "♡"}
-                                        </button>
+                                        <div className="hidden-gems-card-icon-actions">
+                                            <button
+                                                type="button"
+                                                className="wishlist-remove-btn"
+                                                disabled={wishlistBusyId === gem.id}
+                                                title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                                onClick={(e) => handleToggleWishlist(e, gem)}
+                                            >
+                                                {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                            </button>
+                                            <ReportButton gem={gem} />
+                                        </div>
                                         {gem.status === 'hidden_gem' ? (
                                             <span className="home-trending-card-status verified">✦ Hidden Gem</span>
                                         ) : (

@@ -4,6 +4,7 @@ import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { useCompare } from "../context/CompareContext";
 import TruncatedText from "../components/TruncatedText";
+import ReportButton from "../components/ReportButton";
 
 import "../styles/global.css";
 
@@ -267,6 +268,7 @@ export default function HiddenGems() {
                                         >
                                             {isComparing(gem.id) ? "☑" : "☐"}
                                         </button>
+                                        <ReportButton gem={gem} />
                                     </div>
                                 </div>
 
