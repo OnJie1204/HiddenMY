@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
+import { useCompare } from "../context/CompareContext";
+import TruncatedText from "../components/TruncatedText";
 
 import "../styles/global.css";
 
@@ -23,6 +25,7 @@ export default function HiddenGems() {
     const [lastSearch, setLastSearch] = useState('');
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
+    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
     const fetchGems = async () => {
         setLoading(true);
@@ -243,15 +246,28 @@ export default function HiddenGems() {
                             <div className="hidden-gems-card-content">
                                 <div className="wishlist-card-title-row">
                                     <h2>{gem.place_name}</h2>
-                                    <button
-                                        type="button"
-                                        className="wishlist-remove-btn"
-                                        disabled={wishlistBusyId === gem.id}
-                                        title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
-                                        onClick={(e) => handleToggleWishlist(e, gem)}
-                                    >
-                                        {wishlistIds.has(gem.id) ? "♥" : "♡"}
-                                    </button>
+                                    <div className="hidden-gems-card-icon-actions">
+                                        <button
+                                            type="button"
+                                            className="wishlist-remove-btn"
+                                            disabled={wishlistBusyId === gem.id}
+                                            title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                            onClick={(e) => handleToggleWishlist(e, gem)}
+                                        >
+                                            {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`compare-toggle-btn ${isComparing(gem.id) ? "compare-toggle-btn-active" : ""}`}
+                                            disabled={!isComparing(gem.id) && !canAddMore}
+                                            title={isComparing(gem.id)
+                                                ? "Remove from comparison"
+                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
+                                            onClick={(e) => { e.stopPropagation(); toggleCompare(gem); }}
+                                        >
+                                            {isComparing(gem.id) ? "☑" : "☐"}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="hidden-gems-card-tags">
@@ -264,7 +280,7 @@ export default function HiddenGems() {
                                 </div>
 
                                 <p className="hidden-gems-card-description">
-                                    {gem.description || 'No description'}
+                                    <TruncatedText text={gem.description || 'No description'} limit={100} />
                                 </p>
 
                                 <div className="hidden-gems-card-status">
