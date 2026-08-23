@@ -9,6 +9,7 @@ import {
 import { getMyVotes } from "../api/votes";
 import GemImage from "../components/GemImage";
 import HiddenGemJourneyMap from "../components/HiddenGemJourneyMap";
+import HiddenMYAchievements from "../components/HiddenMYAchievements";
 import { getGemStatusDisplay, voteProgressLabel } from "../utils/gemStatus";
 
 import "../styles/global.css";
@@ -53,6 +54,9 @@ export default function MyHiddenGems() {
             : "newest"
     );
     const [categories, setCategories] = useState([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(true);
+    const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+    const [categoriesError, setCategoriesError] = useState("");
     const [states, setStates] = useState([]);
 
     const filters = {
@@ -108,13 +112,25 @@ export default function MyHiddenGems() {
     }, []);
 
     useEffect(() => {
-        Promise.all([getCategories(), getStates()])
-            .then(([categoryResponse, stateResponse]) => {
+        getCategories()
+            .then((categoryResponse) => {
                 setCategories(categoryResponse.data.data || []);
+                setCategoriesLoaded(true);
+            })
+            .catch((error) => {
+                console.error("Error fetching Hidden Gem categories:", error);
+                setCategoriesError(
+                    error.response?.data?.message || "Failed to load categories."
+                );
+            })
+            .finally(() => setCategoriesLoading(false));
+
+        getStates()
+            .then((stateResponse) => {
                 setStates(stateResponse.data.data || []);
             })
             .catch((error) => {
-                console.error("Error fetching Hidden Gem filters:", error);
+                console.error("Error fetching Hidden Gem states:", error);
             });
     }, []);
 
@@ -135,10 +151,8 @@ export default function MyHiddenGems() {
         sessionStorage.setItem(MY_VOTES_SORT_KEY, value);
     };
 
-    const showMyVotes = async () => {
-        setActiveTab("votes");
-
-        if (votesLoaded) return;
+    const loadMyVotes = async () => {
+        if (votesLoaded || votesLoading) return;
 
         setVotesLoading(true);
         setVotesError("");
@@ -156,6 +170,16 @@ export default function MyHiddenGems() {
         } finally {
             setVotesLoading(false);
         }
+    };
+
+    const showMyVotes = () => {
+        setActiveTab("votes");
+        loadMyVotes();
+    };
+
+    const showAchievements = () => {
+        setActiveTab("achievements");
+        loadMyVotes();
     };
 
     useEffect(() => {
@@ -236,7 +260,29 @@ export default function MyHiddenGems() {
                 >
                     My Votes
                 </button>
+                <button
+                    type="button"
+                    className={activeTab === "achievements" ? "active" : ""}
+                    onClick={showAchievements}
+                >
+                    Achievements
+                </button>
             </div>
+
+            {activeTab === "achievements" && (
+                <HiddenMYAchievements
+                    gems={gems}
+                    gemsLoaded={!loading && !error}
+                    votes={votes}
+                    votesLoading={votesLoading}
+                    votesLoaded={votesLoaded}
+                    votesError={votesError}
+                    categories={categories}
+                    categoriesLoading={categoriesLoading}
+                    categoriesLoaded={categoriesLoaded}
+                    categoriesError={categoriesError}
+                />
+            )}
 
             {activeTab === "hidden-gems" && (
                 <HiddenGemJourneyMap
@@ -307,7 +353,7 @@ export default function MyHiddenGems() {
                 </div>
             )}
 
-            {activeTab === "hidden-gems" ? (loading ? (
+            {activeTab === "achievements" ? null : activeTab === "hidden-gems" ? (loading ? (
                 <div className="hidden-gems-loading">
                     <p>Loading your hidden gems...</p>
                 </div>

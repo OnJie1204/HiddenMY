@@ -4451,6 +4451,842 @@ img.avatar {
     color: #0f766e;
 }
 
+/* ===== HiddenMY Achievements ===== */
+.hiddenmy-achievements {
+    display: grid;
+    gap: 24px;
+}
+
+.hiddenmy-achievements-header {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.2fr);
+    align-items: center;
+    gap: 28px;
+    padding: 22px 24px;
+    overflow: hidden;
+    border: 1px solid #ccdfdc;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #ffffff 0%, #f1f8f7 100%);
+    box-shadow: 0 8px 24px rgba(15, 118, 110, 0.07);
+}
+
+.hiddenmy-achievements-eyebrow {
+    margin: 0 0 5px;
+    color: #0f766e;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.hiddenmy-achievements-header h2 {
+    margin: 0 0 8px;
+    color: #1f2937;
+    font-size: 26px;
+}
+
+.hiddenmy-passport-intro > p:last-child {
+    margin: 0;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.hiddenmy-passport-dashboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding-inline: 12px;
+}
+
+.hiddenmy-achievements-progress {
+    min-width: 0;
+}
+
+.hiddenmy-achievements-progress-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 9px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.hiddenmy-achievements-progress-label strong {
+    color: #0f766e;
+    font-size: 20px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.hiddenmy-achievements-progress-track {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dbe9e7;
+}
+
+.hiddenmy-achievements-progress-track span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #0f766e, #2dd4bf);
+    transition: width 180ms ease;
+}
+
+.hiddenmy-passport-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+}
+
+.hiddenmy-passport-stats div {
+    min-width: 0;
+    padding: 11px 12px;
+    border: 1px solid #d5e6e3;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.82);
+    text-align: center;
+}
+
+.hiddenmy-passport-stats dd {
+    margin: 0;
+    color: #0f766e;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.hiddenmy-passport-stats dt {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.hiddenmy-achievements-map {
+    position: relative;
+    height: 290px;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    background: #eef4f3;
+}
+
+.hiddenmy-achievements-map .leaflet-container {
+    background-color: #eef4f3;
+    background-image:
+        radial-gradient(circle, rgba(15, 118, 110, 0.065) 1px, transparent 1.2px),
+        radial-gradient(circle, rgba(100, 116, 139, 0.045) 1px, transparent 1.2px);
+    background-position: 0 0, 13px 11px;
+    background-size: 28px 28px, 36px 36px;
+    cursor: default;
+}
+
+.hiddenmy-map-compass,
+.hiddenmy-map-legend {
+    position: absolute;
+    z-index: 500;
+    pointer-events: none;
+    user-select: none;
+}
+
+.hiddenmy-map-compass {
+    top: 12px;
+    right: 12px;
+    width: 48px;
+    height: 48px;
+    border: 1px solid rgba(15, 118, 110, 0.34);
+    border-radius: 50%;
+    background: rgba(248, 252, 251, 0.82);
+    color: #52726f;
+    font-size: 7px;
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.hiddenmy-map-compass > span:not(.hiddenmy-map-compass-needle) {
+    position: absolute;
+    line-height: 1;
+}
+
+.hiddenmy-map-compass-north {
+    top: 4px;
+    left: 50%;
+    color: #0f766e;
+    transform: translateX(-50%);
+}
+
+.hiddenmy-map-compass-east {
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+}
+
+.hiddenmy-map-compass-south {
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.hiddenmy-map-compass-west {
+    top: 50%;
+    left: 4px;
+    transform: translateY(-50%);
+}
+
+.hiddenmy-map-compass-needle {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    width: 1px;
+    height: 24px;
+    background: linear-gradient(to bottom, #0f766e 0 50%, #94a3b8 50% 100%);
+    transform: translateX(-50%) rotate(18deg);
+    transform-origin: center;
+}
+
+.hiddenmy-map-compass-needle::before {
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    border-right: 2.5px solid transparent;
+    border-bottom: 5px solid #0f766e;
+    border-left: 2.5px solid transparent;
+    content: "";
+}
+
+.hiddenmy-map-legend {
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    gap: 10px;
+    padding: 6px 9px;
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    border-radius: 9px;
+    background: rgba(248, 250, 252, 0.86);
+    color: #475569;
+    font-size: 10px;
+    font-weight: 700;
+    box-shadow: 0 2px 7px rgba(15, 23, 42, 0.07);
+}
+
+.hiddenmy-map-legend span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.hiddenmy-map-legend i {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+}
+
+.hiddenmy-map-legend i.is-discovered {
+    background: #14b8a6;
+}
+
+.hiddenmy-map-legend i.is-locked {
+    background: #cbd5e1;
+    box-shadow: inset 0 0 0 1px #94a3b8;
+}
+
+.hiddenmy-collection-switch {
+    display: inline-flex;
+    width: fit-content;
+    padding: 4px;
+    border: 1px solid #dbe3e2;
+    border-radius: 12px;
+    background: #f1f5f4;
+}
+
+.hiddenmy-collection-switch button {
+    padding: 9px 15px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.hiddenmy-collection-switch button.active {
+    background: #fff;
+    color: #0f766e;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.hiddenmy-stamp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.hiddenmy-stamp-card {
+    display: flex;
+    min-height: 270px;
+    flex-direction: column;
+    padding: 18px;
+    border: 1px solid #dbe3e2;
+    border-radius: 16px;
+    background: #fff;
+}
+
+.hiddenmy-stamp-card.is-discovered {
+    border-color: #83c5bb;
+    background: linear-gradient(145deg, #ffffff, #f0fdfa);
+}
+
+.hiddenmy-stamp-card.is-clickable {
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+
+.hiddenmy-stamp-card.is-clickable:hover,
+.hiddenmy-stamp-card.is-clickable:focus-visible {
+    border-color: #14b8a6;
+    box-shadow: 0 8px 22px rgba(15, 118, 110, 0.14);
+    outline: none;
+    transform: translateY(-2px);
+}
+
+.hiddenmy-stamp-card-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.hiddenmy-stamp-card-heading h3 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 17px;
+}
+
+.hiddenmy-stamp-card-heading span {
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.hiddenmy-stamp-card.is-discovered .hiddenmy-stamp-card-heading span {
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
+.hiddenmy-stamp-placeholder {
+    display: grid;
+    width: 94px;
+    height: 94px;
+    place-items: center;
+    align-self: center;
+    margin: 22px 0;
+    border: 3px dashed #b7c2cc;
+    border-radius: 50%;
+    color: #94a3b8;
+    font-size: 38px;
+    font-weight: 800;
+}
+
+.hiddenmy-stamp-artwork {
+    display: flex;
+    width: 100%;
+    height: 170px;
+    align-items: center;
+    justify-content: center;
+    margin: 16px 0;
+}
+
+.hiddenmy-stamp-artwork img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.hiddenmy-map-stamp-tooltip-shell {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.16);
+}
+
+.hiddenmy-map-stamp-tooltip-shell .leaflet-tooltip-content {
+    margin: 0;
+}
+
+.hiddenmy-map-stamp-tooltip {
+    display: flex;
+    width: 126px;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 3px;
+    color: #334155;
+    text-align: center;
+}
+
+.hiddenmy-map-stamp-tooltip strong {
+    color: #1f2937;
+    font-size: 13px;
+}
+
+.hiddenmy-map-stamp-tooltip img {
+    width: 78px;
+    height: 68px;
+    object-fit: contain;
+}
+
+.hiddenmy-map-stamp-tooltip span {
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.hiddenmy-map-stamp-tooltip small {
+    color: #64748b;
+    font-size: 10px;
+    line-height: 1.25;
+}
+
+.hiddenmy-mascot-marker {
+    position: relative;
+    border: 0;
+    background: transparent;
+    pointer-events: none;
+    animation: hiddenmy-mascot-pop 0.35s ease-out;
+}
+
+.hiddenmy-mascot-marker::before {
+    position: absolute;
+    z-index: 0;
+    bottom: 5px;
+    left: 50%;
+    width: 28px;
+    height: 12px;
+    border: 2px solid rgba(15, 118, 110, 0.58);
+    border-radius: 50%;
+    content: "";
+    pointer-events: none;
+    transform: translateX(-50%) scale(0.45);
+    animation: hiddenmy-mascot-arrival 0.8s ease-out forwards;
+}
+
+.hiddenmy-mascot-marker img {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 4px rgba(15, 23, 42, 0.32));
+}
+
+@keyframes hiddenmy-mascot-pop {
+    from {
+        opacity: 0;
+        transform: translateY(-7px) scale(0.75);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes hiddenmy-mascot-arrival {
+    0% {
+        opacity: 0.7;
+        transform: translateX(-50%) scale(0.4);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) scale(1.65);
+    }
+}
+
+.hiddenmy-stamp-modal-backdrop {
+    position: fixed;
+    z-index: 2000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.72);
+}
+
+.hiddenmy-stamp-modal {
+    position: relative;
+    display: grid;
+    width: min(760px, 100%);
+    max-height: calc(100vh - 40px);
+    grid-template-columns: minmax(0, 1.5fr) minmax(210px, 0.8fr);
+    overflow: auto;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.36);
+}
+
+.hiddenmy-stamp-modal-close {
+    position: absolute;
+    z-index: 1;
+    top: 12px;
+    right: 12px;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.94);
+    color: #1f2937;
+    cursor: pointer;
+    font-size: 26px;
+    line-height: 1;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
+}
+
+.hiddenmy-stamp-modal-close:focus-visible {
+    outline: 3px solid #5eead4;
+    outline-offset: 2px;
+}
+
+.hiddenmy-stamp-modal-artwork {
+    display: grid;
+    min-height: 430px;
+    place-items: center;
+    padding: 34px;
+    background: #f0fdfa;
+}
+
+.hiddenmy-stamp-modal-artwork img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: 500px;
+    object-fit: contain;
+}
+
+.hiddenmy-stamp-modal-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 56px 28px 32px;
+}
+
+.hiddenmy-stamp-modal-details > span {
+    width: fit-content;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: #ccfbf1;
+    color: #0f766e;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.hiddenmy-stamp-modal-details h2 {
+    margin: 14px 0 8px;
+    color: #1f2937;
+    font-size: 26px;
+}
+
+.hiddenmy-stamp-modal-details p {
+    margin: 5px 0 0;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.hiddenmy-stamp-modal-details .hiddenmy-stamp-modal-title {
+    color: #0f766e;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.hiddenmy-stamp-details {
+    margin-top: auto;
+    text-align: center;
+}
+
+.hiddenmy-stamp-details p {
+    margin: 5px 0 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.hiddenmy-stamp-details .hiddenmy-stamp-title {
+    margin: 0;
+    color: #1f2937;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.hiddenmy-special-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.hiddenmy-special-card {
+    display: flex;
+    min-height: 260px;
+    flex-direction: column;
+    padding: 18px;
+    border: 1px solid #dbe3e2;
+    border-radius: 16px;
+    background: #fff;
+}
+
+.hiddenmy-special-card.is-unlocked {
+    border-color: #83c5bb;
+    background: linear-gradient(145deg, #ffffff, #f0fdfa);
+}
+
+.hiddenmy-special-card-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.hiddenmy-special-card-heading > span {
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.hiddenmy-special-card.is-unlocked .hiddenmy-special-card-heading > span {
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
+.hiddenmy-special-placeholder {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border: 2px dashed #b7c2cc;
+    border-radius: 50%;
+    color: #94a3b8;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.hiddenmy-special-card.is-unlocked .hiddenmy-special-placeholder {
+    border-color: #14b8a6;
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
+.hiddenmy-special-artwork {
+    display: grid;
+    width: 100%;
+    place-items: center;
+    margin-top: 12px;
+    padding: 4px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.hiddenmy-special-artwork:focus-visible {
+    outline: 3px solid #5eead4;
+    outline-offset: 2px;
+}
+
+.hiddenmy-special-artwork img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    transition: opacity 0.18s ease, filter 0.18s ease;
+}
+
+.hiddenmy-special-card.is-locked .hiddenmy-special-artwork img {
+    opacity: 0.68;
+    filter: grayscale(1) saturate(0.25) contrast(0.92);
+}
+
+.hiddenmy-special-card.is-unlocked .hiddenmy-special-artwork:hover img {
+    opacity: 0.94;
+}
+
+.hiddenmy-special-card.is-locked .hiddenmy-special-artwork:hover img {
+    opacity: 0.76;
+}
+
+.hiddenmy-special-card h3 {
+    margin: 18px 0 8px;
+    color: #1f2937;
+    font-size: 17px;
+    line-height: 1.3;
+}
+
+.hiddenmy-special-requirement {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.hiddenmy-special-progress {
+    margin-top: auto;
+    padding-top: 22px;
+}
+
+.hiddenmy-special-progress-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.hiddenmy-special-progress-label strong {
+    color: #334155;
+    text-align: right;
+}
+
+.hiddenmy-special-progress-track {
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e2e8f0;
+}
+
+.hiddenmy-special-progress-track span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #94a3b8;
+}
+
+.hiddenmy-special-card.is-unlocked .hiddenmy-special-progress-track span {
+    background: #14b8a6;
+}
+
+.hiddenmy-special-modal-artwork {
+    min-height: 360px;
+}
+
+.hiddenmy-special-modal.is-locked .hiddenmy-special-modal-artwork img {
+    opacity: 0.68;
+    filter: grayscale(1) saturate(0.25) contrast(0.92);
+}
+
+.hiddenmy-special-modal.is-locked .hiddenmy-stamp-modal-details > span {
+    background: #e2e8f0;
+    color: #64748b;
+}
+
+@media (max-width: 1100px) {
+    .hiddenmy-special-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .my-hidden-gems-tabs {
+        overflow-x: auto;
+    }
+
+    .my-hidden-gems-tabs button {
+        flex-shrink: 0;
+    }
+
+    .hiddenmy-achievements-header {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 18px;
+    }
+
+    .hiddenmy-passport-dashboard {
+        gap: 12px;
+    }
+
+    .hiddenmy-achievements-progress-label {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .hiddenmy-passport-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+    }
+
+    .hiddenmy-passport-stats div {
+        padding: 9px 8px;
+    }
+
+    .hiddenmy-achievements-map {
+        height: 235px;
+    }
+
+    .hiddenmy-map-compass {
+        top: 9px;
+        right: 9px;
+        width: 42px;
+        height: 42px;
+    }
+
+    .hiddenmy-map-compass-needle {
+        top: 10px;
+        height: 21px;
+    }
+
+    .hiddenmy-map-legend {
+        bottom: 8px;
+        left: 8px;
+        gap: 7px;
+        padding: 5px 7px;
+        font-size: 9px;
+    }
+
+    .hiddenmy-collection-switch {
+        display: grid;
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .hiddenmy-collection-switch button {
+        padding-inline: 8px;
+    }
+
+    .hiddenmy-special-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hiddenmy-stamp-modal {
+        grid-template-columns: 1fr;
+    }
+
+    .hiddenmy-stamp-modal-artwork {
+        min-height: 300px;
+        padding: 24px;
+    }
+
+    .hiddenmy-special-modal-artwork {
+        min-height: 280px;
+    }
+
+    .hiddenmy-stamp-modal-details {
+        padding: 22px;
+    }
+}
+
 .my-votes-feed {
     display: grid;
     gap: 12px;
