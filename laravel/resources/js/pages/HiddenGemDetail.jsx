@@ -62,7 +62,6 @@ export default function HiddenGemDetail() {
     const [storiesError, setStoriesError] = useState("");
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
-    // ==================== Interactions State ====================
     const [interactions, setInteractions] = useState({
         likes: 0,
         dislikes: 0,
@@ -74,7 +73,6 @@ export default function HiddenGemDetail() {
     const [newComment, setNewComment] = useState("");
     const [submittingComment, setSubmittingComment] = useState(false);
 
-    // ==================== Comment Edit/Delete State ====================
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editCommentText, setEditCommentText] = useState("");
     const [commentActionMessage, setCommentActionMessage] = useState("");
@@ -93,8 +91,6 @@ export default function HiddenGemDetail() {
         }
     };
 
-    // ==================== Interactions Functions ====================
-
     const fetchInteractions = async () => {
         try {
             const response = await api.get(`/gem-interactions/${id}`);
@@ -108,7 +104,6 @@ export default function HiddenGemDetail() {
         try {
             await api.post(`/gem-interactions/${id}`, { type });
             
-            // After toggling, immediately refresh interactions
             fetchInteractions();
         } catch (err) {
             console.error("Error toggling interaction:", err);
@@ -139,8 +134,6 @@ export default function HiddenGemDetail() {
             setSubmittingComment(false);
         }
     };
-
-    // ==================== Comment Edit/Delete Functions ====================
 
     const handleEditComment = (comment) => {
         setEditingCommentId(comment.id);
@@ -179,7 +172,6 @@ export default function HiddenGemDetail() {
         }
     };
 
-    // Renamed from handleDeleteComment to avoid conflict with vote comment delete
     const handleDeleteGemComment = async (commentId) => {
         setCommentActionLoading(true);
         setCommentActionMessage("");
@@ -331,7 +323,6 @@ export default function HiddenGemDetail() {
         }
     };
 
-    // This is the original handleDeleteComment for vote comments - KEEP THIS ONE
     const handleDeleteComment = async (voteId) => {
         setVoteActionLoading(true);
         setVoteActionMessage("");
@@ -539,7 +530,6 @@ export default function HiddenGemDetail() {
                         )}
                     </div>
 
-                    {/* ==================== Interactions ==================== */}
                     <div className="gem-detail-interactions">
                         <button
                             className={`gem-detail-interaction-btn ${interactions.user_like ? 'active-like' : ''}`}
@@ -871,7 +861,7 @@ export default function HiddenGemDetail() {
                                                 <div className="gem-detail-comment-avatar">
                                                     {comment.user?.name?.charAt(0) || "U"}
                                                 </div>
-                                                <div className="gem-detail-comment-content">
+                                                <div className="gem-detail-comment-info">
                                                     <p className="gem-detail-comment-user">
                                                         {comment.user?.name || "Unknown User"}
                                                         {isOwnComment && (
@@ -913,35 +903,39 @@ export default function HiddenGemDetail() {
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <p className="gem-detail-comment-text">{comment.comment}</p>
+                                                        <div className="gem-detail-comment-text-wrapper">
+                                                            <p className="gem-detail-comment-text">
+                                                                "{comment.comment}"
+                                                            </p>
+                                                            {isOwnComment && !isEditing && canEdit && (
+                                                                <span className="gem-detail-comment-actions">
+                                                                    <button
+                                                                        type="button"
+                                                                        className="gem-detail-comment-edit-btn"
+                                                                        onClick={() => handleEditComment(comment)}
+                                                                        disabled={commentActionLoading}
+                                                                    >
+                                                                        ✎
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="gem-detail-comment-delete-btn"
+                                                                        onClick={() => setDeleteCommentId(comment.id)}
+                                                                        disabled={commentActionLoading}
+                                                                    >
+                                                                        ✕
+                                                                    </button>
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
 
                                                     <p className="gem-detail-comment-date">
-                                                        {createdAt.toLocaleDateString("en-GB", {
+                                                        Voted on {createdAt.toLocaleDateString("en-GB", {
                                                             day: "numeric",
                                                             month: "short",
                                                             year: "numeric"
                                                         })}
-                                                        {isOwnComment && !isEditing && canEdit && (
-                                                            <span className="gem-detail-comment-actions">
-                                                                <button
-                                                                    type="button"
-                                                                    className="gem-detail-comment-edit-btn"
-                                                                    onClick={() => handleEditComment(comment)}
-                                                                    disabled={commentActionLoading}
-                                                                >
-                                                                    Edit
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    className="gem-detail-comment-delete-btn"
-                                                                    onClick={() => setDeleteCommentId(comment.id)}
-                                                                    disabled={commentActionLoading}
-                                                                >
-                                                                    Delete
-                                                                </button>
-                                                            </span>
-                                                        )}
                                                         {isOwnComment && !isEditing && !canEdit && (
                                                             <span className="gem-detail-comment-edit-locked">
                                                                 (Cannot edit after 3 days)
@@ -957,7 +951,6 @@ export default function HiddenGemDetail() {
                                 )}
                             </div>
 
-                            {/* Delete Comment Confirmation Modal */}
                             {deleteCommentId && (
                                 <div className="delete-modal-overlay" onClick={() => setDeleteCommentId(null)}>
                                     <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
