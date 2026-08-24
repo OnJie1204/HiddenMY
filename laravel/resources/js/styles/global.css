@@ -4585,77 +4585,11 @@ img.avatar {
     cursor: default;
 }
 
-.hiddenmy-map-compass,
 .hiddenmy-map-legend {
     position: absolute;
     z-index: 500;
     pointer-events: none;
     user-select: none;
-}
-
-.hiddenmy-map-compass {
-    top: 12px;
-    right: 12px;
-    width: 48px;
-    height: 48px;
-    border: 1px solid rgba(15, 118, 110, 0.34);
-    border-radius: 50%;
-    background: rgba(248, 252, 251, 0.82);
-    color: #52726f;
-    font-size: 7px;
-    font-weight: 800;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
-}
-
-.hiddenmy-map-compass > span:not(.hiddenmy-map-compass-needle) {
-    position: absolute;
-    line-height: 1;
-}
-
-.hiddenmy-map-compass-north {
-    top: 4px;
-    left: 50%;
-    color: #0f766e;
-    transform: translateX(-50%);
-}
-
-.hiddenmy-map-compass-east {
-    top: 50%;
-    right: 4px;
-    transform: translateY(-50%);
-}
-
-.hiddenmy-map-compass-south {
-    bottom: 4px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.hiddenmy-map-compass-west {
-    top: 50%;
-    left: 4px;
-    transform: translateY(-50%);
-}
-
-.hiddenmy-map-compass-needle {
-    position: absolute;
-    top: 12px;
-    left: 50%;
-    width: 1px;
-    height: 24px;
-    background: linear-gradient(to bottom, #0f766e 0 50%, #94a3b8 50% 100%);
-    transform: translateX(-50%) rotate(18deg);
-    transform-origin: center;
-}
-
-.hiddenmy-map-compass-needle::before {
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    border-right: 2.5px solid transparent;
-    border-bottom: 5px solid #0f766e;
-    border-left: 2.5px solid transparent;
-    content: "";
 }
 
 .hiddenmy-map-legend {
@@ -5027,6 +4961,76 @@ img.avatar {
     font-weight: 700;
 }
 
+.hiddenmy-special-collection {
+    display: grid;
+    gap: 16px;
+}
+
+.hiddenmy-special-collection-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.hiddenmy-special-collection-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.hiddenmy-special-collection-summary h2 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 20px;
+}
+
+.hiddenmy-special-collection-summary strong {
+    color: #0f766e;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.hiddenmy-special-filters {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid #dbe3e2;
+    border-radius: 10px;
+    background: #f1f5f4;
+}
+
+.hiddenmy-special-filters button {
+    padding: 7px 11px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.hiddenmy-special-filters button.active {
+    background: #fff;
+    color: #0f766e;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+}
+
+.hiddenmy-special-filters button:focus-visible {
+    outline: 2px solid #5eead4;
+    outline-offset: 1px;
+}
+
+.hiddenmy-special-empty {
+    padding: 28px 20px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 14px;
+    background: #f8fafc;
+    color: #64748b;
+    text-align: center;
+    font-size: 14px;
+}
+
 .hiddenmy-special-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5191,6 +5195,45 @@ img.avatar {
     color: #64748b;
 }
 
+.hiddenmy-special-modal-details {
+    min-width: 0;
+}
+
+.hiddenmy-special-modal-details .hiddenmy-special-detail-requirement {
+    margin-top: 4px;
+    color: #475569;
+}
+
+.hiddenmy-special-detail-progress {
+    margin-top: 22px;
+}
+
+.hiddenmy-special-modal.is-unlocked .hiddenmy-special-detail-progress .hiddenmy-special-progress-track span {
+    background: #14b8a6;
+}
+
+.hiddenmy-special-detail-guidance {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #f1f5f4;
+}
+
+.hiddenmy-special-detail-guidance > strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #334155;
+    font-size: 12px;
+}
+
+.hiddenmy-special-detail-guidance p {
+    margin: 0;
+    color: #0f766e;
+    font-size: 13px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 1100px) {
     .hiddenmy-special-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5235,18 +5278,6 @@ img.avatar {
         height: 235px;
     }
 
-    .hiddenmy-map-compass {
-        top: 9px;
-        right: 9px;
-        width: 42px;
-        height: 42px;
-    }
-
-    .hiddenmy-map-compass-needle {
-        top: 10px;
-        height: 21px;
-    }
-
     .hiddenmy-map-legend {
         bottom: 8px;
         left: 8px;
@@ -5267,6 +5298,20 @@ img.avatar {
 
     .hiddenmy-special-grid {
         grid-template-columns: 1fr;
+    }
+
+    .hiddenmy-special-collection-header,
+    .hiddenmy-special-collection-summary {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .hiddenmy-special-collection-header {
+        gap: 10px;
+    }
+
+    .hiddenmy-special-collection-summary {
+        gap: 4px;
     }
 
     .hiddenmy-stamp-modal {

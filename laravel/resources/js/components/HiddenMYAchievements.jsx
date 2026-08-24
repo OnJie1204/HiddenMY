@@ -126,6 +126,35 @@ function canonicalRegionName(value) {
     return REGION_ALIASES[region] || (REGION_NAMES.has(region) ? region : null);
 }
 
+function isOtherCategory(category) {
+    return String(category?.name ?? "").trim().toLowerCase() === "others";
+}
+
+function specialAchievementStatusLabel(achievement) {
+    return achievement.available
+        ? achievement.unlocked ? "Earned" : "Locked"
+        : achievement.loading ? "Loading" : "Unavailable";
+}
+
+function specialAchievementGuidance(achievement) {
+    if (!achievement.available) {
+        return achievement.loading
+            ? "Progress data is loading."
+            : "Progress data is currently unavailable.";
+    }
+
+    if (achievement.unlocked) {
+        return achievement.completionMessage || "Achievement earned!";
+    }
+
+    const remaining = Math.max(0, achievement.target - achievement.progress);
+    const unit = remaining === 1
+        ? achievement.remainingUnitSingular
+        : achievement.remainingUnitPlural;
+
+    return `${remaining} more ${unit} to earn`;
+}
+
 function SpecialAchievementCard({ achievement, onPreview }) {
     const statusLabel = achievement.available
         ? achievement.unlocked ? "Completed" : "Locked"
@@ -188,6 +217,7 @@ export default function HiddenMYAchievements({
     categoriesError = "",
 }) {
     const [collection, setCollection] = useState("regions");
+    const [specialFilter, setSpecialFilter] = useState("all");
     const [previewRegion, setPreviewRegion] = useState(null);
     const [previewSpecialAchievement, setPreviewSpecialAchievement] = useState(null);
     const [selectedMapRegion, setSelectedMapRegion] = useState(null);
@@ -196,7 +226,7 @@ export default function HiddenMYAchievements({
         const counts = Object.fromEntries(REGIONS.map(([region]) => [region, 0]));
 
         gems.forEach((gem) => {
-            if (gem.status !== "verified") return;
+            if (gem.status !== "hidden_gem") return;
 
             const region = canonicalRegionName(gem.state);
             if (region) counts[region] += 1;
@@ -208,7 +238,7 @@ export default function HiddenMYAchievements({
     const discoveredCount = Object.values(verifiedCounts)
         .filter((count) => count > 0).length;
     const verifiedGemCount = gems.filter(
-        (gem) => gem.status === "verified"
+        (gem) => gem.status === "hidden_gem"
     ).length;
     const discoveryProgress = (discoveredCount / REGIONS.length) * 100;
     useEffect(() => {
@@ -237,20 +267,32 @@ export default function HiddenMYAchievements({
         const eastCount = EAST_MALAYSIA_REGIONS.filter(
             (region) => discoveredRegions.has(region)
         ).length;
+        const remainingWestRegions = WEST_MALAYSIA_REGIONS.filter(
+            (region) => !discoveredRegions.has(region)
+        );
+        const remainingEastRegions = EAST_MALAYSIA_REGIONS.filter(
+            (region) => !discoveredRegions.has(region)
+        );
+        const remainingMalaysiaRegions = REGIONS
+            .map(([region]) => region)
+            .filter((region) => !discoveredRegions.has(region));
         const uniqueVotedGemCount = new Set(
             votes
                 .map((vote) => vote.location?.id)
                 .filter((id) => id !== null && id !== undefined)
         ).size;
+        const achievementCategories = categories.filter(
+            (category) => !isOtherCategory(category)
+        );
         const allCategoryIds = new Set(
-            categories
+            achievementCategories
                 .map((category) => category.id)
                 .filter((id) => id !== null && id !== undefined && id !== "")
                 .map(String)
         );
         const verifiedCategoryIds = new Set(
             gems
-                .filter((gem) => gem.status === "verified")
+                .filter((gem) => gem.status === "hidden_gem")
                 .map((gem) => gem.category_id ?? gem.category?.id)
                 .filter((id) => id !== null && id !== undefined && id !== "")
                 .map(String)
@@ -258,6 +300,15 @@ export default function HiddenMYAchievements({
         const coveredCategoryCount = [...allCategoryIds].filter(
             (id) => verifiedCategoryIds.has(id)
         ).length;
+        const remainingCategoryNames = achievementCategories
+            .filter((category) => {
+                const id = category.id;
+                return id !== null
+                    && id !== undefined
+                    && id !== ""
+                    && !verifiedCategoryIds.has(String(id));
+            })
+            .map((category) => category.name);
         const categoriesAvailable = gemsLoaded
             && categoriesLoaded
             && !categoriesError
@@ -273,6 +324,8 @@ export default function HiddenMYAchievements({
                 progressLabel: `${Math.min(verifiedGemCount, 1)} / 1`,
                 unlocked: verifiedGemCount >= 1,
                 available: gemsLoaded,
+                remainingUnitSingular: "verified Hidden Gem",
+                remainingUnitPlural: "verified Hidden Gems",
             },
             {
                 title: "Gem Hunter",
@@ -282,6 +335,8 @@ export default function HiddenMYAchievements({
                 progressLabel: `${Math.min(verifiedGemCount, 5)} / 5`,
                 unlocked: verifiedGemCount >= 5,
                 available: gemsLoaded,
+                remainingUnitSingular: "verified Hidden Gem",
+                remainingUnitPlural: "verified Hidden Gems",
             },
             {
                 title: "Halfway There",
@@ -291,6 +346,8 @@ export default function HiddenMYAchievements({
                 progressLabel: `${Math.min(discoveredCount, 8)} / 8`,
                 unlocked: discoveredCount >= 8,
                 available: gemsLoaded,
+                remainingUnitSingular: "region",
+                remainingUnitPlural: "regions",
             },
             {
                 title: "Voice of the Community",
@@ -303,6 +360,8 @@ export default function HiddenMYAchievements({
                 unlocked: votesAvailable && uniqueVotedGemCount >= 5,
                 available: votesAvailable,
                 loading: votesLoading,
+                remainingUnitSingular: "Hidden Gem to vote on",
+                remainingUnitPlural: "Hidden Gems to vote on",
             },
             {
                 title: "West Malaysia Explorer",
@@ -312,6 +371,9 @@ export default function HiddenMYAchievements({
                 progressLabel: `${westCount} / 13`,
                 unlocked: westCount === 13,
                 available: gemsLoaded,
+                remainingItemsLabel: "Regions remaining",
+                remainingItems: remainingWestRegions,
+                completionMessage: "All required regions discovered.",
             },
             {
                 title: "East Malaysia Explorer",
@@ -321,6 +383,9 @@ export default function HiddenMYAchievements({
                 progressLabel: `${eastCount} / 3`,
                 unlocked: eastCount === 3,
                 available: gemsLoaded,
+                remainingItemsLabel: "Regions remaining",
+                remainingItems: remainingEastRegions,
+                completionMessage: "All required regions discovered.",
             },
             {
                 title: "Off the Beaten Path",
@@ -334,6 +399,9 @@ export default function HiddenMYAchievements({
                     && [...allCategoryIds].every((id) => verifiedCategoryIds.has(id)),
                 available: categoriesAvailable,
                 loading: categoriesLoading,
+                remainingItemsLabel: "Categories remaining",
+                remainingItems: remainingCategoryNames,
+                completionMessage: "All required categories discovered.",
             },
             {
                 title: "HiddenMY Master",
@@ -343,6 +411,9 @@ export default function HiddenMYAchievements({
                 progressLabel: `${discoveredCount} / 16`,
                 unlocked: discoveredCount === 16,
                 available: gemsLoaded,
+                remainingItemsLabel: "Regions remaining",
+                remainingItems: remainingMalaysiaRegions,
+                completionMessage: "All required regions discovered.",
             },
         ];
     }, [
@@ -360,6 +431,34 @@ export default function HiddenMYAchievements({
         votesLoading,
         verifiedGemCount,
     ]);
+    const unlockedSpecialCount = specialAchievements.filter(
+        (achievement) => achievement.available && achievement.unlocked
+    ).length;
+    const filteredSpecialAchievements = specialAchievements.filter((achievement) => {
+        if (specialFilter === "unlocked") {
+            return achievement.available && achievement.unlocked;
+        }
+
+        if (specialFilter === "locked") {
+            return achievement.available && !achievement.unlocked;
+        }
+
+        return true;
+    });
+    const filteredSpecialDataPending = specialFilter !== "all"
+        && specialAchievements.some((achievement) => !achievement.available);
+    const activePreviewSpecialAchievement = previewSpecialAchievement
+        ? specialAchievements.find(
+            (achievement) => achievement.title === previewSpecialAchievement.title
+        ) || previewSpecialAchievement
+        : null;
+    const previewSpecialProgressPercent = activePreviewSpecialAchievement?.available
+        && activePreviewSpecialAchievement.target > 0
+        ? Math.min(
+            100,
+            (activePreviewSpecialAchievement.progress / activePreviewSpecialAchievement.target) * 100
+        )
+        : 0;
 
     const regionStyle = (feature) => {
         const region = canonicalRegionName(feature.properties?.shapeName);
@@ -496,13 +595,6 @@ export default function HiddenMYAchievements({
                         />
                     )}
                 </MapContainer>
-                <div className="hiddenmy-map-compass" aria-hidden="true">
-                    <span className="hiddenmy-map-compass-north">N</span>
-                    <span className="hiddenmy-map-compass-east">E</span>
-                    <span className="hiddenmy-map-compass-south">S</span>
-                    <span className="hiddenmy-map-compass-west">W</span>
-                    <span className="hiddenmy-map-compass-needle" />
-                </div>
                 <div className="hiddenmy-map-legend" aria-label="Map legend">
                     <span><i className="is-discovered" aria-hidden="true" />Discovered</span>
                     <span><i className="is-locked" aria-hidden="true" />Locked</span>
@@ -583,14 +675,51 @@ export default function HiddenMYAchievements({
                 })}
                 </div>
             ) : (
-                <div className="hiddenmy-special-grid">
-                    {specialAchievements.map((achievement) => (
-                        <SpecialAchievementCard
-                            key={achievement.title}
-                            achievement={achievement}
-                            onPreview={setPreviewSpecialAchievement}
-                        />
-                    ))}
+                <div className="hiddenmy-special-collection">
+                    <div className="hiddenmy-special-collection-header">
+                        <div className="hiddenmy-special-collection-summary">
+                            <h2>Special Achievements</h2>
+                            <strong>{unlockedSpecialCount} / {specialAchievements.length} Earned</strong>
+                        </div>
+                        <div className="hiddenmy-special-filters" role="tablist" aria-label="Filter Special Achievements">
+                            {[
+                                ["all", "All"],
+                                ["unlocked", "Earned"],
+                                ["locked", "Locked"],
+                            ].map(([value, label]) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={specialFilter === value}
+                                    className={specialFilter === value ? "active" : ""}
+                                    onClick={() => setSpecialFilter(value)}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {filteredSpecialAchievements.length > 0 ? (
+                        <div className="hiddenmy-special-grid">
+                            {filteredSpecialAchievements.map((achievement) => (
+                                <SpecialAchievementCard
+                                    key={achievement.title}
+                                    achievement={achievement}
+                                    onPreview={setPreviewSpecialAchievement}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="hiddenmy-special-empty">
+                            {filteredSpecialDataPending
+                                ? "Achievement status is still loading or unavailable."
+                                : specialFilter === "unlocked"
+                                    ? "No achievements earned yet. Keep exploring HiddenMY!"
+                                    : "All Special Achievements are earned!"}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -640,7 +769,7 @@ export default function HiddenMYAchievements({
                     onClick={() => setPreviewSpecialAchievement(null)}
                 >
                     <div
-                        className={`hiddenmy-stamp-modal hiddenmy-special-modal ${previewSpecialAchievement.unlocked ? "is-unlocked" : "is-locked"}`}
+                        className={`hiddenmy-stamp-modal hiddenmy-special-modal ${activePreviewSpecialAchievement.unlocked ? "is-unlocked" : "is-locked"}`}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="hiddenmy-special-modal-title"
@@ -656,15 +785,51 @@ export default function HiddenMYAchievements({
                         </button>
                         <div className="hiddenmy-stamp-modal-artwork hiddenmy-special-modal-artwork">
                             <img
-                                src={SPECIAL_ACHIEVEMENT_ARTWORK[previewSpecialAchievement.title]}
-                                alt={`${previewSpecialAchievement.title} achievement badge`}
+                                src={SPECIAL_ACHIEVEMENT_ARTWORK[activePreviewSpecialAchievement.title]}
+                                alt={`${activePreviewSpecialAchievement.title} achievement badge`}
                             />
                         </div>
-                        <div className="hiddenmy-stamp-modal-details">
-                            <span>{previewSpecialAchievement.unlocked ? "Completed" : "Locked"}</span>
+                        <div className="hiddenmy-stamp-modal-details hiddenmy-special-modal-details">
+                            <span>{specialAchievementStatusLabel(activePreviewSpecialAchievement)}</span>
                             <h2 id="hiddenmy-special-modal-title">
-                                {previewSpecialAchievement.title}
+                                {activePreviewSpecialAchievement.title}
                             </h2>
+                            <p className="hiddenmy-special-detail-requirement">
+                                {activePreviewSpecialAchievement.requirement}
+                            </p>
+                            <div className="hiddenmy-special-detail-progress">
+                                <div className="hiddenmy-special-progress-label">
+                                    <span>Progress</span>
+                                    <strong>{activePreviewSpecialAchievement.progressLabel}</strong>
+                                </div>
+                                <div
+                                    className="hiddenmy-special-progress-track"
+                                    role="progressbar"
+                                    aria-label={`${activePreviewSpecialAchievement.title} detail progress`}
+                                    aria-valuemin="0"
+                                    aria-valuemax={activePreviewSpecialAchievement.target}
+                                    aria-valuenow={activePreviewSpecialAchievement.available
+                                        ? Math.min(
+                                            activePreviewSpecialAchievement.progress,
+                                            activePreviewSpecialAchievement.target
+                                        )
+                                        : 0}
+                                >
+                                    <span style={{ width: `${previewSpecialProgressPercent}%` }} />
+                                </div>
+                            </div>
+                            <div className="hiddenmy-special-detail-guidance">
+                                {activePreviewSpecialAchievement.available
+                                    && !activePreviewSpecialAchievement.unlocked
+                                    && activePreviewSpecialAchievement.remainingItems ? (
+                                        <>
+                                            <strong>{activePreviewSpecialAchievement.remainingItemsLabel}</strong>
+                                            <p>{activePreviewSpecialAchievement.remainingItems.join(" · ")}</p>
+                                        </>
+                                    ) : (
+                                        <p>{specialAchievementGuidance(activePreviewSpecialAchievement)}</p>
+                                    )}
+                            </div>
                         </div>
                     </div>
                 </div>
