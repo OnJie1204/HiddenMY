@@ -1590,8 +1590,8 @@ img.avatar {
 
 /* ---------- Trip Itinerary Page ---------- */
 .trip-page {
-    padding: 2.5rem;
-    max-width: 1080px;
+    padding: 32px 24px 56px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
@@ -1601,44 +1601,48 @@ img.avatar {
     align-items: center;
     flex-wrap: wrap;
     gap: 1rem;
+    margin-bottom: 24px;
 }
 
 .trip-header h1 {
-    font-size: 1.6rem;
-    font-weight: 800;
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--color-text);
 }
 
 .trip-list {
-    margin-top: 2rem;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.25rem;
+    gap: 20px;
 }
 
 .trip-card {
     background: var(--color-surface);
-    padding: 1.5rem;
-    border-radius: var(--radius-lg);
-    border-top: 4px solid var(--color-primary-light);
-    box-shadow: var(--shadow-sm);
+    padding: 18px 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    box-shadow: none;
     cursor: pointer;
-    transition: 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .trip-card:hover {
-    transform: translateY(-5px);
-    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .trip-card h2 {
-    font-size: 1.15rem;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text);
 }
 
 .modal-overlay {
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: rgba(15, 42, 38, 0.45);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1647,20 +1651,56 @@ img.avatar {
 
 .modal {
     background: var(--color-surface);
-    padding: 1.75rem;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
     width: 100%;
-    max-width: 380px;
+    max-width: 420px;
+    overflow: hidden;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--color-text);
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.modal-close-btn:hover {
+    background: var(--color-surface-muted);
+}
+
+.modal-body {
+    padding: 24px;
 }
 
 .modal input {
     width: 100%;
     padding: 0.65rem 0.9rem;
-    margin: 1.25rem 0;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     font-size: 0.95rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-sizing: border-box;
 }
 
 .modal input:focus {
@@ -1671,7 +1711,7 @@ img.avatar {
 
 /* ---------- Trip Itinerary Detail Page ---------- */
 .trip-detail-container {
-    padding: 2.5rem 2rem;
+    padding: 32px 24px 56px;
     max-width: 1080px;
     margin: 0 auto;
 }
@@ -1682,18 +1722,29 @@ img.avatar {
     align-items: center;
     flex-wrap: wrap;
     gap: 1rem;
+    background: var(--color-surface);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    margin-bottom: 24px;
 }
 
 .trip-detail-header h1 {
-    font-size: 1.75rem;
-    font-weight: 800;
+    font-size: 26px;
+    font-weight: 700;
     color: var(--color-text);
+    margin: 0 0 6px;
 }
 
 .trip-detail-container hr {
-    border: none;
-    border-top: 1px solid var(--color-border);
-    margin: 1.75rem 0;
+    display: none;
+}
+
+.trip-detail-content-panel {
+    background: var(--color-surface);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .location-card {
@@ -1727,10 +1778,23 @@ img.avatar {
 .trip-detail-btn {
     border: none;
     cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 600;
-    border-radius: var(--radius-full);
-    transition: 0.2s;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 10px;
+    transition: background 0.2s ease;
+}
+
+.trip-detail-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.trip-detail-add-btn.trip-detail-header-btn {
+    width: auto;
+    margin-bottom: 0;
+    padding: 0.6rem 1.1rem;
 }
 
 /* Rename button */
@@ -1761,16 +1825,13 @@ img.avatar {
 .trip-detail-add-btn {
     width: 100%;
     padding: 0.9rem;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+    background: #1F2937;
     color: #fff;
     margin-bottom: 12px;
-    box-shadow: 0 8px 18px rgba(13, 148, 136, 0.28);
 }
 
 .trip-detail-add-btn:hover {
-    background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
-    transform: translateY(-2px);
-    box-shadow: 0 12px 22px rgba(13, 148, 136, 0.38);
+    background: #111827;
 }
 
 /* Remove stop button */
@@ -1789,14 +1850,14 @@ img.avatar {
     width: 100%;
     padding: 1rem;
     margin-top: 1.75rem;
-    border: 1px solid var(--color-primary-dark);
+    border: 1px solid var(--color-border);
     background: var(--color-surface);
-    color: var(--color-primary-dark);
-    font-size: 0.95rem;
+    color: var(--color-text);
+    font-size: 14px;
 }
 
 .trip-detail-route-btn:hover {
-    background: var(--color-primary-soft);
+    background: var(--color-surface-muted);
 }
 
 /* ---------- Add Stopping Point Dialog ---------- */
@@ -1812,7 +1873,7 @@ img.avatar {
 }
 
 .stopping-point-dialog {
-    width: min(100%, 680px);
+    width: min(100%, 760px);
     max-height: calc(100dvh - 3rem);
     padding: 1.5rem;
     border-radius: var(--radius-lg);
@@ -1830,7 +1891,7 @@ img.avatar {
 .stopping-point-search-label {
     display: block;
     margin-bottom: 0.4rem;
-    color: #334155;
+    color: var(--color-text);
     font-size: 0.9rem;
     font-weight: 600;
 }
@@ -1840,9 +1901,11 @@ img.avatar {
     width: 100%;
     margin-bottom: 1rem;
     padding: 0.75rem 0.9rem;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     font: inherit;
+    background: var(--color-surface);
+    color: var(--color-text);
 }
 
 .stopping-point-search:focus {
@@ -1851,45 +1914,16 @@ img.avatar {
     box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
-.stopping-point-search-suggestions {
-    max-height: min(180px, 20dvh);
-    margin: -0.5rem 0 1rem;
-    flex: 0 1 auto;
-    overflow-y: auto;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    background: #fff;
-}
-
 .stopping-point-search-status {
     margin: 0;
     padding: 0.55rem 0.8rem;
-    color: #475569;
+    color: var(--color-text-muted);
     font-size: 0.8rem;
     font-weight: 700;
 }
 
-.stopping-point-search-result {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    width: 100%;
-    padding: 0.65rem 0.8rem;
-    border: 0;
-    background: #fff;
-    color: #1e293b;
-    cursor: pointer;
-    font: inherit;
-    text-align: left;
-}
-
-.stopping-point-search-result-name {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.stopping-point-map-hint {
+    padding: 0 0.2rem 0.75rem;
 }
 
 .stopping-point-search-result-status {
@@ -1898,45 +1932,149 @@ img.avatar {
     padding: 3px 9px !important;
 }
 
-.stopping-point-wishlist-section {
-    margin-bottom: 1rem;
+/* Two-column body: wishlist/search list on the left, map on the right
+   (mirrors the layout of home-map-flight-body on the Home page). */
+.stopping-point-body {
+    display: flex;
+    gap: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: clamp(260px, 42dvh, 420px);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
 }
 
-.stopping-point-wishlist-section .stopping-point-search-suggestions {
-    margin-bottom: 0;
+.stopping-point-list {
+    flex: 0 0 45%;
+    min-width: 0;
+    min-height: 0;
+    padding: 10px 14px 14px;
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface);
 }
 
-.stopping-point-wishlist-section .stopping-point-search-status a {
-    color: var(--color-primary);
+/* Wishlist and search results each get their own fixed share of the
+   column height and scroll independently of one another. */
+.stopping-point-list-section {
+    flex: 1 1 50%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
-.stopping-point-search-result-prefix {
-    display: inline-flex;
-    width: 1.35rem;
-    height: 1.35rem;
-    align-items: center;
-    justify-content: center;
-    margin-right: 0.5rem;
-    border-radius: 50%;
-    background: var(--color-primary-soft);
-    color: var(--color-primary-dark);
-    font-size: 0.75rem;
-    font-weight: 700;
+.stopping-point-list-section:first-child {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
 }
 
-.stopping-point-search-result:hover,
-.stopping-point-search-result:focus-visible {
+.stopping-point-list-section:last-child {
+    padding-top: 10px;
+}
+
+.stopping-point-list-header {
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    padding: 4px 4px 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.stopping-point-list-items {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.stopping-point-list-status {
+    margin: 0 0 8px;
+    padding: 4px;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+.stopping-point-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: var(--color-text);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    transition: background 0.2s ease;
+    margin-bottom: 2px;
+}
+
+.stopping-point-item:hover,
+.stopping-point-item:focus-visible {
     outline: none;
     background: var(--color-surface-muted);
 }
 
-.stopping-point-map {
+.stopping-point-item.selected {
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+}
+
+.stopping-point-item-rank {
+    flex-shrink: 0;
+    min-width: 18px;
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.stopping-point-item.selected .stopping-point-item-rank {
+    color: var(--color-text);
+}
+
+.stopping-point-item-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.stopping-point-item-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.stopping-point-item-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
     overflow: hidden;
-    flex: 0 0 clamp(190px, 36dvh, 360px);
-    height: clamp(190px, 36dvh, 360px);
-    min-height: 0;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stopping-point-item-category,
+.stopping-point-item-state {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    display: block;
+}
+
+/* Right side — map (Leaflet) */
+.stopping-point-map-panel {
+    flex: 1;
+    min-width: 0;
+    padding: 12px;
+    background: var(--color-surface-muted);
+    display: flex;
 }
 
 .stopping-point-leaflet-map {
@@ -1944,27 +2082,27 @@ img.avatar {
     height: 100%;
 }
 
-.hidden-gem-marker-icon {
-    background: transparent;
-    border: 0;
+.stopping-point-map-panel .leaflet-container {
+    border-radius: 10px;
 }
 
-.hidden-gem-marker-diamond {
-    display: block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid #fff;
-    border-radius: 3px;
-    background: var(--color-primary);
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
-    transform: rotate(45deg);
+/* Dimmed gem marker for hidden gems still pending community verification */
+.hidden-gem-marker-pending {
+    filter: grayscale(55%) opacity(0.75);
 }
 
-.hidden-gem-marker-diamond-selected {
-    width: 20px;
-    height: 20px;
-    background: var(--color-warm);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35), 0 2px 6px rgba(15, 23, 42, 0.35);
+/* Highlight applied imperatively (see ClusterHighlightSync in
+   TripItineraryDetail.jsx) to whichever gem marker is currently selected —
+   from the wishlist, search results, or a direct map click. Only `filter`
+   is used here (never `transform`): Leaflet positions L.Icon markers with
+   an inline CSS transform on this same <img>, so animating `transform`
+   ourselves fights that positioning and makes the marker jump off its
+   correct spot. The map zooming in on the selection (see selectSearchResult
+   / selectHiddenGemOnMap) is what carries the "focus" effect instead.
+*/
+.hidden-gem-marker-selected {
+    filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.95)) drop-shadow(0 2px 6px rgba(15, 23, 42, 0.45));
+    z-index: 1000 !important;
 }
 
 .hidden-gem-marker-popup {
@@ -1975,6 +2113,40 @@ img.avatar {
 .hidden-gem-marker-popup span {
     color: #475569;
     font-size: 0.8rem;
+}
+
+/* Cluster bubble for hidden gem markers sitting close together on the
+   stopping-point map, so overlapping pins stay individually clickable. */
+.gem-cluster {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.gem-cluster img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.35));
+}
+
+.gem-cluster span {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background: var(--color-accent-dark, #f43f5e);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
 }
 
 .open-street-map-marker-icon {
@@ -1991,6 +2163,16 @@ img.avatar {
     background: var(--color-accent-dark);
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
     transform: rotate(-45deg);
+    animation: open-street-map-marker-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes open-street-map-marker-pulse {
+    0%, 100% {
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35), 0 0 0 0 rgba(220, 38, 38, 0.5);
+    }
+    50% {
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35), 0 0 0 9px rgba(220, 38, 38, 0);
+    }
 }
 
 .user-location-marker-icon {
@@ -2039,7 +2221,7 @@ img.avatar {
 
 .stopping-point-map-status {
     margin-top: 0.65rem;
-    color: #475569;
+    color: var(--color-text-muted);
     font-size: 0.9rem;
 }
 
@@ -2068,14 +2250,14 @@ img.avatar {
 
 .location-prompt-description {
     margin: 0;
-    color: #475569;
+    color: var(--color-text-muted);
     font-size: 0.9rem;
     line-height: 1.5;
 }
 
 .stopping-point-dialog-actions button {
     padding: 0.7rem 1.1rem;
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
     font: inherit;
     font-weight: 600;
@@ -2093,13 +2275,12 @@ img.avatar {
 
 .stopping-point-confirm-btn {
     border: 0;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+    background: #1F2937;
     color: #fff;
-    box-shadow: 0 8px 18px rgba(13, 148, 136, 0.28);
 }
 
 .stopping-point-confirm-btn:hover:not(:disabled) {
-    background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+    background: #111827;
 }
 
 .stopping-point-confirm-btn:disabled {
@@ -2107,7 +2288,7 @@ img.avatar {
     opacity: 0.55;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
     .stopping-point-dialog-backdrop {
         padding: 0.75rem;
     }
@@ -2116,9 +2297,21 @@ img.avatar {
         padding: 1rem;
     }
 
-    .stopping-point-map {
-        flex-basis: clamp(180px, 34dvh, 260px);
-        height: clamp(180px, 34dvh, 260px);
+    .stopping-point-body {
+        flex-direction: column;
+        height: auto;
+        max-height: 60dvh;
+    }
+
+    .stopping-point-list {
+        flex: 0 0 auto;
+        max-height: 220px;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .stopping-point-map-panel {
+        flex: 0 0 clamp(180px, 34dvh, 260px);
     }
 }
 
@@ -2132,13 +2325,17 @@ img.avatar {
         margin-block: 0.75rem;
     }
 
-    .stopping-point-search-suggestions {
-        max-height: 96px;
+    .stopping-point-body {
+        height: auto;
+        max-height: 50dvh;
     }
 
-    .stopping-point-map {
+    .stopping-point-list {
+        max-height: 160px;
+    }
+
+    .stopping-point-map-panel {
         flex-basis: 190px;
-        height: 190px;
     }
 }
 
@@ -2152,27 +2349,22 @@ img.avatar {
     font-size: 22px;
 }
 
-/* Optional hover effect */
+/* Back link — plain text link, consistent with gem-detail-back-link */
 .trip-detail-back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0.6rem 1.1rem;
-    margin-bottom: 1.75rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
+    display: inline-block;
+    padding: 0;
+    margin-bottom: 16px;
+    border: none;
+    background: none;
     color: var(--color-text-muted);
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
-    transition: 0.2s;
+    transition: color 0.2s;
 }
 
 .trip-detail-back-btn:hover {
-    background: var(--color-surface-muted);
-    color: var(--color-text);
-    transform: translateX(-3px);
+    color: var(--color-gem-accent);
 }
 
 .trip-detail-created-date {
@@ -2186,112 +2378,90 @@ img.avatar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: 2rem 0 1.1rem;
+    margin: 0 0 16px;
 }
 
 .trip-detail-section-header h2 {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 20px;
     font-weight: 700;
     color: var(--color-text);
 }
 
 .trip-detail-section-header span {
-    background: var(--color-primary-soft);
-    color: var(--color-primary-dark);
-    padding: 6px 14px;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    padding: 4px 14px;
     border-radius: var(--radius-full);
-    font-size: 0.85rem;
+    font-size: 13px;
     font-weight: 600;
 }
 
 .trip-create-modal-actions{
     display:flex;
     justify-content:flex-end;
-    gap:14px;
-    margin-top:28px;
+    gap:12px;
+    margin-top:24px;
 }
 
 .trip-create-modal-cancel-btn{
-    min-width:110px;
-    padding:12px 22px;
+    min-width:100px;
+    padding:12px 20px;
     border:1px solid var(--color-border);
-    border-radius:var(--radius-md);
+    border-radius:10px;
     background:var(--color-surface);
-    color:var(--color-text-muted);
-    font-size:15px;
-    font-weight:600;
+    color:var(--color-text);
+    font-size:14px;
+    font-weight:500;
     cursor:pointer;
-    transition:0.25s;
+    transition:background .2s ease;
 }
 
 .trip-create-modal-cancel-btn:hover{
     background:var(--color-surface-muted);
-    border-color:#c7cdc9;
-}
-
-.trip-create-modal-cancel-btn:active{
-    transform:scale(.97);
 }
 
 .trip-create-modal-confirm-btn{
     min-width:120px;
-    padding:12px 26px;
+    padding:12px 20px;
     border:none;
-    border-radius:var(--radius-md);
-    background:linear-gradient(135deg,var(--color-primary),var(--color-primary-light));
+    border-radius:10px;
+    background:#1F2937;
     color:#fff;
-    font-size:15px;
-    font-weight:600;
+    font-size:14px;
+    font-weight:500;
     cursor:pointer;
-    transition:0.25s;
-    box-shadow:0 8px 18px rgba(13,148,136,.28);
+    transition:background .2s ease;
 }
 
 .trip-create-modal-confirm-btn:hover{
-    transform:translateY(-2px);
-    box-shadow:0 12px 22px rgba(13,148,136,.38);
-}
-
-.trip-create-modal-confirm-btn:active{
-    transform:scale(.97);
+    background:#111827;
 }
 
 .trip-create-modal-confirm-btn:disabled{
     background:#cbd5e1;
-    box-shadow:none;
     cursor:not-allowed;
 }
 
 .trip-itinerary-create-btn{
     padding:12px 22px;
     border:none;
-    border-radius:var(--radius-md);
-    background:linear-gradient(135deg,var(--color-primary),var(--color-primary-light));
+    border-radius:10px;
+    background:#1F2937;
     color:#fff;
-    font-size:15px;
-    font-weight:600;
+    font-size:14px;
+    font-weight:500;
     cursor:pointer;
-    transition:all .25s ease;
-    box-shadow:0 8px 18px rgba(13,148,136,.28);
+    transition:background .2s ease;
 }
 
 .trip-itinerary-create-btn:hover{
-    background:linear-gradient(135deg,var(--color-primary-dark),var(--color-primary));
-    transform:translateY(-2px);
-    box-shadow:0 12px 22px rgba(13,148,136,.38);
-}
-
-.trip-itinerary-create-btn:active{
-    transform:scale(.97);
-    box-shadow:0 6px 14px rgba(13,148,136,.28);
+    background:#111827;
 }
 
 .trip-itinerary-create-btn:focus{
     outline:none;
-    box-shadow:
-        0 0 0 4px rgba(20,184,166,.25),
-        0 12px 22px rgba(13,148,136,.38);
+    box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
 .trip-itinerary-card-dates{
@@ -2312,7 +2482,7 @@ img.avatar {
 
     font-size:14px;
 
-    color:#6b7280;
+    color:var(--color-text-muted);
 
 }
 
@@ -2322,14 +2492,14 @@ img.avatar {
 
     font-size:14px;
 
-    color:#6b7280;
+    color:var(--color-text-muted);
 
 }
 
 .location-list {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 0.75rem;
 }
 
 .trip-detail-drag-handle {
@@ -2340,13 +2510,13 @@ img.avatar {
     justify-content: center;
     cursor: grab;
     color: var(--color-text-muted);
-    border-radius: var(--radius-sm);
+    border-radius: 8px;
     transition: .2s;
 }
 
 .trip-detail-drag-handle:hover {
     background: var(--color-surface-muted);
-    color: var(--color-primary-dark);
+    color: var(--color-text);
 }
 
 .trip-detail-drag-handle:active {
@@ -2359,14 +2529,15 @@ img.avatar {
     gap: 16px;
     background: var(--color-surface);
     padding: 0.6rem 1rem;
-    border-radius: var(--radius-md);
-    border-left: 4px solid var(--color-primary-light);
-    box-shadow: var(--shadow-sm);
-    transition: box-shadow 0.2s;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    box-shadow: none;
+    transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .trip-detail-location-card:hover {
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
 }
 
 .trip-location-order-status {
@@ -2393,17 +2564,22 @@ img.avatar {
 .trip-detail-delete-stop-btn {
     width: 38px;
     height: 38px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: var(--color-accent-soft);
-    color: var(--color-accent-dark);
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
     cursor: pointer;
-    transition: .2s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .trip-detail-delete-stop-btn:hover {
-    background: var(--color-accent-dark);
-    color: white;
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
 }
 
 .trip-rename-input {

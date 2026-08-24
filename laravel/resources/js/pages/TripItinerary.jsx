@@ -123,45 +123,38 @@ export default function TripItinerary() {
             </div>
 
 
-            <div className="trip-list">
+            {tripItineraries.length === 0 ? (
 
-                {tripItineraries.map((trip) => (
+                <div className="hidden-gems-empty">
+                    <p>You haven't created any trip itineraries yet.</p>
+                </div>
 
-                    <div
-                        className="trip-card"
-                        key={trip.id}
-                        onClick={() => navigate(`/trip-itinerary/${trip.id}`, {
-                            state: {
-                                itinerary: trip
-                            }
-                        })}
-                    >
+            ) : (
 
-                        <h2>
-                            {trip.trip_name}
-                        </h2>
+                <div className="trip-list">
 
-                        <div className="trip-itinerary-card-dates">
+                    {tripItineraries.map((trip) => (
 
-                            <p className="trip-itinerary-created-date">
-                                Created:
-                                {" "}
-                                {new Date(trip.created_at).toLocaleDateString(
-                                    "en-GB",
-                                    {
-                                        day: "numeric",
-                                        month: "short",
-                                        year: "numeric"
-                                    }
-                                )}
-                            </p>
+                        <div
+                            className="trip-card"
+                            key={trip.id}
+                            onClick={() => navigate(`/trip-itinerary/${trip.id}`, {
+                                state: {
+                                    itinerary: trip
+                                }
+                            })}
+                        >
 
-                            {trip.created_at !== trip.updated_at && (
+                            <h2>
+                                {trip.trip_name}
+                            </h2>
 
-                                <p className="trip-itinerary-modified-date">
-                                    Last Modified:
+                            <div className="trip-itinerary-card-dates">
+
+                                <p className="trip-itinerary-created-date">
+                                    Created:
                                     {" "}
-                                    {new Date(trip.updated_at).toLocaleDateString(
+                                    {new Date(trip.created_at).toLocaleDateString(
                                         "en-GB",
                                         {
                                             day: "numeric",
@@ -171,62 +164,99 @@ export default function TripItinerary() {
                                     )}
                                 </p>
 
-                            )}
+                                {trip.created_at !== trip.updated_at && (
+
+                                    <p className="trip-itinerary-modified-date">
+                                        Last Modified:
+                                        {" "}
+                                        {new Date(trip.updated_at).toLocaleDateString(
+                                            "en-GB",
+                                            {
+                                                day: "numeric",
+                                                month: "short",
+                                                year: "numeric"
+                                            }
+                                        )}
+                                    </p>
+
+                                )}
+
+                            </div>
 
                         </div>
 
-                    </div>
+                    ))}
 
-                ))}
+                </div>
 
-            </div>
+            )}
 
 
 
             {
                 showCreateModal && (
 
-                    <div className="modal-overlay">
+                    <div
+                        className="modal-overlay"
+                        onClick={() => {
+                            setShowCreateModal(false);
+                            setTripName("");
+                        }}
+                    >
 
-                        <div className="modal">
+                        <div className="modal" onClick={(e) => e.stopPropagation()}>
 
+                            <div className="modal-header">
+                                <h2>
+                                    Create New Itinerary
+                                </h2>
 
-                            <h2>
-                                Create New Itinerary
-                            </h2>
+                                <button
+                                    type="button"
+                                    className="modal-close-btn"
+                                    onClick={() => {
+                                        setShowCreateModal(false);
+                                        setTripName("");
+                                    }}
+                                    aria-label="Close"
+                                >
+                                    ✕
+                                </button>
+                            </div>
 
+                            <div className="modal-body">
+                                <form onSubmit={handleSubmit}>
+                                    <input
+                                        placeholder="Enter trip name"
+                                        value={tripName}
+                                        onChange={(e) => setTripName(e.target.value)}
+                                        autoFocus
+                                    />
 
-                            <form onSubmit={handleSubmit}>
-                                <input
-                                    placeholder="Enter trip name"
-                                    value={tripName}
-                                    onChange={(e) => setTripName(e.target.value)}
-                                />
+                                    <div className="trip-create-modal-actions">
 
-                                <div className="trip-create-modal-actions">
+                                        <button
+                                            type="button"
+                                            className="trip-create-modal-cancel-btn"
+                                            onClick={() => {
+                                                setShowCreateModal(false);
+                                                setTripName("");
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
 
-                                    <button
-                                        type="button"
-                                        className="trip-create-modal-cancel-btn"
-                                        onClick={() => {
-                                            setShowCreateModal(false);
-                                            setTripName("");
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
+                                        <button
+                                            type="submit"
+                                            className="trip-create-modal-confirm-btn"
+                                            disabled={!tripName.trim()}
+                                        >
+                                            Create Itinerary
+                                        </button>
 
-                                    <button
-                                        type="submit"
-                                        className="trip-create-modal-confirm-btn"
-                                        disabled={!tripName.trim()}
-                                    >
-                                        Create Itinerary
-                                    </button>
-
-                                </div>
-                            </form>
-
+                                    </div>
+                                </form>
+                            </div>
 
                         </div>
 
