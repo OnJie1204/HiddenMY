@@ -158,10 +158,6 @@ class VoteController extends Controller
         ], 201);
     }
 
-    /**
-     * Voting is only open on AI-approved candidates (Stage 2 of the two-stage
-     * verification flow) — everything else gets a status-appropriate reason.
-     */
     private function notVotableMessage(string $status): string
     {
         return match ($status) {
@@ -336,6 +332,8 @@ class VoteController extends Controller
         $checkIn = CheckIn::create([
             'user_id' => $user->id,
             'location_id' => $locationId,
+            'latitude' => $userLat,
+            'longitude' => $userLng,
             'check_in_at' => now(),
         ]);
 
