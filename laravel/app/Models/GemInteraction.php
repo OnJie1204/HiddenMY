@@ -14,6 +14,11 @@ class GemInteraction extends Model
         'location_id',
         'type',
         'comment',
+        'rating',
+    ];
+
+    protected $casts = [
+        'rating' => 'integer',
     ];
 
     public function user()

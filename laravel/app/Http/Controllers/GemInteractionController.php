@@ -21,13 +21,13 @@ class GemInteractionController extends Controller
         $request->validate([
             'type' => 'required|in:like,dislike,comment',
             'comment' => 'nullable|string|max:500',
+            'rating' => 'nullable|integer|min:1|max:5',
         ]);
 
         $location = Location::findOrFail($locationId);
 
-        // ===== NEW: For like/dislike, remove the opposite type =====
+        // ===== For like/dislike, remove the opposite type =====
         if ($request->type === 'like' || $request->type === 'dislike') {
-            // Remove any existing opposite interaction
             $oppositeType = $request->type === 'like' ? 'dislike' : 'like';
             GemInteraction::where('user_id', $user->id)
                 ->where('location_id', $locationId)
@@ -35,6 +35,53 @@ class GemInteractionController extends Controller
                 ->delete();
         }
 
+        // ===== For comment: must have rating, comment optional =====
+        if ($request->type === 'comment') {
+            // Rating is required
+            if (!$request->rating) {
+                return response()->json([
+                    'message' => 'Rating is required.'
+                ], 422);
+            }
+
+            $existingComment = GemInteraction::where('user_id', $user->id)
+                ->where('location_id', $locationId)
+                ->where('type', 'comment')
+                ->first();
+
+            if ($existingComment) {
+                // Update existing comment
+                $existingComment->update([
+                    'comment' => $request->comment,
+                    'rating' => $request->rating,
+                ]);
+
+                return response()->json([
+                    'message' => 'Comment updated',
+                    'action' => 'updated',
+                    'type' => 'comment',
+                    'data' => $existingComment->fresh(),
+                ]);
+            }
+
+            // Create new comment
+            $interaction = GemInteraction::create([
+                'user_id' => $user->id,
+                'location_id' => $locationId,
+                'type' => 'comment',
+                'comment' => $request->comment,
+                'rating' => $request->rating,
+            ]);
+
+            return response()->json([
+                'message' => 'Comment added',
+                'action' => 'added',
+                'type' => 'comment',
+                'data' => $interaction,
+            ]);
+        }
+
+        // ===== For like/dislike: toggle behavior =====
         $existing = GemInteraction::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->where('type', $request->type)
@@ -53,7 +100,8 @@ class GemInteractionController extends Controller
             'user_id' => $user->id,
             'location_id' => $locationId,
             'type' => $request->type,
-            'comment' => $request->type === 'comment' ? $request->comment : null,
+            'comment' => null,
+            'rating' => null,
         ]);
 
         return response()->json([
@@ -144,11 +192,13 @@ class GemInteractionController extends Controller
         }
 
         $request->validate([
-            'comment' => 'required|string|max:500',
+            'comment' => 'nullable|string|max:500',
+            'rating' => 'required|integer|min:1|max:5',
         ]);
 
         $comment->update([
             'comment' => $request->comment,
+            'rating' => $request->rating,
         ]);
 
         return response()->json([

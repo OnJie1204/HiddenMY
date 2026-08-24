@@ -42,7 +42,14 @@ export default function HiddenGems() {
         try {
             const params = {};
             if (search) params.search = search;
-            if (filter.status) params.status = filter.status;
+            
+            // Convert filter status to backend values
+            let statusParam = filter.status;
+            if (statusParam === 'verified') statusParam = 'hidden_gem';
+            if (statusParam === 'pending') statusParam = 'pending_community_vote';
+            
+            if (statusParam) params.status = statusParam;
+            
             if (filter.category) params.category = filter.category;
             if (filter.state) params.state = filter.state;
             if (filter.sort) params.sort = filter.sort;
@@ -342,13 +349,17 @@ export default function HiddenGems() {
                                 </p>
 
                                 <div className="hidden-gems-card-status">
-                                    {gem.status === 'verified' ? (
+                                    {gem.status === 'hidden_gem' ? (
                                         <span className="hidden-gems-card-verified">
                                             Verified
                                         </span>
-                                    ) : (
+                                    ) : gem.status === 'pending_community_vote' ? (
                                         <span className="hidden-gems-card-pending">
                                             Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                                        </span>
+                                    ) : (
+                                        <span className="hidden-gems-card-pending">
+                                            {gem.status === 'ai_rejected' ? 'Rejected' : 'In Review'}
                                         </span>
                                     )}
                                 </div>

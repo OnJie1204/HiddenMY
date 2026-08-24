@@ -11,6 +11,7 @@ use App\Http\Controllers\WishlistController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\GemInteractionController;
 
 Route::get('/user', function (Request $request) {
@@ -23,6 +24,9 @@ Route::get('/ping', function () {
 
 Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect']);
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
+
+// ===== User Profile =====
+Route::get('/users/{id}', [UserController::class, 'show']);
 
 // ===== Public Auth Routes =====
 Route::post('/register', [AuthController::class, 'register']);
