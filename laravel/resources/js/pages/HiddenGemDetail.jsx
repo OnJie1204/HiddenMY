@@ -13,6 +13,7 @@ import { voteProgressLabel } from "../utils/gemStatus";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import { useCompare } from "../context/CompareContext";
+import api from "../api";
 
 import "../styles/global.css";
 
@@ -61,6 +62,25 @@ export default function HiddenGemDetail() {
     const [storiesError, setStoriesError] = useState("");
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
+    // ==================== Interactions State ====================
+    const [interactions, setInteractions] = useState({
+        likes: 0,
+        dislikes: 0,
+        comments: [],
+        user_like: false,
+        user_dislike: false,
+        user_comment: null,
+    });
+    const [newComment, setNewComment] = useState("");
+    const [submittingComment, setSubmittingComment] = useState(false);
+
+    // ==================== Comment Edit/Delete State ====================
+    const [editingCommentId, setEditingCommentId] = useState(null);
+    const [editCommentText, setEditCommentText] = useState("");
+    const [commentActionMessage, setCommentActionMessage] = useState("");
+    const [commentActionLoading, setCommentActionLoading] = useState(false);
+    const [deleteCommentId, setDeleteCommentId] = useState(null);
+
     const fetchDetail = async () => {
         try {
             const response = await getHiddenGemDetail(id);
@@ -73,8 +93,116 @@ export default function HiddenGemDetail() {
         }
     };
 
+    // ==================== Interactions Functions ====================
+
+    const fetchInteractions = async () => {
+        try {
+            const response = await api.get(`/gem-interactions/${id}`);
+            setInteractions(response.data);
+        } catch (err) {
+            console.error("Error fetching interactions:", err);
+        }
+    };
+
+    const handleInteraction = async (type) => {
+        try {
+            await api.post(`/gem-interactions/${id}`, { type });
+            
+            // After toggling, immediately refresh interactions
+            fetchInteractions();
+        } catch (err) {
+            console.error("Error toggling interaction:", err);
+            if (err.response?.status === 401) {
+                alert("Please login first");
+            }
+        }
+    };
+
+    const handleCommentSubmit = async (e) => {
+        e.preventDefault();
+        if (!newComment.trim()) return;
+
+        setSubmittingComment(true);
+        try {
+            await api.post(`/gem-interactions/${id}`, {
+                type: 'comment',
+                comment: newComment.trim()
+            });
+            setNewComment("");
+            fetchInteractions();
+        } catch (err) {
+            console.error("Error submitting comment:", err);
+            if (err.response?.status === 401) {
+                alert("Please login first");
+            }
+        } finally {
+            setSubmittingComment(false);
+        }
+    };
+
+    // ==================== Comment Edit/Delete Functions ====================
+
+    const handleEditComment = (comment) => {
+        setEditingCommentId(comment.id);
+        setEditCommentText(comment.comment);
+        setCommentActionMessage("");
+    };
+
+    const handleCancelEdit = () => {
+        setEditingCommentId(null);
+        setEditCommentText("");
+        setCommentActionMessage("");
+    };
+
+    const handleSaveCommentEdit = async (commentId) => {
+        if (!editCommentText.trim()) return;
+
+        setCommentActionLoading(true);
+        setCommentActionMessage("");
+
+        try {
+            await api.put(`/gem-interactions/comments/${commentId}`, {
+                comment: editCommentText.trim()
+            });
+            setEditingCommentId(null);
+            setEditCommentText("");
+            fetchInteractions();
+            setCommentActionMessage("Comment updated successfully!");
+            setTimeout(() => setCommentActionMessage(""), 3000);
+        } catch (err) {
+            setCommentActionMessage(
+                err.response?.data?.message || "Failed to update comment."
+            );
+            console.error("Error updating comment:", err);
+        } finally {
+            setCommentActionLoading(false);
+        }
+    };
+
+    // Renamed from handleDeleteComment to avoid conflict with vote comment delete
+    const handleDeleteGemComment = async (commentId) => {
+        setCommentActionLoading(true);
+        setCommentActionMessage("");
+
+        try {
+            await api.delete(`/gem-interactions/comments/${commentId}`);
+            setDeleteCommentId(null);
+            fetchInteractions();
+            setCommentActionMessage("Comment deleted successfully!");
+            setTimeout(() => setCommentActionMessage(""), 3000);
+        } catch (err) {
+            setCommentActionMessage(
+                err.response?.data?.message || "Failed to delete comment."
+            );
+            console.error("Error deleting comment:", err);
+        } finally {
+            setCommentActionLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchDetail();
+        fetchInteractions();
     }, [id]);
 
     useEffect(() => {
@@ -156,8 +284,6 @@ export default function HiddenGemDetail() {
         }
     };
 
-    // Arriving via SidePanel's "Stories" button lands directly on this tab —
-    // it still needs the lazy fetch normally triggered by clicking the tab.
     useEffect(() => {
         if (routeLocation.state?.openTab === "stories") {
             showStories();
@@ -205,6 +331,7 @@ export default function HiddenGemDetail() {
         }
     };
 
+    // This is the original handleDeleteComment for vote comments - KEEP THIS ONE
     const handleDeleteComment = async (voteId) => {
         setVoteActionLoading(true);
         setVoteActionMessage("");
@@ -411,6 +538,22 @@ export default function HiddenGemDetail() {
                             </span>
                         )}
                     </div>
+
+                    {/* ==================== Interactions ==================== */}
+                    <div className="gem-detail-interactions">
+                        <button
+                            className={`gem-detail-interaction-btn ${interactions.user_like ? 'active-like' : ''}`}
+                            onClick={() => handleInteraction('like')}
+                        >
+                            👍 {interactions.likes}
+                        </button>
+                        <button
+                            className={`gem-detail-interaction-btn ${interactions.user_dislike ? 'active-dislike' : ''}`}
+                            onClick={() => handleInteraction('dislike')}
+                        >
+                            👎 {interactions.dislikes}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="gem-detail-tabs">
@@ -431,6 +574,12 @@ export default function HiddenGemDetail() {
                         onClick={showStories}
                     >
                         Community Stories
+                    </button>
+                    <button
+                        className={`gem-detail-tab ${activeTab === "comments" ? "active" : ""}`}
+                        onClick={() => setActiveTab("comments")}
+                    >
+                        Comments ({interactions.comments?.length || 0})
                     </button>
                 </div>
 
@@ -676,6 +825,167 @@ export default function HiddenGemDetail() {
                                         <span className="gem-detail-story-arrow">→</span>
                                     </div>
                                 ))
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === "comments" && (
+                        <div className="gem-detail-comments">
+                            {commentActionMessage && (
+                                <div className={`gem-detail-comment-action-message ${
+                                    commentActionMessage.includes('success') ? 'success' : 'error'
+                                }`}>
+                                    {commentActionMessage}
+                                </div>
+                            )}
+
+                            <form className="gem-detail-comment-form" onSubmit={handleCommentSubmit}>
+                                <input
+                                    type="text"
+                                    className="gem-detail-comment-input"
+                                    placeholder="Write a comment..."
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                />
+                                <button
+                                    type="submit"
+                                    className="gem-detail-comment-submit"
+                                    disabled={submittingComment || !newComment.trim()}
+                                >
+                                    Post
+                                </button>
+                            </form>
+
+                            <div className="gem-detail-comments-list">
+                                {interactions.comments?.length > 0 ? (
+                                    interactions.comments.map((comment) => {
+                                        const isOwnComment = Number(comment.user_id) === Number(currentUser?.id);
+                                        const isEditing = editingCommentId === comment.id;
+                                        const createdAt = new Date(comment.created_at);
+                                        const now = new Date();
+                                        const hoursDiff = Math.floor((now - createdAt) / (1000 * 60 * 60));
+                                        const canEdit = hoursDiff <= 72;
+
+                                        return (
+                                            <div key={comment.id} className="gem-detail-comment-item">
+                                                <div className="gem-detail-comment-avatar">
+                                                    {comment.user?.name?.charAt(0) || "U"}
+                                                </div>
+                                                <div className="gem-detail-comment-content">
+                                                    <p className="gem-detail-comment-user">
+                                                        {comment.user?.name || "Unknown User"}
+                                                        {isOwnComment && (
+                                                            <span className="gem-detail-comment-badge">You</span>
+                                                        )}
+                                                        {!canEdit && isOwnComment && (
+                                                            <span className="gem-detail-comment-badge gem-detail-comment-badge-locked">
+                                                                🔒 Edit locked
+                                                            </span>
+                                                        )}
+                                                    </p>
+
+                                                    {isEditing ? (
+                                                        <div className="gem-detail-comment-edit-area">
+                                                            <textarea
+                                                                className="gem-detail-comment-edit-input"
+                                                                value={editCommentText}
+                                                                onChange={(e) => setEditCommentText(e.target.value)}
+                                                                maxLength={500}
+                                                                disabled={commentActionLoading}
+                                                            />
+                                                            <div className="gem-detail-comment-edit-actions">
+                                                                <button
+                                                                    type="button"
+                                                                    className="gem-detail-comment-edit-save"
+                                                                    onClick={() => handleSaveCommentEdit(comment.id)}
+                                                                    disabled={commentActionLoading || !editCommentText.trim()}
+                                                                >
+                                                                    {commentActionLoading ? "Saving..." : "Save"}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="gem-detail-comment-edit-cancel"
+                                                                    onClick={handleCancelEdit}
+                                                                    disabled={commentActionLoading}
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="gem-detail-comment-text">{comment.comment}</p>
+                                                    )}
+
+                                                    <p className="gem-detail-comment-date">
+                                                        {createdAt.toLocaleDateString("en-GB", {
+                                                            day: "numeric",
+                                                            month: "short",
+                                                            year: "numeric"
+                                                        })}
+                                                        {isOwnComment && !isEditing && canEdit && (
+                                                            <span className="gem-detail-comment-actions">
+                                                                <button
+                                                                    type="button"
+                                                                    className="gem-detail-comment-edit-btn"
+                                                                    onClick={() => handleEditComment(comment)}
+                                                                    disabled={commentActionLoading}
+                                                                >
+                                                                    Edit
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="gem-detail-comment-delete-btn"
+                                                                    onClick={() => setDeleteCommentId(comment.id)}
+                                                                    disabled={commentActionLoading}
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </span>
+                                                        )}
+                                                        {isOwnComment && !isEditing && !canEdit && (
+                                                            <span className="gem-detail-comment-edit-locked">
+                                                                (Cannot edit after 3 days)
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <p className="gem-detail-no-comments">No comments yet. Be the first to comment!</p>
+                                )}
+                            </div>
+
+                            {/* Delete Comment Confirmation Modal */}
+                            {deleteCommentId && (
+                                <div className="delete-modal-overlay" onClick={() => setDeleteCommentId(null)}>
+                                    <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
+                                        <h2>Delete Comment?</h2>
+                                        <p>Are you sure you want to delete this comment? This action cannot be undone.</p>
+                                        {commentActionMessage && (
+                                            <p className="delete-modal-error">{commentActionMessage}</p>
+                                        )}
+                                        <div className="delete-modal-actions">
+                                            <button
+                                                type="button"
+                                                className="delete-modal-cancel"
+                                                onClick={() => setDeleteCommentId(null)}
+                                                disabled={commentActionLoading}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="delete-modal-confirm"
+                                                onClick={() => handleDeleteGemComment(deleteCommentId)}
+                                                disabled={commentActionLoading}
+                                            >
+                                                {commentActionLoading ? "Deleting..." : "Delete"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     )}

@@ -160,10 +160,17 @@ class HiddenGemController extends Controller
             $query->where('place_name', 'like', '%' . $request->search . '%');
         }
 
+        // Sorting
+        if ($request->has('sort') && $request->sort === 'oldest') {
+            $query->orderBy('created_at', 'asc');
+        } else {
+            $query->orderBy('created_at', 'desc'); // default: latest first
+        }
+
         $perPage = (int) $request->input('per_page', 12);
         $perPage = max(1, min($perPage, 500));
 
-        $hiddenGems = $query->latest()->paginate($perPage);
+        $hiddenGems = $query->paginate($perPage);
 
         return response()->json([
             'data' => $hiddenGems->items(),

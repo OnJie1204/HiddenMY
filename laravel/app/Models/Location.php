@@ -127,6 +127,30 @@ class Location extends Model
             ->orderByDesc('post_locations.created_at');
     }
 
+    // ==================== Interactions (Like / Dislike / Comment) ====================
+
+    public function interactions()
+    {
+        return $this->hasMany(GemInteraction::class);
+    }
+
+    public function likes()
+    {
+        return $this->hasMany(GemInteraction::class)->where('type', 'like');
+    }
+
+    public function dislikes()
+    {
+        return $this->hasMany(GemInteraction::class)->where('type', 'dislike');
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(GemInteraction::class)->where('type', 'comment');
+    }
+
+    // ==================== Status Helpers ====================
+
     public function isPending()
     {
         return $this->status === 'pending';
