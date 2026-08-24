@@ -649,90 +649,97 @@ export default function HiddenGemDetail() {
 
                 <div className="gem-detail-content">
 
-                    {activeTab === "details" && (
-                        <div>
-
-                            <div className="gem-detail-section">
-                                <h3>Description</h3>
-                                <p className="gem-detail-description-text">
-                                    "{gem.description || "No description available."}"
-                                </p>
-                            </div>
-
-                            <div className="gem-detail-section">
+                {activeTab === "details" && (
+                    <div className="gem-detail-sections">
+                        {/* Location Card */}
+                        <div className="gem-detail-section-card">
+                            <div className="gem-detail-section-header">
+                                <span className="gem-detail-section-icon">📍</span>
                                 <h3>Location</h3>
-                                <Link 
-                                    to={`/map?lat=${gem.latitude}&lng=${gem.longitude}`}
-                                    state={{ 
-                                        highlightGem: gem,
-                                        openPanel: true,
-                                        flyTo: true 
-                                    }}
-                                    className="gem-detail-location-link"
-                                >
-                                    {gem.address}
-                                </Link>
-                                <p className="gem-detail-coords">
-                                    {gem.latitude}, {gem.longitude}
+                            </div>
+                            <Link 
+                                to={`/map?lat=${gem.latitude}&lng=${gem.longitude}`}
+                                state={{ highlightGem: gem, openPanel: true, flyTo: true }}
+                                className="gem-detail-location-link"
+                            >
+                                {gem.address}
+                            </Link>
+                            <p className="gem-detail-coords">{gem.latitude}, {gem.longitude}</p>
+                        </div>
+
+                        {/* Description Card */}
+                        <div className="gem-detail-section-card">
+                            <div className="gem-detail-section-header">
+                                <span className="gem-detail-section-icon">📝</span>
+                                <h3>Description</h3>
+                            </div>
+                            <p className="gem-detail-description-text">
+                                "{gem.description || "No description available."}"
+                            </p>
+                        </div>
+
+                        {/* Vote Progress Card */}
+                        {gem.status === "pending_community_vote" && (
+                            <div className="gem-detail-section-card">
+                                <div className="gem-detail-section-header">
+                                    <span className="gem-detail-section-icon">🗳️</span>
+                                    <h3>Vote Progress</h3>
+                                </div>
+                                <div className="gem-detail-progress-bar">
+                                    <div
+                                        className="gem-detail-progress-fill"
+                                        style={{ width: `${Math.min((gem.vote_count / (gem.verification_threshold || 10)) * 100, 100)}%` }}
+                                    ></div>
+                                </div>
+                                <p className="gem-detail-progress-text">
+                                    {gem.vote_count || 0} of {gem.verification_threshold || 10} votes
+                                    ({(gem.verification_threshold || 10) - (gem.vote_count || 0)} more needed)
                                 </p>
                             </div>
+                        )}
 
-                            {gem.status === "pending_community_vote" && (
-                                <div className="gem-detail-section">
-                                    <h3>Vote Progress</h3>
-                                    <div className="gem-detail-progress-bar">
-                                        <div
-                                            className="gem-detail-progress-fill"
-                                            style={{ width: `${Math.min((gem.vote_count / (gem.verification_threshold || 10)) * 100, 100)}%` }}
-                                        ></div>
-                                    </div>
-                                    <p className="gem-detail-progress-text">
-                                        {gem.vote_count || 0} of {gem.verification_threshold || 10} votes
-                                        ({(gem.verification_threshold || 10) - (gem.vote_count || 0)} more needed)
-                                    </p>
-                                </div>
-                            )}
-
-                            {gem.status === "ai_rejected" && (
-                                <div className="gem-detail-section">
+                        {/* AI Rejected Card */}
+                        {gem.status === "ai_rejected" && (
+                            <div className="gem-detail-section-card">
+                                <div className="gem-detail-section-header">
+                                    <span className="gem-detail-section-icon">🤖</span>
                                     <h3>AI Verification Result</h3>
-                                    <p className="gem-detail-description-text">
-                                        {gem.ai_review_reason || "This submission did not meet HiddenMY's hidden gem requirements."}
-                                    </p>
                                 </div>
-                            )}
+                                <p className="gem-detail-description-text">
+                                    {gem.ai_review_reason || "This submission did not meet HiddenMY's hidden gem requirements."}
+                                </p>
+                            </div>
+                        )}
 
-                            <div className="gem-detail-section">
+                        {/* Discovered by Card */}
+                        <div className="gem-detail-section-card">
+                            <div className="gem-detail-section-header">
+                                <span className="gem-detail-section-icon">👤</span>
                                 <h3>Discovered by</h3>
-                                <Link 
-                                    to={`/users/${gem.user?.id || ''}`} 
-                                    className="gem-detail-submitter-link"
-                                >
-                                    {gem.user?.name || "Unknown User"}
-                                </Link>
                             </div>
-
-                            <div className="gem-detail-vote-section">
-                                {gem.status === "pending_community_vote" ? (
-                                    <button
-                                        className="gem-detail-vote-btn"
-                                        onClick={() => setShowVoteModal(true)}
-                                    >
-                                        Vote Now
-                                    </button>
-                                ) : gem.status === "hidden_gem" ? (
-                                    <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                        Already a Hidden Gem
-                                    </button>
-                                ) : gem.status === "ai_rejected" ? null : (
-                                    <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                        Being Verified by AI
-                                    </button>
-                                )}
-                            </div>
-
+                            <Link to={`/users/${gem.user?.id || ''}`} className="gem-detail-submitter-link">
+                                {gem.user?.name || "Unknown User"}
+                            </Link>
                         </div>
-                    )}
+
+                        {/* Vote Button */}
+                        <div className="gem-detail-vote-section">
+                            {gem.status === "pending_community_vote" ? (
+                                <button className="gem-detail-vote-btn" onClick={() => setShowVoteModal(true)}>
+                                    🗳️ Vote Now
+                                </button>
+                            ) : gem.status === "hidden_gem" ? (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ✓ Already a Hidden Gem
+                                </button>
+                            ) : gem.status === "ai_rejected" ? null : (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ⏳ Being Verified
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                     {activeTab === "votes" && (
                         <div className="gem-detail-votes-list">
@@ -965,26 +972,33 @@ export default function HiddenGemDetail() {
                             )}
 
                             {/* Rating + Comment Form */}
-                            <form className="gem-detail-comment-form" onSubmit={handleCommentSubmit}>
-                                <div className="gem-detail-comment-rating-input">
-                                    <label>Your Rating:</label>
-                                    <StarRating value={newRating} onChange={setNewRating} size="medium" />
+                            {hasUserCommented ? (
+                                <div className="gem-detail-already-commented">
+                                    <p>You have already rated this location.</p>
+                                    <p>You can edit your comment below.</p>
                                 </div>
-                                <input
-                                    type="text"
-                                    className="gem-detail-comment-input"
-                                    placeholder="Write a comment (optional)..."
-                                    value={newComment}
-                                    onChange={(e) => setNewComment(e.target.value)}
-                                />
-                                <button
-                                    type="submit"
-                                    className="gem-detail-comment-submit"
-                                    disabled={submittingComment || !newRating}
-                                >
-                                    Post
-                                </button>
-                            </form>
+                            ) : (
+                                <form className="gem-detail-comment-form" onSubmit={handleCommentSubmit}>
+                                    <div className="gem-detail-comment-rating-input">
+                                        <label>Your Rating:</label>
+                                        <StarRating value={newRating} onChange={setNewRating} size="medium" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        className="gem-detail-comment-input"
+                                        placeholder="Write a comment (optional)..."
+                                        value={newComment}
+                                        onChange={(e) => setNewComment(e.target.value)}
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="gem-detail-comment-submit"
+                                        disabled={submittingComment || !newRating}
+                                    >
+                                        Post
+                                    </button>
+                                </form>
+                            )}
 
                             {/* Comments List */}
                             <div className="gem-detail-comments-list">
