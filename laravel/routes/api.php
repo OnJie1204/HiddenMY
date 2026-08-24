@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
+use App\Http\Controllers\FavouriteAchievementController;
 use App\Http\Controllers\HiddenGemController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\VoteController;
@@ -56,6 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
     Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']);
+    Route::get('/me/favourite-achievements', [FavouriteAchievementController::class, 'index']);
+    Route::put('/me/favourite-achievements', [FavouriteAchievementController::class, 'update']);
     Route::post('/email/resend', function (Request $request) {
         $request->user()->sendEmailVerificationNotification();
         return response()->json(['message' => 'Verification link sent']);

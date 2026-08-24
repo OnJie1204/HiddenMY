@@ -7,6 +7,7 @@ use App\Models\Location;
 use App\Models\Category;
 use App\Models\LocationImage;
 use App\Services\OsmAttractionCache;
+use App\Services\SpecialAchievementService;
 use App\Support\Geo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +29,10 @@ class HiddenGemController extends Controller
     private const NEARBY_RADIUS_METERS = 1500;
 
     private const VIEWPORT_RESULT_LIMIT = 300;
+
+    public function __construct(private SpecialAchievementService $specialAchievements)
+    {
+    }
 
     // Roughly +/-55km, used to softly bias OSM results toward the user's location.
     private const NEARBY_VIEWBOX_DEGREES = 0.5;
@@ -338,6 +343,14 @@ class HiddenGemController extends Controller
     {
         $location = Location::with(['user', 'category', 'images', 'votes.user'])
                             ->findOrFail($id);
+
+        if ($location->user) {
+            $activeFavourites = $this->specialAchievements
+                ->activeFavouritesForUsers([$location->user_id])
+                ->get($location->user_id, []);
+
+            $location->user->setAttribute('favourite_achievements', $activeFavourites);
+        }
 
         return response()->json(['data' => $location]);
     }

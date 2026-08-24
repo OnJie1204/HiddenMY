@@ -20,14 +20,11 @@ import kualaLumpurStamp from "../assets/achievements/kl.png";
 import putrajayaStamp from "../assets/achievements/putrajaya.png";
 import labuanStamp from "../assets/achievements/labuan.png";
 import gemMascot from "../assets/achievements/gem-mascot.png";
-import firstFootprintArtwork from "../assets/achievements/special/first-footprint.png";
-import gemHunterArtwork from "../assets/achievements/special/gem-hunter.png";
-import halfwayThereArtwork from "../assets/achievements/special/halfway-there.png";
-import voiceOfTheCommunityArtwork from "../assets/achievements/special/voice-of-the-community.png";
-import westMalaysiaExplorerArtwork from "../assets/achievements/special/west-malaysia-explorer.png";
-import eastMalaysiaExplorerArtwork from "../assets/achievements/special/east-malaysia-explorer.png";
-import offTheBeatenPathArtwork from "../assets/achievements/special/off-the-beaten-path.png";
-import hiddenmyMasterArtwork from "../assets/achievements/special/hiddenmy-master.png";
+import {
+    getFavouriteAchievements,
+    updateFavouriteAchievements,
+} from "../api/achievements";
+import { SPECIAL_ACHIEVEMENT_METADATA } from "../constants/specialAchievements";
 
 const REGIONS = [
     ["Johor", "Causeway Conqueror"],
@@ -69,16 +66,6 @@ const REGION_STAMP_ARTWORK = {
     Labuan: labuanStamp,
 };
 const REGION_ACHIEVEMENT_TITLES = Object.fromEntries(REGIONS);
-const SPECIAL_ACHIEVEMENT_ARTWORK = {
-    "First Footprint": firstFootprintArtwork,
-    "Gem Hunter": gemHunterArtwork,
-    "Halfway There": halfwayThereArtwork,
-    "Voice of the Community": voiceOfTheCommunityArtwork,
-    "West Malaysia Explorer": westMalaysiaExplorerArtwork,
-    "East Malaysia Explorer": eastMalaysiaExplorerArtwork,
-    "Off the Beaten Path": offTheBeatenPathArtwork,
-    "HiddenMY Master": hiddenmyMasterArtwork,
-};
 const WEST_MALAYSIA_REGIONS = [
     "Johor",
     "Kedah",
@@ -155,7 +142,24 @@ function specialAchievementGuidance(achievement) {
     return `${remaining} more ${unit} to earn`;
 }
 
-function SpecialAchievementCard({ achievement, onPreview }) {
+function FavouriteAchievementControl({ achievement, isFavourite, disabled, onToggle }) {
+    if (!achievement.available || !achievement.unlocked) return null;
+
+    return (
+        <button
+            type="button"
+            className={`hiddenmy-favourite-control ${isFavourite ? "is-favourite" : ""}`}
+            aria-pressed={isFavourite}
+            disabled={disabled}
+            onClick={() => onToggle(achievement.key)}
+        >
+            <span aria-hidden="true">{isFavourite ? "★" : "☆"}</span>
+            {isFavourite ? "Favourite" : "Add to Favourites"}
+        </button>
+    );
+}
+
+function SpecialAchievementCard({ achievement, onPreview, favouriteProps }) {
     const statusLabel = achievement.available
         ? achievement.unlocked ? "Completed" : "Locked"
         : achievement.loading ? "Loading" : "Unavailable";
@@ -178,7 +182,7 @@ function SpecialAchievementCard({ achievement, onPreview }) {
                 onClick={() => onPreview(achievement)}
             >
                 <img
-                    src={SPECIAL_ACHIEVEMENT_ARTWORK[achievement.title]}
+                    src={SPECIAL_ACHIEVEMENT_METADATA[achievement.key].artwork}
                     alt={`${achievement.title} achievement badge`}
                 />
             </button>
@@ -200,6 +204,14 @@ function SpecialAchievementCard({ achievement, onPreview }) {
                     <span style={{ width: `${progressPercent}%` }} />
                 </div>
             </div>
+            {favouriteProps.loaded && (
+                <FavouriteAchievementControl
+                    achievement={achievement}
+                    isFavourite={favouriteProps.keys.includes(achievement.key)}
+                    disabled={favouriteProps.saving}
+                    onToggle={favouriteProps.onToggle}
+                />
+            )}
         </article>
     );
 }
@@ -222,6 +234,11 @@ export default function HiddenMYAchievements({
     const [previewSpecialAchievement, setPreviewSpecialAchievement] = useState(null);
     const [selectedMapRegion, setSelectedMapRegion] = useState(null);
     const [mascotPosition, setMascotPosition] = useState(null);
+    const [favouriteKeys, setFavouriteKeys] = useState([]);
+    const [favouritesLoading, setFavouritesLoading] = useState(true);
+    const [favouritesLoaded, setFavouritesLoaded] = useState(false);
+    const [favouritesSaving, setFavouritesSaving] = useState(false);
+    const [favouritesError, setFavouritesError] = useState("");
     const verifiedCounts = useMemo(() => {
         const counts = Object.fromEntries(REGIONS.map(([region]) => [region, 0]));
 
@@ -241,6 +258,36 @@ export default function HiddenMYAchievements({
         (gem) => gem.status === "hidden_gem"
     ).length;
     const discoveryProgress = (discoveredCount / REGIONS.length) * 100;
+    useEffect(() => {
+        let active = true;
+
+        async function loadFavourites() {
+            try {
+                const response = await getFavouriteAchievements();
+                if (!active) return;
+
+                const orderedFavourites = [...(response.data?.data || [])]
+                    .sort((first, second) => first.position - second.position)
+                    .map((favourite) => favourite.key);
+
+                setFavouriteKeys(orderedFavourites);
+                setFavouritesLoaded(true);
+                setFavouritesError("");
+            } catch {
+                if (!active) return;
+                setFavouritesError("Favourite Achievements could not be loaded. Please try again later.");
+            } finally {
+                if (active) setFavouritesLoading(false);
+            }
+        }
+
+        loadFavourites();
+
+        return () => {
+            active = false;
+        };
+    }, []);
+
     useEffect(() => {
         if (!previewRegion && !previewSpecialAchievement) return undefined;
 
@@ -317,7 +364,8 @@ export default function HiddenMYAchievements({
 
         return [
             {
-                title: "First Footprint",
+                key: "first-footprint",
+                title: SPECIAL_ACHIEVEMENT_METADATA["first-footprint"].title,
                 requirement: "Get your first Hidden Gem verified.",
                 progress: verifiedGemCount,
                 target: 1,
@@ -328,7 +376,8 @@ export default function HiddenMYAchievements({
                 remainingUnitPlural: "verified Hidden Gems",
             },
             {
-                title: "Gem Hunter",
+                key: "gem-hunter",
+                title: SPECIAL_ACHIEVEMENT_METADATA["gem-hunter"].title,
                 requirement: "Get 5 Hidden Gems verified.",
                 progress: verifiedGemCount,
                 target: 5,
@@ -339,7 +388,8 @@ export default function HiddenMYAchievements({
                 remainingUnitPlural: "verified Hidden Gems",
             },
             {
-                title: "Halfway There",
+                key: "halfway-there",
+                title: SPECIAL_ACHIEVEMENT_METADATA["halfway-there"].title,
                 requirement: "Discover 8 of Malaysia's 16 regions.",
                 progress: discoveredCount,
                 target: 8,
@@ -350,7 +400,8 @@ export default function HiddenMYAchievements({
                 remainingUnitPlural: "regions",
             },
             {
-                title: "Voice of the Community",
+                key: "voice-of-the-community",
+                title: SPECIAL_ACHIEVEMENT_METADATA["voice-of-the-community"].title,
                 requirement: "Vote on 5 different Hidden Gem submissions.",
                 progress: uniqueVotedGemCount,
                 target: 5,
@@ -364,7 +415,8 @@ export default function HiddenMYAchievements({
                 remainingUnitPlural: "Hidden Gems to vote on",
             },
             {
-                title: "West Malaysia Explorer",
+                key: "west-malaysia-explorer",
+                title: SPECIAL_ACHIEVEMENT_METADATA["west-malaysia-explorer"].title,
                 requirement: "Discover all 13 regions in West Malaysia.",
                 progress: westCount,
                 target: 13,
@@ -376,7 +428,8 @@ export default function HiddenMYAchievements({
                 completionMessage: "All required regions discovered.",
             },
             {
-                title: "East Malaysia Explorer",
+                key: "east-malaysia-explorer",
+                title: SPECIAL_ACHIEVEMENT_METADATA["east-malaysia-explorer"].title,
                 requirement: "Discover Sabah, Sarawak, and Labuan.",
                 progress: eastCount,
                 target: 3,
@@ -388,7 +441,8 @@ export default function HiddenMYAchievements({
                 completionMessage: "All required regions discovered.",
             },
             {
-                title: "Off the Beaten Path",
+                key: "off-the-beaten-path",
+                title: SPECIAL_ACHIEVEMENT_METADATA["off-the-beaten-path"].title,
                 requirement: "Get a Hidden Gem verified in every available category.",
                 progress: coveredCategoryCount,
                 target: allCategoryIds.size,
@@ -404,7 +458,8 @@ export default function HiddenMYAchievements({
                 completionMessage: "All required categories discovered.",
             },
             {
-                title: "HiddenMY Master",
+                key: "hiddenmy-master",
+                title: SPECIAL_ACHIEVEMENT_METADATA["hiddenmy-master"].title,
                 requirement: "Discover all 16 regions of Malaysia.",
                 progress: discoveredCount,
                 target: 16,
@@ -431,9 +486,6 @@ export default function HiddenMYAchievements({
         votesLoading,
         verifiedGemCount,
     ]);
-    const unlockedSpecialCount = specialAchievements.filter(
-        (achievement) => achievement.available && achievement.unlocked
-    ).length;
     const filteredSpecialAchievements = specialAchievements.filter((achievement) => {
         if (specialFilter === "unlocked") {
             return achievement.available && achievement.unlocked;
@@ -449,7 +501,7 @@ export default function HiddenMYAchievements({
         && specialAchievements.some((achievement) => !achievement.available);
     const activePreviewSpecialAchievement = previewSpecialAchievement
         ? specialAchievements.find(
-            (achievement) => achievement.title === previewSpecialAchievement.title
+            (achievement) => achievement.key === previewSpecialAchievement.key
         ) || previewSpecialAchievement
         : null;
     const previewSpecialProgressPercent = activePreviewSpecialAchievement?.available
@@ -459,6 +511,46 @@ export default function HiddenMYAchievements({
             (activePreviewSpecialAchievement.progress / activePreviewSpecialAchievement.target) * 100
         )
         : 0;
+
+    const toggleFavourite = async (achievementKey) => {
+        if (!favouritesLoaded || favouritesSaving) return;
+
+        const isFavourite = favouriteKeys.includes(achievementKey);
+        if (!isFavourite && favouriteKeys.length >= 2) {
+            setFavouritesError("You can choose up to 2 Favourite Achievements. Remove one first.");
+            return;
+        }
+
+        const desiredKeys = isFavourite
+            ? favouriteKeys.filter((key) => key !== achievementKey)
+            : [...favouriteKeys, achievementKey];
+
+        setFavouritesSaving(true);
+        setFavouritesError("");
+
+        try {
+            const response = await updateFavouriteAchievements(desiredKeys);
+            const confirmedKeys = [...(response.data?.data || [])]
+                .sort((first, second) => first.position - second.position)
+                .map((favourite) => favourite.key);
+
+            setFavouriteKeys(confirmedKeys);
+        } catch (error) {
+            const validationMessage = error.response?.data?.errors?.achievement_keys?.[0];
+            setFavouritesError(
+                validationMessage || "Favourite Achievements could not be saved. Please try again."
+            );
+        } finally {
+            setFavouritesSaving(false);
+        }
+    };
+
+    const favouriteProps = {
+        keys: favouriteKeys,
+        loaded: favouritesLoaded,
+        saving: favouritesSaving,
+        onToggle: toggleFavourite,
+    };
 
     const regionStyle = (feature) => {
         const region = canonicalRegionName(feature.properties?.shapeName);
@@ -677,37 +769,51 @@ export default function HiddenMYAchievements({
             ) : (
                 <div className="hiddenmy-special-collection">
                     <div className="hiddenmy-special-collection-header">
-                        <div className="hiddenmy-special-collection-summary">
-                            <h2>Special Achievements</h2>
-                            <strong>{unlockedSpecialCount} / {specialAchievements.length} Earned</strong>
-                        </div>
-                        <div className="hiddenmy-special-filters" role="tablist" aria-label="Filter Special Achievements">
-                            {[
-                                ["all", "All"],
-                                ["unlocked", "Earned"],
-                                ["locked", "Locked"],
-                            ].map(([value, label]) => (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={specialFilter === value}
-                                    className={specialFilter === value ? "active" : ""}
-                                    onClick={() => setSpecialFilter(value)}
-                                >
-                                    {label}
-                                </button>
-                            ))}
+                        <h2>Special Achievements</h2>
+                        <div className="hiddenmy-special-controls">
+                            <div className="hiddenmy-special-filters" role="tablist" aria-label="Filter Special Achievements">
+                                {[
+                                    ["all", "All"],
+                                    ["unlocked", "Earned"],
+                                    ["locked", "Locked"],
+                                ].map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={specialFilter === value}
+                                        className={specialFilter === value ? "active" : ""}
+                                        onClick={() => setSpecialFilter(value)}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                            <span className="hiddenmy-favourite-summary">
+                                <span aria-hidden="true">★</span>{" "}
+                                {favouritesLoading
+                                    ? "Loading favourites…"
+                                    : favouritesLoaded
+                                        ? `${favouriteKeys.length} of 2 selected for display`
+                                        : "Favourites unavailable"}
+                            </span>
                         </div>
                     </div>
+
+                    {favouritesError && (
+                        <p className="hiddenmy-favourites-message" role="status">
+                            {favouritesError}
+                        </p>
+                    )}
 
                     {filteredSpecialAchievements.length > 0 ? (
                         <div className="hiddenmy-special-grid">
                             {filteredSpecialAchievements.map((achievement) => (
                                 <SpecialAchievementCard
-                                    key={achievement.title}
+                                    key={achievement.key}
                                     achievement={achievement}
                                     onPreview={setPreviewSpecialAchievement}
+                                    favouriteProps={favouriteProps}
                                 />
                             ))}
                         </div>
@@ -785,7 +891,7 @@ export default function HiddenMYAchievements({
                         </button>
                         <div className="hiddenmy-stamp-modal-artwork hiddenmy-special-modal-artwork">
                             <img
-                                src={SPECIAL_ACHIEVEMENT_ARTWORK[activePreviewSpecialAchievement.title]}
+                                src={SPECIAL_ACHIEVEMENT_METADATA[activePreviewSpecialAchievement.key].artwork}
                                 alt={`${activePreviewSpecialAchievement.title} achievement badge`}
                             />
                         </div>
@@ -830,6 +936,19 @@ export default function HiddenMYAchievements({
                                         <p>{specialAchievementGuidance(activePreviewSpecialAchievement)}</p>
                                     )}
                             </div>
+                            {favouritesLoaded && (
+                                <FavouriteAchievementControl
+                                    achievement={activePreviewSpecialAchievement}
+                                    isFavourite={favouriteKeys.includes(activePreviewSpecialAchievement.key)}
+                                    disabled={favouritesSaving}
+                                    onToggle={toggleFavourite}
+                                />
+                            )}
+                            {favouritesError && (
+                                <p className="hiddenmy-favourites-message" role="status">
+                                    {favouritesError}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>

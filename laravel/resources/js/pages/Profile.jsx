@@ -6,6 +6,8 @@ import { getMyHiddenGems } from '../api/hiddenGems';
 import { getTripItineraries } from '../api/TripItinerary';
 import { getPasswordStrength } from '../utils/password';
 import Avatar from '../components/Avatar';
+import { getFavouriteAchievements } from '../api/achievements';
+import { SPECIAL_ACHIEVEMENT_METADATA } from '../constants/specialAchievements';
 
 function Profile({ setAppUser }) {
   const navigate = useNavigate();
@@ -32,6 +34,7 @@ function Profile({ setAppUser }) {
   const [stats, setStats] = useState({ totalGems: 0, verifiedGems: 0, pendingGems: 0, totalTrips: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [recentGems, setRecentGems] = useState([]);
+  const [favouriteAchievements, setFavouriteAchievements] = useState([]);
 
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -42,6 +45,29 @@ function Profile({ setAppUser }) {
       setEmail(res.data.email);
       setHasPassword(res.data.has_password);
     });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    getFavouriteAchievements()
+      .then((res) => {
+        if (!active) return;
+
+        const favourites = [...(res.data?.data || [])]
+          .sort((first, second) => first.position - second.position)
+          .filter((favourite) => SPECIAL_ACHIEVEMENT_METADATA[favourite.key])
+          .slice(0, 2);
+
+        setFavouriteAchievements(favourites);
+      })
+      .catch(() => {
+        // Profile decorations are optional; preserve the existing header on failure.
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -153,7 +179,31 @@ function Profile({ setAppUser }) {
           </div>
 
           <div className="profile-header-info">
-            <h2>{user.name}</h2>
+            <div className="profile-name-row">
+              <h2>{user.name}</h2>
+              {favouriteAchievements.length > 0 && (
+                <div className="profile-achievement-badges">
+                  {favouriteAchievements.map(({ key }) => {
+                    const achievement = SPECIAL_ACHIEVEMENT_METADATA[key];
+
+                    return (
+                      <span
+                        key={key}
+                        className="profile-achievement-badge"
+                        title={achievement.title}
+                        aria-label={`Favourite achievement: ${achievement.title}`}
+                        tabIndex="0"
+                      >
+                        <img
+                          src={achievement.artwork}
+                          alt=""
+                        />
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <p className="profile-header-email">{user.email}</p>
             <div className="profile-header-badges">
               {memberSince && <span className="profile-badge">Member since {memberSince}</span>}

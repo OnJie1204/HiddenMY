@@ -7,6 +7,7 @@ use App\Models\Location;
 use App\Models\PostImage;
 use App\Models\TravelPost;
 use App\Models\TripItinerary;
+use App\Services\SpecialAchievementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -24,6 +25,10 @@ class TravelPostController extends Controller
 
     private const RELATIONS = ['user', 'tripItinerary', 'images', 'locations.category', 'locations.images'];
 
+    public function __construct(private SpecialAchievementService $specialAchievements)
+    {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $query = TravelPost::with(self::RELATIONS)->latest();
@@ -36,14 +41,14 @@ class TravelPostController extends Controller
             $query->whereHas('locations', fn ($q) => $q->where('category_id', $request->category));
         }
 
-        return response()->json(['data' => $query->get()]);
+        return response()->json(['data' => $this->includeAuthorFavourites($query->get())]);
     }
 
     public function show($id): JsonResponse
     {
         $post = TravelPost::with(self::RELATIONS)->findOrFail($id);
 
-        return response()->json(['data' => $post]);
+        return response()->json(['data' => $this->includeAuthorFavourites($post)]);
     }
 
     public function myPosts(): JsonResponse
@@ -53,7 +58,7 @@ class TravelPostController extends Controller
             ->latest()
             ->get();
 
-        return response()->json(['data' => $posts]);
+        return response()->json(['data' => $this->includeAuthorFavourites($posts)]);
     }
 
     public function forLocation($locationId): JsonResponse
@@ -63,7 +68,7 @@ class TravelPostController extends Controller
             ->latest()
             ->get();
 
-        return response()->json(['data' => $posts]);
+        return response()->json(['data' => $this->includeAuthorFavourites($posts)]);
     }
 
     public function store(Request $request): JsonResponse
@@ -112,7 +117,7 @@ class TravelPostController extends Controller
 
         return response()->json([
             'message' => 'Travel post published.',
-            'data' => $post->load(self::RELATIONS),
+            'data' => $this->includeAuthorFavourites($post->load(self::RELATIONS)),
         ], 201);
     }
 
@@ -170,7 +175,7 @@ class TravelPostController extends Controller
 
         return response()->json([
             'message' => 'Travel post updated.',
-            'data' => $post->load(self::RELATIONS),
+            'data' => $this->includeAuthorFavourites($post->load(self::RELATIONS)),
         ]);
     }
 
@@ -192,6 +197,22 @@ class TravelPostController extends Controller
         $owned = TripItinerary::where('id', $itineraryId)->where('user_id', $userId)->exists();
 
         abort_unless($owned, 403, 'That trip does not belong to you.');
+    }
+
+    private function includeAuthorFavourites(TravelPost|Collection $posts): TravelPost|Collection
+    {
+        $postCollection = $posts instanceof TravelPost ? collect([$posts]) : $posts;
+        $users = $postCollection->pluck('user')->filter()->unique('id')->values();
+        $favouritesByUser = $this->specialAchievements->activeFavouritesForUsers($users->pluck('id'));
+
+        $users->each(function ($user) use ($favouritesByUser) {
+            $user->setAttribute(
+                'favourite_achievements',
+                $favouritesByUser->get($user->id, [])
+            );
+        });
+
+        return $posts;
     }
 
     /** Silently drops any tagged location that isn't publicly visible rather than failing the whole post. */

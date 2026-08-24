@@ -9,6 +9,7 @@ import {
 } from "../api/votes";
 import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
+import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import { voteProgressLabel } from "../utils/gemStatus";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTravelPostsForLocation } from "../api/travelPosts";
@@ -483,9 +484,15 @@ export default function HiddenGemDetail() {
 
                             <div className="gem-detail-section">
                                 <h3>Discovered by</h3>
-                                <p className="gem-detail-submitter">
-                                    {gem.user?.name || "Unknown User"}
-                                </p>
+                                <div className="gem-detail-submitter-identity">
+                                    <p className="gem-detail-submitter">
+                                        {gem.user?.name || "Unknown User"}
+                                    </p>
+                                    <FavouriteAchievementBadges
+                                        favourites={gem.user?.favourite_achievements}
+                                        className="gem-detail-submitter-achievements"
+                                    />
+                                </div>
                             </div>
 
                             <div className="gem-detail-vote-section">

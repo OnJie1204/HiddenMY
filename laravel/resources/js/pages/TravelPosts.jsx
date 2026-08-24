@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { getTravelPosts, getMyTravelPosts } from "../api/travelPosts";
 import { getCategories, getStates } from "../api/hiddenGems";
 import Avatar from "../components/Avatar";
+import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 
 import "../styles/global.css";
 
@@ -172,9 +173,14 @@ export default function TravelPosts() {
                                 <div className="travel-post-card-byline">
                                     <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
                                     <div className="travel-post-card-byline-info">
-                                        <span className="travel-post-card-author">
-                                            {post.user?.name || "Traveler"}
-                                        </span>
+                                        <div className="travel-post-author-identity">
+                                            <span className="travel-post-card-author">
+                                                {post.user?.name || "Traveler"}
+                                            </span>
+                                            <FavouriteAchievementBadges
+                                                favourites={post.user?.favourite_achievements}
+                                            />
+                                        </div>
                                         <span className="travel-post-card-date">
                                             {formatPostDate(post.created_at)}
                                         </span>

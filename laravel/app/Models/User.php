@@ -58,4 +58,9 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Wishlist::class);
     }
+
+    public function favouriteAchievements()
+    {
+        return $this->hasMany(UserFavouriteAchievement::class)->orderBy('position');
+    }
 }
