@@ -1,5 +1,5 @@
 import LocationPickerMap from "../components/LocationPickerMap";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     getHiddenGemDetail,
@@ -9,6 +9,14 @@ import {
 } from "../api/hiddenGems";
 
 import "../styles/global.css";
+
+function locationFields(data) {
+    return {
+        address: String(data.address ?? "").trim(),
+        state: String(data.state ?? "").trim(),
+        postcode: String(data.postcode ?? "").trim(),
+    };
+}
 
 export default function EditHiddenGem() {
     const { id } = useParams();
@@ -28,12 +36,17 @@ export default function EditHiddenGem() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+
     const [message, setMessage] = useState("");
-    const [geocoding, setGeocoding] = useState(false);
-    const [geocodeStatus, setGeocodeStatus] = useState("");
-    const [mapFocusRequest, setMapFocusRequest] = useState(null);
+    const [messageType, setMessageType] = useState("");
+
     const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
     const [coreFieldsLocked, setCoreFieldsLocked] = useState(false);
+    const [existingImages, setExistingImages] = useState([]);
+    const [newImages, setNewImages] = useState([]);
+
+    const coordinateLocationRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         const loadData = async () => {
@@ -46,12 +59,13 @@ export default function EditHiddenGem() {
                 const gem = gemRes.data.data;
 
                 // Extra frontend protection
-                if (gem.status !== "pending") {
+                const editableStatuses = ["pending", "ai_rejected", "pending_community_vote"];
+                if (!editableStatuses.includes(gem.status)) {
                     navigate("/my-hidden-gems");
                     return;
                 }
 
-                setFormData({
+                const loadedFormData = {
                     category_id: gem.category_id || "",
                     place_name: gem.place_name || "",
                     address: gem.address || "",
@@ -60,7 +74,22 @@ export default function EditHiddenGem() {
                     description: gem.description || "",
                     latitude: gem.latitude || "",
                     longitude: gem.longitude || "",
-                });
+                };
+
+                setFormData(loadedFormData);
+                setExistingImages(gem.images || []);
+
+                coordinateLocationRef.current = {
+                    source: "loaded",
+                    fields: locationFields(loadedFormData),
+                    missing: {
+                        address: false,
+                        state: false,
+                        postcode: false,
+                    },
+                    latitude: String(loadedFormData.latitude),
+                    longitude: String(loadedFormData.longitude),
+                };
 
                 setCoreFieldsLocked(Number(gem.vote_count) > 0);
 
@@ -69,6 +98,7 @@ export default function EditHiddenGem() {
             } catch (error) {
                 console.error("Failed to load hidden gem:", error);
 
+                setMessageType("error");
                 setMessage(
                     error.response?.data?.message ||
                     "Failed to load hidden gem."
@@ -86,55 +116,11 @@ export default function EditHiddenGem() {
 
         const timer = setTimeout(() => {
             setMessage("");
+            setMessageType("");
         }, 3000);
 
         return () => clearTimeout(timer);
     }, [message]);
-
-    const handleFindCoordinates = async () => {
-        if (coreFieldsLocked) return;
-
-        const query = [
-            formData.address,
-            formData.state,
-            formData.postcode,
-            "Malaysia"
-        ]
-            .filter((part) => String(part).trim() !== "")
-            .join(", ");
-
-        if (!formData.address.trim()) {
-            setGeocodeStatus("error:Enter an address first.");
-            return;
-        }
-
-        setGeocoding(true);
-        setGeocodeStatus("");
-
-        try {
-            const response = await geocodeAddress(query);
-            const latitude = String(response.data.latitude);
-            const longitude = String(response.data.longitude);
-
-            setFormData((prev) => ({
-                ...prev,
-                latitude,
-                longitude,
-            }));
-
-            setMapFocusRequest((previousRequest) => ({
-                latitude,
-                longitude,
-                requestId: (previousRequest?.requestId || 0) + 1,
-            }));
-
-            setGeocodeStatus(`success:Found: ${response.data.name}`);
-        } catch (error) {
-            // ...
-        } finally {
-            setGeocoding(false);
-        }
-    };
 
     const handleChange = (e) => {
         setFormData((prev) => ({
@@ -147,15 +133,135 @@ export default function EditHiddenGem() {
         e.preventDefault();
 
         setSaving(true);
+        setMessage("");
+        setMessageType("");
 
         try {
-            const response = await updateHiddenGem(
-                id,
-                coreFieldsLocked
-                    ? { description: formData.description }
-                    : formData
-            );
+            let dataToSave = coreFieldsLocked
+                ? { description: formData.description }
+                : { ...formData };
 
+            if (!coreFieldsLocked) {
+                const currentLocation = locationFields(formData);
+                const coordinateLocation = coordinateLocationRef.current;
+
+                const locationChanged = !coordinateLocation
+                    || ["address", "state", "postcode"].some((field) => {
+                        if (
+                            coordinateLocation.source === "map"
+                            && coordinateLocation.missing[field]
+                        ) {
+                            return false;
+                        }
+
+                        return (
+                            currentLocation[field]
+                            !== coordinateLocation.fields[field]
+                        );
+                    });
+
+                if (locationChanged) {
+                    const normalizedAddress = currentLocation.address.toLowerCase();
+                    const normalizedState = currentLocation.state.toLowerCase();
+
+                    if (
+                        normalizedAddress === normalizedState
+                        || normalizedAddress === "malaysia"
+                        || normalizedAddress === `${normalizedState}, malaysia`
+                        || normalizedAddress === `${normalizedState} malaysia`
+                    ) {
+                        setMessageType("error");
+                        setMessage(
+                            "Unable to identify this location. Please check the address."
+                        );
+                        return;
+                    }
+
+                    const query = [
+                        currentLocation.address,
+                        currentLocation.state,
+                        currentLocation.postcode,
+                        "Malaysia"
+                    ]
+                        .filter((part) => part !== "")
+                        .join(", ");
+
+                    try {
+                        const geocodeResponse = await geocodeAddress(query);
+                        const countryCode = String(
+                            geocodeResponse.data.country_code ?? ""
+                        ).trim().toLowerCase();
+
+                        if (
+                            countryCode !== "my"
+                            || geocodeResponse.data.is_specific !== true
+                        ) {
+                            setMessageType("error");
+                            setMessage(
+                                "Unable to identify this location. Please check the address."
+                            );
+                            return;
+                        }
+
+                        const latitude = String(
+                            geocodeResponse.data.latitude
+                        );
+
+                        const longitude = String(
+                            geocodeResponse.data.longitude
+                        );
+
+                        dataToSave = {
+                            ...dataToSave,
+                            latitude,
+                            longitude,
+                        };
+
+                        setFormData((prev) => ({
+                            ...prev,
+                            latitude,
+                            longitude,
+                        }));
+
+                        coordinateLocationRef.current = {
+                            source: "loaded",
+                            fields: currentLocation,
+                            missing: {
+                                address: false,
+                                state: false,
+                                postcode: false,
+                            },
+                            latitude,
+                            longitude,
+                        };
+
+                    } catch (error) {
+                        setMessageType("error");
+                        setMessage(
+                            "Unable to identify this location. Please check the address."
+                        );
+                        return;
+                    }
+                }
+            }
+
+            let updateData = dataToSave;
+
+            if (newImages.length > 0) {
+                updateData = new FormData();
+
+                Object.entries(dataToSave).forEach(([key, value]) => {
+                    updateData.append(key, value);
+                });
+
+                newImages.forEach(({ file }) => {
+                    updateData.append("images[]", file);
+                });
+            }
+
+            const response = await updateHiddenGem(id, updateData);
+
+            setMessageType("success");
             setMessage(response.data.message);
 
             setTimeout(() => {
@@ -165,10 +271,12 @@ export default function EditHiddenGem() {
         } catch (error) {
             console.error("Update failed:", error);
 
+            setMessageType("error");
             setMessage(
                 error.response?.data?.message ||
                 "Failed to update hidden gem."
             );
+
         } finally {
             setSaving(false);
         }
@@ -186,7 +294,13 @@ export default function EditHiddenGem() {
         <div className="hidden-gem-form-page">
 
             {message && (
-                <div className="hidden-gem-snackbar">
+                <div
+                    className={`hidden-gem-snackbar ${
+                        messageType === "error"
+                            ? "hidden-gem-snackbar-error"
+                            : "hidden-gem-snackbar-success"
+                    }`}
+                >
                     {message}
                 </div>
             )}
@@ -205,11 +319,13 @@ export default function EditHiddenGem() {
                     <h2>Edit Hidden Gem</h2>
                 </div>
 
-                <form onSubmit={handleSubmit}>
+                <form className="edit-hidden-gem-form" onSubmit={handleSubmit}>
 
                     {coreFieldsLocked && (
                         <small className="edit-hidden-gem-warning">
-                            Community verification has started. Location details can no longer be changed, but you can still update the description.
+                            Community voting has started.
+                            Location details can no longer be changed,
+                            but you can still update the description.
                         </small>
                     )}
 
@@ -270,88 +386,68 @@ export default function EditHiddenGem() {
                         required
                     />
 
-                    {postcodeDetectionFailed && !formData.postcode && (
-                        <small className="edit-hidden-gem-warning">
-                            Postcode could not be detected automatically. Please enter it manually.
-                        </small>
-                    )}
+                    {postcodeDetectionFailed
+                        && (
+                            !formData.address
+                            || !formData.state
+                            || !formData.postcode
+                        ) && (
+                            <small className="edit-hidden-gem-warning">
+                                Some address details could not be detected
+                                automatically. Please complete the missing
+                                fields manually.
+                            </small>
+                        )}
 
                     <LocationPickerMap
                         latitude={formData.latitude}
                         longitude={formData.longitude}
-                        focusRequest={mapFocusRequest}
                         disabled={coreFieldsLocked}
                         onLocationSelected={(location) => {
-                            const postcode = String(location.postcode ?? "").trim()
-                                || String(location.address ?? "").match(/\b\d{5}\b/)?.[0]
+                            const postcode =
+                                String(location.postcode ?? "").trim()
+                                || String(location.address ?? "")
+                                    .match(/\b\d{5}\b/)?.[0]
                                 || "";
 
-                            setPostcodeDetectionFailed(!postcode);
+                            const address = String(
+                                location.address ?? ""
+                            ).trim();
 
-                            setFormData((prev) => ({
-                                ...prev,
-                                address: location.address || prev.address,
-                                state: location.state || prev.state,
-                                postcode,
-                                latitude: String(location.latitude),
-                                longitude: String(location.longitude),
-                            }));
+                            const state = String(
+                                location.state ?? ""
+                            ).trim();
+
+                            setPostcodeDetectionFailed(
+                                !address || !state || !postcode
+                            );
+
+                            setFormData((prev) => {
+                                const updatedFormData = {
+                                    ...prev,
+                                    address,
+                                    state,
+                                    postcode,
+                                    latitude: String(location.latitude),
+                                    longitude: String(location.longitude),
+                                };
+
+                                coordinateLocationRef.current = {
+                                    source: "map",
+                                    fields: locationFields(updatedFormData),
+                                    missing: {
+                                        address: !address,
+                                        state: !state,
+                                        postcode: !postcode,
+                                    },
+                                    latitude: String(location.latitude),
+                                    longitude: String(location.longitude),
+                                };
+
+                                return updatedFormData;
+                            });
                         }}
                     />
-
-                    <div className="hidden-gem-geocode-row">
-                        <button
-                            type="button"
-                            className="hidden-gem-geocode-btn"
-                            onClick={handleFindCoordinates}
-                            disabled={geocoding || coreFieldsLocked}
-                        >
-                            {geocoding
-                                ? "Finding…"
-                                : "📍 Find Coordinates from Address"}
-                        </button>
-
-                        {geocodeStatus && (
-                            <span
-                                className={
-                                    geocodeStatus.startsWith("error:")
-                                        ? "hidden-gem-geocode-status hidden-gem-geocode-status-error"
-                                        : "hidden-gem-geocode-status hidden-gem-geocode-status-success"
-                                }
-                            >
-                                {geocodeStatus.replace(/^(error|success):/, "")}
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="hidden-gem-coordinate-box">
-                        <div className="hidden-gem-coordinate-header">
-                            <span className="hidden-gem-coordinate-icon">📍</span>
-
-                            <div>
-                                <h4>Location Coordinates</h4>
-                                <p>
-                                    Automatically generated from the address.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="hidden-gem-coordinate-values">
-                            <div className="hidden-gem-coordinate-item">
-                                <span>Latitude</span>
-                                <strong>
-                                    {formData.latitude || "Not available"}
-                                </strong>
-                            </div>
-
-                            <div className="hidden-gem-coordinate-item">
-                                <span>Longitude</span>
-                                <strong>
-                                    {formData.longitude || "Not available"}
-                                </strong>
-                            </div>
-                        </div>
-                    </div>
 
                     <textarea
                         className="form-input hidden-gem-description"
@@ -382,9 +478,114 @@ export default function EditHiddenGem() {
                         ))}
                     </select>
 
+                    <div className="edit-hidden-gem-images-section">
+                        <h4>Existing Images</h4>
+                        <p className="edit-hidden-gem-images-note">
+                            Existing images cannot be edited or removed.
+                        </p>
+
+                        {existingImages.length > 0 ? (
+                            <div className="hidden-gem-image-preview">
+                                {existingImages.map((image) => (
+                                    <div key={image.id} className="hidden-gem-preview-item">
+                                        <img
+                                            src={image.image_url}
+                                            alt={`${formData.place_name} existing`}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="hidden-gem-file-status">
+                                No existing images.
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="edit-hidden-gem-images-section">
+                        <h4>Add New Images</h4>
+
+                        <div className="hidden-gem-upload-row">
+                            <label
+                                className={`hidden-gem-file-label ${
+                                    coreFieldsLocked
+                                        ? "edit-hidden-gem-file-label-disabled"
+                                        : ""
+                                }`}
+                            >
+                                Choose Images
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    hidden
+                                    disabled={coreFieldsLocked}
+                                    onChange={(event) => {
+                                        const selectedFiles = Array.from(
+                                            event.target.files
+                                        );
+
+                                        setNewImages((prev) => [
+                                            ...prev,
+                                            ...selectedFiles.map((file) => ({
+                                                file,
+                                                previewUrl: URL.createObjectURL(file),
+                                            })),
+                                        ]);
+
+                                        event.target.value = "";
+                                    }}
+                                />
+                            </label>
+
+                            <span className="hidden-gem-file-status">
+                                {coreFieldsLocked
+                                    ? "Image uploads are locked after voting starts."
+                                    : newImages.length > 0
+                                        ? `${newImages.length} file(s) selected`
+                                        : "No new images selected"}
+                            </span>
+                        </div>
+
+                        {newImages.length > 0 && (
+                            <div className="hidden-gem-image-preview">
+                                {newImages.map((image, index) => (
+                                    <div
+                                        key={image.previewUrl}
+                                        className="hidden-gem-preview-item"
+                                    >
+                                        <img
+                                            src={image.previewUrl}
+                                            alt={`new preview ${index + 1}`}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="hidden-gem-remove-image-btn"
+                                            onClick={() => {
+                                                URL.revokeObjectURL(
+                                                    image.previewUrl
+                                                );
+                                                setNewImages((prev) =>
+                                                    prev.filter(
+                                                        (_, imageIndex) =>
+                                                            imageIndex !== index
+                                                    )
+                                                );
+                                            }}
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     {!coreFieldsLocked && (
                         <small className="edit-hidden-gem-warning">
-                            Editing this hidden gem will reset its verification progress.
+                            Editing this hidden gem will reset it for
+                            re-verification by AI.
                         </small>
                     )}
 

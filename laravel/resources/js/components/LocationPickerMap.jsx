@@ -3,7 +3,6 @@ import {
     MapContainer,
     TileLayer,
     Marker,
-    GeoJSON,
     ZoomControl,
     useMap,
     useMapEvents
@@ -12,7 +11,6 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-import malaysia from "../assets/MYS.geo.json";
 import { reverseGeocodeAddress } from "../api/hiddenGems";
 
 const customIcon = new L.Icon({
@@ -54,7 +52,7 @@ function FocusMap({ request }) {
         if (request) {
             map.flyTo(
                 [Number(request.latitude), Number(request.longitude)],
-                15,
+                request.zoom ?? 15,
                 FLY_TO_OPTIONS
             );
         }
@@ -70,23 +68,38 @@ export default function LocationPickerMap({
     focusRequest,
     disabled = false
 }) {
-    const initialPosition =
-        latitude && longitude
-            ? [Number(latitude), Number(longitude)]
-            : null;
+    const parsedLatitude = Number(latitude);
+    const parsedLongitude = Number(longitude);
+    const hasValidCoordinates =
+        latitude !== ""
+        && latitude !== null
+        && latitude !== undefined
+        && longitude !== ""
+        && longitude !== null
+        && longitude !== undefined
+        && Number.isFinite(parsedLatitude)
+        && Number.isFinite(parsedLongitude)
+        && parsedLatitude >= -90
+        && parsedLatitude <= 90
+        && parsedLongitude >= -180
+        && parsedLongitude <= 180;
+
+    const initialPosition = hasValidCoordinates
+        ? [parsedLatitude, parsedLongitude]
+        : null;
 
     const [position, setPosition] = useState(initialPosition);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
 
     useEffect(() => {
-        if (latitude && longitude) {
+        if (hasValidCoordinates) {
             setPosition([
-                Number(latitude),
-                Number(longitude)
+                parsedLatitude,
+                parsedLongitude
             ]);
         }
-    }, [latitude, longitude]);
+    }, [hasValidCoordinates, parsedLatitude, parsedLongitude]);
 
     const handleMapClick = async (lat, lng) => {
         setPosition([lat, lng]);
@@ -123,7 +136,7 @@ export default function LocationPickerMap({
 
             <div className="hidden-gem-map-picker-header">
                 <div>
-                    <h4>🗺️ Select Location on Map</h4>
+                    <h4>Select Location on Map</h4>
                     <p>
                         Click on the map to automatically fill
                         the address and coordinates.
@@ -133,8 +146,8 @@ export default function LocationPickerMap({
 
             <div className="hidden-gem-map-picker-map">
                 <MapContainer
-                    center={MALAYSIA_CENTER}
-                    zoom={7}
+                    center={initialPosition || MALAYSIA_CENTER}
+                    zoom={initialPosition ? 15 : 7}
                     minZoom={6}
                     zoomSnap={0.5}
                     zoomDelta={0.5}
@@ -153,16 +166,6 @@ export default function LocationPickerMap({
                     />
 
                     <ZoomControl position="bottomright" />
-
-                    <GeoJSON
-                        data={malaysia}
-                        style={{
-                            color: "#14b8a6",
-                            weight: 2,
-                            fillColor: "#14b8a6",
-                            fillOpacity: 0.12,
-                        }}
-                    />
 
                     {!disabled && (
                         <MapClickHandler

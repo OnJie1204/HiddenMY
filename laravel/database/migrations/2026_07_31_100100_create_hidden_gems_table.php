@@ -11,6 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // A same-named table already exists from the earlier
+        // 2026_07_19_123401_create_hidden_gems_table migration (superseded by
+        // this one) — drop it first so a full fresh migration replay doesn't
+        // fail with "table already exists". Both are dropped for good by
+        // 2026_08_01_083521_modify_locations_and_drop_hidden_gem_tables anyway.
+        Schema::dropIfExists('hidden_gems');
+
         Schema::create('hidden_gems', function (Blueprint $table) {
             $table->id();
 

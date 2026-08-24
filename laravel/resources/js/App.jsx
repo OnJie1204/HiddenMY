@@ -8,6 +8,7 @@ import Maps from './pages/Maps';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
+import UserProfile from './pages/UserProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import VerifyNewEmail from './pages/VerifyNewEmail';
 import ResendVerification from './pages/ResendVerification';
@@ -19,6 +20,13 @@ import HiddenGemSubmission from './pages/HiddenGemSubmission';
 import MyHiddenGems from './pages/MyHiddenGems';
 import HiddenGemDetail from "./pages/HiddenGemDetail";
 import EditHiddenGem from './pages/EditHiddenGem';
+import Wishlist from './pages/Wishlist';
+import TravelPosts from './pages/TravelPosts';
+import TravelPostDetail from './pages/TravelPostDetail';
+import CreateTravelPost from './pages/CreateTravelPost';
+import EditTravelPost from './pages/EditTravelPost';
+import CompareGems from './pages/CompareGems';
+import { CompareProvider } from './context/CompareContext';
 import { getMe } from './api/auth';
 import { getToken, clearToken } from './utils/tokenStorage';
 
@@ -42,6 +50,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <CompareProvider>
       <Routes>
         {/* 不需要 Navbar 的页面 */}
         <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLoginSuccess={setUser} />} />
@@ -62,6 +71,15 @@ function App() {
         } />
         <Route path="/profile" element={
           user ? <Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout> : <Navigate to="/login" />
+        } />
+        <Route path="/users/:id" element={
+          user ? <Layout user={user} setUser={setUser}><UserProfile /></Layout> : <Navigate to="/login" />
+        } />
+        <Route path="/wishlist" element={
+          user ? <Layout user={user} setUser={setUser}><Wishlist /></Layout> : <Navigate to="/login" />
+        } />
+        <Route path="/compare" element={
+          user ? <Layout user={user} setUser={setUser}><CompareGems /></Layout> : <Navigate to="/login" />
         } />
 
         <Route
@@ -155,7 +173,60 @@ function App() {
           }
       />
 
+        <Route
+          path="/travel-posts"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <TravelPosts />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/travel-posts/create"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <CreateTravelPost />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/travel-posts/:id"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <TravelPostDetail />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/travel-posts/:id/edit"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <EditTravelPost />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
       </Routes>
+      </CompareProvider>
     </BrowserRouter>
   );
 }

@@ -5,9 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Location;
 use App\Models\Vote;
 use App\Models\CheckIn;
+use App\Support\Geo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 
 class VoteController extends Controller
 {
@@ -30,10 +31,10 @@ class VoteController extends Controller
             ]);
         }
 
-        if ($location->status === 'verified') {
+        if ($location->status !== 'pending_community_vote') {
             return response()->json([
                 'eligible' => false,
-                'message' => 'This location is already verified'
+                'message' => $this->notVotableMessage($location->status)
             ]);
         }
 
@@ -81,9 +82,9 @@ class VoteController extends Controller
             ], 403);
         }
 
-        if ($location->status === 'verified') {
+        if ($location->status !== 'pending_community_vote') {
             return response()->json([
-                'message' => 'This location is already verified'
+                'message' => $this->notVotableMessage($location->status)
             ], 400);
         }
 
@@ -110,8 +111,29 @@ class VoteController extends Controller
         $photoPath = null;
         if ($request->hasFile('photo')) {
             $photo = $request->file('photo');
-            $filename = time() . '_' . uniqid() . '.' . $photo->getClientOriginalExtension();
-            $photoPath = $photo->storeAs('votes', $filename, 'public');
+            $fileName = 'votes/' . uniqid() . '.' . $photo->getClientOriginalExtension();
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                'apikey' => env('SUPABASE_KEY'),
+                'Content-Type' => $photo->getMimeType(),
+            ])->withBody(
+                file_get_contents($photo->getRealPath()),
+                $photo->getMimeType()
+            )->post(
+                env('SUPABASE_URL') . '/storage/v1/object/vote_photos/' . $fileName
+            );
+
+            if ($response->failed()) {
+                return response()->json([
+                    'message' => 'Failed to upload vote photo.',
+                    'error' => $response->json()
+                ], 500);
+            }
+
+            $photoPath = env('SUPABASE_URL')
+                . '/storage/v1/object/public/vote_photos/'
+                . $fileName;
         }
 
         $vote = Vote::create([
@@ -125,15 +147,24 @@ class VoteController extends Controller
 
         $threshold = $location->verification_threshold ?? 10;
         if ($location->vote_count >= $threshold) {
-            $location->update(['status' => 'verified']);
+            $location->update(['status' => 'hidden_gem']);
         }
 
         return response()->json([
             'message' => 'Vote submitted successfully!',
             'vote' => $vote,
             'location' => $location->fresh(),
-            'is_verified' => $location->status === 'verified'
+            'is_verified' => $location->status === 'hidden_gem'
         ], 201);
+    }
+
+    private function notVotableMessage(string $status): string
+    {
+        return match ($status) {
+            'hidden_gem' => 'This location is already a recognized Hidden Gem.',
+            'ai_rejected' => 'This location did not pass AI verification and is not open for voting.',
+            default => 'This location has not yet passed AI verification, so it cannot be voted on.',
+        };
     }
 
     public function getVotes($locationId)
@@ -144,6 +175,112 @@ class VoteController extends Controller
             ->get();
 
         return response()->json(['data' => $votes]);
+    }
+
+    public function myVotes()
+    {
+        $votes = Vote::with('location:id,place_name')
+            ->where('user_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get([
+                'id',
+                'user_id',
+                'location_id',
+                'travel_description',
+                'photo_path',
+                'created_at',
+            ])
+            ->map(fn (Vote $vote) => [
+                'id' => $vote->id,
+                'created_at' => $vote->created_at,
+                'comment' => $vote->travel_description,
+                'photo_path' => $vote->photo_path,
+                'location' => $vote->location ? [
+                    'id' => $vote->location->id,
+                    'place_name' => $vote->location->place_name,
+                ] : null,
+            ]);
+
+        return response()->json(['data' => $votes]);
+    }
+
+    public function updateComment(Request $request, Vote $vote)
+    {
+        if ($vote->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'comment' => 'required|string|max:1000',
+        ]);
+
+        $vote->update([
+            'travel_description' => $validated['comment'],
+        ]);
+
+        return response()->json([
+            'message' => 'Comment updated successfully.',
+            'data' => $vote,
+        ]);
+    }
+
+    public function deleteComment(Vote $vote)
+    {
+        if ($vote->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $vote->update(['travel_description' => null]);
+
+        return response()->json([
+            'message' => 'Comment deleted successfully.',
+            'data' => $vote,
+        ]);
+    }
+
+    public function deletePhoto(Vote $vote)
+    {
+        if ($vote->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $photoPath = $vote->photo_path;
+        $publicPrefix = rtrim((string) env('SUPABASE_URL'), '/')
+            . '/storage/v1/object/public/vote_photos/';
+
+        if ($photoPath && str_starts_with($photoPath, $publicPrefix)) {
+            $objectPath = substr($photoPath, strlen($publicPrefix));
+            $decodedObjectPath = rawurldecode($objectPath);
+
+            if (
+                $objectPath !== ''
+                && !str_starts_with($decodedObjectPath, '/')
+                && !str_contains($decodedObjectPath, '..')
+            ) {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                ])->delete(
+                    rtrim((string) env('SUPABASE_URL'), '/')
+                    . '/storage/v1/object/vote_photos/'
+                    . $objectPath
+                );
+
+                if ($response->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to delete vote photo.',
+                        'error' => $response->json(),
+                    ], 500);
+                }
+            }
+        }
+
+        $vote->update(['photo_path' => null]);
+
+        return response()->json([
+            'message' => 'Photo deleted successfully.',
+            'data' => $vote,
+        ]);
     }
 
     public function checkIn(Request $request, $locationId)
@@ -195,6 +332,8 @@ class VoteController extends Controller
         $checkIn = CheckIn::create([
             'user_id' => $user->id,
             'location_id' => $locationId,
+            'latitude' => $userLat,
+            'longitude' => $userLng,
             'check_in_at' => now(),
         ]);
 
@@ -208,17 +347,6 @@ class VoteController extends Controller
 
     private function calculateDistance($lat1, $lon1, $lat2, $lon2)
     {
-        $earthRadius = 6371;
-
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-
-        $a = sin($dLat / 2) * sin($dLat / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($dLon / 2) * sin($dLon / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadius * $c;
+        return Geo::distanceMeters($lat1, $lon1, $lat2, $lon2) / 1000;
     }
 }

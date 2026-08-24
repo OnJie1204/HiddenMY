@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
@@ -15,6 +15,7 @@ import {
     getHiddenGemDetail,
 } from "../api/hiddenGems";
 import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
@@ -53,13 +54,17 @@ function gridCell(lat, lng) {
     return `${Math.round(lat * EXPLORE_GRID)}:${Math.round(lng * EXPLORE_GRID)}`;
 }
 
-const CLICK_EXPLORE_RADIUS = 3000;
+const CLICK_EXPLORE_RADIUS = 1500;
+
+const FOCUS_ZOOM = 15;
+
+const GEM_FOCUS_ZOOM = 17;
 
 function FlyToUser({ position }) {
     const map = useMap();
     useEffect(() => {
         if (position) {
-            map.flyTo(position, 15, FLY_TO_OPTIONS);
+            map.flyTo(position, Math.max(map.getZoom(), FOCUS_ZOOM), FLY_TO_OPTIONS);
         }
     }, [position, map]);
     return null;
@@ -70,7 +75,9 @@ function FlyToGem({ gem }) {
     useEffect(() => {
         if (gem) {
             map.flyTo(
-                [Number(gem.latitude), Number(gem.longitude)], 15, FLY_TO_OPTIONS
+                [Number(gem.latitude), Number(gem.longitude)],
+                Math.max(map.getZoom(), GEM_FOCUS_ZOOM),
+                FLY_TO_OPTIONS
             );
         }
     }, [gem, map]);
@@ -106,13 +113,18 @@ function ViewportWatcher({ onChange }) {
     return null;
 }
 
+const CLICK_EXPLORE_ZOOM = 16;
+
 function MapClickExplorer({ onMapClick }) {
-    useMapEvents({
+    const map = useMapEvents({
         click(e) {
             const target = e.originalEvent?.target;
             if (target?.closest?.('.leaflet-marker-icon, .leaflet-interactive')) {
                 return;
             }
+            // Zoom into the clicked spot so results near it are actually visible
+            // as separate markers, rather than staying buried in a cluster.
+            map.flyTo(e.latlng, Math.max(map.getZoom(), CLICK_EXPLORE_ZOOM), FLY_TO_OPTIONS);
             onMapClick(e.latlng.lat, e.latlng.lng);
         },
     });
@@ -125,8 +137,19 @@ function groupKey(lat, lng) {
 
 function Maps(){
     const location = useLocation();
+    const navigate = useNavigate();
+    
+    // ==================== URL Params (from HiddenGemDetail) ====================
+    const queryParams = new URLSearchParams(location.search);
+    const latParam = queryParams.get('lat');
+    const lngParam = queryParams.get('lng');
+    const gemIdParam = queryParams.get('gemId');
+    
     const highlightGem = location.state?.highlightGem || null;
     const highlightId = location.state?.highlightId || null;
+    const shouldOpenPanel = location.state?.openPanel || false;
+    const shouldFlyTo = location.state?.flyTo || false;
+    
     const [hiddenGems,setHiddenGems]=useState([]);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [userPosition,setUserPosition]=useState(null);
@@ -136,7 +159,7 @@ function Maps(){
     const [myGems,setMyGems]=useState([]);
     const [popularPosts,setPopularPosts]=useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
-    const [statusFilter, setStatusFilter] = useState(null); // null | 'verified' | 'pending'
+    const [statusFilter, setStatusFilter] = useState(null); // null | 'hidden_gem' | 'pending_community_vote'
     const [nearby, setNearby] = useState([]);
     const [nearbyLoading, setNearbyLoading] = useState(false);
     const [explorePlaces, setExplorePlaces] = useState([]);
@@ -149,7 +172,11 @@ function Maps(){
     const [clickedPoint, setClickedPoint] = useState(null);
     const [clickedPlaces, setClickedPlaces] = useState([]);
     const [clickedLoading, setClickedLoading] = useState(false);
+    const [clickedError, setClickedError] = useState(false);
     const [itineraries, setItineraries] = useState([]);
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [gemReviews, setGemReviews] = useState([]);
+    const [gemReviewsLoading, setGemReviewsLoading] = useState(false);
     const [mapFullscreen, setMapFullscreen] = useState(false);
     const mapRef = useRef(null);
     const viewportTimer = useRef(null);
@@ -171,13 +198,16 @@ function Maps(){
         }
     }, [clickExploreOn]);
 
-    // Lock background scroll while the map covers the screen, so the page behind
-    // it can't scroll out from underneath the fixed-position hero.
     useEffect(() => {
         if (!mapFullscreen) return;
-        const previousOverflow = document.body.style.overflow;
+        const previousBodyOverflow = document.body.style.overflow;
+        const previousHtmlOverflow = document.documentElement.style.overflow;
         document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = previousOverflow; };
+        document.documentElement.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousBodyOverflow;
+            document.documentElement.style.overflow = previousHtmlOverflow;
+        };
     }, [mapFullscreen]);
 
     useEffect(() => {
@@ -199,47 +229,111 @@ function Maps(){
         return () => window.removeEventListener('resize', measure);
     }, []);
 
-    // Load recent hidden gems
-    useEffect(()=>{
-        api.get("/recent-hidden-gems")
-            .then(res=>setRecentPosts(res.data))
-            .catch(err => console.log(err));
-    },[]);
+    useEffect(() => {
+        const id = setTimeout(() => {
+            api.get("/recent-hidden-gems")
+                .then(res => setRecentPosts(res.data))
+                .catch(err => console.log(err));
 
-    // Load the current user's own hidden gems
-    useEffect(()=>{
-        getMyHiddenGems()
-            .then(res => setMyGems(res.data.data || []))
-            .catch(err => console.log(err));
-    },[]);
+            getMyHiddenGems()
+                .then(res => setMyGems(res.data.data || []))
+                .catch(err => console.log(err));
 
-    // Load top-voted, verified hidden gems
-    useEffect(()=>{
-        getPopularHiddenGems()
-            .then(res => setPopularPosts(res.data || []))
-            .catch(err => console.log(err));
-    },[]);
+            getPopularHiddenGems()
+                .then(res => setPopularPosts(res.data || []))
+                .catch(err => console.log(err));
+        }, 200);
 
-    // Load the user's trip itineraries so gems can be added straight from the map
+        return () => clearTimeout(id);
+    }, []);
+
+    const loadedPanelExtrasRef = useRef(false);
+    useEffect(() => {
+        if (!panelOpen || loadedPanelExtrasRef.current) return;
+        loadedPanelExtrasRef.current = true;
+
+        const id = setTimeout(() => {
+            getTripItineraries()
+                .then(res => setItineraries(res.data || []))
+                .catch(err => console.log(err));
+
+            getWishlist()
+                .then(res => setWishlistIds(new Set((res.data.data || []).map(gem => gem.id))))
+                .catch(err => console.log(err));
+        }, 300);
+
+        return () => clearTimeout(id);
+    }, [panelOpen]);
+
+    // ==================== Handle URL params (from HiddenGemDetail) ====================
+    useEffect(() => {
+        if (!gemIdParam && !(latParam && lngParam)) return;
+
+        const fetchGem = async () => {
+            if (gemIdParam) {
+                try {
+                    const response = await getHiddenGemDetail(gemIdParam);
+                    const gem = response.data.data;
+                    
+                    if (gem) {
+                        const normalized = normalizeGem(gem, "database");
+                        setSelectedGroup([normalized]);
+                        setPanelOpen(true);
+                        
+                        if (mapRef.current) {
+                            mapRef.current.flyTo(
+                                [Number(gem.latitude), Number(gem.longitude)],
+                                Math.max(mapRef.current.getZoom(), GEM_FOCUS_ZOOM),
+                                FLY_TO_OPTIONS
+                            );
+                        }
+                    }
+                } catch (err) {
+                    console.log("Error fetching gem for map:", err);
+                }
+            } else if (latParam && lngParam) {
+                if (mapRef.current) {
+                    mapRef.current.flyTo(
+                        [Number(latParam), Number(lngParam)],
+                        Math.max(mapRef.current.getZoom(), GEM_FOCUS_ZOOM),
+                        FLY_TO_OPTIONS
+                    );
+                }
+            }
+        };
+
+        // Small delay to ensure map is ready
+        const timeout = setTimeout(fetchGem, 500);
+        return () => clearTimeout(timeout);
+    }, [gemIdParam, latParam, lngParam]);
+
+    // ==================== Handle location.state.highlightGem ====================
     useEffect(() => {
         if (highlightGem && highlightGem.id) {
-            // Open the side panel with the highlighted gem
-            setSelectedGroup([normalizeGem(highlightGem, "database")]);
+            const normalized = normalizeGem(highlightGem, "database");
+            setSelectedGroup([normalized]);
             setPanelOpen(true);
-            // Fly to the gem on the map
+            
             if (mapRef.current) {
                 mapRef.current.flyTo(
-                    [Number(highlightGem.latitude), Number(highlightGem.longitude)], 
-                    15, 
-                    { duration: 1.5, easeLinearity: 0.25 }
+                    [Number(highlightGem.latitude), Number(highlightGem.longitude)],
+                    Math.max(mapRef.current.getZoom(), GEM_FOCUS_ZOOM),
+                    FLY_TO_OPTIONS
                 );
             }
         }
     }, [highlightGem]);
 
-    // Debounce viewport changes so panning doesn't spam the API
+    const hasReportedViewportRef = useRef(false);
     const handleViewportChange = useCallback((next) => {
         clearTimeout(viewportTimer.current);
+
+        if (!hasReportedViewportRef.current) {
+            hasReportedViewportRef.current = true;
+            setViewport(next);
+            return;
+        }
+
         viewportTimer.current = setTimeout(() => setViewport(next), VIEWPORT_DEBOUNCE_MS);
     }, []);
 
@@ -293,11 +387,12 @@ function Maps(){
                 description: raw.description,
                 latitude: raw.latitude,
                 longitude: raw.longitude,
-                image: raw.images?.[0]?.image_url || null,
+                image: raw.first_image?.image_url || raw.images?.[0]?.image_url || null,
                 voteCount: raw.vote_count,
                 verificationThreshold: raw.verification_threshold,
                 category: raw.category?.name,
                 status: raw.status,
+                reportStatus: raw.report_status,
             };
         }
         return {
@@ -329,21 +424,46 @@ function Maps(){
         heroRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
+    const activeGemIdRef = useRef(null);
+
     const handleActiveGemChange = useCallback((activeGem) => {
+        activeGemIdRef.current = activeGem?.id ?? null;
+
         if (!activeGem || activeGem.source !== "database") {
             setNearby([]);
             setNearbyLoading(false);
+            setGemReviews([]);
+            setGemReviewsLoading(false);
             return;
         }
 
-        setNearbyLoading(true);
-        getNearbyAttractions(activeGem.id)
-            .then(res => setNearby(res.data.data || []))
+        // detail only for whichever gem is actually open in the panel.
+        setGemReviewsLoading(true);
+        getHiddenGemDetail(activeGem.id)
+            .then(res => setGemReviews(res.data.data?.votes || []))
             .catch(err => {
                 console.log(err);
-                setNearby([]);
+                setGemReviews([]);
             })
-            .finally(() => setNearbyLoading(false));
+            .finally(() => setGemReviewsLoading(false));
+
+        setNearbyLoading(true);
+        setTimeout(() => {
+            if (activeGemIdRef.current !== activeGem.id) return;
+
+            getNearbyAttractions(activeGem.id)
+                .then(res => {
+                    if (activeGemIdRef.current !== activeGem.id) return;
+                    setNearby(res.data.data || []);
+                })
+                .catch(err => {
+                    console.log(err);
+                    if (activeGemIdRef.current === activeGem.id) setNearby([]);
+                })
+                .finally(() => {
+                    if (activeGemIdRef.current === activeGem.id) setNearbyLoading(false);
+                });
+        }, 400);
     }, []);
 
     const selectNearby = useCallback((place) => {
@@ -354,10 +474,13 @@ function Maps(){
     const handleMapClick = useCallback((lat, lng) => {
         setClickedPoint([lat, lng]);
         setClickedLoading(true);
+        setClickedError(false);
         getNearbyAttractionsAt(lat, lng, CLICK_EXPLORE_RADIUS)
             .then(res => setClickedPlaces(res.data.data || []))
             .catch(err => {
                 console.log(err);
+                // used to render as 0 places with no way to tell them apart.
+                setClickedError(true);
                 setClickedPlaces([]);
             })
             .finally(() => setClickedLoading(false));
@@ -375,6 +498,20 @@ function Maps(){
             };
 
         return addTripLocation(trip.id, payload);
+    }, []);
+
+    const handleToggleWishlist = useCallback(async (gem, isWishlisted) => {
+        if (isWishlisted) {
+            await removeFromWishlist(gem.id);
+            setWishlistIds(prev => {
+                const next = new Set(prev);
+                next.delete(gem.id);
+                return next;
+            });
+        } else {
+            await addToWishlist(gem.id);
+            setWishlistIds(prev => new Set(prev).add(gem.id));
+        }
     }, []);
 
     // Group hidden gems by coordinate
@@ -417,7 +554,7 @@ function Maps(){
 
     function recenterOnUser() {
         if (userPosition && mapRef.current) {
-            mapRef.current.flyTo(userPosition, 15, FLY_TO_OPTIONS);
+            mapRef.current.flyTo(userPosition, Math.max(mapRef.current.getZoom(), FOCUS_ZOOM), FLY_TO_OPTIONS);
         }
     }
 
@@ -425,8 +562,8 @@ function Maps(){
 
     const statusFilters = [
         { value: null, label: "All" },
-        { value: "verified", label: "✓ Verified" },
-        { value: "pending", label: "⏳ Unverified" },
+        { value: "hidden_gem", label: "Hidden Gem" },
+        { value: "pending_community_vote", label: "Awaiting Votes" },
     ];
 
     return (
@@ -488,7 +625,9 @@ function Maps(){
                         <Popup>
                             {clickedLoading
                                 ? "Looking for nearby attractions"
-                                : `${clickedPlaces.length} place${clickedPlaces.length === 1 ? "" : "s"} found nearby`}
+                                : clickedError
+                                    ? "Couldn't reach OpenStreetMap — try again"
+                                    : `${clickedPlaces.length} place${clickedPlaces.length === 1 ? "" : "s"} found nearby`}
                         </Popup>
                     </CircleMarker>
                 )}
@@ -531,6 +670,10 @@ function Maps(){
                         onGemChange={handleActiveGemChange}
                         itineraries={itineraries}
                         onAddToItinerary={handleAddToItinerary}
+                        wishlistIds={wishlistIds}
+                        onToggleWishlist={handleToggleWishlist}
+                        reviews={gemReviews}
+                        reviewsLoading={gemReviewsLoading}
                     />
                 </div>
 
@@ -557,7 +700,7 @@ function Maps(){
                             onClick={() => setExploreOn(o => !o)}
                             title={`Show nearby attractions from OpenStreetMap once zoomed in (level ${EXPLORE_MIN_ZOOM}+)`}
                         >
-                            🔎 Nearby attractions
+                            Nearby attractions
                         </button>
                         <button
                             type="button"
@@ -565,7 +708,7 @@ function Maps(){
                             onClick={() => setClickExploreOn(o => !o)}
                             title="When on, clicking anywhere on the map searches for nearby attractions at that point"
                         >
-                            👆 Click to scan
+                            Click to scan
                         </button>
                     </div>
                     {clickExploreOn && (

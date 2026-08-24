@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
+import { useCompare } from "../context/CompareContext";
+import TruncatedText from "../components/TruncatedText";
+import ReportButton from "../components/ReportButton";
 
 import "../styles/global.css";
 
@@ -8,27 +12,47 @@ export default function HiddenGems() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Get search from URL params
     const queryParams = new URLSearchParams(location.search);
+
     const initialSearch = queryParams.get('search') || '';
+    const initialStatus = queryParams.get('status') || '';
+    const initialCategory = queryParams.get('category') || '';
+    const initialState = queryParams.get('state') || '';
+    const initialSort = queryParams.get('sort') || 'latest';
 
     const [gems, setGems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState(initialSearch);
-    const [filter, setFilter] = useState({ status: "", category: "", state: "" });
+    const [filter, setFilter] = useState({
+        status: initialStatus,
+        category: initialCategory,
+        state: initialState,
+        sort: initialSort
+    });
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
     const [totalResults, setTotalResults] = useState(0);
     const [lastSearch, setLastSearch] = useState('');
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [wishlistBusyId, setWishlistBusyId] = useState(null);
+    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
     const fetchGems = async () => {
         setLoading(true);
         try {
             const params = {};
             if (search) params.search = search;
-            if (filter.status) params.status = filter.status;
+            
+            // Convert filter status to backend values
+            let statusParam = filter.status;
+            if (statusParam === 'verified') statusParam = 'hidden_gem';
+            if (statusParam === 'pending') statusParam = 'pending_community_vote';
+            
+            if (statusParam) params.status = statusParam;
+            
             if (filter.category) params.category = filter.category;
             if (filter.state) params.state = filter.state;
+            if (filter.sort) params.sort = filter.sort;
 
             const response = await getHiddenGems(params);
             console.log('API Response:', response.data);
@@ -55,7 +79,22 @@ export default function HiddenGems() {
         }
     };
 
-    // Handle search from URL on page load
+    const updateURL = (newFilter) => {
+        const params = new URLSearchParams();
+        if (search) params.set('search', search);
+        if (newFilter.status) params.set('status', newFilter.status);
+        if (newFilter.category) params.set('category', newFilter.category);
+        if (newFilter.state) params.set('state', newFilter.state);
+        if (newFilter.sort && newFilter.sort !== 'latest') params.set('sort', newFilter.sort);
+
+        const url = params.toString() ? `/hidden-gems?${params.toString()}` : '/hidden-gems';
+        navigate(url, { replace: true });
+    };
+
+    useEffect(() => {
+        updateURL(filter);
+    }, [filter]);
+
     useEffect(() => {
         if (initialSearch) {
             setSearch(initialSearch);
@@ -65,8 +104,38 @@ export default function HiddenGems() {
     useEffect(() => {
         fetchGems();
         fetchFilters();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search, filter]);
+
+    useEffect(() => {
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
+            .catch(err => console.error('Error fetching wishlist:', err));
+    }, []);
+
+    const handleToggleWishlist = async (e, gem) => {
+        e.stopPropagation();
+        if (wishlistBusyId) return;
+
+        const isWishlisted = wishlistIds.has(gem.id);
+        setWishlistBusyId(gem.id);
+        try {
+            if (isWishlisted) {
+                await removeFromWishlist(gem.id);
+                setWishlistIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(gem.id);
+                    return next;
+                });
+            } else {
+                await addToWishlist(gem.id);
+                setWishlistIds(prev => new Set(prev).add(gem.id));
+            }
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+        } finally {
+            setWishlistBusyId(null);
+        }
+    };
 
     const handleSearchSubmit = (e) => {
         e.preventDefault();
@@ -80,13 +149,25 @@ export default function HiddenGems() {
 
     const handleClearSearch = () => {
         setSearch('');
+        setFilter({ status: '', category: '', state: '', sort: 'latest' });
+        navigate('/hidden-gems');
+    };
+
+    const handleFilterChange = (key, value) => {
+        const newFilter = { ...filter, [key]: value };
+        setFilter(newFilter);
+    };
+
+    const clearAllFilters = () => {
+        setSearch('');
+        setFilter({ status: '', category: '', state: '', sort: 'latest' });
         navigate('/hidden-gems');
     };
 
     return (
         <div className="hidden-gems-page">
             <div className="hidden-gems-header">
-                <h1>🔍 Hidden Gems Discovery</h1>
+                <h1>Hidden Gems Discovery</h1>
 
                 <button
                     className="hidden-gems-submit-btn"
@@ -119,13 +200,12 @@ export default function HiddenGems() {
                                 </button>
                             )}
                             <button type="submit" className="hidden-gems-search-btn">
-                                🔍 Search
+                                Search
                             </button>
                         </div>
                     </div>
                 </form>
 
-                {/* Search result count */}
                 {lastSearch && !loading && (
                     <p className="hidden-gems-search-result-count">
                         Found <strong>{totalResults}</strong> result{totalResults !== 1 ? 's' : ''} for "<strong>{lastSearch}</strong>"
@@ -138,7 +218,7 @@ export default function HiddenGems() {
                 <select
                     className="hidden-gems-filter-select"
                     value={filter.status}
-                    onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
                 >
                     <option value="">Select Status</option>
                     <option value="verified">Verified</option>
@@ -148,7 +228,7 @@ export default function HiddenGems() {
                 <select
                     className="hidden-gems-filter-select"
                     value={filter.category}
-                    onChange={(e) => setFilter({ ...filter, category: e.target.value })}
+                    onChange={(e) => handleFilterChange('category', e.target.value)}
                 >
                     <option value="">Select Category</option>
                     {categories.map((cat) => (
@@ -161,7 +241,7 @@ export default function HiddenGems() {
                 <select
                     className="hidden-gems-filter-select"
                     value={filter.state}
-                    onChange={(e) => setFilter({ ...filter, state: e.target.value })}
+                    onChange={(e) => handleFilterChange('state', e.target.value)}
                 >
                     <option value="">Select State</option>
                     {states.map((state) => (
@@ -170,6 +250,27 @@ export default function HiddenGems() {
                         </option>
                     ))}
                 </select>
+
+                <select
+                    className="hidden-gems-filter-select"
+                    value={filter.sort}
+                    onChange={(e) => handleFilterChange('sort', e.target.value)}
+                >
+                    <option value="latest">Latest First</option>
+                    <option value="oldest">Oldest First</option>
+                </select>
+
+                {/* Clear All Button */}
+                <button
+                    className={`hidden-gems-filter-clear ${
+                        filter.status || filter.category || filter.state || search
+                            ? 'hidden-gems-filter-clear-active'
+                            : ''
+                    }`}
+                    onClick={clearAllFilters}
+                >
+                    <span>✕</span> Clear All
+                </button>
             </div>
 
             {loading ? (
@@ -186,7 +287,7 @@ export default function HiddenGems() {
                         <div
                             className="hidden-gems-card"
                             key={gem.id}
-                            onClick={() => navigate(`/hidden-gems/${gem.id}`)}
+                            onClick={() => navigate(`/hidden-gems/${gem.id}?${location.search.substring(1)}`)}
                         >
                             <div className="hidden-gems-card-image">
                                 {gem.images && gem.images.length > 0 ? (
@@ -207,7 +308,32 @@ export default function HiddenGems() {
                             </div>
 
                             <div className="hidden-gems-card-content">
-                                <h2>{gem.place_name}</h2>
+                                <div className="wishlist-card-title-row">
+                                    <h2>{gem.place_name}</h2>
+                                    <div className="hidden-gems-card-icon-actions">
+                                        <button
+                                            type="button"
+                                            className="wishlist-remove-btn"
+                                            disabled={wishlistBusyId === gem.id}
+                                            title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                            onClick={(e) => handleToggleWishlist(e, gem)}
+                                        >
+                                            {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`compare-toggle-btn ${isComparing(gem.id) ? "compare-toggle-btn-active" : ""}`}
+                                            disabled={!isComparing(gem.id) && !canAddMore}
+                                            title={isComparing(gem.id)
+                                                ? "Remove from comparison"
+                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
+                                            onClick={(e) => { e.stopPropagation(); toggleCompare(gem); }}
+                                        >
+                                            {isComparing(gem.id) ? "☑" : "☐"}
+                                        </button>
+                                        <ReportButton gem={gem} />
+                                    </div>
+                                </div>
 
                                 <div className="hidden-gems-card-tags">
                                     <span className="hidden-gems-card-category">
@@ -219,17 +345,21 @@ export default function HiddenGems() {
                                 </div>
 
                                 <p className="hidden-gems-card-description">
-                                    {gem.description || 'No description'}
+                                    <TruncatedText text={gem.description || 'No description'} limit={100} />
                                 </p>
 
                                 <div className="hidden-gems-card-status">
-                                    {gem.status === 'verified' ? (
+                                    {gem.status === 'hidden_gem' ? (
                                         <span className="hidden-gems-card-verified">
                                             Verified
                                         </span>
-                                    ) : (
+                                    ) : gem.status === 'pending_community_vote' ? (
                                         <span className="hidden-gems-card-pending">
                                             Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                                        </span>
+                                    ) : (
+                                        <span className="hidden-gems-card-pending">
+                                            {gem.status === 'ai_rejected' ? 'Rejected' : 'In Review'}
                                         </span>
                                     )}
                                 </div>

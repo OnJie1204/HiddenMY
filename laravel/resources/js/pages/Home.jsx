@@ -5,7 +5,9 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { getTripItineraries } from '../api/tripItinerary';
 import { getHiddenGems } from '../api/hiddenGems';
+import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist';
 import HiddenGemMarker from '../components/HiddenGemMarker';
+import ReportButton from '../components/ReportButton';
 
 // Fix leaflet default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -23,7 +25,40 @@ function Home({ user }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [mapGems, setMapGems] = useState([]);
     const [selectedGem, setSelectedGem] = useState(null);
+    const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [wishlistBusyId, setWishlistBusyId] = useState(null);
     const mapRef = useRef(null);
+
+    useEffect(() => {
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
+            .catch(err => console.error('Error fetching wishlist:', err));
+    }, []);
+
+    const handleToggleWishlist = async (e, gem) => {
+        e.stopPropagation();
+        if (wishlistBusyId) return;
+
+        const isWishlisted = wishlistIds.has(gem.id);
+        setWishlistBusyId(gem.id);
+        try {
+            if (isWishlisted) {
+                await removeFromWishlist(gem.id);
+                setWishlistIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(gem.id);
+                    return next;
+                });
+            } else {
+                await addToWishlist(gem.id);
+                setWishlistIds(prev => new Set(prev).add(gem.id));
+            }
+        } catch (error) {
+            console.error('Error updating wishlist:', error);
+        } finally {
+            setWishlistBusyId(null);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -36,8 +71,8 @@ function Home({ user }) {
                 let allGems = gemsRes.data.data || [];
 
                 allGems = allGems.sort((a, b) => {
-                    if (a.status === 'verified' && b.status !== 'verified') return -1;
-                    if (b.status === 'verified' && a.status !== 'verified') return 1;
+                    if (a.status === 'hidden_gem' && b.status !== 'hidden_gem') return -1;
+                    if (b.status === 'hidden_gem' && a.status !== 'hidden_gem') return 1;
 
                     if (a.vote_count !== b.vote_count) {
                         return (b.vote_count || 0) - (a.vote_count || 0);
@@ -85,13 +120,13 @@ function Home({ user }) {
     };
 
     const quickActions = [
-        { to: '/map', icon: '🗺️', label: 'Map', color: '#e6f6f3' },
-        { to: '/hidden-gems', icon: '💎', label: 'Gems', color: '#ffe4e8' },
-        { to: '/trip-itinerary', icon: '✈️', label: 'Trips', color: '#e0f2fe' },
-        { to: '/profile', icon: '👤', label: 'Profile', color: '#ede9fe' },
+        { to: '/map', label: 'Map' },
+        { to: '/hidden-gems', label: 'Gems' },
+        { to: '/trip-itinerary', label: 'Trips' },
+        { to: '/profile', label: 'Profile' },
     ];
 
-    const greetings = ['Hey', 'Hi', 'Hello', '👋', '☀️', '🌟', '🎉', '✨'];
+    const greetings = ['Hey', 'Hi', 'Hello', 'Welcome back'];
     const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
 
     const topGems = mapGems.slice(0, 3);
@@ -137,34 +172,38 @@ function Home({ user }) {
         };
     };
 
+    const heroImageUrl = topGems[0]?.images?.[0]?.image_url || null;
+
     return (
         <div className="home-page">
 
             <div className="home-hero-fun">
                 <div className="home-hero-fun-content">
                     <h1>
-                        {randomGreeting} <span>{user?.name || 'Explorer'}</span>! 🌏
+                        {randomGreeting} <span>{user?.name || 'Explorer'}</span>!
                     </h1>
                     <p>Let's find your next adventure!</p>
+                    <div className="home-search-fun">
+                        <form onSubmit={handleSearch}>
+                            <input
+                                type="text"
+                                placeholder="Search hidden gems, locations, or states..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </form>
+                    </div>
                 </div>
-            </div>
-
-            <div className="home-search-fun">
-                <form onSubmit={handleSearch}>
-                    <span className="home-search-fun-icon">🔍</span>
-                    <input
-                        type="text"
-                        placeholder="Search hidden gems, locations, or states..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </form>
+                {heroImageUrl && (
+                    <div className="home-hero-fun-image">
+                        <img src={heroImageUrl} alt={topGems[0].place_name} />
+                    </div>
+                )}
             </div>
 
             <div className="home-quick-fun">
-                {quickActions.map(({ to, icon, label, color }) => (
-                    <Link key={to} to={to} className="home-quick-fun-item" style={{ background: color }}>
-                        <span className="home-quick-fun-icon">{icon}</span>
+                {quickActions.map(({ to, label }) => (
+                    <Link key={to} to={to} className="home-quick-fun-item">
                         <span className="home-quick-fun-label">{label}</span>
                     </Link>
                 ))}
@@ -172,7 +211,7 @@ function Home({ user }) {
 
             <div className="home-map-flight">
                 <div className="home-map-flight-header">
-                    <span className="home-map-flight-title">🗺️ Hidden Gems Map Preview</span>
+                    <span className="home-map-flight-title">Hidden Gems Map Preview</span>
                     <Link to="/map" className="home-map-flight-link">View Full Map →</Link>
                 </div>
 
@@ -196,21 +235,21 @@ function Home({ user }) {
                                     <div className="home-map-flight-item-content">
                                         <div className="home-map-flight-item-top">
                                             <span className="home-map-flight-item-name">{gem.place_name}</span>
-                                            {gem.status === 'verified' ? (
-                                                <span className="home-map-flight-item-status verified">✅ Verified</span>
+                                            {gem.status === 'hidden_gem' ? (
+                                                <span className="home-map-flight-item-status verified">Hidden Gem</span>
                                             ) : (
-                                                <span className="home-map-flight-item-status pending">⏳ Pending</span>
+                                                <span className="home-map-flight-item-status pending">Awaiting Votes</span>
                                             )}
                                         </div>
                                         <span className="home-map-flight-item-category">{gem.category?.name || 'Uncategorized'}</span>
-                                        <span className="home-map-flight-item-state">📍 {gem.state || 'Unknown'}</span>
+                                        <span className="home-map-flight-item-state">{gem.state || 'Unknown'}</span>
                                     </div>
                                 </div>
                             ))
                         )}
                         <div className="home-map-flight-stats">
-                            <span>📍 {mapGems.length} gems</span>
-                            <span>🏷️ {new Set(mapGems.map(g => g.state)).size} states</span>
+                            <span>{mapGems.length} gems</span>
+                            <span>{new Set(mapGems.map(g => g.state)).size} states</span>
                         </div>
                     </div>
 
@@ -253,7 +292,7 @@ function Home({ user }) {
 
             <div className="home-trending">
                 <div className="home-trending-header">
-                    <h2>🔥 Trending Now</h2>
+                    <h2>Trending Now</h2>
                     <Link to="/hidden-gems" className="home-trending-seeall">See All →</Link>
                 </div>
                 <div className="home-trending-scroll">
@@ -261,7 +300,7 @@ function Home({ user }) {
                         <p className="home-loading">Loading gems...</p>
                     ) : popularGems.length === 0 ? (
                         <div className="home-empty-trending">
-                            <p>No hidden gems yet. Be the first to share one! 🚀</p>
+                            <p>No hidden gems yet. Be the first to share one!</p>
                         </div>
                     ) : (
                         popularGems.map((gem) => (
@@ -287,10 +326,22 @@ function Home({ user }) {
                                 <div className="home-trending-card-body">
                                     <div className="home-trending-card-header-row">
                                         <h4>{gem.place_name}</h4>
-                                        {gem.status === 'verified' ? (
-                                            <span className="home-trending-card-status verified">✅ Verified</span>
+                                        <div className="hidden-gems-card-icon-actions">
+                                            <button
+                                                type="button"
+                                                className="wishlist-remove-btn"
+                                                disabled={wishlistBusyId === gem.id}
+                                                title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                                onClick={(e) => handleToggleWishlist(e, gem)}
+                                            >
+                                                {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                            </button>
+                                            <ReportButton gem={gem} />
+                                        </div>
+                                        {gem.status === 'hidden_gem' ? (
+                                            <span className="home-trending-card-status verified">✦ Hidden Gem</span>
                                         ) : (
-                                            <span className="home-trending-card-status pending">⏳ Pending</span>
+                                            <span className="home-trending-card-status pending">Awaiting Votes</span>
                                         )}
                                     </div>
                                     <div className="home-trending-card-tags">
@@ -301,7 +352,7 @@ function Home({ user }) {
                                             {gem.state || 'Unknown'}
                                         </span>
                                     </div>
-                                    <span className="home-trending-card-rating">⭐ {gem.vote_count || 0}</span>
+                                    <span className="home-trending-card-rating">{gem.vote_count || 0} votes</span>
                                 </div>
                             </div>
                         ))
@@ -311,7 +362,7 @@ function Home({ user }) {
 
             <div className="home-adventures">
                 <div className="home-adventures-header">
-                    <h2>🗺️ Your Adventures</h2>
+                    <h2>Your Adventures</h2>
                     <Link to="/trip-itinerary" className="home-adventures-seeall">See All →</Link>
                 </div>
                 <div className="home-adventures-grid">
@@ -319,7 +370,6 @@ function Home({ user }) {
                         <p className="home-loading">Loading trips...</p>
                     ) : recentTrips.length === 0 ? (
                         <div className="home-empty-adventures">
-                            <span>✈️</span>
                             <p>No adventures yet</p>
                             <Link to="/trip-itinerary">Start planning →</Link>
                         </div>
@@ -330,18 +380,14 @@ function Home({ user }) {
                                 to={`/trip-itinerary/${trip.id}`}
                                 className="home-adventure-card"
                             >
-                                <div className="home-adventure-card-top">
-                                    <div className="home-adventure-card-icon">✈️</div>
-                                    <div className="home-adventure-card-content">
-                                        <h4>{trip.trip_name}</h4>
-                                        <p>
-                                            📍 {trip.locations?.length || 0} stops ·
-                                            🕐 {new Date(trip.created_at).toLocaleDateString('en-GB', {
-                                                day: 'numeric',
-                                                month: 'short'
-                                            })}
-                                        </p>
-                                    </div>
+                                <div className="home-adventure-card-content">
+                                    <h4>{trip.trip_name}</h4>
+                                    <p>
+                                        {trip.locations?.length || 0} stops · {new Date(trip.created_at).toLocaleDateString('en-GB', {
+                                            day: 'numeric',
+                                            month: 'short'
+                                        })}
+                                    </p>
                                 </div>
                                 <div className="home-adventure-card-bottom">
                                     <span className="home-adventure-card-arrow">View Trip →</span>
@@ -354,16 +400,13 @@ function Home({ user }) {
 
             <div className="home-plan-explore">
                 <div className="home-plan-explore-header">
-                    <h2>✨ Plan Your Adventure</h2>
+                    <h2>Plan Your Adventure</h2>
                 </div>
                 <div className="home-plan-explore-grid">
                     <Link to="/trip-itinerary" className="home-plan-card home-plan-card-trip">
-                        <div className="home-plan-card-top">
-                            <div className="home-plan-card-icon">🚀</div>
-                            <div className="home-plan-card-content">
-                                <h3>Create New Trip</h3>
-                                <p>Plan your next adventure from scratch</p>
-                            </div>
+                        <div className="home-plan-card-content">
+                            <h3>Create New Trip</h3>
+                            <p>Plan your next adventure from scratch</p>
                         </div>
                         <div className="home-plan-card-bottom">
                             <span className="home-plan-card-arrow">Start →</span>
