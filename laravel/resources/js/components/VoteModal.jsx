@@ -17,10 +17,27 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
     const [checkInMethod, setCheckInMethod] = useState(null);
     const [manualLat, setManualLat] = useState('');
     const [manualLng, setManualLng] = useState('');
+    const [savedLocation, setSavedLocation] = useState(null);
+    const [hasSavedLocation, setHasSavedLocation] = useState(false);
+    const [showSaveButton, setShowSaveButton] = useState(false);
     const fileInputRef = useRef(null);
 
     useEffect(() => {
         if (isOpen && locationId) {
+            const saved = localStorage.getItem(`vote_location_${locationId}`);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    setSavedLocation(parsed);
+                    setHasSavedLocation(true);
+                } catch (e) {
+                    setHasSavedLocation(false);
+                    setSavedLocation(null);
+                }
+            } else {
+                setHasSavedLocation(false);
+                setSavedLocation(null);
+            }
             checkEligibility();
         }
     }, [isOpen, locationId]);
@@ -38,9 +55,13 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
             });
             const data = await response.json();
             setEligibility(data);
+            
             if (data.eligible) {
                 if (data.has_check_in) {
                     setStep('voting');
+                } else if (hasSavedLocation && savedLocation) {
+                    setStep('voting');
+                    setMessage('Using saved location. You can vote.');
                 } else {
                     setStep('checkin');
                 }
@@ -59,6 +80,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
     const getCurrentLocation = () => {
         setGpsStatus('Getting your location...');
         setCheckInMethod('gps');
+        setShowSaveButton(false);
 
         if (!navigator.geolocation) {
             setGpsStatus('error: Geolocation is not supported by your browser');
@@ -70,7 +92,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                 const { latitude, longitude } = position.coords;
                 setUserLocation({ latitude, longitude });
                 setGpsStatus('success: Location found!');
-                performCheckIn(latitude, longitude);
+                setShowSaveButton(true);
             },
             (error) => {
                 let errorMsg = 'Unable to get your location. ';
@@ -97,11 +119,28 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
         );
     };
 
+    const handleSaveLocation = () => {
+        if (!userLocation) return;
+        
+        const locationData = { 
+            latitude: userLocation.latitude, 
+            longitude: userLocation.longitude,
+            saved_at: new Date().toISOString()
+        };
+        
+        localStorage.setItem(`vote_location_${locationId}`, JSON.stringify(locationData));
+        setSavedLocation(locationData);
+        setHasSavedLocation(true);
+        
+        performCheckIn(userLocation.latitude, userLocation.longitude);
+    };
+
     const handleManualCheckIn = () => {
         setCheckInMethod('manual');
         setStep('manual_checkin');
         setMessage('');
         setGpsStatus('');
+        setShowSaveButton(false);
     };
 
     const performCheckIn = async (latitude, longitude) => {
@@ -128,7 +167,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                 setEligibility({ ...eligibility, has_check_in: true });
                 setStep('voting');
                 const distanceMsg = data.distance ? ' (' + data.distance + ' km away)' : '';
-                setMessage('Check-in successful!' + distanceMsg);
+                setMessage('Check-in successful!' + distanceMsg + ' Location saved for future votes.');
             } else {
                 if (data.distance && data.max_distance) {
                     setMessage('You are ' + data.distance + ' km away. You must be within ' + data.max_distance + ' km to check in.');
@@ -157,50 +196,12 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
             return;
         }
 
+        const locationData = { latitude: lat, longitude: lng, saved_at: new Date().toISOString() };
+        localStorage.setItem(`vote_location_${locationId}`, JSON.stringify(locationData));
+        setSavedLocation(locationData);
+        setHasSavedLocation(true);
+
         performCheckIn(lat, lng);
-    };
-
-    const useCurrentLocationForManual = () => {
-        setGpsStatus('Detecting your location...');
-        
-        if (!navigator.geolocation) {
-            setGpsStatus('error: Geolocation is not supported by your browser');
-            setMessage('Geolocation is not supported by your browser. Please enter coordinates manually.');
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                setManualLat(latitude.toString());
-                setManualLng(longitude.toString());
-                setGpsStatus('success: Location detected!');
-                setMessage('Location detected! Click "Confirm Check-in" to proceed.');
-            },
-            (error) => {
-                let errorMsg = 'Unable to get your location. ';
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMsg += 'Please allow location access in your browser.';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMsg += 'Location information is unavailable.';
-                        break;
-                    case error.TIMEOUT:
-                        errorMsg += 'Location request timed out.';
-                        break;
-                    default:
-                        errorMsg += error.message;
-                }
-                setGpsStatus('error: ' + errorMsg);
-                setMessage(errorMsg + ' Please enter coordinates manually.');
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 60000
-            }
-        );
     };
 
     const handlePhotoChange = (e) => {
@@ -261,6 +262,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
         setCheckInMethod(null);
         setManualLat('');
         setManualLng('');
+        setShowSaveButton(false);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -284,6 +286,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
         setMessage('');
         setManualLat('');
         setManualLng('');
+        setShowSaveButton(false);
     };
 
     if (!isOpen) return null;
@@ -309,45 +312,86 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                     {step === 'checkin' && (
                         <div className="vote-checkin">
                             <h3>Check-in Required</h3>
-                            <p>You need to check-in at this location before you can vote.</p>
-
-                            {gemLocation && (
-                                <div className="vote-checkin-location">
-                                    <p className="vote-checkin-location-name">{gemLocation.place_name}</p>
-                                    <p className="vote-checkin-location-address">{gemLocation.address}</p>
+                            
+                            {hasSavedLocation && savedLocation && (
+                                <div className="vote-checkin-saved-location">
+                                    <p>You have a saved location for this gem</p>
                                     <p className="vote-checkin-location-coords">
-                                        {gemLocation.latitude}, {gemLocation.longitude}
+                                        Lat: {savedLocation.latitude.toFixed(6)}, Lng: {savedLocation.longitude.toFixed(6)}
                                     </p>
+                                    <p className="vote-checkin-hint">
+                                        You can use this saved location to vote.
+                                    </p>
+                                    <button
+                                        className="vote-btn-primary"
+                                        onClick={() => {
+                                            setStep('voting');
+                                            setMessage('Using saved location. You can vote.');
+                                        }}
+                                    >
+                                        Use Saved Location to Vote
+                                    </button>
                                 </div>
                             )}
 
-                            <p className="vote-checkin-hint">
-                                You must be within 5 km to check in.
-                            </p>
+                            {!hasSavedLocation && (
+                                <>
+                                    <p>You need to check-in at this location before you can vote.</p>
 
-                            <div className="vote-checkin-options">
-                                <button
-                                    className="vote-checkin-option"
-                                    onClick={getCurrentLocation}
-                                    disabled={checkingIn}
-                                >
-                                    <span className="vote-checkin-option-label">Use My Current Location</span>
-                                    <span className="vote-checkin-option-desc">Auto-detect your GPS position</span>
-                                </button>
+                                    {gemLocation && (
+                                        <div className="vote-checkin-location">
+                                            <p className="vote-checkin-location-name">{gemLocation.place_name}</p>
+                                            <p className="vote-checkin-location-address">{gemLocation.address}</p>
+                                            <p className="vote-checkin-location-coords">
+                                                {gemLocation.latitude}, {gemLocation.longitude}
+                                            </p>
+                                        </div>
+                                    )}
 
-                                <button
-                                    className="vote-checkin-option"
-                                    onClick={handleManualCheckIn}
-                                    disabled={checkingIn}
-                                >
-                                    <span className="vote-checkin-option-label">Enter Current Location</span>
-                                    <span className="vote-checkin-option-desc">Manually enter your GPS coordinates</span>
-                                </button>
-                            </div>
+                                    <p className="vote-checkin-hint">
+                                        You must be within 5 km to check in. Your location will be saved for future votes.
+                                    </p>
+
+                                    <div className="vote-checkin-options">
+                                        <button
+                                            className="vote-checkin-option"
+                                            onClick={getCurrentLocation}
+                                            disabled={checkingIn}
+                                        >
+                                            <span className="vote-checkin-option-label">Use My Current Location</span>
+                                            <span className="vote-checkin-option-desc">Auto-detect GPS and save for future</span>
+                                        </button>
+
+                                        <button
+                                            className="vote-checkin-option"
+                                            onClick={handleManualCheckIn}
+                                            disabled={checkingIn}
+                                        >
+                                            <span className="vote-checkin-option-label">Enter Current Location</span>
+                                            <span className="vote-checkin-option-desc">Manually enter GPS coordinates</span>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
 
                             {gpsStatus && (
                                 <div className={`vote-gps-status ${gpsStatus.startsWith('error:') ? 'error' : 'success'}`}>
                                     {gpsStatus.replace(/^(error:|success:)/, '')}
+                                </div>
+                            )}
+
+                            {userLocation && showSaveButton && (
+                                <div className="vote-save-location">
+                                    <p className="vote-checkin-location-coords">
+                                        Detected: {userLocation.latitude.toFixed(6)}, {userLocation.longitude.toFixed(6)}
+                                    </p>
+                                    <button
+                                        className="vote-btn-primary"
+                                        onClick={handleSaveLocation}
+                                        disabled={checkingIn}
+                                    >
+                                        Save My Current Location
+                                    </button>
                                 </div>
                             )}
 
@@ -387,7 +431,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                             )}
 
                             <p className="vote-manual-hint">
-                                Enter your current GPS coordinates to check in, or click "Detect My Location".
+                                Enter your current GPS coordinates manually to check in and save for future votes.
                             </p>
 
                             <div className="vote-manual-inputs">
@@ -413,19 +457,6 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                                 </div>
                             </div>
 
-                            <button
-                                className="vote-manual-detect-btn"
-                                onClick={useCurrentLocationForManual}
-                            >
-                                Detect My Location
-                            </button>
-
-                            {gpsStatus && (
-                                <div className={`vote-gps-status ${gpsStatus.startsWith('error:') ? 'error' : 'success'}`}>
-                                    {gpsStatus.replace(/^(error:|success:)/, '')}
-                                </div>
-                            )}
-
                             {message && (
                                 <div className={`vote-message ${message.includes('km') ? 'error' : 'success'}`}>
                                     {message}
@@ -438,7 +469,7 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                                     onClick={confirmManualCheckIn}
                                     disabled={checkingIn}
                                 >
-                                    {checkingIn ? 'Checking in...' : 'Confirm Check-in'}
+                                    {checkingIn ? 'Checking in...' : 'Confirm Check-in & Save'}
                                 </button>
                                 <button
                                     className="vote-btn-secondary"
@@ -455,6 +486,11 @@ function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
                             <div className="vote-location-info">
                                 <p>{eligibility?.location?.place_name}</p>
                                 <p className="vote-location-address">{eligibility?.location?.address}</p>
+                                {hasSavedLocation && savedLocation && (
+                                    <p className="vote-location-coords">
+                                        Using saved location: {savedLocation.latitude.toFixed(6)}, {savedLocation.longitude.toFixed(6)}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="vote-form-group">

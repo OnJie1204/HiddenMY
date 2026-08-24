@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
@@ -137,8 +137,19 @@ function groupKey(lat, lng) {
 
 function Maps(){
     const location = useLocation();
+    const navigate = useNavigate();
+    
+    // ==================== URL Params (from HiddenGemDetail) ====================
+    const queryParams = new URLSearchParams(location.search);
+    const latParam = queryParams.get('lat');
+    const lngParam = queryParams.get('lng');
+    const gemIdParam = queryParams.get('gemId');
+    
     const highlightGem = location.state?.highlightGem || null;
     const highlightId = location.state?.highlightId || null;
+    const shouldOpenPanel = location.state?.openPanel || false;
+    const shouldFlyTo = location.state?.flyTo || false;
+    
     const [hiddenGems,setHiddenGems]=useState([]);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [userPosition,setUserPosition]=useState(null);
@@ -254,17 +265,60 @@ function Maps(){
         return () => clearTimeout(id);
     }, [panelOpen]);
 
+    // ==================== Handle URL params (from HiddenGemDetail) ====================
+    useEffect(() => {
+        if (!gemIdParam && !(latParam && lngParam)) return;
+
+        const fetchGem = async () => {
+            if (gemIdParam) {
+                try {
+                    const response = await getHiddenGemDetail(gemIdParam);
+                    const gem = response.data.data;
+                    
+                    if (gem) {
+                        const normalized = normalizeGem(gem, "database");
+                        setSelectedGroup([normalized]);
+                        setPanelOpen(true);
+                        
+                        if (mapRef.current) {
+                            mapRef.current.flyTo(
+                                [Number(gem.latitude), Number(gem.longitude)],
+                                Math.max(mapRef.current.getZoom(), GEM_FOCUS_ZOOM),
+                                FLY_TO_OPTIONS
+                            );
+                        }
+                    }
+                } catch (err) {
+                    console.log("Error fetching gem for map:", err);
+                }
+            } else if (latParam && lngParam) {
+                if (mapRef.current) {
+                    mapRef.current.flyTo(
+                        [Number(latParam), Number(lngParam)],
+                        Math.max(mapRef.current.getZoom(), GEM_FOCUS_ZOOM),
+                        FLY_TO_OPTIONS
+                    );
+                }
+            }
+        };
+
+        // Small delay to ensure map is ready
+        const timeout = setTimeout(fetchGem, 500);
+        return () => clearTimeout(timeout);
+    }, [gemIdParam, latParam, lngParam]);
+
+    // ==================== Handle location.state.highlightGem ====================
     useEffect(() => {
         if (highlightGem && highlightGem.id) {
-            // Open the side panel with the highlighted gem
-            setSelectedGroup([normalizeGem(highlightGem, "database")]);
+            const normalized = normalizeGem(highlightGem, "database");
+            setSelectedGroup([normalized]);
             setPanelOpen(true);
-            // Fly to the gem on the map
+            
             if (mapRef.current) {
                 mapRef.current.flyTo(
                     [Number(highlightGem.latitude), Number(highlightGem.longitude)],
                     Math.max(mapRef.current.getZoom(), GEM_FOCUS_ZOOM),
-                    { duration: 1.5, easeLinearity: 0.25 }
+                    FLY_TO_OPTIONS
                 );
             }
         }

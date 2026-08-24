@@ -5,20 +5,20 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class CheckIn extends Model
+class GemInteraction extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
         'location_id',
-        'latitude',
-        'longitude',
-        'check_in_at',
+        'type',
+        'comment',
+        'rating',
     ];
 
     protected $casts = [
-        'check_in_at' => 'datetime',
+        'rating' => 'integer',
     ];
 
     public function user()
