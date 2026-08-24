@@ -160,7 +160,10 @@ class HiddenGemController extends Controller
             $query->where('place_name', 'like', '%' . $request->search . '%');
         }
 
-        $hiddenGems = $query->latest()->paginate(12);
+        $perPage = (int) $request->input('per_page', 12);
+        $perPage = max(1, min($perPage, 500));
+
+        $hiddenGems = $query->latest()->paginate($perPage);
 
         return response()->json([
             'data' => $hiddenGems->items(),
