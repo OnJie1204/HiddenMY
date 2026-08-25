@@ -7,13 +7,16 @@ import {
     getStates,
 } from "../api/hiddenGems";
 import { getMyVotes } from "../api/votes";
+import { getMyRatings } from "../api/gemInteractions";
 import GemImage from "../components/GemImage";
 import HiddenGemJourneyMap from "../components/HiddenGemJourneyMap";
+import HiddenMYAchievements from "../components/HiddenMYAchievements";
 import { getGemStatusDisplay, voteProgressLabel } from "../utils/gemStatus";
 
 import "../styles/global.css";
 
 const MY_VOTES_SORT_KEY = "myVotesSortOrder";
+const MY_RATINGS_SORT_KEY = "myRatingsSortOrder";
 
 function getVotePhotoUrl(photoPath) {
     if (!photoPath) return "";
@@ -40,8 +43,13 @@ export default function MyHiddenGems() {
     const [deleteId, setDeleteId] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
-    const [activeTab, setActiveTab] = useState(
-        routeLocation.state?.activeTab === "votes" ? "votes" : "hidden-gems"
+    const [activeTab, setActiveTab] = useState(() =>
+        ["votes", "contributions"].includes(routeLocation.state?.activeTab)
+            ? "contributions"
+            : "hidden-gems"
+    );
+    const [contributionTab, setContributionTab] = useState(
+        routeLocation.state?.contributionTab === "ratings" ? "ratings" : "votes"
     );
     const [votes, setVotes] = useState([]);
     const [votesLoading, setVotesLoading] = useState(false);
@@ -52,7 +60,19 @@ export default function MyHiddenGems() {
             ? "oldest"
             : "newest"
     );
+    const [ratings, setRatings] = useState([]);
+    const [ratingsLoading, setRatingsLoading] = useState(false);
+    const [ratingsError, setRatingsError] = useState("");
+    const [ratingsLoaded, setRatingsLoaded] = useState(false);
+    const [ratingSortOrder, setRatingSortOrder] = useState(() =>
+        sessionStorage.getItem(MY_RATINGS_SORT_KEY) === "oldest"
+            ? "oldest"
+            : "newest"
+    );
     const [categories, setCategories] = useState([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(true);
+    const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+    const [categoriesError, setCategoriesError] = useState("");
     const [states, setStates] = useState([]);
 
     const filters = {
@@ -78,6 +98,21 @@ export default function MyHiddenGems() {
         if (!secondDateIsValid) return -1;
 
         return voteSortOrder === "oldest"
+            ? firstDate - secondDate
+            : secondDate - firstDate;
+    });
+
+    const sortedRatings = [...ratings].sort((firstRating, secondRating) => {
+        const firstDate = new Date(firstRating.created_at).getTime();
+        const secondDate = new Date(secondRating.created_at).getTime();
+        const firstDateIsValid = Number.isFinite(firstDate);
+        const secondDateIsValid = Number.isFinite(secondDate);
+
+        if (!firstDateIsValid && !secondDateIsValid) return 0;
+        if (!firstDateIsValid) return 1;
+        if (!secondDateIsValid) return -1;
+
+        return ratingSortOrder === "oldest"
             ? firstDate - secondDate
             : secondDate - firstDate;
     });
@@ -108,13 +143,25 @@ export default function MyHiddenGems() {
     }, []);
 
     useEffect(() => {
-        Promise.all([getCategories(), getStates()])
-            .then(([categoryResponse, stateResponse]) => {
+        getCategories()
+            .then((categoryResponse) => {
                 setCategories(categoryResponse.data.data || []);
+                setCategoriesLoaded(true);
+            })
+            .catch((error) => {
+                console.error("Error fetching Hidden Gem categories:", error);
+                setCategoriesError(
+                    error.response?.data?.message || "Failed to load categories."
+                );
+            })
+            .finally(() => setCategoriesLoading(false));
+
+        getStates()
+            .then((stateResponse) => {
                 setStates(stateResponse.data.data || []);
             })
             .catch((error) => {
-                console.error("Error fetching Hidden Gem filters:", error);
+                console.error("Error fetching Hidden Gem states:", error);
             });
     }, []);
 
@@ -135,10 +182,13 @@ export default function MyHiddenGems() {
         sessionStorage.setItem(MY_VOTES_SORT_KEY, value);
     };
 
-    const showMyVotes = async () => {
-        setActiveTab("votes");
+    const updateRatingSortOrder = (value) => {
+        setRatingSortOrder(value);
+        sessionStorage.setItem(MY_RATINGS_SORT_KEY, value);
+    };
 
-        if (votesLoaded) return;
+    const loadMyVotes = async () => {
+        if (votesLoaded || votesLoading) return;
 
         setVotesLoading(true);
         setVotesError("");
@@ -158,9 +208,60 @@ export default function MyHiddenGems() {
         }
     };
 
+    const loadMyRatings = async () => {
+        if (ratingsLoaded || ratingsLoading) return;
+
+        setRatingsLoading(true);
+        setRatingsError("");
+
+        try {
+            const response = await getMyRatings();
+            setRatings(response.data.data || []);
+            setRatingsLoaded(true);
+        } catch (error) {
+            console.error("Error fetching my ratings:", error);
+            setRatingsError(
+                error.response?.data?.message
+                || "Failed to load your ratings."
+            );
+        } finally {
+            setRatingsLoading(false);
+        }
+    };
+
+    const showMyVotes = () => {
+        setActiveTab("contributions");
+        setContributionTab("votes");
+        loadMyVotes();
+    };
+
+    const showMyRatings = () => {
+        setActiveTab("contributions");
+        setContributionTab("ratings");
+        loadMyRatings();
+    };
+
+    const showContributions = () => {
+        if (contributionTab === "ratings") {
+            showMyRatings();
+            return;
+        }
+
+        showMyVotes();
+    };
+
+    const showAchievements = () => {
+        setActiveTab("achievements");
+        loadMyVotes();
+    };
+
     useEffect(() => {
-        if (routeLocation.state?.activeTab === "votes") {
-            showMyVotes();
+        if (["votes", "contributions"].includes(routeLocation.state?.activeTab)) {
+            if (routeLocation.state?.contributionTab === "ratings") {
+                showMyRatings();
+            } else {
+                showMyVotes();
+            }
         }
     }, []);
 
@@ -210,7 +311,7 @@ export default function MyHiddenGems() {
 
             <div className="hidden-gems-header">
                 <div>
-                    <h1>My Hidden Gems</h1>
+                    <h1>{activeTab === "contributions" ? "My Contributions" : "My Hidden Gems"}</h1>
                 </div>
 
                 <button
@@ -231,12 +332,53 @@ export default function MyHiddenGems() {
                 </button>
                 <button
                     type="button"
-                    className={activeTab === "votes" ? "active" : ""}
-                    onClick={showMyVotes}
+                    className={activeTab === "contributions" ? "active" : ""}
+                    onClick={showContributions}
                 >
-                    My Votes
+                    My Contributions
+                </button>
+                <button
+                    type="button"
+                    className={activeTab === "achievements" ? "active" : ""}
+                    onClick={showAchievements}
+                >
+                    My Achievements
                 </button>
             </div>
+
+            {activeTab === "contributions" && (
+                <div className="my-contributions-tabs" aria-label="Contribution type">
+                    <button
+                        type="button"
+                        className={contributionTab === "votes" ? "active" : ""}
+                        onClick={showMyVotes}
+                    >
+                        My Votes
+                    </button>
+                    <button
+                        type="button"
+                        className={contributionTab === "ratings" ? "active" : ""}
+                        onClick={showMyRatings}
+                    >
+                        My Ratings
+                    </button>
+                </div>
+            )}
+
+            {activeTab === "achievements" && (
+                <HiddenMYAchievements
+                    gems={gems}
+                    gemsLoaded={!loading && !error}
+                    votes={votes}
+                    votesLoading={votesLoading}
+                    votesLoaded={votesLoaded}
+                    votesError={votesError}
+                    categories={categories}
+                    categoriesLoading={categoriesLoading}
+                    categoriesLoaded={categoriesLoaded}
+                    categoriesError={categoriesError}
+                />
+            )}
 
             {activeTab === "hidden-gems" && (
                 <HiddenGemJourneyMap
@@ -294,12 +436,14 @@ export default function MyHiddenGems() {
                 </div>
             )}
 
-            {activeTab === "votes" && (
+            {activeTab === "contributions" && (
                 <div className="hidden-gems-filters">
                     <select
                         className="hidden-gems-filter-select"
-                        value={voteSortOrder}
-                        onChange={(event) => updateVoteSortOrder(event.target.value)}
+                        value={contributionTab === "votes" ? voteSortOrder : ratingSortOrder}
+                        onChange={(event) => contributionTab === "votes"
+                            ? updateVoteSortOrder(event.target.value)
+                            : updateRatingSortOrder(event.target.value)}
                     >
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
@@ -307,7 +451,7 @@ export default function MyHiddenGems() {
                 </div>
             )}
 
-            {activeTab === "hidden-gems" ? (loading ? (
+            {activeTab === "achievements" ? null : activeTab === "hidden-gems" ? (loading ? (
                 <div className="hidden-gems-loading">
                     <p>Loading your hidden gems...</p>
                 </div>
@@ -426,7 +570,7 @@ export default function MyHiddenGems() {
                     ))}
 
                 </div>
-            )) : votesLoading ? (
+            )) : contributionTab === "votes" ? (votesLoading ? (
                 <div className="hidden-gems-loading">
                     <p>Loading your votes...</p>
                 </div>
@@ -483,6 +627,70 @@ export default function MyHiddenGems() {
                                     onError={(event) => {
                                         event.currentTarget.style.display = "none";
                                     }}
+                                />
+                            )}
+                        </article>
+                    ))}
+                </div>
+            )) : ratingsLoading ? (
+                <div className="hidden-gems-loading">
+                    <p>Loading your ratings...</p>
+                </div>
+            ) : ratingsError ? (
+                <div className="hidden-gems-empty">
+                    <p>{ratingsError}</p>
+                </div>
+            ) : ratings.length === 0 ? (
+                <div className="hidden-gems-empty">
+                    <h2>No Ratings Yet</h2>
+                    <p>You have not rated any hidden gems yet.</p>
+                </div>
+            ) : (
+                <div className="my-votes-feed">
+                    {sortedRatings.map((rating) => (
+                        <article
+                            key={rating.id}
+                            className="my-vote-card"
+                            onClick={() => navigate(
+                                `/hidden-gems/${rating.location?.id}`,
+                                {
+                                    state: {
+                                        openTab: "comments",
+                                        interactionId: rating.id,
+                                        fromMyRatings: true,
+                                    },
+                                }
+                            )}
+                        >
+                            <div className="my-vote-card-content">
+                                <div className="my-vote-card-header">
+                                    <h2>{rating.location?.place_name || "Hidden Gem"}</h2>
+                                    <time>
+                                        {new Date(rating.created_at).toLocaleDateString(
+                                            "en-GB",
+                                            {
+                                                day: "numeric",
+                                                month: "short",
+                                                year: "numeric",
+                                            }
+                                        )}
+                                    </time>
+                                </div>
+                                <div
+                                    className="my-rating-stars"
+                                    aria-label={`${rating.rating} out of 5 stars`}
+                                >
+                                    {"★".repeat(rating.rating || 0)}
+                                    {"☆".repeat(Math.max(0, 5 - (rating.rating || 0)))}
+                                </div>
+                                <p>{rating.comment || "No comment"}</p>
+                            </div>
+
+                            {rating.location?.first_image?.image_url && (
+                                <GemImage
+                                    src={rating.location.first_image.image_url}
+                                    alt={rating.location?.place_name || "Hidden Gem"}
+                                    className="my-vote-thumbnail"
                                 />
                             )}
                         </article>

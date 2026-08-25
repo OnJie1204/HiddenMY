@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getWishlist, removeFromWishlist } from "../api/wishlist";
-import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
 import ReportButton from "../components/ReportButton";
 
 import "../styles/global.css";
@@ -12,8 +11,6 @@ export default function Wishlist() {
     const [gems, setGems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [itineraries, setItineraries] = useState([]);
-    const [openPickerFor, setOpenPickerFor] = useState(null);
     const [actionStatus, setActionStatus] = useState(null);
 
     const fetchWishlist = async () => {
@@ -31,9 +28,6 @@ export default function Wishlist() {
 
     useEffect(() => {
         fetchWishlist();
-        getTripItineraries()
-            .then((res) => setItineraries(res.data || []))
-            .catch((err) => console.error("Error fetching itineraries:", err));
     }, []);
 
     const handleRemove = async (gem) => {
@@ -46,26 +40,6 @@ export default function Wishlist() {
                 gemId: gem.id,
                 type: "error",
                 message: "Could not remove this from your wishlist. Please try again.",
-            });
-        }
-    };
-
-    const togglePicker = (gemId) => {
-        setActionStatus(null);
-        setOpenPickerFor((prev) => (prev === gemId ? null : gemId));
-    };
-
-    const handleAddToItinerary = async (gem, trip) => {
-        setActionStatus({ gemId: gem.id, type: "loading", message: `Adding to "${trip.trip_name}"…` });
-        try {
-            await addTripLocation(trip.id, { source: "database", location_id: gem.id });
-            setActionStatus({ gemId: gem.id, type: "success", message: `Added to "${trip.trip_name}".` });
-            setOpenPickerFor(null);
-        } catch (err) {
-            setActionStatus({
-                gemId: gem.id,
-                type: "error",
-                message: err.response?.data?.message || "Could not add this stop.",
             });
         }
     };
@@ -140,41 +114,6 @@ export default function Wishlist() {
                                 <p className="hidden-gems-card-description">
                                     {gem.description || "No description"}
                                 </p>
-
-                                <div className="wishlist-card-actions">
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => togglePicker(gem.id)}
-                                    >
-                                        + Add to Itinerary
-                                    </button>
-                                </div>
-
-                                {openPickerFor === gem.id && (
-                                    <div className="wishlist-itinerary-picker">
-                                        {itineraries.length === 0 ? (
-                                            <p className="wishlist-itinerary-empty">
-                                                No itineraries yet —{" "}
-                                                <span className="wishlist-link" onClick={() => navigate("/trip-itinerary")}>
-                                                    create one
-                                                </span>{" "}
-                                                first.
-                                            </p>
-                                        ) : (
-                                            itineraries.map((trip) => (
-                                                <button
-                                                    key={trip.id}
-                                                    type="button"
-                                                    className="wishlist-itinerary-option"
-                                                    onClick={() => handleAddToItinerary(gem, trip)}
-                                                >
-                                                    {trip.trip_name}
-                                                </button>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
 
                                 {actionStatus?.gemId === gem.id && (
                                     <p className={`wishlist-action-status ${actionStatus.type}`}>

@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
     addTripLocation,
     deleteTripItinerary,
@@ -28,24 +28,29 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { MdDragIndicator } from "react-icons/md";
 import { MapContainer, Marker, Popup, Tooltip, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { createGemClusterIcon } from "../components/GemClusterIcon";
 
 
 import "../styles/global.css";
 
-const hiddenGemMarkerIcon = L.divIcon({
-    className: "hidden-gem-marker-icon",
-    html: '<span class="hidden-gem-marker-diamond" aria-hidden="true"></span>',
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
+const hiddenGemMarkerIcon = new L.Icon({
+    iconUrl: "/images/gem_marker.png",
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+    popupAnchor: [0, -20],
 });
 
-const selectedHiddenGemMarkerIcon = L.divIcon({
-    className: "hidden-gem-marker-icon",
-    html: '<span class="hidden-gem-marker-diamond hidden-gem-marker-diamond-selected" aria-hidden="true"></span>',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+// Dimmed variant for AI-approved gems still awaiting community votes, so
+// Hidden Gem vs. awaiting-votes is visible at a glance on the map itself.
+const hiddenGemMarkerIconPending = new L.Icon({
+    iconUrl: "/images/gem_marker.png",
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+    popupAnchor: [0, -20],
+    className: "hidden-gem-marker-pending",
 });
 
 const openStreetMapMarkerIcon = L.divIcon({
@@ -64,6 +69,12 @@ const userLocationMarkerIcon = L.divIcon({
 
 const hasValidCoordinates = ({ latitude, longitude }) =>
     Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+
+// How far the map zooms in on a selected hidden gem (from the wishlist,
+// search results, or a direct map click) — the zoom-in itself is the
+// "focus" effect, so it needs to be tight enough to clearly separate the
+// selected pin from any neighbours.
+const HIDDEN_GEM_FOCUS_ZOOM = 18;
 
 const toDisplayLocation = (location) => ({
     id: location.id,
@@ -92,6 +103,36 @@ function MapClickHandler({ onMapClick }) {
         click(event) {
             onMapClick(event.latlng);
         },
+    });
+
+    return null;
+}
+
+// Applies the "selected" highlight directly to a marker's DOM element
+// (rather than via the `icon` prop, which would disturb MarkerClusterGroup's
+// grouping — see hiddenGemMarkers above). Also re-applies on zoom/pan, since
+// a clustered marker has no DOM element until it's individually visible,
+// which can happen asynchronously after flying to a freshly selected gem.
+// This is the only thing it does — it must stay side-effect-free for
+// direct map-click selection, which already works correctly on its own
+// (Leaflet opens that marker's popup natively) and must not be disturbed.
+function ClusterHighlightSync({ selectedId, markerRefs }) {
+    const applyHighlight = () => {
+        Object.entries(markerRefs.current).forEach(([id, marker]) => {
+            const element = marker?.getElement?.();
+            if (!element) return;
+
+            element.classList.toggle("hidden-gem-marker-selected", id === selectedId);
+        });
+    };
+
+    useEffect(() => {
+        applyHighlight();
+    }, [selectedId]);
+
+    useMapEvents({
+        zoomend: applyHighlight,
+        moveend: applyHighlight,
     });
 
     return null;
@@ -223,6 +264,8 @@ export default function TripItineraryDetail() {
     const [mapClickError, setMapClickError] = useState("");
     const [wishlistItems, setWishlistItems] = useState([]);
     const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+    const [isDeletingTrip, setIsDeletingTrip] = useState(false);
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -311,7 +354,7 @@ export default function TripItineraryDetail() {
             setHiddenGemsError("");
 
             try {
-                const response = await getHiddenGems({ status: "hidden_gem" });
+                const response = await getHiddenGems({ per_page: 500 });
                 const gems = Array.isArray(response.data?.data) ? response.data.data : [];
 
                 if (isCurrent) {
@@ -412,11 +455,38 @@ export default function TripItineraryDetail() {
 
     const selectSearchResult = (location) => {
         setSelectedLocation(location);
-        setMapTarget({ ...location, zoom: location.source === "database" ? 16 : 15 });
-        setSearchResults({ database: [], openStreetMap: [] });
+
+        if (location.source === "database") {
+            // A wishlist/search pick never generates a native marker click,
+            // so Leaflet never opens a popup for it on its own — do it here.
+            // zoomToShowLayer is used (rather than a plain flyTo) because it
+            // reliably zooms in *and* spiderfies through the marker's
+            // cluster as needed before calling back, which a fixed zoom
+            // level can't guarantee when gems sit very close together.
+            const marker = hiddenGemMarkerRefs.current[String(location.id)];
+            const clusterGroup = hiddenGemClusterRef.current;
+
+            if (marker && clusterGroup) {
+                clusterGroup.zoomToShowLayer(marker, () => {
+                    marker.openPopup();
+                });
+                return;
+            }
+
+            setMapTarget({ ...location, zoom: HIDDEN_GEM_FOCUS_ZOOM });
+            return;
+        }
+
+        setMapTarget({ ...location, zoom: 15 });
     };
 
     const selectHiddenGemOnMap = (hiddenGem) => {
+        // No flyTo here: the marker is already visible on screen (that's how
+        // it got clicked), and animating a zoom at the same moment Leaflet
+        // opens the marker's popup fights MarkerClusterGroup's regrouping,
+        // which closes the popup right back up. The zoom-in "focus" effect
+        // is for search/wishlist picks (see selectSearchResult), which
+        // don't already have the marker in view.
         setSelectedLocation({ ...hiddenGem, name: hiddenGem.place_name, source: "database" });
     };
 
@@ -585,7 +655,7 @@ export default function TripItineraryDetail() {
 
     const handleDelete = async () => {
 
-        if (!window.confirm("Delete this itinerary?")) return;
+        setIsDeletingTrip(true);
 
         try {
 
@@ -596,6 +666,7 @@ export default function TripItineraryDetail() {
         } catch (err) {
 
             console.error(err);
+            setIsDeletingTrip(false);
 
         }
 
@@ -655,6 +726,58 @@ export default function TripItineraryDetail() {
         window.open(`https://www.google.com/maps/dir/?${params.toString()}`, "_blank");
     };
 
+    // Marker instances keyed by gem id, so the selected one can be
+    // highlighted imperatively (see the effect below) without touching the
+    // `icon` prop — changing `icon` forces MarkerClusterGroup to re-cluster
+    // everything and silently close any open popup.
+    const hiddenGemMarkerRefs = useRef({});
+
+    // The underlying L.MarkerClusterGroup instance, so a wishlist/search
+    // pick can call zoomToShowLayer() — the only reliable way to reveal a
+    // marker (zooming and spiderfying as needed) when it's still clustered
+    // together with other gems even after zooming in.
+    const hiddenGemClusterRef = useRef(null);
+
+    // Memoized so the marker elements only change when hiddenGems itself
+    // changes — otherwise every unrelated re-render (e.g. selecting a
+    // location) hands MarkerClusterGroup a brand-new children array, which
+    // makes it re-cluster everything and silently close any open popup.
+    const hiddenGemMarkers = useMemo(() => (
+        hiddenGems
+            .filter(hasValidCoordinates)
+            .map((hiddenGem) => (
+                <Marker
+                    key={hiddenGem.id}
+                    ref={(instance) => {
+                        if (instance) {
+                            hiddenGemMarkerRefs.current[hiddenGem.id] = instance;
+                        } else {
+                            delete hiddenGemMarkerRefs.current[hiddenGem.id];
+                        }
+                    }}
+                    position={[Number(hiddenGem.latitude), Number(hiddenGem.longitude)]}
+                    icon={hiddenGem.status === "pending_community_vote"
+                        ? hiddenGemMarkerIconPending
+                        : hiddenGemMarkerIcon}
+                    eventHandlers={{
+                        click: () => selectHiddenGemOnMap(hiddenGem),
+                    }}
+                >
+                    <Popup>
+                        <div className="hidden-gem-marker-popup">
+                            <strong>{hiddenGem.place_name}</strong>
+                            <span>
+                                {hiddenGem.category?.name || "Uncategorized"}
+                                {hiddenGem.status === "pending_community_vote" && " · Awaiting votes"}
+                            </span>
+                        </div>
+                    </Popup>
+                </Marker>
+            ))
+    ), [hiddenGems]);
+
+    const selectedHiddenGemId = selectedLocation?.source === "database" ? String(selectedLocation.id) : null;
+
     return (
 
         <div className="trip-detail-container">
@@ -691,7 +814,7 @@ export default function TripItineraryDetail() {
 
                                 <button
                                     type="submit"
-                                    className="trip-detail-btn trip-detail-add-btn"
+                                    className="trip-detail-btn trip-detail-add-btn trip-detail-header-btn"
                                 >
                                     Rename
                                 </button>
@@ -727,7 +850,7 @@ export default function TripItineraryDetail() {
 
 
 
-                <div>
+                <div className="trip-detail-header-actions">
 
                     {!isRenaming && (
                         <button
@@ -740,7 +863,7 @@ export default function TripItineraryDetail() {
 
                     {!isRenaming && (
                         <button
-                            className="trip-detail-btn trip-detail-add-btn"
+                            className="trip-detail-btn trip-detail-add-btn trip-detail-header-btn"
                             onClick={() => navigate(`/travel-posts/create?trip=${trip.id}`)}
                         >
                             Write a Post
@@ -748,7 +871,10 @@ export default function TripItineraryDetail() {
                     )}
 
 
-                    <button className="trip-detail-btn trip-detail-delete-btn" onClick={handleDelete}>
+                    <button
+                        className="trip-detail-btn trip-detail-delete-btn"
+                        onClick={() => setIsConfirmingDelete(true)}
+                    >
                         Delete
                     </button>
 
@@ -757,13 +883,36 @@ export default function TripItineraryDetail() {
 
             </div>
 
+            {isConfirmingDelete && (
+                <div
+                    className="delete-modal-overlay"
+                    onClick={() => !isDeletingTrip && setIsConfirmingDelete(false)}
+                >
+                    <div className="delete-modal" onClick={(event) => event.stopPropagation()}>
+                        <h2>Delete Itinerary?</h2>
+                        <p>Are you sure you want to delete this trip itinerary? This action cannot be undone.</p>
+                        <div className="delete-modal-actions">
+                            <button
+                                className="delete-modal-cancel"
+                                onClick={() => setIsConfirmingDelete(false)}
+                                disabled={isDeletingTrip}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="delete-modal-confirm"
+                                onClick={handleDelete}
+                                disabled={isDeletingTrip}
+                            >
+                                {isDeletingTrip ? "Deleting..." : "Delete"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
 
-
-
-            <hr />
-
-
+            <div className="trip-detail-content-panel">
 
             <div className="trip-detail-section-header">
 
@@ -833,7 +982,7 @@ export default function TripItineraryDetail() {
 
             </div>
 
-
+            </div>
 
 
 
@@ -920,68 +1069,122 @@ export default function TripItineraryDetail() {
                             }}
                         />
 
-                        <div className="stopping-point-wishlist-section">
-                            <p className="stopping-point-search-label">From your wishlist</p>
-                            {isLoadingWishlist && <p className="stopping-point-search-status">Loading your wishlist…</p>}
-                            {!isLoadingWishlist && wishlistItems.length === 0 && (
-                                <p className="stopping-point-search-status">
-                                    Nothing saved yet — <Link to="/wishlist">browse hidden gems</Link> and tap the heart to save some here.
-                                </p>
-                            )}
-                            {!isLoadingWishlist && wishlistItems.length > 0 && (
-                                <div className="stopping-point-search-suggestions" role="listbox" aria-label="Wishlist locations">
-                                    {wishlistItems.map((gem) => (
-                                        <button
-                                            key={`wishlist-${gem.id}`}
-                                            type="button"
-                                            className="stopping-point-search-result"
-                                            onClick={() => selectSearchResult({
-                                                id: gem.id,
-                                                name: gem.place_name,
-                                                source: "database",
-                                                status: gem.status,
-                                                latitude: gem.latitude,
-                                                longitude: gem.longitude,
-                                            })}
-                                        >
-                                            <span className="stopping-point-search-result-name">{gem.place_name}</span>
-                                            <span className={`stopping-point-search-result-status ${getGemStatusDisplay(gem).badgeClass}`}>
-                                                {getGemStatusDisplay(gem).label}
-                                            </span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {(isSearchingLocations || searchResults.database.length > 0 || searchResults.openStreetMap.length > 0 || locationSearchError) && (
-                            <div className="stopping-point-search-suggestions" role="listbox" aria-label="Location search results">
-                                {isSearchingLocations && <p className="stopping-point-search-status">Searching locations…</p>}
-                                {locationSearchError && <p className="stopping-point-search-status stopping-point-map-status-error" role="alert">{locationSearchError}</p>}
-
-                                {[...searchResults.database, ...searchResults.openStreetMap].map((location) => (
-                                    <button
-                                        key={`${location.source}-${location.id}`}
-                                        type="button"
-                                        className="stopping-point-search-result"
-                                        onClick={() => selectSearchResult(location)}
-                                    >
-                                        <span className="stopping-point-search-result-name">{location.name}</span>
-                                        {location.source === "database" && (
-                                            <span className={`stopping-point-search-result-status ${getGemStatusDisplay(location).badgeClass}`}>
-                                                {getGemStatusDisplay(location).label}
-                                            </span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        <p className="stopping-point-search-status">
+                        <p className="stopping-point-search-status stopping-point-map-hint">
                             Or click anywhere on the map to select that location.
                         </p>
 
-                        <div className="stopping-point-map" aria-label="Map of hidden gems">
+                        <div className="stopping-point-body">
+
+                            <div className="stopping-point-list">
+
+                                <div className="stopping-point-list-section">
+
+                                    <div className="stopping-point-list-header">From your wishlist</div>
+
+                                    <div className="stopping-point-list-items">
+
+                                        {isLoadingWishlist && (
+                                            <p className="stopping-point-list-status">Loading your wishlist…</p>
+                                        )}
+
+                                        {!isLoadingWishlist && wishlistItems.length === 0 && (
+                                            <p className="stopping-point-list-status">
+                                                Nothing saved yet — <Link to="/wishlist">browse hidden gems</Link> and tap the heart to save some here.
+                                            </p>
+                                        )}
+
+                                        {!isLoadingWishlist && wishlistItems.length > 0 && wishlistItems.map((gem, index) => (
+                                            <button
+                                                key={`wishlist-${gem.id}`}
+                                                type="button"
+                                                className={`stopping-point-item ${selectedLocation?.source === "database" && String(selectedLocation.id) === String(gem.id) ? "selected" : ""}`}
+                                                onClick={() => selectSearchResult({
+                                                    id: gem.id,
+                                                    name: gem.place_name,
+                                                    source: "database",
+                                                    status: gem.status,
+                                                    latitude: gem.latitude,
+                                                    longitude: gem.longitude,
+                                                })}
+                                            >
+                                                <span className="stopping-point-item-rank">{index + 1}.</span>
+                                                <span className="stopping-point-item-content">
+                                                    <span className="stopping-point-item-top">
+                                                        <span className="stopping-point-item-name">{gem.place_name}</span>
+                                                        <span className={`stopping-point-search-result-status ${getGemStatusDisplay(gem).badgeClass}`}>
+                                                            {getGemStatusDisplay(gem).label}
+                                                        </span>
+                                                    </span>
+                                                    <span className="stopping-point-item-category">{gem.category?.name || "Uncategorized"}</span>
+                                                    <span className="stopping-point-item-state">{gem.state || "Unknown"}</span>
+                                                </span>
+                                            </button>
+                                        ))}
+
+                                    </div>
+
+                                </div>
+
+                                <div className="stopping-point-list-section">
+
+                                    <div className="stopping-point-list-header">Search Results</div>
+
+                                    <div className="stopping-point-list-items">
+
+                                        {!searchQuery.trim() && !isSearchingLocations && (
+                                            <p className="stopping-point-list-status">
+                                                Start typing above to search for a location.
+                                            </p>
+                                        )}
+
+                                        {isSearchingLocations && (
+                                            <p className="stopping-point-list-status">Searching locations…</p>
+                                        )}
+
+                                        {locationSearchError && (
+                                            <p className="stopping-point-list-status stopping-point-map-status-error" role="alert">
+                                                {locationSearchError}
+                                            </p>
+                                        )}
+
+                                        {!isSearchingLocations && !locationSearchError && searchQuery.trim()
+                                            && searchResults.database.length === 0 && searchResults.openStreetMap.length === 0 && (
+                                            <p className="stopping-point-list-status">
+                                                No locations found for "{searchQuery.trim()}".
+                                            </p>
+                                        )}
+
+                                        {[...searchResults.database, ...searchResults.openStreetMap].map((location, index) => (
+                                            <button
+                                                key={`${location.source}-${location.id}`}
+                                                type="button"
+                                                className={`stopping-point-item ${selectedLocation && selectedLocation.source === location.source && String(selectedLocation.id) === String(location.id) ? "selected" : ""}`}
+                                                onClick={() => selectSearchResult(location)}
+                                            >
+                                                <span className="stopping-point-item-rank">{index + 1}.</span>
+                                                <span className="stopping-point-item-content">
+                                                    <span className="stopping-point-item-top">
+                                                        <span className="stopping-point-item-name">{location.name}</span>
+                                                        {location.source === "database" && (
+                                                            <span className={`stopping-point-search-result-status ${getGemStatusDisplay(location).badgeClass}`}>
+                                                                {getGemStatusDisplay(location).label}
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                    {location.state && (
+                                                        <span className="stopping-point-item-state">{location.state}</span>
+                                                    )}
+                                                </span>
+                                            </button>
+                                        ))}
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        <div className="stopping-point-map-panel" aria-label="Map of hidden gems">
                             <MapContainer
                                 center={[4.2105, 101.9758]}
                                 zoom={6}
@@ -994,29 +1197,16 @@ export default function TripItineraryDetail() {
                                 />
                                 <MapViewController target={mapTarget} />
                                 <MapClickHandler onMapClick={handleMapClick} />
-                                {hiddenGems
-                                    .filter(hasValidCoordinates)
-                                    .map((hiddenGem) => (
-                                        <Marker
-                                            key={hiddenGem.id}
-                                            position={[Number(hiddenGem.latitude), Number(hiddenGem.longitude)]}
-                                            icon={selectedLocation?.source === "database" && String(selectedLocation.id) === String(hiddenGem.id)
-                                                ? selectedHiddenGemMarkerIcon
-                                                : hiddenGemMarkerIcon}
-                                            eventHandlers={{
-                                                click: () => selectHiddenGemOnMap(hiddenGem),
-                                            }}
-                                        >
-                                            <Popup>
-                                                <div className="hidden-gem-marker-popup">
-                                                    <strong>{hiddenGem.place_name}</strong>
-                                                    <span>
-                                                        {Number(hiddenGem.latitude).toFixed(6)}, {Number(hiddenGem.longitude).toFixed(6)}
-                                                    </span>
-                                                </div>
-                                            </Popup>
-                                        </Marker>
-                                    ))}
+                                <ClusterHighlightSync selectedId={selectedHiddenGemId} markerRefs={hiddenGemMarkerRefs} />
+                                <MarkerClusterGroup
+                                    ref={hiddenGemClusterRef}
+                                    iconCreateFunction={createGemClusterIcon}
+                                    zoomToBoundsOnClick={true}
+                                    spiderfyOnMaxZoom={true}
+                                    showCoverageOnHover={false}
+                                >
+                                    {hiddenGemMarkers}
+                                </MarkerClusterGroup>
                                 {selectedLocation?.source === "openstreetmap" && hasValidCoordinates(selectedLocation) && (
                                     <Marker
                                         position={[Number(selectedLocation.latitude), Number(selectedLocation.longitude)]}
@@ -1026,7 +1216,7 @@ export default function TripItineraryDetail() {
                                             <div className="hidden-gem-marker-popup">
                                                 <strong>{selectedLocation.name}</strong>
                                                 <span>
-                                                    {Number(selectedLocation.latitude).toFixed(6)}, {Number(selectedLocation.longitude).toFixed(6)}
+                                                    OpenStreetMap Location
                                                 </span>
                                             </div>
                                         </Popup>
@@ -1041,6 +1231,8 @@ export default function TripItineraryDetail() {
                                     </Marker>
                                 )}
                             </MapContainer>
+                        </div>
+
                         </div>
 
                         {selectedLocation && (

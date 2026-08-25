@@ -12,6 +12,8 @@ class CheckIn extends Model
     protected $fillable = [
         'user_id',
         'location_id',
+        'latitude',
+        'longitude',
         'check_in_at',
     ];
 

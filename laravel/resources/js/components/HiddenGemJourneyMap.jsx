@@ -140,7 +140,7 @@ export default function HiddenGemJourneyMap({
 
             stats[region].totalCount += 1;
 
-            if (gem.status === "verified") {
+            if (gem.status === "hidden_gem") {
                 stats[region].verifiedCount += 1;
                 stats[region].discovered = true;
             } else if (gem.status === "pending") {
@@ -239,7 +239,7 @@ export default function HiddenGemJourneyMap({
                         <Marker
                             key={gem.id}
                             position={[Number(gem.latitude), Number(gem.longitude)]}
-                            icon={gem.status === "verified"
+                            icon={gem.status === "hidden_gem"
                                 ? verifiedMarkerIcon
                                 : pendingMarkerIcon}
                             bubblingMouseEvents={false}
@@ -249,7 +249,7 @@ export default function HiddenGemJourneyMap({
                                 <strong>{gem.place_name}</strong>
                                 <span>{gem.state || "Unknown region"}</span>
                                 <span className={`hiddenmy-journey-popup-status ${gem.status}`}>
-                                    {gem.status === "verified" ? "Verified" : "Pending"}
+                                    {gem.status === "hidden_gem" ? "Verified" : "Pending"}
                                 </span>
                                 <button
                                     type="button"

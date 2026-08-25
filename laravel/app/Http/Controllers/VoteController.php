@@ -158,10 +158,6 @@ class VoteController extends Controller
         ], 201);
     }
 
-    /**
-     * Voting is only open on AI-approved candidates (Stage 2 of the two-stage
-     * verification flow) — everything else gets a status-appropriate reason.
-     */
     private function notVotableMessage(string $status): string
     {
         return match ($status) {
@@ -212,6 +208,12 @@ class VoteController extends Controller
     {
         if ($vote->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if (!$vote->isCommentEditable()) {
+            return response()->json([
+                'message' => 'Comments can only be edited within 72 hours of posting.',
+            ], 403);
         }
 
         $validated = $request->validate([
@@ -336,6 +338,8 @@ class VoteController extends Controller
         $checkIn = CheckIn::create([
             'user_id' => $user->id,
             'location_id' => $locationId,
+            'latitude' => $userLat,
+            'longitude' => $userLng,
             'check_in_at' => now(),
         ]);
 
