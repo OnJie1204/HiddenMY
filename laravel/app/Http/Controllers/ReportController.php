@@ -59,6 +59,7 @@ class ReportController extends Controller
             'message' => $hasCheckIn ? 'You can report this gem.' : 'Please check-in at this location first',
             'location' => $location,
             'reasons' => Report::REASONS,
+            'location_required_reasons' => Report::LOCATION_REQUIRED_REASONS,
         ]);
     }
 
@@ -90,11 +91,12 @@ class ReportController extends Controller
             return response()->json(['message' => 'This gem already has a report under review.'], 400);
         }
 
+        $requiresCheckIn = in_array($validated['reason'], Report::LOCATION_REQUIRED_REASONS, true);
         $hasCheckIn = CheckIn::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->exists();
 
-        if (!$hasCheckIn) {
+        if ($requiresCheckIn && !$hasCheckIn) {
             return response()->json(['message' => 'Please check-in at this location first before reporting'], 400);
         }
 
@@ -132,6 +134,13 @@ class ReportController extends Controller
             'reason' => $validated['reason'],
             'description' => $validated['description'] ?? null,
             'photo_path' => $photoPath,
+            'confirm_count' => 1,
+        ]);
+
+        ReportVote::create([
+            'report_id' => $report->id,
+            'user_id' => $user->id,
+            'verdict' => 'confirm',
         ]);
 
         $location->update(['report_status' => 'under_review']);
@@ -194,7 +203,8 @@ class ReportController extends Controller
             return response()->json(['eligible' => false, 'message' => 'You have already voted on this report.']);
         }
 
-        $hasCheckIn = CheckIn::where('user_id', $user->id)
+        $requiresCheckIn = in_array($report->reason, Report::LOCATION_REQUIRED_REASONS, true);
+        $hasCheckIn = !$requiresCheckIn || CheckIn::where('user_id', $user->id)
             ->where('location_id', $location->id)
             ->exists();
 
@@ -240,11 +250,12 @@ class ReportController extends Controller
             return response()->json(['message' => 'You have already voted on this report.'], 400);
         }
 
+        $requiresCheckIn = in_array($report->reason, Report::LOCATION_REQUIRED_REASONS, true);
         $hasCheckIn = CheckIn::where('user_id', $user->id)
             ->where('location_id', $location->id)
             ->exists();
 
-        if (!$hasCheckIn) {
+        if ($requiresCheckIn && !$hasCheckIn) {
             return response()->json(['message' => 'Please check-in at this location first before verifying'], 400);
         }
 

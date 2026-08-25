@@ -17,6 +17,11 @@ class Report extends Model
         'inappropriate_content',
     ];
 
+    public const LOCATION_REQUIRED_REASONS = [
+        'permanently_closed',
+        'incorrect_location',
+    ];
+
     protected $fillable = [
         'user_id',
         'location_id',

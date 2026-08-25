@@ -7407,6 +7407,14 @@ img.avatar {
     box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.1);
 }
 
+/* Tells the traveller up front whether picking this reason will ask for a
+   check-in next, before they commit to it. */
+.report-reason-hint {
+    font-size: 13px;
+    color: #6B7280;
+    margin: 6px 0 0;
+}
+
 /* The report being verified, shown at the top of VerifyReportModal's vote step */
 .report-summary {
     background: #F8F8F7;
