@@ -98,7 +98,7 @@ function Login({ onLoginSuccess }) {
           <button type="submit" className="btn btn-primary" disabled={submitting}>
             {submitting ? 'Logging in…' : 'Login'}
           </button>
-          <a href={`http://127.0.0.1:8000/api/auth/google/redirect?remember=${rememberMe}`} className="btn" style={{ background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', marginTop: '0.75rem', display: 'block', textAlign: 'center' }}>
+          <a href={`/api/auth/google/redirect?remember=${rememberMe}`} className="btn" style={{ background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', marginTop: '0.75rem', display: 'block', textAlign: 'center' }}>
             Continue with Google
           </a>
           <p className="auth-link-row">Don't have an account? <Link to="/register">Register</Link></p>
