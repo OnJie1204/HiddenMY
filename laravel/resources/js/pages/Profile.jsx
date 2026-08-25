@@ -8,6 +8,7 @@ import { getPasswordStrength } from '../utils/password';
 import Avatar from '../components/Avatar';
 import { getFavouriteAchievements } from '../api/achievements';
 import { SPECIAL_ACHIEVEMENT_METADATA } from '../constants/specialAchievements';
+import FavouriteAchievementBadges from '../components/FavouriteAchievementBadges';
 
 function Profile({ setAppUser }) {
   const navigate = useNavigate();
@@ -181,29 +182,11 @@ function Profile({ setAppUser }) {
           <div className="profile-header-info">
             <div className="profile-name-row">
               <h2>{user.name}</h2>
-              {favouriteAchievements.length > 0 && (
-                <div className="profile-achievement-badges">
-                  {favouriteAchievements.map(({ key }) => {
-                    const achievement = SPECIAL_ACHIEVEMENT_METADATA[key];
-
-                    return (
-                      <span
-                        key={key}
-                        className="profile-achievement-badge"
-                        title={achievement.title}
-                        aria-label={`Favourite achievement: ${achievement.title}`}
-                        tabIndex="0"
-                      >
-                        <img
-                          src={achievement.artwork}
-                          alt=""
-                        />
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
             </div>
+            <FavouriteAchievementBadges
+              favourites={favouriteAchievements}
+              className="profile-achievement-badges"
+            />
             <p className="profile-header-email">{user.email}</p>
             <div className="profile-header-badges">
               {memberSince && <span className="profile-badge">Member since {memberSince}</span>}

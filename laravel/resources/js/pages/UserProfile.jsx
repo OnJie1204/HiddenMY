@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getUserProfile } from '../api/auth';
 import Avatar from '../components/Avatar';
+import FavouriteAchievementBadges from '../components/FavouriteAchievementBadges';
 
 function UserProfile() {
   const { id } = useParams();
@@ -83,7 +84,13 @@ function UserProfile() {
               <Avatar name={user.name} avatarUrl={user.avatar_url} size="lg" />
             </div>
             <div className="profile-header-info">
-              <h2>{user.name}</h2>
+              <div className="profile-name-row">
+                <h2>{user.name}</h2>
+              </div>
+              <FavouriteAchievementBadges
+                favourites={user.favourite_achievements}
+                className="profile-achievement-badges public-profile-achievement-badges"
+              />
               <p className="profile-header-email">{user.email}</p>
               <div className="profile-header-badges">
                 {memberSince && <span className="profile-badge">Member since {memberSince}</span>}

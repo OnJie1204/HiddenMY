@@ -1416,12 +1416,16 @@ img.avatar {
 
 .profile-header-info {
   min-width: 0;
+  flex: 1;
+  text-align: center;
 }
 
 .profile-name-row {
   display: flex;
+  width: 100%;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem 0.55rem;
 }
 
@@ -1435,30 +1439,17 @@ img.avatar {
 
 .profile-achievement-badges {
   display: inline-flex;
+  width: 100%;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-}
-
-.profile-achievement-badge {
-  display: inline-flex;
-  width: 42px;
-  flex: 0 0 42px;
-  align-items: center;
   justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
 }
 
-.profile-achievement-badge img {
-  display: block;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-}
-
-.profile-achievement-badge:focus-visible {
-  border-radius: 4px;
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+.profile-achievement-badges .favourite-achievement-badge {
+  width: 42px;
+  flex-basis: 42px;
 }
 
 .profile-header-email {
@@ -7548,6 +7539,12 @@ img.avatar {
     flex: 0 0 34px;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
 }
 
 .favourite-achievement-badge img {
@@ -7561,6 +7558,73 @@ img.avatar {
     border-radius: 3px;
     outline: 2px solid var(--color-primary);
     outline-offset: 1px;
+}
+
+.favourite-achievement-preview-backdrop {
+    position: fixed;
+    z-index: 10000;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.58);
+}
+
+.favourite-achievement-preview {
+    position: relative;
+    display: flex;
+    width: min(320px, 100%);
+    max-height: calc(100vh - 32px);
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    overflow-y: auto;
+    padding: 34px 24px 24px;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+
+.favourite-achievement-preview-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #475569;
+    font-size: 25px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.favourite-achievement-preview-close:hover,
+.favourite-achievement-preview-close:focus-visible {
+    background: #f1f5f9;
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.favourite-achievement-preview-artwork {
+    display: block;
+    width: min(190px, 65vw);
+    max-height: min(60vh, 260px);
+    object-fit: contain;
+}
+
+.favourite-achievement-preview h2 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 19px;
+    line-height: 1.3;
+    text-align: center;
 }
 
 .travel-post-card-author {
