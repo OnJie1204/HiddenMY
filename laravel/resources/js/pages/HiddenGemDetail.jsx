@@ -32,6 +32,15 @@ function getVotePhotoUrl(photoPath) {
         : `/storage/${relativePath}`;
 }
 
+const COMMENT_EDIT_WINDOW_MS = 72 * 60 * 60 * 1000;
+
+function canEditWithinCommentWindow(createdAt) {
+    const createdAtMs = new Date(createdAt).getTime();
+
+    return Number.isFinite(createdAtMs)
+        && Date.now() <= createdAtMs + COMMENT_EDIT_WINDOW_MS;
+}
+
 export default function HiddenGemDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -760,6 +769,7 @@ export default function HiddenGemDetail() {
                                 gem.votes.map((vote) => {
                                     const isOwnVote = Number(vote.user_id)
                                         === Number(currentUser?.id);
+                                    const canEditVoteComment = canEditWithinCommentWindow(vote.created_at);
 
                                     return (
                                     <div
@@ -832,19 +842,21 @@ export default function HiddenGemDetail() {
                                                     </p>
                                                     {isOwnVote && (
                                                         <div className="gem-detail-vote-owner-actions">
-                                                            <button
-                                                                type="button"
-                                                                className="gem-detail-vote-icon-btn"
-                                                                title="Edit comment"
-                                                                aria-label="Edit comment"
-                                                                disabled={voteActionLoading}
-                                                                onClick={() => {
-                                                                    setEditingVoteId(vote.id);
-                                                                    setEditComment(vote.travel_description);
-                                                                }}
-                                                            >
-                                                                ✎
-                                                            </button>
+                                                            {canEditVoteComment && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="gem-detail-vote-icon-btn"
+                                                                    title="Edit comment"
+                                                                    aria-label="Edit comment"
+                                                                    disabled={voteActionLoading}
+                                                                    onClick={() => {
+                                                                        setEditingVoteId(vote.id);
+                                                                        setEditComment(vote.travel_description);
+                                                                    }}
+                                                                >
+                                                                    ✎
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 type="button"
                                                                 className="gem-detail-vote-icon-btn"
@@ -1014,9 +1026,7 @@ export default function HiddenGemDetail() {
                                         const isOwnComment = Number(comment.user_id) === Number(currentUser?.id);
                                         const isEditing = editingCommentId === comment.id;
                                         const createdAt = new Date(comment.created_at);
-                                        const now = new Date();
-                                        const hoursDiff = Math.floor((now - createdAt) / (1000 * 60 * 60));
-                                        const canEdit = hoursDiff <= 72;
+                                        const canEdit = canEditWithinCommentWindow(comment.created_at);
 
                                         return (
                                             <div key={comment.id} className="gem-detail-comment-item">
@@ -1087,16 +1097,18 @@ export default function HiddenGemDetail() {
                                                                     No comment
                                                                 </p>
                                                             )}
-                                                            {isOwnComment && !isEditing && canEdit && (
+                                                            {isOwnComment && !isEditing && (
                                                                 <span className="gem-detail-comment-actions">
-                                                                    <button
-                                                                        type="button"
-                                                                        className="gem-detail-comment-edit-btn"
-                                                                        onClick={() => handleEditComment(comment)}
-                                                                        disabled={commentActionLoading}
-                                                                    >
-                                                                        ✎
-                                                                    </button>
+                                                                    {canEdit && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="gem-detail-comment-edit-btn"
+                                                                            onClick={() => handleEditComment(comment)}
+                                                                            disabled={commentActionLoading}
+                                                                        >
+                                                                            ✎
+                                                                        </button>
+                                                                    )}
                                                                     <button
                                                                         type="button"
                                                                         className="gem-detail-comment-delete-btn"

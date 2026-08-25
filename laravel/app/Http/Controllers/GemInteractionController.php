@@ -6,7 +6,6 @@ use App\Models\Location;
 use App\Models\GemInteraction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 class GemInteractionController extends Controller
 {
@@ -50,6 +49,12 @@ class GemInteractionController extends Controller
                 ->first();
 
             if ($existingComment) {
+                if (!$existingComment->isCommentEditable()) {
+                    return response()->json([
+                        'message' => 'Comments can only be edited within 72 hours of posting.',
+                    ], 403);
+                }
+
                 // Update existing comment
                 $existingComment->update([
                     'comment' => $request->comment,
@@ -182,12 +187,9 @@ class GemInteractionController extends Controller
             return response()->json(['message' => 'You are not authorized to edit this comment'], 403);
         }
 
-        $createdAt = Carbon::parse($comment->created_at);
-        $hoursSinceCreation = $createdAt->diffInHours(Carbon::now());
-
-        if ($hoursSinceCreation > 72) {
+        if (!$comment->isCommentEditable()) {
             return response()->json([
-                'message' => 'You can only edit comments within 3 days of posting. This comment is ' . round($hoursSinceCreation / 24) . ' days old.'
+                'message' => 'Comments can only be edited within 72 hours of posting.',
             ], 403);
         }
 
