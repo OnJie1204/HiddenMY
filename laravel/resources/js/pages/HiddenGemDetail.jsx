@@ -634,6 +634,10 @@ export default function HiddenGemDetail() {
                             <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
                                 Not Accepted
                             </span>
+                        ) : gem.status === "delisted" ? (
+                            <span className="gem-detail-status-rejected">
+                                Delisted
+                            </span>
                         ) : (
                             <span className="gem-detail-status-pending">
                                 Being Verified by AI
@@ -775,7 +779,11 @@ export default function HiddenGemDetail() {
                                 <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
                                     ✓ Already a Hidden Gem
                                 </button>
-                            ) : gem.status === "ai_rejected" ? null : (
+                            ) : gem.status === "ai_rejected" ? null : gem.status === "delisted" ? (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ⚠ Delisted after a confirmed report
+                                </button>
+                            ) : (
                                 <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
                                     ⏳ Being Verified
                                 </button>

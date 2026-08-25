@@ -5,18 +5,23 @@ import { checkIn as postCheckIn } from '../api/votes';
 
 // Only categories a visitor can actually confirm or dispute from what they
 // see at the gem — see Report::REASONS on the backend for why this list is
-// fixed rather than freeform.
+// fixed rather than freeform. `requiresLocation` mirrors
+// Report::LOCATION_REQUIRED_REASONS: a closed shop or a wrong pin needs eyes
+// on the ground, but a viral gem, a duplicate listing, or an offensive photo
+// can be judged from what's already published — no need to demand a check-in
+// for those.
 const REASONS = [
-    { value: 'permanently_closed', label: 'Permanently closed' },
-    { value: 'incorrect_location', label: 'Incorrect location' },
-    { value: 'not_actually_hidden', label: 'No longer hidden (gone viral / well known)' },
-    { value: 'duplicate', label: 'Duplicate of another gem' },
-    { value: 'inappropriate_content', label: 'Inappropriate content' },
+    { value: 'permanently_closed', label: 'Permanently closed', requiresLocation: true },
+    { value: 'incorrect_location', label: 'Incorrect location', requiresLocation: true },
+    { value: 'not_actually_hidden', label: 'No longer hidden (gone viral / well known)', requiresLocation: false },
+    { value: 'duplicate', label: 'Duplicate of another gem', requiresLocation: false },
+    { value: 'inappropriate_content', label: 'Inappropriate content', requiresLocation: false },
 ];
 
-// Same checking -> checkin -> form -> success/error shape as VoteModal —
-// reuses the exact same check-in record (5km gate), so anyone who already
-// checked in here (e.g. to vote it in) can report it immediately.
+// checking -> reason -> [checkin -> manual_checkin] -> form -> success/error.
+// The check-in step only appears at all if the chosen reason actually needs
+// it — asking someone to prove they're standing at a gem just to flag a
+// duplicate listing would be pure friction with no real purpose.
 function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const navigate = useNavigate();
     const [step, setStep] = useState('checking');
@@ -47,17 +52,27 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             const res = await checkReportEligibility(locationId);
             const data = res.data;
             setEligibility(data);
-            if (data.eligible) {
-                setStep(data.has_check_in ? 'form' : 'checkin');
-            } else {
-                setStep('error');
-                setMessage(data.message);
-            }
+            setStep(data.eligible ? 'reason' : 'error');
+            if (!data.eligible) setMessage(data.message);
         } catch (error) {
             setStep('error');
             setMessage(error?.response?.data?.message || 'Unable to check eligibility');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleReasonContinue = () => {
+        if (!reason) {
+            setMessage('Please choose a reason.');
+            return;
+        }
+        setMessage('');
+        const meta = REASONS.find((r) => r.value === reason);
+        if (meta?.requiresLocation && !eligibility?.has_check_in) {
+            setStep('checkin');
+        } else {
+            setStep('form');
         }
     };
 
@@ -122,10 +137,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     };
 
     const handleSubmit = async () => {
-        if (!reason) {
-            setMessage('Please choose a reason.');
-            return;
-        }
         setLoading(true);
         setMessage('');
         try {
@@ -173,6 +184,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     if (!isOpen) return null;
 
     const gemLocation = eligibility?.location;
+    const selectedReasonMeta = REASONS.find((r) => r.value === reason);
 
     return (
         <div className="vote-modal-overlay" onClick={handleClose}>
@@ -190,10 +202,49 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                         </div>
                     )}
 
+                    {step === 'reason' && (
+                        <div className="vote-form">
+                            <div className="vote-location-info">
+                                <p>{gemLocation?.place_name}</p>
+                                <p className="vote-location-address">{gemLocation?.address}</p>
+                            </div>
+
+                            <div className="vote-form-group">
+                                <label>What's the issue?</label>
+                                <select
+                                    className="report-reason-select"
+                                    value={reason}
+                                    onChange={(e) => { setReason(e.target.value); setMessage(''); }}
+                                >
+                                    <option value="" disabled>Choose a reason…</option>
+                                    {REASONS.map((r) => (
+                                        <option key={r.value} value={r.value}>{r.label}</option>
+                                    ))}
+                                </select>
+                                {selectedReasonMeta && (
+                                    <p className="report-reason-hint">
+                                        {selectedReasonMeta.requiresLocation
+                                            ? "You'll need to check in at this location — you have to have actually been there to know this."
+                                            : "No check-in needed — this can be judged from what's already published."}
+                                    </p>
+                                )}
+                            </div>
+
+                            {message && <div className="vote-message error">{message}</div>}
+
+                            <div className="vote-actions">
+                                <button className="vote-btn-primary" onClick={handleReasonContinue} disabled={!reason}>
+                                    Continue
+                                </button>
+                                <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
+                            </div>
+                        </div>
+                    )}
+
                     {step === 'checkin' && (
                         <div className="vote-checkin">
                             <h3>Check-in Required</h3>
-                            <p>You need to check-in at this location before you can report it.</p>
+                            <p>This reason needs you to have actually been at the location — check in before you can report it.</p>
 
                             {gemLocation && (
                                 <div className="vote-checkin-location">
@@ -222,6 +273,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                             )}
                             {message && <div className="vote-message error">{message}</div>}
 
+                            <button className="vote-manual-back" onClick={() => setStep('reason')}>← Back to reason</button>
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
                         </div>
                     )}
@@ -258,22 +310,13 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                     {step === 'form' && (
                         <div className="vote-form">
                             <div className="vote-location-info">
-                                <p>{eligibility?.location?.place_name}</p>
-                                <p className="vote-location-address">{eligibility?.location?.address}</p>
+                                <p>{gemLocation?.place_name}</p>
+                                <p className="vote-location-address">{gemLocation?.address}</p>
                             </div>
 
-                            <div className="vote-form-group">
-                                <label>What's the issue?</label>
-                                <select
-                                    className="report-reason-select"
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
-                                >
-                                    <option value="" disabled>Choose a reason…</option>
-                                    {REASONS.map((r) => (
-                                        <option key={r.value} value={r.value}>{r.label}</option>
-                                    ))}
-                                </select>
+                            <div className="report-summary">
+                                <span className="report-summary-label">Reason</span>
+                                <strong>{selectedReasonMeta?.label}</strong>
                             </div>
 
                             <div className="vote-form-group">
@@ -310,8 +353,10 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
 
                             {message && <div className="vote-message error">{message}</div>}
 
+                            <button className="vote-manual-back" onClick={() => setStep('reason')}>← Change reason</button>
+
                             <div className="vote-actions">
-                                <button className="vote-btn-primary report-btn-primary" onClick={handleSubmit} disabled={loading || !reason}>
+                                <button className="vote-btn-primary report-btn-primary" onClick={handleSubmit} disabled={loading}>
                                     {loading ? 'Submitting...' : 'Submit Report'}
                                 </button>
                                 <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>

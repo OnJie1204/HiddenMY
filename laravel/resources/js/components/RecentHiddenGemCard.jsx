@@ -13,7 +13,7 @@ function RecentHiddenGemCard({
                 <p className="recent-state">
                     {post.state}
                 </p>
-                <p><TruncatedText text={post.description} limit={100} /></p>
+                <p className="recent-description"><TruncatedText text={post.description} limit={100} /></p>
                 <button onClick={(e) => { e.stopPropagation(); onClick(); }}>Explore</button>
             </div>
         </div>
