@@ -6092,6 +6092,35 @@ img.avatar {
     gap: 12px;
 }
 
+.my-contributions-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 14px;
+    padding: 4px;
+    border: 1px solid #dbe7e5;
+    border-radius: 10px;
+    background: #f5faf9;
+}
+
+.my-contributions-tabs button {
+    padding: 7px 13px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #64748b;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.my-contributions-tabs button.active {
+    background: #fff;
+    color: #0f766e;
+    box-shadow: 0 1px 4px rgba(15, 118, 110, 0.12);
+}
+
 .my-vote-card {
     display: flex;
     align-items: center;
@@ -6143,6 +6172,14 @@ img.avatar {
     line-height: 1.45;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+}
+
+.my-rating-stars {
+    margin-bottom: 5px;
+    color: #d99a21;
+    font-size: 15px;
+    line-height: 1;
+    letter-spacing: 1px;
 }
 
 .my-vote-thumbnail {

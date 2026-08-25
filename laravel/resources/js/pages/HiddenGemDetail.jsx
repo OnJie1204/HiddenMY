@@ -50,7 +50,7 @@ export default function HiddenGemDetail() {
     const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState(() => {
         const openTab = routeLocation.state?.openTab;
-        return openTab === "votes" || openTab === "stories" ? openTab : "details";
+        return ["votes", "stories", "comments"].includes(openTab) ? openTab : "details";
     });
     const [showVoteModal, setShowVoteModal] = useState(false);
     const [voteSuccess, setVoteSuccess] = useState(false);
@@ -261,6 +261,20 @@ export default function HiddenGemDetail() {
             voteElement?.scrollIntoView({ behavior: "smooth", block: "center" });
         }
     }, [activeTab, gem, routeLocation.state]);
+
+    useEffect(() => {
+        if (
+            activeTab === "comments"
+            && interactions.comments.length > 0
+            && routeLocation.state?.interactionId
+        ) {
+            const interactionElement = document.getElementById(
+                `interaction-${routeLocation.state.interactionId}`
+            );
+
+            interactionElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, [activeTab, interactions.comments, routeLocation.state]);
 
     const handleToggleWishlist = async () => {
         if (!gem || wishlistBusy) return;
@@ -506,9 +520,22 @@ export default function HiddenGemDetail() {
                 className="gem-detail-back-link"
                 onClick={(event) => {
                     event.preventDefault();
+                    if (routeLocation.state?.fromMyRatings) {
+                        navigate("/my-hidden-gems", {
+                            state: {
+                                activeTab: "contributions",
+                                contributionTab: "ratings",
+                            },
+                        });
+                        return;
+                    }
+
                     if (routeLocation.state?.fromMyVotes) {
                         navigate("/my-hidden-gems", {
-                            state: { activeTab: "votes" },
+                            state: {
+                                activeTab: "contributions",
+                                contributionTab: "votes",
+                            },
                         });
                         return;
                     }
@@ -1029,7 +1056,11 @@ export default function HiddenGemDetail() {
                                         const canEdit = canEditWithinCommentWindow(comment.created_at);
 
                                         return (
-                                            <div key={comment.id} className="gem-detail-comment-item">
+                                            <div
+                                                id={`interaction-${comment.id}`}
+                                                key={comment.id}
+                                                className="gem-detail-comment-item"
+                                            >
                                                 <div className="gem-detail-comment-avatar">
                                                     {comment.user?.name?.charAt(0) || "U"}
                                                 </div>

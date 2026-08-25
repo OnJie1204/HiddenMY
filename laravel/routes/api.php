@@ -125,6 +125,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ===== Gem Interactions (Like/Dislike/Comment) =====
     Route::post('/gem-interactions/{locationId}', [GemInteractionController::class, 'toggle']);
     Route::get('/gem-interactions/{locationId}', [GemInteractionController::class, 'getInteractions']);
+    Route::get('/my-ratings', [GemInteractionController::class, 'myRatings']);
     Route::put('/gem-interactions/comments/{commentId}', [GemInteractionController::class, 'updateComment']);
     Route::delete('/gem-interactions/comments/{commentId}', [GemInteractionController::class, 'deleteComment']);
 });

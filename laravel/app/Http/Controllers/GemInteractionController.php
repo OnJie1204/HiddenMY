@@ -167,6 +167,48 @@ class GemInteractionController extends Controller
         ]);
     }
 
+    public function myRatings()
+    {
+        $ratings = GemInteraction::query()
+            ->where('user_id', Auth::id())
+            ->where('type', 'comment')
+            ->with([
+                'location:id,place_name,status',
+                'location.firstImage' => fn ($query) => $query->select([
+                    'location_images.id',
+                    'location_images.location_id',
+                    'location_images.image_url',
+                ]),
+            ])
+            ->orderByDesc('created_at')
+            ->get([
+                'id',
+                'user_id',
+                'location_id',
+                'rating',
+                'comment',
+                'created_at',
+                'updated_at',
+            ])
+            ->map(fn (GemInteraction $rating) => [
+                'id' => $rating->id,
+                'rating' => $rating->rating,
+                'comment' => $rating->comment,
+                'created_at' => $rating->created_at,
+                'updated_at' => $rating->updated_at,
+                'location' => $rating->location ? [
+                    'id' => $rating->location->id,
+                    'place_name' => $rating->location->place_name,
+                    'status' => $rating->location->status,
+                    'first_image' => $rating->location->firstImage ? [
+                        'image_url' => $rating->location->firstImage->image_url,
+                    ] : null,
+                ] : null,
+            ]);
+
+        return response()->json(['data' => $ratings]);
+    }
+
     public function updateComment(Request $request, $commentId)
     {
         $user = Auth::user();
