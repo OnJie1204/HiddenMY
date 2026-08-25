@@ -1745,6 +1745,33 @@ img.avatar {
     box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
 
+.trip-name-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0.4rem 0 0.9rem;
+    color: #DC2626;
+    font-size: 0.85rem;
+}
+
+.trip-name-error::before {
+    content: "⚠";
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.modal input.trip-input-error,
+.trip-rename-input.trip-input-error {
+    border-color: #DC2626;
+}
+
+.modal input.trip-input-error:focus,
+.trip-rename-input.trip-input-error:focus {
+    outline: none;
+    border-color: #DC2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
 /* ---------- Trip Itinerary Detail Page ---------- */
 .trip-detail-container {
     padding: 32px 24px 56px;

@@ -241,6 +241,7 @@ export default function TripItineraryDetail() {
 
     const [isRenaming, setIsRenaming] = useState(false);
     const [renameName, setRenameName] = useState("");
+    const [renameError, setRenameError] = useState("");
     const [isStoppingPointDialogOpen, setIsStoppingPointDialogOpen] = useState(false);
     const [hiddenGems, setHiddenGems] = useState([]);
     const [isLoadingHiddenGems, setIsLoadingHiddenGems] = useState(false);
@@ -620,17 +621,12 @@ export default function TripItineraryDetail() {
         const newName = renameName.trim();
 
         if (!newName) {
-            alert("Trip name is required.");
-            return;
-        }
-
-        if (newName.length < 1) {
-            alert("Trip name must be at least 1 character.");
+            setRenameError("Trip name is required.");
             return;
         }
 
         if (newName.length > 10) {
-            alert("Trip name cannot exceed 10 characters.");
+            setRenameError("Trip name cannot exceed 10 characters.");
             return;
         }
 
@@ -644,10 +640,11 @@ export default function TripItineraryDetail() {
                 trip_name: newName
             });
 
+            setRenameError("");
             setIsRenaming(false);
         } catch (err) {
             console.error(err);
-            alert("Failed to rename itinerary.");
+            setRenameError(err?.response?.data?.message || "Failed to rename itinerary. Please try again.");
         }
     };
 
@@ -799,16 +796,27 @@ export default function TripItineraryDetail() {
 
                     {isRenaming ? (
 
-                        <form onSubmit={handleRename}>
+                        <form onSubmit={handleRename} noValidate>
 
                             <input
                                 type="text"
                                 value={renameName}
-                                onChange={(e) => setRenameName(e.target.value)}
+                                onChange={(e) => {
+                                    setRenameName(e.target.value);
+                                    if (renameError) setRenameError("");
+                                }}
                                 placeholder="Enter itinerary name"
                                 autoFocus
-                                className="trip-rename-input"
+                                className={`trip-rename-input${renameError ? " trip-input-error" : ""}`}
+                                aria-invalid={renameError ? "true" : "false"}
+                                aria-describedby={renameError ? "trip-rename-error" : undefined}
                             />
+
+                            {renameError && (
+                                <p id="trip-rename-error" className="trip-name-error" role="alert">
+                                    {renameError}
+                                </p>
+                            )}
 
                             <div className="trip-rename-buttons">
 
@@ -824,6 +832,7 @@ export default function TripItineraryDetail() {
                                     className="trip-detail-btn trip-detail-cancel-btn"
                                     onClick={() => {
                                         setRenameName(trip.trip_name);
+                                        setRenameError("");
                                         setIsRenaming(false);
                                     }}
                                 >
