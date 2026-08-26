@@ -545,7 +545,8 @@ export default function MyHiddenGems() {
                                     onClick={(event) => event.stopPropagation()}
                                 >
 
-                                    {["pending", "ai_rejected", "pending_community_vote"].includes(gem.status) && (
+                                    {["pending", "ai_rejected", "pending_community_vote"].includes(gem.status)
+                                        && Number(gem.vote_count) === 0 && (
                                         <button
                                             className="my-hidden-gems-edit-btn"
                                             onClick={() =>

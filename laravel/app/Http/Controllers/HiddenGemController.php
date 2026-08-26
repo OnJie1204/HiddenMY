@@ -236,37 +236,24 @@ class HiddenGemController extends Controller
             ], 403);
         }
 
+        if ($gem->status === 'hidden_gem') {
+            return response()->json([
+                'message' => 'Verified Hidden Gems can no longer be edited.'
+            ], 403);
+        }
+
+        if ($gem->votes()->exists()) {
+            return response()->json([
+                'message' => 'This Hidden Gem can no longer be edited because voting has started.'
+            ], 403);
+        }
+
         $editableStatuses = ['pending', 'ai_rejected', 'pending_community_vote'];
 
         if (! in_array($gem->status, $editableStatuses, true)) {
             return response()->json([
                 'message' => 'This hidden gem can no longer be edited.'
             ], 403);
-        }
-
-        $hasVotes = $gem->vote_count > 0 || $gem->votes()->exists();
-
-        if ($hasVotes) {
-            $validated = $request->validate([
-                'description' => 'required|string',
-                'category_id' => 'prohibited',
-                'place_name' => 'prohibited',
-                'address' => 'prohibited',
-                'state' => 'prohibited',
-                'postcode' => 'prohibited',
-                'latitude' => 'prohibited',
-                'longitude' => 'prohibited',
-                'images' => 'prohibited',
-            ]);
-
-            $gem->update([
-                'description' => $validated['description'],
-            ]);
-
-            return response()->json([
-                'message' => 'Hidden gem description updated successfully.',
-                'data' => $gem->load(['category', 'images'])
-            ]);
         }
 
         $validated = $request->validate([

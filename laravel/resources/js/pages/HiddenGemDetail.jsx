@@ -72,15 +72,11 @@ export default function HiddenGemDetail() {
     const [storiesError, setStoriesError] = useState("");
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
-    // ==================== Interactions State ====================
     const [interactions, setInteractions] = useState({
-        likes: 0,
-        dislikes: 0,
         comments: [],
-        user_like: false,
-        user_dislike: false,
         user_comment: null,
     });
+
     const [newComment, setNewComment] = useState("");
     const [newRating, setNewRating] = useState(5);
     const [submittingComment, setSubmittingComment] = useState(false);
@@ -115,19 +111,6 @@ export default function HiddenGemDetail() {
             setInteractions(response.data);
         } catch (err) {
             console.error("Error fetching interactions:", err);
-        }
-    };
-
-    const handleInteraction = async (type) => {
-        try {
-            await api.post(`/gem-interactions/${id}`, { type });
-
-            fetchInteractions();
-        } catch (err) {
-            console.error("Error toggling interaction:", err);
-            if (err.response?.status === 401) {
-                alert("Please login first");
-            }
         }
     };
 
@@ -615,50 +598,33 @@ export default function HiddenGemDetail() {
                         )}
                     </div>
                     {wishlistError && <p className="gem-detail-wishlist-error">{wishlistError}</p>}
-                    <div className="gem-detail-meta-row">
-                        <span className="gem-detail-category-tag">
-                            {gem.category?.name || "Uncategorized"}
-                        </span>
-                        <span className="gem-detail-location-tag">
-                            {gem.state || "Unknown"}
-                        </span>
-                    </div>
-                    <div className="gem-detail-status-row">
-                        {gem.status === "hidden_gem" ? (
-                            <span className="gem-detail-status-verified">Hidden Gem</span>
-                        ) : gem.status === "pending_community_vote" ? (
-                            <span className="gem-detail-status-pending">
-                                {voteProgressLabel(gem)}
+                        <div className="gem-detail-meta-row">
+                            <span className="gem-detail-category-tag">
+                                {gem.category?.name || "Uncategorized"}
                             </span>
-                        ) : gem.status === "ai_rejected" ? (
-                            <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
-                                Not Accepted
+                            <span className="gem-detail-location-tag">
+                                {gem.state || "Unknown"}
                             </span>
-                        ) : gem.status === "delisted" ? (
-                            <span className="gem-detail-status-rejected">
-                                Delisted
-                            </span>
-                        ) : (
-                            <span className="gem-detail-status-pending">
-                                Being Verified by AI
-                            </span>
-                        )}
-                    </div>
+                            {gem.status === "pending_community_vote" && (
+                                <span className="gem-detail-status-pending">
+                                    {gem.vote_count || 0} of {gem.verification_threshold || 10} votes
+                                </span>
+                            )}
+                        </div>
+                        <div className="gem-detail-status-row">
+                            {gem.status === "hidden_gem" ? (
+                                <span className="gem-detail-status-verified">Hidden Gem</span>
+                            ) : gem.status === "ai_rejected" ? (
+                                <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
+                                    Not Accepted
+                                </span>
+                            ) : gem.status === "delisted" ? (
+                                <span className="gem-detail-status-rejected">
+                                    Delisted
+                                </span>
+                            ) : null}
+                        </div>
 
-                    <div className="gem-detail-interactions">
-                        <button
-                            className={`gem-detail-interaction-btn ${interactions.user_like ? 'active-like' : ''}`}
-                            onClick={() => handleInteraction('like')}
-                        >
-                            👍 {interactions.likes}
-                        </button>
-                        <button
-                            className={`gem-detail-interaction-btn ${interactions.user_dislike ? 'active-dislike' : ''}`}
-                            onClick={() => handleInteraction('dislike')}
-                        >
-                            👎 {interactions.dislikes}
-                        </button>
-                    </div>
                 </div>
 
                 <div className="gem-detail-tabs">
@@ -705,7 +671,7 @@ export default function HiddenGemDetail() {
                             >
                                 {gem.address}
                             </Link>
-                            <p className="gem-detail-coords">{gem.latitude}, {gem.longitude}</p>
+                            <p className="gem-detail-coords"></p>
                         </div>
 
                         {/* Description Card */}

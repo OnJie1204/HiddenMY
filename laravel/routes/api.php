@@ -128,6 +128,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-ratings', [GemInteractionController::class, 'myRatings']);
     Route::put('/gem-interactions/comments/{commentId}', [GemInteractionController::class, 'updateComment']);
     Route::delete('/gem-interactions/comments/{commentId}', [GemInteractionController::class, 'deleteComment']);
+    Route::delete('/gem-interactions/comments/{commentId}/photo', [GemInteractionController::class, 'deleteCommentPhoto']);
 });
 
 // ===== Public Hidden Gems Routes =====
