@@ -1,15 +1,17 @@
 import { useState } from "react";
 import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
+import SignInPrompt from "./SignInPrompt";
 import { getReportForLocation } from "../api/reports";
 
 const REPORTABLE_STATUSES = ["hidden_gem", "pending_community_vote"];
 
-function ReportButton({ gem, onReportSuccess, onVerifySuccess }) {
+function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [activeReport, setActiveReport] = useState(null);
     const [loadingReport, setLoadingReport] = useState(false);
+    const [showSignIn, setShowSignIn] = useState(false);
 
     if (!gem) return null;
 
@@ -21,6 +23,15 @@ function ReportButton({ gem, onReportSuccess, onVerifySuccess }) {
 
     async function handleClick(e) {
         e.stopPropagation();
+
+        // Guests can see the icon (it advertises the feature), but reporting
+        // and verifying both require an account — skip the API round-trip
+        // entirely and just point them at sign-in.
+        if (!user) {
+            setShowSignIn(true);
+            return;
+        }
+
         if (!isPending) {
             setReportModalOpen(true);
             return;
@@ -32,6 +43,8 @@ function ReportButton({ gem, onReportSuccess, onVerifySuccess }) {
             const res = await getReportForLocation(gem.id);
             setActiveReport(res.data.data);
             setVerifyModalOpen(true);
+        } catch (error) {
+            console.error("Error checking report status:", error);
         } finally {
             setLoadingReport(false);
         }
@@ -59,6 +72,13 @@ function ReportButton({ gem, onReportSuccess, onVerifySuccess }) {
                 isOpen={verifyModalOpen}
                 onClose={() => setVerifyModalOpen(false)}
                 onVerifySuccess={onVerifySuccess}
+            />
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message={isPending
+                    ? "Sign in to help verify this report."
+                    : "Sign in to report a problem with this gem."}
             />
         </>
     );

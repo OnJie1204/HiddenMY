@@ -25,11 +25,20 @@ function Navbar({ user, setUser, onMenuClick }) {
                 </Link>
             </div>
             <div className="navbar-user">
-                <Link to="/profile" className="navbar-username">
-                    <Avatar name={user.name} avatarUrl={user.avatar_url} size="sm" />
-                    {user.name}
-                </Link>
-                <button onClick={handleLogout} className="navbar-logout">Logout</button>
+                {user ? (
+                    <>
+                        <Link to="/profile" className="navbar-username">
+                            <Avatar name={user.name} avatarUrl={user.avatar_url} size="sm" />
+                            {user.name}
+                        </Link>
+                        <button onClick={handleLogout} className="navbar-logout">Logout</button>
+                    </>
+                ) : (
+                    <div className="navbar-guest-actions">
+                        <Link to="/login" className="navbar-login-link">Log In</Link>
+                        <Link to="/register" className="navbar-register-link">Sign Up</Link>
+                    </div>
+                )}
             </div>
         </nav>
     );
