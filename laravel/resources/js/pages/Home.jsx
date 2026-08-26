@@ -8,6 +8,7 @@ import { getHiddenGems } from '../api/hiddenGems';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist';
 import HiddenGemMarker from '../components/HiddenGemMarker';
 import ReportButton from '../components/ReportButton';
+import SignInPrompt from '../components/SignInPrompt';
 
 // Fix leaflet default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -27,17 +28,29 @@ function Home({ user }) {
     const [selectedGem, setSelectedGem] = useState(null);
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
+    const [showSignIn, setShowSignIn] = useState(false);
+    const [signInMessage, setSignInMessage] = useState("");
     const mapRef = useRef(null);
 
+    const requireSignIn = (message) => {
+        setSignInMessage(message);
+        setShowSignIn(true);
+    };
+
     useEffect(() => {
+        if (!user) return;
         getWishlist()
             .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
             .catch(err => console.error('Error fetching wishlist:', err));
-    }, []);
+    }, [user]);
 
     const handleToggleWishlist = async (e, gem) => {
         e.stopPropagation();
         if (wishlistBusyId) return;
+        if (!user) {
+            requireSignIn("Sign in to save gems to your wishlist.");
+            return;
+        }
 
         const isWishlisted = wishlistIds.has(gem.id);
         setWishlistBusyId(gem.id);
@@ -63,8 +76,12 @@ function Home({ user }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                // Trip itineraries are account-specific (and 401 for a guest) —
+                // fetched separately so a guest still gets the popular-gems
+                // section below instead of the whole page silently going empty
+                // because Promise.all rejected on the one call that needed login.
                 const [tripsRes, gemsRes] = await Promise.all([
-                    getTripItineraries(),
+                    user ? getTripItineraries().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
                     getHiddenGems({ limit: 20 })
                 ]);
 
@@ -336,7 +353,7 @@ function Home({ user }) {
                                             >
                                                 {wishlistIds.has(gem.id) ? "♥" : "♡"}
                                             </button>
-                                            <ReportButton gem={gem} />
+                                            <ReportButton gem={gem} user={user} />
                                         </div>
                                         {gem.status === 'hidden_gem' ? (
                                             <span className="home-trending-card-status verified">✦ Hidden Gem</span>
@@ -415,6 +432,11 @@ function Home({ user }) {
                 </div>
             </div>
 
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message={signInMessage}
+            />
         </div>
     );
 }

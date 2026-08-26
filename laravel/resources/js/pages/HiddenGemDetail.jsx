@@ -9,6 +9,8 @@ import {
 } from "../api/votes";
 import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
+import SignInPrompt from "../components/SignInPrompt";
+import { getReportForLocation, requestFixReview } from "../api/reports";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import { voteProgressLabel } from "../utils/gemStatus";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
@@ -33,6 +35,14 @@ function getVotePhotoUrl(photoPath) {
 }
 
 const COMMENT_EDIT_WINDOW_MS = 72 * 60 * 60 * 1000;
+
+const REPORT_REASON_LABELS = {
+    permanently_closed: "Permanently closed",
+    incorrect_location: "Incorrect location",
+    not_actually_hidden: "No longer hidden (gone viral / well known)",
+    duplicate: "Duplicate of another gem",
+    inappropriate_content: "Inappropriate content",
+};
 
 function canEditWithinCommentWindow(createdAt) {
     const createdAtMs = new Date(createdAt).getTime();
@@ -70,7 +80,17 @@ export default function HiddenGemDetail() {
     const [storiesLoading, setStoriesLoading] = useState(false);
     const [storiesLoaded, setStoriesLoaded] = useState(false);
     const [storiesError, setStoriesError] = useState("");
+    const [reportInfo, setReportInfo] = useState(null);
+    const [fixReviewLoading, setFixReviewLoading] = useState(false);
+    const [fixReviewMessage, setFixReviewMessage] = useState("");
+    const [showSignIn, setShowSignIn] = useState(false);
+    const [signInMessage, setSignInMessage] = useState("");
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
+
+    const requireSignIn = (message) => {
+        setSignInMessage(message);
+        setShowSignIn(true);
+    };
 
     const [interactions, setInteractions] = useState({
         comments: [],
@@ -116,6 +136,11 @@ export default function HiddenGemDetail() {
 
     const handleCommentSubmit = async (e) => {
         e.preventDefault();
+
+        if (!currentUser) {
+            requireSignIn("Sign in to rate or comment on this hidden gem.");
+            return;
+        }
 
         // Require rating (always needed)
         if (!newRating) return;
@@ -218,10 +243,21 @@ export default function HiddenGemDetail() {
     }, []);
 
     useEffect(() => {
+        if (!currentUser) return;
         getWishlist()
             .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
             .catch(err => console.error("Error fetching wishlist:", err));
-    }, []);
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (!gem || gem.status !== "delisted" || !currentUser || Number(gem.user_id) !== Number(currentUser.id)) {
+            setReportInfo(null);
+            return;
+        }
+        getReportForLocation(gem.id)
+            .then((res) => setReportInfo(res.data))
+            .catch(() => setReportInfo(null));
+    }, [gem, currentUser]);
 
     useEffect(() => {
         if (!voteActionSuccess) return;
@@ -261,6 +297,10 @@ export default function HiddenGemDetail() {
 
     const handleToggleWishlist = async () => {
         if (!gem || wishlistBusy) return;
+        if (!currentUser) {
+            requireSignIn("Sign in to save gems to your wishlist.");
+            return;
+        }
 
         const isWishlisted = wishlistIds.has(gem.id);
         setWishlistBusy(true);
@@ -281,6 +321,22 @@ export default function HiddenGemDetail() {
             setWishlistError(err.response?.data?.message || "Could not update your wishlist.");
         } finally {
             setWishlistBusy(false);
+        }
+    };
+
+    const handleRequestFixReview = async () => {
+        if (!reportInfo?.root_report) return;
+        setFixReviewLoading(true);
+        setFixReviewMessage("");
+        try {
+            await requestFixReview(reportInfo.root_report.id);
+            const res = await getReportForLocation(gem.id);
+            setReportInfo(res.data);
+            setFixReviewMessage("Fix submitted — the community will now vote on whether it resolves the report.");
+        } catch (err) {
+            setFixReviewMessage(err.response?.data?.message || "Could not request a fix review.");
+        } finally {
+            setFixReviewLoading(false);
         }
     };
 
@@ -585,7 +641,13 @@ export default function HiddenGemDetail() {
                                 <button
                                     type="button"
                                     className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
-                                    onClick={() => toggleCompare(gem)}
+                                    onClick={() => {
+                                        if (!currentUser) {
+                                            requireSignIn("Sign in to compare hidden gems.");
+                                            return;
+                                        }
+                                        toggleCompare(gem);
+                                    }}
                                     disabled={!isComparing(gem.id) && !canAddMore}
                                     title={isComparing(gem.id)
                                         ? "Remove from comparison"
@@ -593,7 +655,7 @@ export default function HiddenGemDetail() {
                                 >
                                     {isComparing(gem.id) ? "☑" : "☐"}
                                 </button>
-                                <ReportButton gem={gem} />
+                                <ReportButton gem={gem} user={currentUser} />
                             </div>
                         )}
                     </div>
@@ -738,7 +800,16 @@ export default function HiddenGemDetail() {
                         {/* Vote Button */}
                         <div className="gem-detail-vote-section">
                             {gem.status === "pending_community_vote" ? (
-                                <button className="gem-detail-vote-btn" onClick={() => setShowVoteModal(true)}>
+                                <button
+                                    className="gem-detail-vote-btn"
+                                    onClick={() => {
+                                        if (!currentUser) {
+                                            requireSignIn("Sign in to vote on this hidden gem.");
+                                            return;
+                                        }
+                                        setShowVoteModal(true);
+                                    }}
+                                >
                                     🗳️ Vote Now
                                 </button>
                             ) : gem.status === "hidden_gem" ? (
@@ -755,6 +826,43 @@ export default function HiddenGemDetail() {
                                 </button>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {gem.status === "delisted" && reportInfo?.root_report && Number(gem.user_id) === Number(currentUser?.id) && (
+                    <div className="report-owner-banner">
+                        <h3>⚠ This gem was delisted</h3>
+                        <p>
+                            The community confirmed a report: <strong>{REPORT_REASON_LABELS[reportInfo.root_report.reason] || reportInfo.root_report.reason}</strong>
+                            {reportInfo.root_report.flagged_item && (
+                                <> — flagged: {reportInfo.root_report.flagged_item === "description" ? "the description" : "a photo"}</>
+                            )}
+                            .
+                        </p>
+                        {reportInfo.data.id === reportInfo.root_report.id ? (
+                            <>
+                                {reportInfo.root_report.delete_at && (
+                                    <p className="report-owner-countdown">
+                                        Fix this by{" "}
+                                        <strong>
+                                            {new Date(reportInfo.root_report.delete_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                                        </strong>{" "}
+                                        or it will be permanently removed.
+                                    </p>
+                                )}
+                                <div className="report-owner-actions">
+                                    <Link to={`/my-hidden-gems/edit/${gem.id}`} className="vote-btn-secondary">Edit Gem</Link>
+                                    <button className="vote-btn-primary" onClick={handleRequestFixReview} disabled={fixReviewLoading}>
+                                        {fixReviewLoading ? "Submitting..." : "I've fixed it — request review"}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="report-owner-countdown">
+                                A fix is already under review: {reportInfo.data.confirm_count} confirm / {reportInfo.data.dispute_count} dispute.
+                            </p>
+                        )}
+                        {fixReviewMessage && <p className="vote-message success">{fixReviewMessage}</p>}
                     </div>
                 )}
 
@@ -1193,6 +1301,12 @@ export default function HiddenGemDetail() {
                 isOpen={showVoteModal}
                 onClose={() => setShowVoteModal(false)}
                 onVoteSuccess={handleVoteSuccess}
+            />
+
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message={signInMessage}
             />
 
             {deleteConfirmation && (
