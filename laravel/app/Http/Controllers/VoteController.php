@@ -210,6 +210,12 @@ class VoteController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        if (!$vote->isCommentEditable()) {
+            return response()->json([
+                'message' => 'Comments can only be edited within 72 hours of posting.',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'comment' => 'required|string|max:1000',
         ]);

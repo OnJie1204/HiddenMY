@@ -60,7 +60,10 @@ export default function EditHiddenGem() {
 
                 // Extra frontend protection
                 const editableStatuses = ["pending", "ai_rejected", "pending_community_vote"];
-                if (!editableStatuses.includes(gem.status)) {
+                if (
+                    !editableStatuses.includes(gem.status)
+                    || Number(gem.vote_count) > 0
+                ) {
                     navigate("/my-hidden-gems");
                     return;
                 }

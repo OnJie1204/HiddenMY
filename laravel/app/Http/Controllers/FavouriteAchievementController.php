@@ -1,0 +1,71 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use App\Models\UserFavouriteAchievement;
+use App\Services\SpecialAchievementService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+
+class FavouriteAchievementController extends Controller
+{
+    public function index(Request $request, SpecialAchievementService $achievements)
+    {
+        $earnedKeys = array_flip($achievements->earnedKeys($request->user()));
+
+        $data = $request->user()
+            ->favouriteAchievements()
+            ->get()
+            ->filter(fn (UserFavouriteAchievement $favourite) => isset($earnedKeys[$favourite->achievement_key]))
+            ->map(fn (UserFavouriteAchievement $favourite) => [
+                'key' => $favourite->achievement_key,
+                'position' => $favourite->position,
+            ])
+            ->values();
+
+        return response()->json(['data' => $data]);
+    }
+
+    public function update(Request $request, SpecialAchievementService $achievements)
+    {
+        $validated = $request->validate([
+            'achievement_keys' => ['present', 'array', 'max:2'],
+            'achievement_keys.*' => ['string', 'distinct', Rule::in($achievements->keys())],
+        ]);
+
+        $earnedKeys = array_flip($achievements->earnedKeys($request->user()));
+        $unearnedKeys = array_values(array_filter(
+            $validated['achievement_keys'],
+            fn (string $key) => ! isset($earnedKeys[$key])
+        ));
+
+        if ($unearnedKeys !== []) {
+            throw ValidationException::withMessages([
+                'achievement_keys' => ['Only currently earned Special Achievements may be favourited.'],
+            ]);
+        }
+
+        $data = DB::transaction(function () use ($request, $validated) {
+            $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
+
+            $user->favouriteAchievements()->delete();
+
+            foreach ($validated['achievement_keys'] as $index => $key) {
+                $user->favouriteAchievements()->create([
+                    'achievement_key' => $key,
+                    'position' => $index + 1,
+                ]);
+            }
+
+            return $user->favouriteAchievements()->get()->map(fn (UserFavouriteAchievement $favourite) => [
+                'key' => $favourite->achievement_key,
+                'position' => $favourite->position,
+            ]);
+        });
+
+        return response()->json(['data' => $data]);
+    }
+}

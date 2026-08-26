@@ -9,6 +9,7 @@ import {
 } from "../api/votes";
 import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
+import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import { voteProgressLabel } from "../utils/gemStatus";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTravelPostsForLocation } from "../api/travelPosts";
@@ -31,6 +32,15 @@ function getVotePhotoUrl(photoPath) {
         : `/storage/${relativePath}`;
 }
 
+const COMMENT_EDIT_WINDOW_MS = 72 * 60 * 60 * 1000;
+
+function canEditWithinCommentWindow(createdAt) {
+    const createdAtMs = new Date(createdAt).getTime();
+
+    return Number.isFinite(createdAtMs)
+        && Date.now() <= createdAtMs + COMMENT_EDIT_WINDOW_MS;
+}
+
 export default function HiddenGemDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -40,7 +50,7 @@ export default function HiddenGemDetail() {
     const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState(() => {
         const openTab = routeLocation.state?.openTab;
-        return openTab === "votes" || openTab === "stories" ? openTab : "details";
+        return ["votes", "stories", "comments"].includes(openTab) ? openTab : "details";
     });
     const [showVoteModal, setShowVoteModal] = useState(false);
     const [voteSuccess, setVoteSuccess] = useState(false);
@@ -62,15 +72,11 @@ export default function HiddenGemDetail() {
     const [storiesError, setStoriesError] = useState("");
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
-    // ==================== Interactions State ====================
     const [interactions, setInteractions] = useState({
-        likes: 0,
-        dislikes: 0,
         comments: [],
-        user_like: false,
-        user_dislike: false,
         user_comment: null,
     });
+
     const [newComment, setNewComment] = useState("");
     const [newRating, setNewRating] = useState(5);
     const [submittingComment, setSubmittingComment] = useState(false);
@@ -108,25 +114,12 @@ export default function HiddenGemDetail() {
         }
     };
 
-    const handleInteraction = async (type) => {
-        try {
-            await api.post(`/gem-interactions/${id}`, { type });
-            
-            fetchInteractions();
-        } catch (err) {
-            console.error("Error toggling interaction:", err);
-            if (err.response?.status === 401) {
-                alert("Please login first");
-            }
-        }
-    };
-
     const handleCommentSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Require rating (always needed)
         if (!newRating) return;
-        
+
         // Comment is optional - can submit with just rating
         // If comment is provided, it must have content
         if (newComment.trim() && newComment.trim().length === 0) return;
@@ -251,6 +244,20 @@ export default function HiddenGemDetail() {
             voteElement?.scrollIntoView({ behavior: "smooth", block: "center" });
         }
     }, [activeTab, gem, routeLocation.state]);
+
+    useEffect(() => {
+        if (
+            activeTab === "comments"
+            && interactions.comments.length > 0
+            && routeLocation.state?.interactionId
+        ) {
+            const interactionElement = document.getElementById(
+                `interaction-${routeLocation.state.interactionId}`
+            );
+
+            interactionElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }, [activeTab, interactions.comments, routeLocation.state]);
 
     const handleToggleWishlist = async () => {
         if (!gem || wishlistBusy) return;
@@ -434,7 +441,7 @@ export default function HiddenGemDetail() {
     };
 
     const totalRatings = interactions.comments?.length || 0;
-    
+
     const averageRating = totalRatings > 0
         ? (interactions.comments.reduce((sum, c) => sum + (c.rating || 0), 0) / totalRatings).toFixed(1)
         : 0;
@@ -443,11 +450,11 @@ export default function HiddenGemDetail() {
     const filteredComments = interactions.comments?.filter(comment => {
         // Filter by rating
         if (ratingFilter > 0 && comment.rating !== ratingFilter) return false;
-        
+
         // Filter by type
         if (filterType === 'with_comment' && !comment.comment) return false;
         if (filterType === 'rating_only' && comment.comment) return false;
-        
+
         return true;
     }) || [];
 
@@ -496,9 +503,22 @@ export default function HiddenGemDetail() {
                 className="gem-detail-back-link"
                 onClick={(event) => {
                     event.preventDefault();
+                    if (routeLocation.state?.fromMyRatings) {
+                        navigate("/my-hidden-gems", {
+                            state: {
+                                activeTab: "contributions",
+                                contributionTab: "ratings",
+                            },
+                        });
+                        return;
+                    }
+
                     if (routeLocation.state?.fromMyVotes) {
                         navigate("/my-hidden-gems", {
-                            state: { activeTab: "votes" },
+                            state: {
+                                activeTab: "contributions",
+                                contributionTab: "votes",
+                            },
                         });
                         return;
                     }
@@ -578,46 +598,33 @@ export default function HiddenGemDetail() {
                         )}
                     </div>
                     {wishlistError && <p className="gem-detail-wishlist-error">{wishlistError}</p>}
-                    <div className="gem-detail-meta-row">
-                        <span className="gem-detail-category-tag">
-                            {gem.category?.name || "Uncategorized"}
-                        </span>
-                        <span className="gem-detail-location-tag">
-                            {gem.state || "Unknown"}
-                        </span>
-                    </div>
-                    <div className="gem-detail-status-row">
-                        {gem.status === "hidden_gem" ? (
-                            <span className="gem-detail-status-verified">Hidden Gem</span>
-                        ) : gem.status === "pending_community_vote" ? (
-                            <span className="gem-detail-status-pending">
-                                {voteProgressLabel(gem)}
+                        <div className="gem-detail-meta-row">
+                            <span className="gem-detail-category-tag">
+                                {gem.category?.name || "Uncategorized"}
                             </span>
-                        ) : gem.status === "ai_rejected" ? (
-                            <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
-                                Not Accepted
+                            <span className="gem-detail-location-tag">
+                                {gem.state || "Unknown"}
                             </span>
-                        ) : (
-                            <span className="gem-detail-status-pending">
-                                Being Verified by AI
-                            </span>
-                        )}
-                    </div>
+                            {gem.status === "pending_community_vote" && (
+                                <span className="gem-detail-status-pending">
+                                    {gem.vote_count || 0} of {gem.verification_threshold || 10} votes
+                                </span>
+                            )}
+                        </div>
+                        <div className="gem-detail-status-row">
+                            {gem.status === "hidden_gem" ? (
+                                <span className="gem-detail-status-verified">Hidden Gem</span>
+                            ) : gem.status === "ai_rejected" ? (
+                                <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
+                                    Not Accepted
+                                </span>
+                            ) : gem.status === "delisted" ? (
+                                <span className="gem-detail-status-rejected">
+                                    Delisted
+                                </span>
+                            ) : null}
+                        </div>
 
-                    <div className="gem-detail-interactions">
-                        <button
-                            className={`gem-detail-interaction-btn ${interactions.user_like ? 'active-like' : ''}`}
-                            onClick={() => handleInteraction('like')}
-                        >
-                            👍 {interactions.likes}
-                        </button>
-                        <button
-                            className={`gem-detail-interaction-btn ${interactions.user_dislike ? 'active-dislike' : ''}`}
-                            onClick={() => handleInteraction('dislike')}
-                        >
-                            👎 {interactions.dislikes}
-                        </button>
-                    </div>
                 </div>
 
                 <div className="gem-detail-tabs">
@@ -657,14 +664,14 @@ export default function HiddenGemDetail() {
                                 <span className="gem-detail-section-icon">📍</span>
                                 <h3>Location</h3>
                             </div>
-                            <Link 
+                            <Link
                                 to={`/map?lat=${gem.latitude}&lng=${gem.longitude}`}
                                 state={{ highlightGem: gem, openPanel: true, flyTo: true }}
                                 className="gem-detail-location-link"
                             >
                                 {gem.address}
                             </Link>
-                            <p className="gem-detail-coords">{gem.latitude}, {gem.longitude}</p>
+                            <p className="gem-detail-coords"></p>
                         </div>
 
                         {/* Description Card */}
@@ -717,9 +724,15 @@ export default function HiddenGemDetail() {
                                 <span className="gem-detail-section-icon">👤</span>
                                 <h3>Discovered by</h3>
                             </div>
-                            <Link to={`/users/${gem.user?.id || ''}`} className="gem-detail-submitter-link">
-                                {gem.user?.name || "Unknown User"}
-                            </Link>
+                            <div className="gem-detail-submitter-identity">
+                                <Link to={`/users/${gem.user?.id || ''}`} className="gem-detail-submitter-link">
+                                    {gem.user?.name || "Unknown User"}
+                                </Link>
+                                <FavouriteAchievementBadges
+                                    favourites={gem.user?.favourite_achievements}
+                                    className="gem-detail-submitter-achievements"
+                                />
+                            </div>
                         </div>
 
                         {/* Vote Button */}
@@ -732,7 +745,11 @@ export default function HiddenGemDetail() {
                                 <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
                                     ✓ Already a Hidden Gem
                                 </button>
-                            ) : gem.status === "ai_rejected" ? null : (
+                            ) : gem.status === "ai_rejected" ? null : gem.status === "delisted" ? (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ⚠ Delisted after a confirmed report
+                                </button>
+                            ) : (
                                 <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
                                     ⏳ Being Verified
                                 </button>
@@ -753,6 +770,7 @@ export default function HiddenGemDetail() {
                                 gem.votes.map((vote) => {
                                     const isOwnVote = Number(vote.user_id)
                                         === Number(currentUser?.id);
+                                    const canEditVoteComment = canEditWithinCommentWindow(vote.created_at);
 
                                     return (
                                     <div
@@ -825,19 +843,21 @@ export default function HiddenGemDetail() {
                                                     </p>
                                                     {isOwnVote && (
                                                         <div className="gem-detail-vote-owner-actions">
-                                                            <button
-                                                                type="button"
-                                                                className="gem-detail-vote-icon-btn"
-                                                                title="Edit comment"
-                                                                aria-label="Edit comment"
-                                                                disabled={voteActionLoading}
-                                                                onClick={() => {
-                                                                    setEditingVoteId(vote.id);
-                                                                    setEditComment(vote.travel_description);
-                                                                }}
-                                                            >
-                                                                ✎
-                                                            </button>
+                                                            {canEditVoteComment && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="gem-detail-vote-icon-btn"
+                                                                    title="Edit comment"
+                                                                    aria-label="Edit comment"
+                                                                    disabled={voteActionLoading}
+                                                                    onClick={() => {
+                                                                        setEditingVoteId(vote.id);
+                                                                        setEditComment(vote.travel_description);
+                                                                    }}
+                                                                >
+                                                                    ✎
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 type="button"
                                                                 className="gem-detail-vote-icon-btn"
@@ -1007,12 +1027,14 @@ export default function HiddenGemDetail() {
                                         const isOwnComment = Number(comment.user_id) === Number(currentUser?.id);
                                         const isEditing = editingCommentId === comment.id;
                                         const createdAt = new Date(comment.created_at);
-                                        const now = new Date();
-                                        const hoursDiff = Math.floor((now - createdAt) / (1000 * 60 * 60));
-                                        const canEdit = hoursDiff <= 72;
+                                        const canEdit = canEditWithinCommentWindow(comment.created_at);
 
                                         return (
-                                            <div key={comment.id} className="gem-detail-comment-item">
+                                            <div
+                                                id={`interaction-${comment.id}`}
+                                                key={comment.id}
+                                                className="gem-detail-comment-item"
+                                            >
                                                 <div className="gem-detail-comment-avatar">
                                                     {comment.user?.name?.charAt(0) || "U"}
                                                 </div>
@@ -1080,16 +1102,18 @@ export default function HiddenGemDetail() {
                                                                     No comment
                                                                 </p>
                                                             )}
-                                                            {isOwnComment && !isEditing && canEdit && (
+                                                            {isOwnComment && !isEditing && (
                                                                 <span className="gem-detail-comment-actions">
-                                                                    <button
-                                                                        type="button"
-                                                                        className="gem-detail-comment-edit-btn"
-                                                                        onClick={() => handleEditComment(comment)}
-                                                                        disabled={commentActionLoading}
-                                                                    >
-                                                                        ✎
-                                                                    </button>
+                                                                    {canEdit && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="gem-detail-comment-edit-btn"
+                                                                            onClick={() => handleEditComment(comment)}
+                                                                            disabled={commentActionLoading}
+                                                                        >
+                                                                            ✎
+                                                                        </button>
+                                                                    )}
                                                                     <button
                                                                         type="button"
                                                                         className="gem-detail-comment-delete-btn"
@@ -1121,7 +1145,7 @@ export default function HiddenGemDetail() {
                                     })
                                 ) : (
                                     <p className="gem-detail-no-comments">
-                                        {totalRatings > 0 
+                                        {totalRatings > 0
                                             ? "No results match your filter."
                                             : "No ratings yet. Be the first to rate!"}
                                     </p>

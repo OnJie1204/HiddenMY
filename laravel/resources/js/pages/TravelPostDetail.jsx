@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getTravelPostDetail, deleteTravelPost } from "../api/travelPosts";
 import { getMe } from "../api/auth";
 import Avatar from "../components/Avatar";
+import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 
 import "../styles/global.css";
 
@@ -109,7 +110,12 @@ export default function TravelPostDetail() {
             <div className="travel-post-byline">
                 <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
                 <div>
-                    <p className="travel-post-byline-name">{post.user?.name || "Traveler"}</p>
+                    <div className="travel-post-author-identity">
+                        <p className="travel-post-byline-name">{post.user?.name || "Traveler"}</p>
+                        <FavouriteAchievementBadges
+                            favourites={post.user?.favourite_achievements}
+                        />
+                    </div>
                     <p className="travel-post-byline-meta">
                         {new Date(post.created_at).toLocaleDateString("en-GB", {
                             day: "numeric",

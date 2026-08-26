@@ -6,7 +6,6 @@ use App\Models\Location;
 use App\Models\GemInteraction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 class GemInteractionController extends Controller
 {
@@ -50,6 +49,12 @@ class GemInteractionController extends Controller
                 ->first();
 
             if ($existingComment) {
+                if (!$existingComment->isCommentEditable()) {
+                    return response()->json([
+                        'message' => 'Comments can only be edited within 72 hours of posting.',
+                    ], 403);
+                }
+
                 // Update existing comment
                 $existingComment->update([
                     'comment' => $request->comment,
@@ -162,6 +167,48 @@ class GemInteractionController extends Controller
         ]);
     }
 
+    public function myRatings()
+    {
+        $ratings = GemInteraction::query()
+            ->where('user_id', Auth::id())
+            ->where('type', 'comment')
+            ->with([
+                'location:id,place_name,status',
+                'location.firstImage' => fn ($query) => $query->select([
+                    'location_images.id',
+                    'location_images.location_id',
+                    'location_images.image_url',
+                ]),
+            ])
+            ->orderByDesc('created_at')
+            ->get([
+                'id',
+                'user_id',
+                'location_id',
+                'rating',
+                'comment',
+                'created_at',
+                'updated_at',
+            ])
+            ->map(fn (GemInteraction $rating) => [
+                'id' => $rating->id,
+                'rating' => $rating->rating,
+                'comment' => $rating->comment,
+                'created_at' => $rating->created_at,
+                'updated_at' => $rating->updated_at,
+                'location' => $rating->location ? [
+                    'id' => $rating->location->id,
+                    'place_name' => $rating->location->place_name,
+                    'status' => $rating->location->status,
+                    'first_image' => $rating->location->firstImage ? [
+                        'image_url' => $rating->location->firstImage->image_url,
+                    ] : null,
+                ] : null,
+            ]);
+
+        return response()->json(['data' => $ratings]);
+    }
+
     public function updateComment(Request $request, $commentId)
     {
         $user = Auth::user();
@@ -182,12 +229,9 @@ class GemInteractionController extends Controller
             return response()->json(['message' => 'You are not authorized to edit this comment'], 403);
         }
 
-        $createdAt = Carbon::parse($comment->created_at);
-        $hoursSinceCreation = $createdAt->diffInHours(Carbon::now());
-
-        if ($hoursSinceCreation > 72) {
+        if (!$comment->isCommentEditable()) {
             return response()->json([
-                'message' => 'You can only edit comments within 3 days of posting. This comment is ' . round($hoursSinceCreation / 24) . ' days old.'
+                'message' => 'Comments can only be edited within 72 hours of posting.',
             ], 403);
         }
 
