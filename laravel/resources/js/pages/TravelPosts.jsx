@@ -4,6 +4,7 @@ import { getTravelPosts, getMyTravelPosts } from "../api/travelPosts";
 import { getCategories, getStates } from "../api/hiddenGems";
 import Avatar from "../components/Avatar";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
+import SignInPrompt from "../components/SignInPrompt";
 
 import "../styles/global.css";
 
@@ -15,7 +16,7 @@ function formatPostDate(dateString) {
     });
 }
 
-export default function TravelPosts() {
+export default function TravelPosts({ user }) {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -25,6 +26,7 @@ export default function TravelPosts() {
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
     const [mineOnly, setMineOnly] = useState(false);
+    const [showSignIn, setShowSignIn] = useState(false);
 
     const filters = {
         state: searchParams.get("state") || "",
@@ -94,7 +96,13 @@ export default function TravelPosts() {
                 <button
                     type="button"
                     className={mineOnly ? "active" : ""}
-                    onClick={() => setMineOnly(true)}
+                    onClick={() => {
+                        if (!user) {
+                            setShowSignIn(true);
+                            return;
+                        }
+                        setMineOnly(true);
+                    }}
                 >
                     My Posts
                 </button>
@@ -203,6 +211,11 @@ export default function TravelPosts() {
                     ))}
                 </div>
             )}
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message="Sign in to see the posts you've written."
+            />
         </div>
     );
 }

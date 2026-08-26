@@ -135,7 +135,7 @@ function groupKey(lat, lng) {
     return `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
 }
 
-function Maps(){
+function Maps({ user }){
     const location = useLocation();
     const navigate = useNavigate();
     
@@ -402,7 +402,7 @@ function Maps(){
             title: raw.name,
             latitude: raw.latitude,
             longitude: raw.longitude,
-            image: null,
+            image: raw.image || null,
             attractionType: raw.type,
             address: raw.address,
             openingHours: raw.openingHours,
@@ -662,6 +662,7 @@ function Maps(){
                     <SidePanel
                         group={selectedGroup}
                         isOpen={panelOpen}
+                        user={user}
                         onClose={() => { setPanelOpen(false); setSelectedGroup(null); }}
                         mode="gems"
                         nearby={nearby}

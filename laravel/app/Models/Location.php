@@ -193,9 +193,11 @@ class Location extends Model
      * Statuses safe to surface on public (unauthenticated) listings — everything
      * that hasn't passed AI hiddenness verification yet must stay invisible.
      */
+    public const PUBLICLY_VISIBLE_STATUSES = ['pending_community_vote', 'hidden_gem'];
+
     public function scopePubliclyVisible(Builder $query)
     {
-        return $query->whereIn('status', ['pending_community_vote', 'hidden_gem']);
+        return $query->whereIn('status', self::PUBLICLY_VISIBLE_STATUSES);
     }
 
     public function getVoteProgressAttribute()

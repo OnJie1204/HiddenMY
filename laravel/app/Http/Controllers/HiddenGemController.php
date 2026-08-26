@@ -338,6 +338,10 @@ class HiddenGemController extends Controller
         $location = Location::with(['user', 'category', 'images', 'votes.user'])
                             ->findOrFail($id);
 
+        if (!Auth::check() && !in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+            abort(404);
+        }
+
         if ($location->user) {
             $activeFavourites = $this->specialAchievements
                 ->activeFavouritesForUsers([$location->user_id])
@@ -356,6 +360,10 @@ class HiddenGemController extends Controller
     public function nearby(Request $request, $id): JsonResponse
     {
         $gem = Location::findOrFail($id);
+
+        if (!Auth::check() && !in_array($gem->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+            abort(404);
+        }
 
         $radius = (int) $request->query('radius', self::NEARBY_RADIUS_METERS);
         $radius = max(100, min(3000, $radius));

@@ -7,6 +7,7 @@ import Avatar from "./Avatar";
 import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
+import SignInPrompt from "./SignInPrompt";
 import { useCompare } from "../context/CompareContext";
 import { getReportForLocation } from "../api/reports";
 
@@ -46,6 +47,8 @@ function SidePanel({
     const [activeReport, setActiveReport] = useState(null);
     const [loadingReport, setLoadingReport] = useState(false);
     const [localReportStatus, setLocalReportStatus] = useState(null);
+    const [showSignIn, setShowSignIn] = useState(false);
+    const [signInMessage, setSignInMessage] = useState("");
 
     const [localStatus, setLocalStatus] = useState(null);
     const bodyRef = useRef(null);
@@ -156,7 +159,21 @@ function SidePanel({
         && gem.source === "database"
         && (status === "hidden_gem" || status === "pending_community_vote");
 
+    function requireSignIn(message) {
+        setSignInMessage(message);
+        setShowSignIn(true);
+    }
+
     async function handleReportIconClick() {
+        // Guests can see the icon (it advertises the feature) but reporting
+        // and verifying both require an account — skip the API round-trip
+        // entirely and point them at sign-in.
+        if (!user) {
+            requireSignIn(reportStatus === "under_review"
+                ? "Sign in to help verify this report."
+                : "Sign in to report a problem with this gem.");
+            return;
+        }
         if (reportStatus !== "under_review") {
             setReportModalOpen(true);
             return;
@@ -166,6 +183,8 @@ function SidePanel({
             const res = await getReportForLocation(gem.id);
             setActiveReport(res.data.data);
             setVerifyModalOpen(true);
+        } catch (error) {
+            console.error("Error checking report status:", error);
         } finally {
             setLoadingReport(false);
         }
@@ -187,6 +206,10 @@ function SidePanel({
 
     async function handleToggleWishlist() {
         if (!gem || wishlistBusy) return;
+        if (!user) {
+            requireSignIn("Sign in to save gems to your wishlist.");
+            return;
+        }
         setWishlistBusy(true);
         try {
             await onToggleWishlist(gem, isWishlisted);
@@ -253,7 +276,7 @@ function SidePanel({
                 </div>
             )}
 
-            {showNavChrome && user && (
+            {showNavChrome && (user ? (
                 <div className="side-panel-user">
                     <Avatar name={user.name} avatarUrl={user.avatar_url} size="sm" />
                     <div className="side-panel-user-info">
@@ -261,7 +284,12 @@ function SidePanel({
                         <p className="side-panel-user-email">{user.email || ''}</p>
                     </div>
                 </div>
-            )}
+            ) : (
+                <div className="side-panel-guest">
+                    <Link to="/login" className="side-panel-guest-login" onClick={onClose}>Log In</Link>
+                    <Link to="/register" className="side-panel-guest-register" onClick={onClose}>Sign Up</Link>
+                </div>
+            ))}
 
             {showNavChrome && (
                 <nav className="side-panel-nav">
@@ -334,7 +362,13 @@ function SidePanel({
                                     <button
                                         type="button"
                                         className={`compare-toggle-btn ${comparing ? "compare-toggle-btn-active" : ""}`}
-                                        onClick={() => toggleCompare(gem)}
+                                        onClick={() => {
+                                            if (!user) {
+                                                requireSignIn("Sign in to compare hidden gems.");
+                                                return;
+                                            }
+                                            toggleCompare(gem);
+                                        }}
                                         disabled={!canCompare || (!comparing && !canAddMore)}
                                         title={!canCompare
                                             ? "Only gems that have passed AI review can be compared"
@@ -381,7 +415,14 @@ function SidePanel({
                             </button>
                             <button
                                 className="side-panel-icon-btn"
-                                onClick={() => { setItineraryStatus(null); setItineraryOpen(o => !o); }}
+                                onClick={() => {
+                                    if (!user) {
+                                        requireSignIn("Sign in to add gems to a trip itinerary.");
+                                        return;
+                                    }
+                                    setItineraryStatus(null);
+                                    setItineraryOpen(o => !o);
+                                }}
                                 disabled={!canAddToItinerary}
                                 title={canAddToItinerary
                                     ? "Add to a trip itinerary"
@@ -582,7 +623,7 @@ function SidePanel({
             </div>
 
             {/* Footer: Logout */}
-            {showNavChrome && (
+            {showNavChrome && user && (
                 <div className="side-panel-footer">
                     <button className="side-panel-logout-btn" onClick={handleLogout}>
                         Logout
@@ -621,6 +662,11 @@ function SidePanel({
                     }}
                 />
             )}
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message={signInMessage}
+            />
         </div>
     );
 }
