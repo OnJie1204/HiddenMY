@@ -1,4 +1,4 @@
-import api from '../api';   // 注意这里的 '../api' 是指向 src/api.js 那个档案
+import api from '../api';
 
 export const register = (data) => api.post('/register', data);
 export const login = (email, password) => api.post('/login', { email, password });
@@ -18,7 +18,6 @@ export const changePassword = (data) => api.post('/change-password', data);
 export const verifyNewEmail = (token) => api.post('/verify-email', { token });
 export const verifyEmail = (id, hash, params) => api.get(`/email/verify/${id}/${hash}${params}`);
 export const resendVerification = (email) => api.post('/resend-verification', { email });
-
 export const getUserProfile = async (id) => {
   const response = await api.get(`/users/${id}`);
   return response;

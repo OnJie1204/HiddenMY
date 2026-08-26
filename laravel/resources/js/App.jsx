@@ -8,7 +8,6 @@ import Maps from './pages/Maps';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Profile from './pages/Profile';
-import UserProfile from './pages/UserProfile';
 import VerifyEmail from './pages/VerifyEmail';
 import VerifyNewEmail from './pages/VerifyNewEmail';
 import ResendVerification from './pages/ResendVerification';
@@ -73,7 +72,7 @@ function App() {
           user ? <Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout> : <Navigate to="/login" />
         } />
         <Route path="/users/:id" element={
-          user ? <Layout user={user} setUser={setUser}><UserProfile /></Layout> : <Navigate to="/login" />
+          user ? <Layout user={user} setUser={setUser}><Profile /></Layout> : <Navigate to="/login" />
         } />
         <Route path="/wishlist" element={
           user ? <Layout user={user} setUser={setUser}><Wishlist /></Layout> : <Navigate to="/login" />
