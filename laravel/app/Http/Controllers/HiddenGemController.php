@@ -189,6 +189,7 @@ class HiddenGemController extends Controller
                 'category:id,name',
                 'images:id,location_id,image_url',
             ])
+            ->withCount('votes')
             ->publiclyVisible();
 
         // Filter by status (hidden_gem / pending_community_vote)
@@ -864,6 +865,7 @@ class HiddenGemController extends Controller
                 'category:id,name',
                 'images:id,location_id,image_url',
             ])
+            ->withCount('votes')
             ->publiclyVisible()
             ->latest()
             ->take(6)

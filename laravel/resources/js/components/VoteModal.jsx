@@ -1,591 +1,950 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getToken } from '../utils/tokenStorage';
 
-function VoteModal({ locationId, isOpen, onClose, onVoteSuccess }) {
+function VoteModal({
+    locationId,
+    isOpen,
+    onClose,
+    onVoteSuccess
+}) {
     const navigate = useNavigate();
+
     const [step, setStep] = useState('checking');
+
     const [loading, setLoading] = useState(false);
+    const [checkingLocation, setCheckingLocation] = useState(false);
+
     const [eligibility, setEligibility] = useState(null);
-    const [comment, setComment] = useState('');
-    const [photo, setPhoto] = useState(null);
-    const [photoPreview, setPhotoPreview] = useState(null);
+
     const [message, setMessage] = useState('');
-    const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
-    const [userLocation, setUserLocation] = useState(null);
-    const [checkInMethod, setCheckInMethod] = useState(null);
-    const [manualLat, setManualLat] = useState('');
-    const [manualLng, setManualLng] = useState('');
-    const [savedLocation, setSavedLocation] = useState(null);
-    const [hasSavedLocation, setHasSavedLocation] = useState(false);
-    const [showSaveButton, setShowSaveButton] = useState(false);
-    const fileInputRef = useRef(null);
+
+    const [detectedLocation, setDetectedLocation] = useState(null);
+    const [verifiedLocation, setVerifiedLocation] = useState(null);
 
     useEffect(() => {
-        if (isOpen && locationId) {
-            const saved = localStorage.getItem(`vote_location_${locationId}`);
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    setSavedLocation(parsed);
-                    setHasSavedLocation(true);
-                } catch (e) {
-                    setHasSavedLocation(false);
-                    setSavedLocation(null);
-                }
-            } else {
-                setHasSavedLocation(false);
-                setSavedLocation(null);
-            }
-            checkEligibility();
+        if (!isOpen || !locationId) {
+            return;
         }
+
+        checkEligibility();
     }, [isOpen, locationId]);
+
+    // =====================================================
+    // CHECK VOTING ELIGIBILITY
+    // =====================================================
 
     const checkEligibility = async () => {
         setLoading(true);
+
         setStep('checking');
+
+        setMessage('');
+        setGpsStatus('');
+
+        setDetectedLocation(null);
+        setVerifiedLocation(null);
+
         try {
             const token = getToken();
-            const response = await fetch('/api/votes/check/' + locationId, {
-                headers: {
-                    'Authorization': 'Bearer ' + token,
-                    'Accept': 'application/json'
+
+            const response = await fetch(
+                `/api/votes/check/${locationId}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: 'application/json',
+                    },
                 }
-            });
+            );
+
             const data = await response.json();
+
             setEligibility(data);
-            
-            if (data.eligible) {
-                if (data.has_check_in) {
-                    setStep('voting');
-                } else if (hasSavedLocation && savedLocation) {
-                    setStep('voting');
-                    setMessage('Using saved location. You can vote.');
-                } else {
-                    setStep('checkin');
-                }
-            } else {
+
+            if (!response.ok || !data.eligible) {
                 setStep('error');
-                setMessage(data.message);
+
+                setMessage(
+                    data.message ||
+                    'You are not eligible to vote.'
+                );
+
+                return;
             }
+
+            /*
+             * Every vote requires a fresh GPS verification.
+             *
+             * A previous check-in or saved location
+             * cannot be used to bypass this step.
+             */
+            setStep('checkin');
+
         } catch (error) {
+            console.error(
+                'Error checking vote eligibility:',
+                error
+            );
+
             setStep('error');
-            setMessage('Unable to check eligibility');
+
+            setMessage(
+                'Unable to check voting eligibility.'
+            );
+
         } finally {
             setLoading(false);
         }
     };
 
+    // =====================================================
+    // DETECT CURRENT GPS LOCATION
+    // =====================================================
+
     const getCurrentLocation = () => {
-        setGpsStatus('Getting your location...');
-        setCheckInMethod('gps');
-        setShowSaveButton(false);
+        setMessage('');
+
+        setGpsStatus(
+            'Getting your current location...'
+        );
+
+        setDetectedLocation(null);
+        setVerifiedLocation(null);
 
         if (!navigator.geolocation) {
-            setGpsStatus('error: Geolocation is not supported by your browser');
+            setGpsStatus(
+                'error: Geolocation is not supported by your browser.'
+            );
+
             return;
         }
 
+        setCheckingLocation(true);
+
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const { latitude, longitude } = position.coords;
-                setUserLocation({ latitude, longitude });
-                setGpsStatus('success: Location found!');
-                setShowSaveButton(true);
+            async (position) => {
+                const {
+                    latitude,
+                    longitude,
+                    accuracy,
+                } = position.coords;
+
+                const currentLocation = {
+                    latitude,
+                    longitude,
+                    accuracy,
+                };
+
+                setDetectedLocation(currentLocation);
+
+                setGpsStatus(
+                    'Verifying your distance from this hidden gem...'
+                );
+
+                await verifyCurrentLocation(
+                    latitude,
+                    longitude
+                );
             },
+
             (error) => {
-                let errorMsg = 'Unable to get your location. ';
-                switch(error.code) {
+                let errorMessage =
+                    'Unable to detect your location. ';
+
+                switch (error.code) {
                     case error.PERMISSION_DENIED:
-                        errorMsg += 'Please allow location access in your browser.';
+                        errorMessage +=
+                            'Please allow location access in your browser and try again.';
                         break;
+
                     case error.POSITION_UNAVAILABLE:
-                        errorMsg += 'Location information is unavailable.';
+                        errorMessage +=
+                            'Location information is unavailable. Please try again.';
                         break;
+
                     case error.TIMEOUT:
-                        errorMsg += 'Location request timed out.';
+                        errorMessage +=
+                            'Location detection timed out. Please try again.';
                         break;
+
                     default:
-                        errorMsg += error.message;
+                        errorMessage +=
+                            error.message ||
+                            'Please try again.';
                 }
-                setGpsStatus('error: ' + errorMsg);
+
+                setGpsStatus(
+                    `error: ${errorMessage}`
+                );
+
+                setCheckingLocation(false);
             },
+
             {
+                /*
+                 * Request a more accurate location.
+                 */
                 enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 60000
+
+                /*
+                 * Give the browser up to 15 seconds.
+                 */
+                timeout: 15000,
+
+                /*
+                 * Do not reuse a previously cached GPS location.
+                 */
+                maximumAge: 0,
             }
         );
     };
 
-    const handleSaveLocation = () => {
-        if (!userLocation) return;
-        
-        const locationData = { 
-            latitude: userLocation.latitude, 
-            longitude: userLocation.longitude,
-            saved_at: new Date().toISOString()
-        };
-        
-        localStorage.setItem(`vote_location_${locationId}`, JSON.stringify(locationData));
-        setSavedLocation(locationData);
-        setHasSavedLocation(true);
-        
-        performCheckIn(userLocation.latitude, userLocation.longitude);
-    };
+    // =====================================================
+    // VERIFY CURRENT GPS WITH BACKEND
+    // =====================================================
 
-    const handleManualCheckIn = () => {
-        setCheckInMethod('manual');
-        setStep('manual_checkin');
-        setMessage('');
-        setGpsStatus('');
-        setShowSaveButton(false);
-    };
-
-    const performCheckIn = async (latitude, longitude) => {
-        setCheckingIn(true);
-        setMessage('');
+    const verifyCurrentLocation = async (
+        latitude,
+        longitude
+    ) => {
         try {
             const token = getToken();
-            const response = await fetch('/api/votes/checkin/' + locationId, {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + token,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    latitude: latitude,
-                    longitude: longitude,
-                    check_in_at: new Date().toISOString()
-                })
-            });
+
+            const response = await fetch(
+                `/api/votes/checkin/${locationId}`,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+
+                    body: JSON.stringify({
+                        latitude,
+                        longitude,
+                        check_in_at:
+                            new Date().toISOString(),
+                    }),
+                }
+            );
+
             const data = await response.json();
 
-            if (response.ok) {
-                setEligibility({ ...eligibility, has_check_in: true });
-                setStep('voting');
-                const distanceMsg = data.distance ? ' (' + data.distance + ' km away)' : '';
-                setMessage('Check-in successful!' + distanceMsg + ' Location saved for future votes.');
-            } else {
-                if (data.distance && data.max_distance) {
-                    setMessage('You are ' + data.distance + ' km away. You must be within ' + data.max_distance + ' km to check in.');
+            // =================================================
+            // OUTSIDE 5 KM OR VERIFICATION FAILED
+            // =================================================
+
+            if (!response.ok) {
+                setVerifiedLocation(null);
+
+                if (
+                    data.distance !== undefined &&
+                    data.max_distance !== undefined
+                ) {
+                    setGpsStatus(
+                        `error: You are ${data.distance} km away. You must be within ${data.max_distance} km to vote.`
+                    );
                 } else {
-                    setMessage(data.message || 'Check-in failed');
+                    setGpsStatus(
+                        `error: ${
+                            data.message ||
+                            'Location verification failed.'
+                        }`
+                    );
                 }
+
+                /*
+                 * Stay on the check-in screen.
+                 *
+                 * Vote buttons will NOT appear.
+                 */
+                setStep('checkin');
+
+                return;
             }
+
+            // =================================================
+            // WITHIN 5 KM
+            // =================================================
+
+            const verified = {
+                latitude,
+                longitude,
+
+                distance:
+                    data.distance !== undefined
+                        ? data.distance
+                        : null,
+
+                verifiedAt:
+                    new Date().toISOString(),
+            };
+
+            setVerifiedLocation(verified);
+
+            setGpsStatus(
+                'success: Current location verified.'
+            );
+
+            if (
+                data.distance !== undefined &&
+                data.distance !== null
+            ) {
+                setMessage(
+                    `You are ${data.distance} km away and within the allowed voting area.`
+                );
+            } else {
+                setMessage(
+                    'You are within the allowed voting area.'
+                );
+            }
+
+            /*
+             * Only after successful verification
+             * will the Vote buttons appear.
+             */
+            setStep('ready');
+
         } catch (error) {
-            setMessage('Check-in failed');
+            console.error(
+                'Error verifying location:',
+                error
+            );
+
+            setVerifiedLocation(null);
+
+            setGpsStatus(
+                'error: Location verification failed. Please try again.'
+            );
+
+            setStep('checkin');
+
         } finally {
-            setCheckingIn(false);
+            setCheckingLocation(false);
         }
     };
 
-    const confirmManualCheckIn = () => {
-        const lat = parseFloat(manualLat);
-        const lng = parseFloat(manualLng);
+    // =====================================================
+    // SAVE VERIFIED LOCATION
+    // =====================================================
 
-        if (!manualLat || !manualLng) {
-            setMessage('Please enter your current latitude and longitude.');
+    const saveVerifiedLocation = () => {
+        if (!verifiedLocation) {
             return;
         }
 
-        if (isNaN(lat) || isNaN(lng)) {
-            setMessage('Please enter valid coordinates.');
+        const locationData = {
+            latitude:
+                verifiedLocation.latitude,
+
+            longitude:
+                verifiedLocation.longitude,
+
+            saved_at:
+                new Date().toISOString(),
+        };
+
+        /*
+         * Each Hidden Gem has its own saved location.
+         *
+         * Example:
+         * vote_location_12
+         * vote_location_35
+         *
+         * If a saved location already exists,
+         * this will replace it.
+         */
+        localStorage.setItem(
+            `vote_location_${locationId}`,
+            JSON.stringify(locationData)
+        );
+    };
+
+    // =====================================================
+    // SUBMIT VOTE
+    // =====================================================
+
+    const submitVote = async (
+        saveLocation = false
+    ) => {
+        /*
+         * Frontend protection.
+         *
+         * A verified current GPS location
+         * must exist before voting.
+         */
+        if (!verifiedLocation) {
+            setStep('checkin');
+
+            setGpsStatus(
+                'error: Please verify your current location before voting.'
+            );
+
             return;
         }
 
-        const locationData = { latitude: lat, longitude: lng, saved_at: new Date().toISOString() };
-        localStorage.setItem(`vote_location_${locationId}`, JSON.stringify(locationData));
-        setSavedLocation(locationData);
-        setHasSavedLocation(true);
-
-        performCheckIn(lat, lng);
-    };
-
-    const handlePhotoChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setPhoto(file);
-            setPhotoPreview(URL.createObjectURL(file));
-        }
-    };
-
-    const handleSubmitVote = async () => {
         setLoading(true);
         setMessage('');
+
         try {
             const token = getToken();
-            const formData = new FormData();
-            formData.append('comment', comment);
-            if (photo) {
-                formData.append('photo', photo);
-            }
 
-            const response = await fetch('/api/votes/' + locationId, {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                },
-                body: formData
-            });
+            const response = await fetch(
+                `/api/votes/${locationId}`,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: 'application/json',
+                    },
+                }
+            );
 
             const data = await response.json();
-            if (response.ok) {
-                setStep('success');
-                setMessage(data.message);
-                if (onVoteSuccess) {
-                    onVoteSuccess(data);
-                }
-            } else {
-                setMessage(data.message || 'Failed to submit vote');
+
+            if (!response.ok) {
                 setStep('error');
+
+                setMessage(
+                    data.message ||
+                    'Failed to submit vote.'
+                );
+
+                return;
             }
+
+            /*
+             * IMPORTANT:
+             *
+             * Location is saved ONLY after:
+             *
+             * 1. GPS passed the 5 km check
+             * 2. Vote submission succeeded
+             * 3. User chose "Save Location & Vote"
+             */
+
+            if (saveLocation) {
+                saveVerifiedLocation();
+            }
+
+            setStep('success');
+
+            setMessage(
+                data.message ||
+                'Vote submitted successfully!'
+            );
+
+            if (onVoteSuccess) {
+                onVoteSuccess(data);
+            }
+
         } catch (error) {
-            setMessage('Failed to submit vote');
+            console.error(
+                'Error submitting vote:',
+                error
+            );
+
             setStep('error');
+
+            setMessage(
+                'Failed to submit vote.'
+            );
+
         } finally {
             setLoading(false);
         }
     };
 
+    // =====================================================
+    // RESET
+    // =====================================================
+
     const reset = () => {
         setStep('checking');
-        setComment('');
-        setPhoto(null);
-        setPhotoPreview(null);
-        setMessage('');
+
+        setLoading(false);
+        setCheckingLocation(false);
+
         setEligibility(null);
-        setUserLocation(null);
+
+        setMessage('');
         setGpsStatus('');
-        setCheckInMethod(null);
-        setManualLat('');
-        setManualLng('');
-        setShowSaveButton(false);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+
+        setDetectedLocation(null);
+        setVerifiedLocation(null);
     };
 
     const handleClose = () => {
         reset();
+
         onClose();
     };
 
     const goToLogin = () => {
         handleClose();
+
         navigate('/login');
     };
 
-    const goBackToCheckIn = () => {
-        setStep('checkin');
-        setGpsStatus('');
-        setUserLocation(null);
-        setCheckInMethod(null);
-        setMessage('');
-        setManualLat('');
-        setManualLng('');
-        setShowSaveButton(false);
-    };
+    if (!isOpen) {
+        return null;
+    }
 
-    if (!isOpen) return null;
+    const gemLocation =
+        eligibility?.location;
 
-    const gemLocation = eligibility?.location;
+    // =====================================================
+    // UI
+    // =====================================================
 
     return (
-        <div className="vote-modal-overlay" onClick={handleClose}>
-            <div className="vote-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+            className="vote-modal-overlay"
+            onClick={handleClose}
+        >
+            <div
+                className="vote-modal"
+                onClick={(event) =>
+                    event.stopPropagation()
+                }
+            >
+                {/* =========================================
+                    HEADER
+                ========================================= */}
+
                 <div className="vote-modal-header">
-                    <h2>Vote for Hidden Gem</h2>
-                    <button className="vote-modal-close" onClick={handleClose}>✕</button>
+                    <div>
+                        <h2>
+                            Vote for Hidden Gem
+                        </h2>
+
+                        <p>
+                            Verify that you are currently
+                            near this location.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        className="vote-modal-close"
+                        onClick={handleClose}
+                        aria-label="Close"
+                    >
+                        ✕
+                    </button>
                 </div>
 
                 <div className="vote-modal-body">
+
+                    {/* =====================================
+                        CHECKING ELIGIBILITY
+                    ===================================== */}
+
                     {step === 'checking' && (
                         <div className="vote-loading">
-                            <div className="vote-loading-spinner"></div>
-                            <p>Checking eligibility...</p>
+                            <div
+                                className="vote-loading-spinner"
+                            />
+
+                            <p>
+                                Checking eligibility...
+                            </p>
                         </div>
                     )}
 
+                    {/* =====================================
+                        DETECT CURRENT GPS
+                    ===================================== */}
+
                     {step === 'checkin' && (
                         <div className="vote-checkin">
-                            <h3>Check-in Required</h3>
-                            
-                            {hasSavedLocation && savedLocation && (
-                                <div className="vote-checkin-saved-location">
-                                    <p>You have a saved location for this gem</p>
-                                    <p className="vote-checkin-location-coords">
-                                        Lat: {savedLocation.latitude.toFixed(6)}, Lng: {savedLocation.longitude.toFixed(6)}
-                                    </p>
-                                    <p className="vote-checkin-hint">
-                                        You can use this saved location to vote.
-                                    </p>
-                                    <button
-                                        className="vote-btn-primary"
-                                        onClick={() => {
-                                            setStep('voting');
-                                            setMessage('Using saved location. You can vote.');
-                                        }}
-                                    >
-                                        Use Saved Location to Vote
-                                    </button>
+
+                            <div className="vote-section-heading">
+                                <h3>
+                                    Verify Current Location
+                                </h3>
+
+                                <p>
+                                    Your current GPS location
+                                    must be within 5 km of this
+                                    hidden gem.
+                                </p>
+                            </div>
+
+                            {/* Hidden Gem Location */}
+
+                            {gemLocation && (
+                                <div className="vote-location-card">
+
+                                    <div className="vote-location-icon">
+                                        📍
+                                    </div>
+
+                                    <div className="vote-location-content">
+
+                                        <p className="vote-location-name">
+                                            {gemLocation.place_name}
+                                        </p>
+
+                                        <p className="vote-location-address">
+                                            {gemLocation.address}
+                                        </p>
+
+                                        <p className="vote-location-coords">
+                                            {gemLocation.latitude}
+                                            ,
+                                            {' '}
+                                            {gemLocation.longitude}
+                                        </p>
+
+                                    </div>
+
                                 </div>
                             )}
 
-                            {!hasSavedLocation && (
-                                <>
-                                    <p>You need to check-in at this location before you can vote.</p>
+                            {/* GPS Detect */}
 
-                                    {gemLocation && (
-                                        <div className="vote-checkin-location">
-                                            <p className="vote-checkin-location-name">{gemLocation.place_name}</p>
-                                            <p className="vote-checkin-location-address">{gemLocation.address}</p>
-                                            <p className="vote-checkin-location-coords">
-                                                {gemLocation.latitude}, {gemLocation.longitude}
-                                            </p>
-                                        </div>
-                                    )}
+                            <button
+                                type="button"
+                                className="vote-detect-btn"
+                                onClick={getCurrentLocation}
+                                disabled={checkingLocation}
+                            >
+                                <span className="vote-detect-icon">
+                                    ◎
+                                </span>
 
-                                    <p className="vote-checkin-hint">
-                                        You must be within 5 km to check in. Your location will be saved for future votes.
-                                    </p>
+                                <span className="vote-detect-text">
 
-                                    <div className="vote-checkin-options">
-                                        <button
-                                            className="vote-checkin-option"
-                                            onClick={getCurrentLocation}
-                                            disabled={checkingIn}
-                                        >
-                                            <span className="vote-checkin-option-label">Use My Current Location</span>
-                                            <span className="vote-checkin-option-desc">Auto-detect GPS and save for future</span>
-                                        </button>
+                                    <strong>
+                                        {checkingLocation
+                                            ? 'Detecting Location...'
+                                            : 'Detect My Current Location'}
+                                    </strong>
 
-                                        <button
-                                            className="vote-checkin-option"
-                                            onClick={handleManualCheckIn}
-                                            disabled={checkingIn}
-                                        >
-                                            <span className="vote-checkin-option-label">Enter Current Location</span>
-                                            <span className="vote-checkin-option-desc">Manually enter GPS coordinates</span>
-                                        </button>
+                                    <small>
+                                        Use GPS to verify your
+                                        distance
+                                    </small>
+
+                                </span>
+
+                            </button>
+
+                            {/* Detected Coordinates */}
+
+                            {detectedLocation &&
+                                !verifiedLocation && (
+                                    <div className="vote-detected-location">
+
+                                        Detected:
+                                        {' '}
+
+                                        {detectedLocation.latitude.toFixed(6)}
+                                        ,
+                                        {' '}
+
+                                        {detectedLocation.longitude.toFixed(6)}
+
                                     </div>
-                                </>
-                            )}
+                                )}
+
+                            {/* GPS Status */}
 
                             {gpsStatus && (
-                                <div className={`vote-gps-status ${gpsStatus.startsWith('error:') ? 'error' : 'success'}`}>
-                                    {gpsStatus.replace(/^(error:|success:)/, '')}
+                                <div
+                                    className={`vote-gps-status ${
+                                        gpsStatus.startsWith(
+                                            'error:'
+                                        )
+                                            ? 'error'
+                                            : gpsStatus.startsWith(
+                                                'success:'
+                                            )
+                                                ? 'success'
+                                                : 'checking'
+                                    }`}
+                                >
+                                    {gpsStatus.replace(
+                                        /^(error:|success:)/,
+                                        ''
+                                    )}
                                 </div>
                             )}
 
-                            {userLocation && showSaveButton && (
-                                <div className="vote-save-location">
-                                    <p className="vote-checkin-location-coords">
-                                        Detected: {userLocation.latitude.toFixed(6)}, {userLocation.longitude.toFixed(6)}
-                                    </p>
-                                    <button
-                                        className="vote-btn-primary"
-                                        onClick={handleSaveLocation}
-                                        disabled={checkingIn}
-                                    >
-                                        Save My Current Location
-                                    </button>
-                                </div>
-                            )}
+                            {/* Retry */}
 
-                            {message && (
-                                <div className={`vote-message ${message.includes('km') ? 'error' : 'success'}`}>
-                                    {message}
-                                </div>
+                            {gpsStatus.startsWith(
+                                'error:'
+                            ) && (
+                                <button
+                                    type="button"
+                                    className="vote-retry-btn"
+                                    onClick={getCurrentLocation}
+                                    disabled={checkingLocation}
+                                >
+                                    {checkingLocation
+                                        ? 'Detecting...'
+                                        : 'Try Detect Again'}
+                                </button>
                             )}
 
                             <button
-                                className="vote-btn-secondary"
+                                type="button"
+                                className="vote-cancel-link"
                                 onClick={handleClose}
                             >
                                 Cancel
                             </button>
+
                         </div>
                     )}
 
-                    {step === 'manual_checkin' && (
-                        <div className="vote-manual-checkin">
-                            <button
-                                className="vote-manual-back"
-                                onClick={goBackToCheckIn}
-                            >
-                                ← Back
-                            </button>
+                    {/* =====================================
+                        LOCATION VERIFIED
+                    ===================================== */}
 
-                            <h3>Enter Your Current Location</h3>
+                    {step === 'ready' &&
+                        verifiedLocation && (
+                            <div className="vote-ready">
 
-                            {gemLocation && (
-                                <div className="vote-checkin-location">
-                                    <p className="vote-checkin-location-name">Destination: {gemLocation.place_name}</p>
-                                    <p className="vote-checkin-location-coords">
-                                        {gemLocation.latitude}, {gemLocation.longitude}
+                                <div className="vote-ready-icon">
+                                    ✓
+                                </div>
+
+                                <div className="vote-section-heading">
+
+                                    <h3>
+                                        Location Verified
+                                    </h3>
+
+                                    <p>
+                                        You are within 5 km of
+                                        this hidden gem and can
+                                        now vote.
                                     </p>
+
                                 </div>
-                            )}
 
-                            <p className="vote-manual-hint">
-                                Enter your current GPS coordinates manually to check in and save for future votes.
-                            </p>
+                                {/* Verified Information */}
 
-                            <div className="vote-manual-inputs">
-                                <div className="vote-manual-input-group">
-                                    <label>Latitude</label>
-                                    <input
-                                        type="text"
-                                        className="vote-manual-input"
-                                        placeholder="e.g. 3.2143"
-                                        value={manualLat}
-                                        onChange={(e) => setManualLat(e.target.value)}
-                                    />
+                                <div className="vote-verified-card">
+
+                                    <div>
+                                        <span>
+                                            Current Location
+                                        </span>
+
+                                        <strong>
+                                            {verifiedLocation.latitude.toFixed(6)}
+                                            ,
+                                            {' '}
+                                            {verifiedLocation.longitude.toFixed(6)}
+                                        </strong>
+                                    </div>
+
+                                    {verifiedLocation.distance !==
+                                        null && (
+                                            <div>
+
+                                                <span>
+                                                    Distance
+                                                </span>
+
+                                                <strong>
+                                                    {verifiedLocation.distance}
+                                                    {' '}
+                                                    km
+                                                </strong>
+
+                                            </div>
+                                        )}
+
                                 </div>
-                                <div className="vote-manual-input-group">
-                                    <label>Longitude</label>
-                                    <input
-                                        type="text"
-                                        className="vote-manual-input"
-                                        placeholder="e.g. 101.7281"
-                                        value={manualLng}
-                                        onChange={(e) => setManualLng(e.target.value)}
-                                    />
-                                </div>
-                            </div>
 
-                            {message && (
-                                <div className={`vote-message ${message.includes('km') ? 'error' : 'success'}`}>
-                                    {message}
-                                </div>
-                            )}
-
-                            <div className="vote-actions">
-                                <button
-                                    className="vote-btn-primary"
-                                    onClick={confirmManualCheckIn}
-                                    disabled={checkingIn}
-                                >
-                                    {checkingIn ? 'Checking in...' : 'Confirm Check-in & Save'}
-                                </button>
-                                <button
-                                    className="vote-btn-secondary"
-                                    onClick={goBackToCheckIn}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 'voting' && (
-                        <div className="vote-form">
-                            <div className="vote-location-info">
-                                <p>{eligibility?.location?.place_name}</p>
-                                <p className="vote-location-address">{eligibility?.location?.address}</p>
-                                {hasSavedLocation && savedLocation && (
-                                    <p className="vote-location-coords">
-                                        Using saved location: {savedLocation.latitude.toFixed(6)}, {savedLocation.longitude.toFixed(6)}
-                                    </p>
+                                {message && (
+                                    <div className="vote-message success">
+                                        {message}
+                                    </div>
                                 )}
-                            </div>
 
-                            <div className="vote-form-group">
-                                <label>Your Review</label>
-                                <textarea
-                                    className="vote-textarea"
-                                    placeholder="Share your experience at this hidden gem..."
-                                    value={comment}
-                                    onChange={(e) => setComment(e.target.value)}
-                                    maxLength={1000}
-                                />
-                                <span className="vote-char-count">{comment.length}/1000</span>
-                            </div>
+                                {/* =================================
+                                    USER CHOICE
+                                ================================= */}
 
-                            <div className="vote-form-group">
-                                <label>Upload Photo (optional)</label>
-                                <div className="vote-upload-area" onClick={() => fileInputRef.current?.click()}>
-                                    {photoPreview ? (
-                                        <img src={photoPreview} alt="Preview" className="vote-photo-preview" />
-                                    ) : (
-                                        <div className="vote-upload-placeholder">
-                                            <p>Click to upload a photo</p>
-                                        </div>
-                                    )}
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handlePhotoChange}
-                                        style={{ display: 'none' }}
-                                    />
-                                </div>
-                                {photo && (
+                                <div className="vote-choice-list">
+
+                                    {/* Vote Only */}
+
                                     <button
-                                        className="vote-remove-photo"
-                                        onClick={() => {
-                                            setPhoto(null);
-                                            setPhotoPreview(null);
-                                            if (fileInputRef.current) {
-                                                fileInputRef.current.value = '';
-                                            }
-                                        }}
+                                        type="button"
+                                        className="vote-choice vote-choice-primary"
+                                        onClick={() =>
+                                            submitVote(false)
+                                        }
+                                        disabled={loading}
                                     >
-                                        Remove photo
+                                        <span>
+
+                                            <strong>
+                                                {loading
+                                                    ? 'Submitting...'
+                                                    : 'Vote Now'}
+                                            </strong>
+
+                                            <small>
+                                                Submit your vote
+                                                without saving
+                                                this location
+                                            </small>
+
+                                        </span>
+
+                                        <span>
+                                            →
+                                        </span>
                                     </button>
-                                )}
-                            </div>
 
-                            {message && (
-                                <div className="vote-message success">{message}</div>
-                            )}
+                                    {/* Save + Vote */}
 
-                            <div className="vote-actions">
-                                <button
-                                    className="vote-btn-primary"
-                                    onClick={handleSubmitVote}
-                                    disabled={loading}
-                                >
-                                    {loading ? 'Submitting...' : 'Submit Vote'}
-                                </button>
-                                <button
-                                    className="vote-btn-secondary"
-                                    onClick={handleClose}
-                                >
-                                    Cancel
-                                </button>
+                                    <button
+                                        type="button"
+                                        className="vote-choice vote-choice-save"
+                                        onClick={() =>
+                                            submitVote(true)
+                                        }
+                                        disabled={loading}
+                                    >
+                                        <span>
+
+                                            <strong>
+                                                Save Location & Vote
+                                            </strong>
+
+                                            <small>
+                                                Save this verified
+                                                location for this
+                                                hidden gem
+                                            </small>
+
+                                        </span>
+
+                                        <span>
+                                            ☆
+                                        </span>
+                                    </button>
+
+                                </div>
+
+                                {/* Other Actions */}
+
+                                <div className="vote-ready-footer">
+
+                                    <button
+                                        type="button"
+                                        className="vote-small-btn"
+                                        onClick={
+                                            getCurrentLocation
+                                        }
+                                        disabled={
+                                            loading ||
+                                            checkingLocation
+                                        }
+                                    >
+                                        Detect Again
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="vote-small-btn"
+                                        onClick={handleClose}
+                                        disabled={loading}
+                                    >
+                                        Cancel
+                                    </button>
+
+                                </div>
+
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                    {/* =====================================
+                        SUCCESS
+                    ===================================== */}
 
                     {step === 'success' && (
-                        <div className="vote-success">
-                            <h3>Vote Submitted!</h3>
-                            <p>{message}</p>
-                            <button className="vote-btn-primary" onClick={handleClose}>
+                        <div className="vote-result vote-success">
+
+                            <div className="vote-result-icon success">
+                                ✓
+                            </div>
+
+                            <h3>
+                                Vote Submitted!
+                            </h3>
+
+                            <p>
+                                {message}
+                            </p>
+
+                            <button
+                                type="button"
+                                className="vote-btn-primary"
+                                onClick={handleClose}
+                            >
                                 Close
                             </button>
+
                         </div>
                     )}
 
+                    {/* =====================================
+                        ERROR
+                    ===================================== */}
+
                     {step === 'error' && (
-                        <div className="vote-error">
-                            <h3>Cannot Vote</h3>
-                            <p>{message}</p>
-                            {message.includes('login') ? (
-                                <button className="vote-btn-primary" onClick={goToLogin}>
-                                    Login to Vote
-                                </button>
-                            ) : (
-                                <button className="vote-btn-primary" onClick={handleClose}>
-                                    Close
-                                </button>
-                            )}
+                        <div className="vote-result vote-error">
+
+                            <div className="vote-result-icon error">
+                                !
+                            </div>
+
+                            <h3>
+                                Cannot Vote
+                            </h3>
+
+                            <p>
+                                {message}
+                            </p>
+
+                            {message
+                                .toLowerCase()
+                                .includes('login') ? (
+                                    <button
+                                        type="button"
+                                        className="vote-btn-primary"
+                                        onClick={goToLogin}
+                                    >
+                                        Login to Vote
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="vote-btn-primary"
+                                        onClick={handleClose}
+                                    >
+                                        Close
+                                    </button>
+                                )}
+
                         </div>
                     )}
+
                 </div>
             </div>
         </div>
