@@ -80,6 +80,9 @@ export default function MyHiddenGems() {
         category: searchParams.get("category") || "",
         state: searchParams.get("state") || "",
     };
+    const hasActiveFilters = Boolean(
+        filters.status || filters.category || filters.state
+    );
 
     const filteredGems = gems.filter((gem) =>
         (!filters.status || gem.status === filters.status)
@@ -174,6 +177,14 @@ export default function MyHiddenGems() {
             nextParams.delete(name);
         }
 
+        setSearchParams(nextParams, { replace: true });
+    };
+
+    const clearFilters = () => {
+        const nextParams = new URLSearchParams(searchParams);
+        ["status", "category", "state"].forEach((name) => {
+            nextParams.delete(name);
+        });
         setSearchParams(nextParams, { replace: true });
     };
 
@@ -437,6 +448,16 @@ export default function MyHiddenGems() {
                             </option>
                         ))}
                     </select>
+
+                    {hasActiveFilters && (
+                        <button
+                            type="button"
+                            className="hidden-gems-filter-clear hidden-gems-filter-clear-active"
+                            onClick={clearFilters}
+                        >
+                            <span aria-hidden="true">✕</span> Clear Filters
+                        </button>
+                    )}
                 </div>
             )}
 
