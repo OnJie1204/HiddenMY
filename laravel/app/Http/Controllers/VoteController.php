@@ -169,7 +169,7 @@ class VoteController extends Controller
 
     public function getVotes($locationId)
     {
-        $votes = Vote::with('user')
+        $votes = Vote::with('user:id,name,avatar_url')
             ->where('location_id', $locationId)
             ->orderBy('created_at', 'desc')
             ->get();

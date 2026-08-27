@@ -209,11 +209,11 @@ function Profile({ setAppUser }) {
                   className="profile-achievement-badges"
                 />
               </div>
-              <p className="profile-header-email">{user.email}</p>
+              {isOwnProfile && <p className="profile-header-email">{user.email}</p>}
               <div className="profile-header-badges">
                 {memberSince && <span className="profile-badge">Member since {memberSince}</span>}
-                {user.google_id && <span className="profile-badge profile-badge-google">Linked with Google</span>}
-                {user.email_verified_at && (
+                {isOwnProfile && user.google_id && <span className="profile-badge profile-badge-google">Linked with Google</span>}
+                {isOwnProfile && user.email_verified_at && (
                   <span className="profile-badge profile-badge-verified">Email verified</span>
                 )}
               </div>

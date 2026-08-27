@@ -25,13 +25,15 @@ class TravelPostController extends Controller
 
     private const RELATIONS = ['user', 'tripItinerary', 'images', 'locations.category', 'locations.images'];
 
+    private const PUBLIC_RELATIONS = ['user:id,name,avatar_url', 'tripItinerary', 'images', 'locations.category', 'locations.images'];
+
     public function __construct(private SpecialAchievementService $specialAchievements)
     {
     }
 
     public function index(Request $request): JsonResponse
     {
-        $query = TravelPost::with(self::RELATIONS)->latest();
+        $query = TravelPost::with(self::PUBLIC_RELATIONS)->latest();
 
         if ($request->filled('state')) {
             $query->whereHas('locations', fn ($q) => $q->where('state', $request->state));
@@ -46,7 +48,7 @@ class TravelPostController extends Controller
 
     public function show($id): JsonResponse
     {
-        $post = TravelPost::with(self::RELATIONS)->findOrFail($id);
+        $post = TravelPost::with(self::PUBLIC_RELATIONS)->findOrFail($id);
 
         return response()->json(['data' => $this->includeAuthorFavourites($post)]);
     }
@@ -63,7 +65,7 @@ class TravelPostController extends Controller
 
     public function forLocation($locationId): JsonResponse
     {
-        $posts = TravelPost::with(['user', 'images'])
+        $posts = TravelPost::with(['user:id,name,avatar_url', 'images'])
             ->whereHas('locations', fn ($q) => $q->where('locations.id', $locationId))
             ->latest()
             ->get();

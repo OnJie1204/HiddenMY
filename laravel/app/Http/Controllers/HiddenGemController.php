@@ -142,7 +142,7 @@ class HiddenGemController extends Controller
     {
         // Public listing — only AI-approved (or already community-verified) gems
         // may be discoverable; anything still awaiting/failing AI review must stay hidden.
-        $query = Location::with(['user', 'category', 'images'])
+        $query = Location::with(['user:id,name,avatar_url', 'category', 'images'])
             ->publiclyVisible();
 
         // Filter by status (hidden_gem / pending_community_vote)
@@ -335,7 +335,12 @@ class HiddenGemController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $location = Location::with(['user', 'category', 'images', 'votes.user'])
+        $location = Location::with([
+            'user:id,name,avatar_url',
+            'category',
+            'images',
+            'votes.user:id,name,avatar_url',
+        ])
                             ->findOrFail($id);
 
         $isPubliclyVisible = in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true);
@@ -799,7 +804,7 @@ class HiddenGemController extends Controller
 
     public function recent(): JsonResponse
     {
-        $recentLocations = Location::with(['user', 'category', 'images'])
+        $recentLocations = Location::with(['user:id,name,avatar_url', 'category', 'images'])
             ->publiclyVisible()
             ->latest()
             ->take(6)
@@ -812,7 +817,7 @@ class HiddenGemController extends Controller
     {
         // Ranked by actual review count (votes with real rows) rather than the
         // cached vote_count column, so a stale/drifted counter can't misrank.
-        $popularLocations = Location::with(['user', 'category', 'images'])
+        $popularLocations = Location::with(['user:id,name,avatar_url', 'category', 'images'])
             ->withCount('votes')
             ->where('status', 'hidden_gem')
             ->orderByDesc('votes_count')

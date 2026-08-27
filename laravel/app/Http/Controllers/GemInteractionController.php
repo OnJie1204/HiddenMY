@@ -131,7 +131,7 @@ class GemInteractionController extends Controller
 
         $comments = GemInteraction::where('location_id', $locationId)
             ->where('type', 'comment')
-            ->with('user')
+            ->with('user:id,name,avatar_url')
             ->orderBy('created_at', 'desc')
             ->get();
 
