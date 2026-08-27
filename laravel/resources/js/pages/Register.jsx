@@ -61,7 +61,7 @@ function Register({ onRegisterSuccess }) {
 
       <div className="auth-form-panel">
         <form onSubmit={handleSubmit} className="auth-card">
-          <h2>Create account</h2>
+          <h2>Sign Up</h2>
           <p className="subtitle">Join HiddenMY and start exploring</p>
           {error && <p className="msg-error">{error}</p>}
           <input name="name" placeholder="Name" onChange={handleChange} required className="form-input" />
@@ -125,7 +125,7 @@ function Register({ onRegisterSuccess }) {
             </p>
           )}
           <button type="submit" className="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Creating account…' : 'Register'}
+            {submitting ? 'Signing up…' : 'Sign Up'}
           </button>
           <p className="auth-link-row">Already have an account? <Link to="/login" state={{ from: returnPath }}>Login</Link></p>
         </form>

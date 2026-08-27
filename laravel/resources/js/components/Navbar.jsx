@@ -35,7 +35,7 @@ function Navbar({ user, setUser, onMenuClick }) {
                     </>
                 ) : (
                     <div className="navbar-guest-actions">
-                        <Link to="/login" className="navbar-login-link">Log In</Link>
+                        <Link to="/login" className="navbar-login-link">Login</Link>
                         <Link to="/register" className="navbar-register-link">Sign Up</Link>
                     </div>
                 )}

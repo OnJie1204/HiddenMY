@@ -281,7 +281,7 @@ function Profile({ setAppUser }) {
                   <p>{isOwnProfile ? "You haven't submitted any hidden gems yet." : "No hidden gems yet."}</p>
                   {isOwnProfile && (
                     <Link to="/hidden-gems/create" className="hidden-gems-submit-btn">
-                      Submit Your First Hidden Gem
+                      + Hidden Gem
                     </Link>
                   )}
                 </div>

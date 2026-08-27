@@ -170,8 +170,8 @@ function SidePanel({
         // entirely and point them at sign-in.
         if (!user) {
             requireSignIn(reportStatus === "under_review"
-                ? "Sign in to help verify this report."
-                : "Sign in to report a problem with this gem.");
+                ? "Login to help verify this report."
+                : "Login to report a problem with this gem.");
             return;
         }
         if (reportStatus !== "under_review") {
@@ -207,7 +207,7 @@ function SidePanel({
     async function handleToggleWishlist() {
         if (!gem || wishlistBusy) return;
         if (!user) {
-            requireSignIn("Sign in to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.");
             return;
         }
         setWishlistBusy(true);
@@ -236,11 +236,11 @@ function SidePanel({
         { to: '/', label: 'Home' },
         { to: '/map', label: 'Map' },
         { to: '/hidden-gems', label: 'Hidden Gems' },
-        { to: '/my-hidden-gems', label: 'My Hidden Gems', signInMessage: 'Sign in to manage your hidden gems and contributions.' },
-        { to: '/wishlist', label: 'Wishlist', signInMessage: 'Sign in to view your wishlist.' },
-        { to: '/trip-itinerary', label: 'Trip Itinerary', signInMessage: 'Sign in to view and plan your trips.' },
+        { to: '/my-hidden-gems', label: 'My Hidden Gems', signInMessage: 'Login to manage your hidden gems and contributions.' },
+        { to: '/wishlist', label: 'Wishlist', signInMessage: 'Login to view your wishlist.' },
+        { to: '/trip-itinerary', label: 'Trip Itinerary', signInMessage: 'Login to view and plan your trips.' },
         { to: '/travel-posts', label: 'Travel Posts' },
-        { to: '/profile', label: 'Profile', signInMessage: 'Sign in to view your profile.' },
+        { to: '/profile', label: 'Profile', signInMessage: 'Login to view your profile.' },
     ];
 
     return (
@@ -286,7 +286,7 @@ function SidePanel({
                 </div>
             ) : (
                 <div className="side-panel-guest">
-                    <Link to="/login" className="side-panel-guest-login" onClick={onClose}>Log In</Link>
+                    <Link to="/login" className="side-panel-guest-login" onClick={onClose}>Login</Link>
                     <Link to="/register" className="side-panel-guest-register" onClick={onClose}>Sign Up</Link>
                 </div>
             ))}
@@ -371,7 +371,7 @@ function SidePanel({
                                         className={`compare-toggle-btn ${comparing ? "compare-toggle-btn-active" : ""}`}
                                         onClick={() => {
                                             if (!user) {
-                                                requireSignIn("Sign in to compare hidden gems.");
+                                                requireSignIn("Login to compare hidden gems.");
                                                 return;
                                             }
                                             toggleCompare(gem);
@@ -424,7 +424,7 @@ function SidePanel({
                                 className="side-panel-icon-btn"
                                 onClick={() => {
                                     if (!user) {
-                                        requireSignIn("Sign in to add gems to a trip itinerary.");
+                                        requireSignIn("Login to add gems to a trip itinerary.");
                                         return;
                                     }
                                     setItineraryStatus(null);

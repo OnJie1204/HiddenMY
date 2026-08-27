@@ -58,7 +58,7 @@ function Login({ onLoginSuccess }) {
       <div className="auth-form-panel">
         <form onSubmit={handleSubmit} className="auth-card">
           <h2>Welcome back</h2>
-          <p className="subtitle">Log in to continue to HiddenMY</p>
+          <p className="subtitle">Login to continue to HiddenMY</p>
           {infoMessage && <p className="msg-success">{infoMessage}</p>}
           {error && <p className="msg-error">{error}</p>}
           <input
@@ -115,7 +115,7 @@ function Login({ onLoginSuccess }) {
           >
             Continue as Guest
           </button>
-          <p className="auth-link-row">Don't have an account? <Link to="/register" state={{ from: returnPath }}>Register</Link></p>
+          <p className="auth-link-row">Don't have an account? <Link to="/register" state={{ from: returnPath }}>Sign Up</Link></p>
           <p className="auth-link-row"><Link to="/resend-verification">Didn't receive verification email?</Link></p>
         </form>
       </div>

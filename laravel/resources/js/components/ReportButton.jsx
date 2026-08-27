@@ -77,8 +77,8 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
                 message={isPending
-                    ? "Sign in to help verify this report."
-                    : "Sign in to report a problem with this gem."}
+                    ? "Login to help verify this report."
+                    : "Login to report a problem with this gem."}
             />
         </>
     );

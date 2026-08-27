@@ -138,7 +138,7 @@ export default function HiddenGemDetail({ user }) {
         e.preventDefault();
 
         if (!currentUser) {
-            requireSignIn("Sign in to rate or comment on this hidden gem.");
+            requireSignIn("Login to rate or comment on this hidden gem.");
             return;
         }
 
@@ -298,7 +298,7 @@ export default function HiddenGemDetail({ user }) {
     const handleToggleWishlist = async () => {
         if (!gem || wishlistBusy) return;
         if (!currentUser) {
-            requireSignIn("Sign in to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.");
             return;
         }
 
@@ -643,7 +643,7 @@ export default function HiddenGemDetail({ user }) {
                                     className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
                                     onClick={() => {
                                         if (!currentUser) {
-                                            requireSignIn("Sign in to compare hidden gems.");
+                                            requireSignIn("Login to compare hidden gems.");
                                             return;
                                         }
                                         toggleCompare(gem);
@@ -793,7 +793,7 @@ export default function HiddenGemDetail({ user }) {
                                     onClick={(event) => {
                                         if (user) return;
                                         event.preventDefault();
-                                        requireSignIn("Sign in to view this user's profile.");
+                                        requireSignIn("Login to view this user's profile.");
                                     }}
                                 >
                                     {gem.user?.name || "Unknown User"}
@@ -812,7 +812,7 @@ export default function HiddenGemDetail({ user }) {
                                     className="gem-detail-vote-btn"
                                     onClick={() => {
                                         if (!currentUser) {
-                                            requireSignIn("Sign in to vote on this hidden gem.");
+                                            requireSignIn("Login to vote on this hidden gem.");
                                             return;
                                         }
                                         setShowVoteModal(true);

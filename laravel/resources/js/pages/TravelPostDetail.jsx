@@ -234,7 +234,7 @@ export default function TravelPostDetail({ user }) {
             <SignInPrompt
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
-                message="Sign in to view this trip itinerary."
+                message="Login to view this trip itinerary."
             />
         </div>
     );

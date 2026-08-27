@@ -125,7 +125,7 @@ export default function HiddenGems({ user }) {
         e.stopPropagation();
         if (wishlistBusyId) return;
         if (!user) {
-            requireSignIn("Sign in to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.");
             return;
         }
 
@@ -186,7 +186,7 @@ export default function HiddenGems({ user }) {
                     className="hidden-gems-submit-btn"
                     onClick={() => {
                         if (!user) {
-                            requireSignIn("Sign in to submit a hidden gem.");
+                            requireSignIn("Login to submit a hidden gem.");
                             return;
                         }
                         navigate("/hidden-gems/create");
@@ -349,7 +349,7 @@ export default function HiddenGems({ user }) {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (!user) {
-                                                    requireSignIn("Sign in to compare hidden gems.");
+                                                    requireSignIn("Login to compare hidden gems.");
                                                     return;
                                                 }
                                                 toggleCompare(gem);

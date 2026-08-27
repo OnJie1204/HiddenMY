@@ -311,7 +311,11 @@ export default function MyHiddenGems() {
 
             <div className="hidden-gems-header">
                 <div>
-                    <h1>{activeTab === "contributions" ? "My Contributions" : "My Hidden Gems"}</h1>
+                    <h1>{{
+                        "hidden-gems": "My Hidden Gems",
+                        contributions: "My Contributions",
+                        achievements: "My Achievements",
+                    }[activeTab]}</h1>
                 </div>
 
                 <button
@@ -473,7 +477,7 @@ export default function MyHiddenGems() {
                         className="hidden-gems-submit-btn"
                         onClick={() => navigate("/hidden-gems/create")}
                     >
-                        Submit Your First Hidden Gem
+                        + Hidden Gem
                     </button>
                 </div>
 

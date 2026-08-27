@@ -36,7 +36,7 @@ export default function TravelPosts({ user }) {
 
     const handleCreatePost = () => {
         if (!user) {
-            requireSignIn("Sign in to write a travel post.");
+            requireSignIn("Login to write a travel post.");
             return;
         }
         navigate("/travel-posts/create");
@@ -112,7 +112,7 @@ export default function TravelPosts({ user }) {
                     className={mineOnly ? "active" : ""}
                     onClick={() => {
                         if (!user) {
-                            requireSignIn("Sign in to see the posts you've written.");
+                            requireSignIn("Login to see the posts you've written.");
                             return;
                         }
                         setMineOnly(true);

@@ -54,7 +54,7 @@ function Home({ user }) {
         e.stopPropagation();
         if (wishlistBusyId) return;
         if (!user) {
-            requireSignIn("Sign in to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.");
             return;
         }
 
@@ -145,8 +145,8 @@ function Home({ user }) {
     const quickActions = [
         { to: '/map', label: 'Map' },
         { to: '/hidden-gems', label: 'Gems' },
-        { to: '/trip-itinerary', label: 'Trips', signInMessage: 'Sign in to view and plan your trips.' },
-        { to: '/profile', label: 'Profile', signInMessage: 'Sign in to view your profile.' },
+        { to: '/trip-itinerary', label: 'Trips', signInMessage: 'Login to view and plan your trips.' },
+        { to: '/profile', label: 'Profile', signInMessage: 'Login to view your profile.' },
     ];
 
     const greetings = ['Hey', 'Hi', 'Hello', 'Welcome back'];
@@ -394,7 +394,7 @@ function Home({ user }) {
                     <Link
                         to="/trip-itinerary"
                         className="home-adventures-seeall"
-                        onClick={(event) => handleProtectedNavigation(event, 'Sign in to view your trips.')}
+                        onClick={(event) => handleProtectedNavigation(event, 'Login to view your trips.')}
                     >
                         See All →
                     </Link>
@@ -407,7 +407,7 @@ function Home({ user }) {
                             <p>No adventures yet</p>
                             <Link
                                 to="/trip-itinerary"
-                                onClick={(event) => handleProtectedNavigation(event, 'Sign in to start planning a trip.')}
+                                onClick={(event) => handleProtectedNavigation(event, 'Login to start planning a trip.')}
                             >
                                 Start planning →
                             </Link>
@@ -445,7 +445,7 @@ function Home({ user }) {
                     <Link
                         to="/trip-itinerary"
                         className="home-plan-card home-plan-card-trip"
-                        onClick={(event) => handleProtectedNavigation(event, 'Sign in to create a trip itinerary.')}
+                        onClick={(event) => handleProtectedNavigation(event, 'Login to create a trip itinerary.')}
                     >
                         <div className="home-plan-card-content">
                             <h3>Create New Trip</h3>
