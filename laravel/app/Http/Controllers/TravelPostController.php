@@ -25,7 +25,20 @@ class TravelPostController extends Controller
 
     private const RELATIONS = ['user', 'tripItinerary', 'images', 'locations.category', 'locations.images'];
 
-    private const PUBLIC_RELATIONS = ['user:id,name,avatar_url', 'tripItinerary', 'images', 'locations.category', 'locations.images'];
+    private const PUBLIC_LOCATION_COLUMNS = [
+        'locations.id',
+        'locations.category_id',
+        'locations.place_name',
+        'locations.address',
+        'locations.state',
+        'locations.description',
+        'locations.latitude',
+        'locations.longitude',
+        'locations.status',
+        'locations.report_status',
+        'locations.vote_count',
+        'locations.verification_threshold',
+    ];
 
     public function __construct(private SpecialAchievementService $specialAchievements)
     {
@@ -33,7 +46,7 @@ class TravelPostController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = TravelPost::with(self::PUBLIC_RELATIONS)->latest();
+        $query = TravelPost::with($this->publicRelations())->latest();
 
         if ($request->filled('state')) {
             $query->whereHas('locations', fn ($q) => $q->where('state', $request->state));
@@ -48,7 +61,7 @@ class TravelPostController extends Controller
 
     public function show($id): JsonResponse
     {
-        $post = TravelPost::with(self::PUBLIC_RELATIONS)->findOrFail($id);
+        $post = TravelPost::with($this->publicRelations())->findOrFail($id);
 
         return response()->json(['data' => $this->includeAuthorFavourites($post)]);
     }
@@ -215,6 +228,18 @@ class TravelPostController extends Controller
         });
 
         return $posts;
+    }
+
+    private function publicRelations(): array
+    {
+        return [
+            'user:id,name,avatar_url',
+            'tripItinerary',
+            'images',
+            'locations' => fn ($query) => $query->select(self::PUBLIC_LOCATION_COLUMNS),
+            'locations.category:id,name',
+            'locations.images:id,location_id,image_url',
+        ];
     }
 
     /** Silently drops any tagged location that isn't publicly visible rather than failing the whole post. */
