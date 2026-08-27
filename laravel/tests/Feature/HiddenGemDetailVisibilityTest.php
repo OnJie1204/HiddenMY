@@ -45,6 +45,18 @@ class HiddenGemDetailVisibilityTest extends TestCase
             ->assertJsonPath('data.id', $gem->id);
     }
 
+    public function test_owner_bearer_token_can_view_their_own_pending_submission(): void
+    {
+        $owner = User::factory()->create();
+        $gem = Location::factory()->for($owner)->create(['status' => 'pending']);
+        $token = $owner->createToken('hidden-gem-detail-test')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson("/api/hidden-gems/{$gem->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $gem->id);
+    }
+
     public function test_owner_can_view_their_own_ai_rejected_submission(): void
     {
         $owner = User::factory()->create();
@@ -53,6 +65,18 @@ class HiddenGemDetailVisibilityTest extends TestCase
         Sanctum::actingAs($owner);
 
         $this->getJson("/api/hidden-gems/{$gem->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $gem->id);
+    }
+
+    public function test_owner_bearer_token_can_view_their_own_ai_rejected_submission(): void
+    {
+        $owner = User::factory()->create();
+        $gem = Location::factory()->for($owner)->create(['status' => 'ai_rejected']);
+        $token = $owner->createToken('hidden-gem-detail-test')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson("/api/hidden-gems/{$gem->id}")
             ->assertOk()
             ->assertJsonPath('data.id', $gem->id);
     }
@@ -74,6 +98,18 @@ class HiddenGemDetailVisibilityTest extends TestCase
         Sanctum::actingAs($viewer);
 
         $this->getJson("/api/hidden-gems/{$gem->id}")
+            ->assertNotFound();
+    }
+
+    public function test_non_owner_bearer_token_cannot_view_another_users_non_public_submission(): void
+    {
+        $owner = User::factory()->create();
+        $viewer = User::factory()->create();
+        $gem = Location::factory()->for($owner)->create(['status' => 'pending']);
+        $token = $viewer->createToken('hidden-gem-detail-test')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson("/api/hidden-gems/{$gem->id}")
             ->assertNotFound();
     }
 

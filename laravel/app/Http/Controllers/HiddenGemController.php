@@ -390,7 +390,8 @@ class HiddenGemController extends Controller
                             ->findOrFail($id);
 
         $isPubliclyVisible = in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true);
-        $isOwner = Auth::id() !== null && $location->user_id === Auth::id();
+        $viewer = Auth::guard('sanctum')->user();
+        $isOwner = $viewer !== null && $location->user_id === $viewer->id;
 
         if (! $isPubliclyVisible && ! $isOwner) {
             abort(404);
