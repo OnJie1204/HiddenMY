@@ -51,7 +51,7 @@ function canEditWithinCommentWindow(createdAt) {
         && Date.now() <= createdAtMs + COMMENT_EDIT_WINDOW_MS;
 }
 
-export default function HiddenGemDetail() {
+export default function HiddenGemDetail({ user }) {
     const { id } = useParams();
     const navigate = useNavigate();
     const routeLocation = useLocation();
@@ -787,7 +787,15 @@ export default function HiddenGemDetail() {
                                 <h3>Discovered by</h3>
                             </div>
                             <div className="gem-detail-submitter-identity">
-                                <Link to={`/users/${gem.user?.id || ''}`} className="gem-detail-submitter-link">
+                                <Link
+                                    to={`/users/${gem.user?.id || ''}`}
+                                    className="gem-detail-submitter-link"
+                                    onClick={(event) => {
+                                        if (user) return;
+                                        event.preventDefault();
+                                        requireSignIn("Sign in to view this user's profile.");
+                                    }}
+                                >
                                     {gem.user?.name || "Unknown User"}
                                 </Link>
                                 <FavouriteAchievementBadges

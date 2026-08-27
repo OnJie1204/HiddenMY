@@ -75,13 +75,13 @@ function App() {
           <Layout user={user} setUser={setUser}><HiddenGems user={user} /></Layout>
         } />
         <Route path="/hidden-gems/:id" element={
-          <Layout user={user} setUser={setUser}><HiddenGemDetail /></Layout>
+          <Layout user={user} setUser={setUser}><HiddenGemDetail user={user} /></Layout>
         } />
         <Route path="/travel-posts" element={
           <Layout user={user} setUser={setUser}><TravelPosts user={user} /></Layout>
         } />
         <Route path="/travel-posts/:id" element={
-          <Layout user={user} setUser={setUser}><TravelPostDetail /></Layout>
+          <Layout user={user} setUser={setUser}><TravelPostDetail user={user} /></Layout>
         } />
 
         {/* 需要 Navbar 的页面(登入后才能进) */}

@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 // Shared "you need an account for that" modal — every write action a guest
 // can reach (vote, report, wishlist, compare, itinerary, check-in, comment,
@@ -7,12 +7,14 @@ import { useNavigate } from "react-router-dom";
 // as part of the same modal family rather than a one-off popup.
 function SignInPrompt({ isOpen, onClose, message = "Sign in to continue." }) {
     const navigate = useNavigate();
+    const location = useLocation();
 
     if (!isOpen) return null;
 
     const goTo = (path) => {
+        const from = `${location.pathname}${location.search}${location.hash}`;
         onClose();
-        navigate(path);
+        navigate(path, { state: { from } });
     };
 
     return (

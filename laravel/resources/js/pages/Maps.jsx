@@ -235,9 +235,11 @@ function Maps({ user }){
                 .then(res => setRecentPosts(res.data))
                 .catch(err => console.log(err));
 
-            getMyHiddenGems()
-                .then(res => setMyGems(res.data.data || []))
-                .catch(err => console.log(err));
+            if (user) {
+                getMyHiddenGems()
+                    .then(res => setMyGems(res.data.data || []))
+                    .catch(err => console.log(err));
+            }
 
             getPopularHiddenGems()
                 .then(res => setPopularPosts(res.data || []))
@@ -249,7 +251,7 @@ function Maps({ user }){
 
     const loadedPanelExtrasRef = useRef(false);
     useEffect(() => {
-        if (!panelOpen || loadedPanelExtrasRef.current) return;
+        if (!user || !panelOpen || loadedPanelExtrasRef.current) return;
         loadedPanelExtrasRef.current = true;
 
         const id = setTimeout(() => {
@@ -263,7 +265,7 @@ function Maps({ user }){
         }, 300);
 
         return () => clearTimeout(id);
-    }, [panelOpen]);
+    }, [panelOpen, user]);
 
     // ==================== Handle URL params (from HiddenGemDetail) ====================
     useEffect(() => {
@@ -757,13 +759,15 @@ function Maps({ user }){
                     onItemClick={selectGem}
                     emptyText="No recent gems yet."
                 />
-                <GemCarousel
-                    title="My Hidden Gems"
-                    seeMoreTo="/my-hidden-gems"
-                    items={myGems}
-                    onItemClick={selectGem}
-                    emptyText="You haven't posted any hidden gems yet."
-                />
+                {user && (
+                    <GemCarousel
+                        title="My Hidden Gems"
+                        seeMoreTo="/my-hidden-gems"
+                        items={myGems}
+                        onItemClick={selectGem}
+                        emptyText="You haven't posted any hidden gems yet."
+                    />
+                )}
                 <GemCarousel
                     title="Popular Hidden Gems"
                     seeMoreTo="/hidden-gems"

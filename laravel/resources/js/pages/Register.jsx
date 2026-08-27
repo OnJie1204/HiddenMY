@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { register } from '../api/auth';
 import { getPasswordStrength } from '../utils/password';
@@ -13,6 +13,13 @@ function Register({ onRegisterSuccess }) {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedReturnPath = location.state?.from;
+  const returnPath = typeof requestedReturnPath === 'string'
+    && requestedReturnPath.startsWith('/')
+    && !requestedReturnPath.startsWith('//')
+      ? requestedReturnPath
+      : '/';
   const passwordStrength = getPasswordStrength(form.password);
 
   const handleChange = (e) => {
@@ -25,7 +32,7 @@ function Register({ onRegisterSuccess }) {
     setSubmitting(true);
     try {
       const res = await register(form);
-      navigate('/login', { state: { message: res.data.message } });
+      navigate('/login', { state: { message: res.data.message, from: returnPath } });
     } catch (err) {
       const errors = err.response?.data?.errors;
       setError(errors ? Object.values(errors).flat().join(', ') : 'Registration failed');
@@ -120,7 +127,7 @@ function Register({ onRegisterSuccess }) {
           <button type="submit" className="btn btn-primary" disabled={submitting}>
             {submitting ? 'Creating account…' : 'Register'}
           </button>
-          <p className="auth-link-row">Already have an account? <Link to="/login">Login</Link></p>
+          <p className="auth-link-row">Already have an account? <Link to="/login" state={{ from: returnPath }}>Login</Link></p>
         </form>
       </div>
     </div>

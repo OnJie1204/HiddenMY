@@ -236,11 +236,11 @@ function SidePanel({
         { to: '/', label: 'Home' },
         { to: '/map', label: 'Map' },
         { to: '/hidden-gems', label: 'Hidden Gems' },
-        { to: '/my-hidden-gems', label: 'My Hidden Gems' },
-        { to: '/wishlist', label: 'Wishlist' },
-        { to: '/trip-itinerary', label: 'Trip Itinerary' },
+        { to: '/my-hidden-gems', label: 'My Hidden Gems', signInMessage: 'Sign in to manage your hidden gems and contributions.' },
+        { to: '/wishlist', label: 'Wishlist', signInMessage: 'Sign in to view your wishlist.' },
+        { to: '/trip-itinerary', label: 'Trip Itinerary', signInMessage: 'Sign in to view and plan your trips.' },
         { to: '/travel-posts', label: 'Travel Posts' },
-        { to: '/profile', label: 'Profile' },
+        { to: '/profile', label: 'Profile', signInMessage: 'Sign in to view your profile.' },
     ];
 
     return (
@@ -293,12 +293,19 @@ function SidePanel({
 
             {showNavChrome && (
                 <nav className="side-panel-nav">
-                    {menuItems.map(({ to, label }) => (
+                    {menuItems.map(({ to, label, signInMessage: navSignInMessage }) => (
                         <Link
                             key={to}
                             to={to}
                             className="side-panel-nav-item"
-                            onClick={onClose}
+                            onClick={(event) => {
+                                if (!user && navSignInMessage) {
+                                    event.preventDefault();
+                                    requireSignIn(navSignInMessage);
+                                    return;
+                                }
+                                onClose();
+                            }}
                         >
                             <span className="side-panel-nav-label">{label}</span>
                         </Link>

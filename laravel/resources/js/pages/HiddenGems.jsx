@@ -184,7 +184,13 @@ export default function HiddenGems({ user }) {
 
                 <button
                     className="hidden-gems-submit-btn"
-                    onClick={() => navigate("/hidden-gems/create")}
+                    onClick={() => {
+                        if (!user) {
+                            requireSignIn("Sign in to submit a hidden gem.");
+                            return;
+                        }
+                        navigate("/hidden-gems/create");
+                    }}
                 >
                     + Hidden Gem
                 </button>
