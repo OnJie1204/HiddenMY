@@ -338,7 +338,10 @@ class HiddenGemController extends Controller
         $location = Location::with(['user', 'category', 'images', 'votes.user'])
                             ->findOrFail($id);
 
-        if (!Auth::check() && !in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+        $isPubliclyVisible = in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true);
+        $isOwner = Auth::id() !== null && $location->user_id === Auth::id();
+
+        if (! $isPubliclyVisible && ! $isOwner) {
             abort(404);
         }
 
