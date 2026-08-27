@@ -19,6 +19,46 @@ use Illuminate\Support\Facades\Storage;
 
 class HiddenGemController extends Controller
 {
+    private const PUBLIC_LOCATION_COLUMNS = [
+        'id',
+        'user_id',
+        'category_id',
+        'place_name',
+        'address',
+        'state',
+        'description',
+        'latitude',
+        'longitude',
+        'status',
+        'report_status',
+        'vote_count',
+        'verification_threshold',
+    ];
+
+    private const INTERNAL_LOCATION_FIELDS = [
+        'ai_review_reason',
+        'ai_reviewed_at',
+        'verification_attempts',
+        'verification_score',
+        'verification_confidence',
+        'google_visibility_level',
+        'hiddenness_score',
+        'legitimacy_score',
+        'legitimacy_level',
+        'tourism_value_score',
+        'tourism_value_level',
+        'evidence_score',
+        'evidence_level',
+        'duplicate_status',
+        'duplicate_of_location_id',
+        'verification_result_json',
+        'verification_model',
+        'is_hidden_gem',
+        'isHidden',
+        'created_at',
+        'updated_at',
+    ];
+
     private const SEARCH_RESULT_LIMIT = 20;
 
     /** Nominatim's own documented hard cap on `limit` — asking for more does nothing. */
@@ -142,7 +182,14 @@ class HiddenGemController extends Controller
     {
         // Public listing — only AI-approved (or already community-verified) gems
         // may be discoverable; anything still awaiting/failing AI review must stay hidden.
-        $query = Location::with(['user', 'category', 'images'])
+        $query = Location::query()
+            ->select(self::PUBLIC_LOCATION_COLUMNS)
+            ->with([
+                'user:id,name,avatar_url',
+                'category:id,name',
+                'images:id,location_id,image_url',
+            ])
+            ->withCount('votes')
             ->publiclyVisible();
 
         // Filter by status (hidden_gem / pending_community_vote)
@@ -335,8 +382,27 @@ class HiddenGemController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $location = Location::with(['user', 'category', 'images', 'votes.user'])
+        $location = Location::with([
+            'user:id,name,avatar_url',
+            'category',
+            'images',
+            'votes.user:id,name,avatar_url',
+        ])
                             ->findOrFail($id);
+
+        $isPubliclyVisible = in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true);
+        $viewer = Auth::guard('sanctum')->user();
+        $isOwner = $viewer !== null && $location->user_id === $viewer->id;
+
+        if (! $isPubliclyVisible && ! $isOwner) {
+            abort(404);
+        }
+
+        if ($isPubliclyVisible) {
+            $location->makeHidden(self::INTERNAL_LOCATION_FIELDS);
+            $location->category?->setVisible(['id', 'name']);
+            $location->images->each->setVisible(['id', 'image_url']);
+        }
 
         if ($location->user) {
             $activeFavourites = $this->specialAchievements
@@ -356,6 +422,10 @@ class HiddenGemController extends Controller
     public function nearby(Request $request, $id): JsonResponse
     {
         $gem = Location::findOrFail($id);
+
+        if (!Auth::check() && !in_array($gem->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+            abort(404);
+        }
 
         $radius = (int) $request->query('radius', self::NEARBY_RADIUS_METERS);
         $radius = max(100, min(3000, $radius));
@@ -788,7 +858,14 @@ class HiddenGemController extends Controller
 
     public function recent(): JsonResponse
     {
-        $recentLocations = Location::with(['user', 'category', 'images'])
+        $recentLocations = Location::query()
+            ->select(self::PUBLIC_LOCATION_COLUMNS)
+            ->with([
+                'user:id,name,avatar_url',
+                'category:id,name',
+                'images:id,location_id,image_url',
+            ])
+            ->withCount('votes')
             ->publiclyVisible()
             ->latest()
             ->take(6)
@@ -801,7 +878,13 @@ class HiddenGemController extends Controller
     {
         // Ranked by actual review count (votes with real rows) rather than the
         // cached vote_count column, so a stale/drifted counter can't misrank.
-        $popularLocations = Location::with(['user', 'category', 'images'])
+        $popularLocations = Location::query()
+            ->select(self::PUBLIC_LOCATION_COLUMNS)
+            ->with([
+                'user:id,name,avatar_url',
+                'category:id,name',
+                'images:id,location_id,image_url',
+            ])
             ->withCount('votes')
             ->where('status', 'hidden_gem')
             ->orderByDesc('votes_count')

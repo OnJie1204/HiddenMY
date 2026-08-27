@@ -5,10 +5,11 @@ import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist"
 import { useCompare } from "../context/CompareContext";
 import TruncatedText from "../components/TruncatedText";
 import ReportButton from "../components/ReportButton";
+import SignInPrompt from "../components/SignInPrompt";
 
 import "../styles/global.css";
 
-export default function HiddenGems() {
+export default function HiddenGems({ user }) {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -35,7 +36,14 @@ export default function HiddenGems() {
     const [lastSearch, setLastSearch] = useState('');
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
+    const [showSignIn, setShowSignIn] = useState(false);
+    const [signInMessage, setSignInMessage] = useState("");
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
+
+    const requireSignIn = (message) => {
+        setSignInMessage(message);
+        setShowSignIn(true);
+    };
 
     const fetchGems = async () => {
         setLoading(true);
@@ -107,14 +115,19 @@ export default function HiddenGems() {
     }, [search, filter]);
 
     useEffect(() => {
+        if (!user) return;
         getWishlist()
             .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
             .catch(err => console.error('Error fetching wishlist:', err));
-    }, []);
+    }, [user]);
 
     const handleToggleWishlist = async (e, gem) => {
         e.stopPropagation();
         if (wishlistBusyId) return;
+        if (!user) {
+            requireSignIn("Login to save gems to your wishlist.");
+            return;
+        }
 
         const isWishlisted = wishlistIds.has(gem.id);
         setWishlistBusyId(gem.id);
@@ -171,7 +184,13 @@ export default function HiddenGems() {
 
                 <button
                     className="hidden-gems-submit-btn"
-                    onClick={() => navigate("/hidden-gems/create")}
+                    onClick={() => {
+                        if (!user) {
+                            requireSignIn("Login to submit a hidden gem.");
+                            return;
+                        }
+                        navigate("/hidden-gems/create");
+                    }}
                 >
                     + Hidden Gem
                 </button>
@@ -327,11 +346,18 @@ export default function HiddenGems() {
                                             title={isComparing(gem.id)
                                                 ? "Remove from comparison"
                                                 : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
-                                            onClick={(e) => { e.stopPropagation(); toggleCompare(gem); }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (!user) {
+                                                    requireSignIn("Login to compare hidden gems.");
+                                                    return;
+                                                }
+                                                toggleCompare(gem);
+                                            }}
                                         >
                                             {isComparing(gem.id) ? "☑" : "☐"}
                                         </button>
-                                        <ReportButton gem={gem} />
+                                        <ReportButton gem={gem} user={user} />
                                     </div>
                                 </div>
 
@@ -355,7 +381,7 @@ export default function HiddenGems() {
                                         </span>
                                     ) : gem.status === 'pending_community_vote' ? (
                                         <span className="hidden-gems-card-pending">
-                                            Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                                            Pending ({gem.votes_count ?? 0}/{gem.verification_threshold || 10} votes)
                                         </span>
                                     ) : (
                                         <span className="hidden-gems-card-pending">
@@ -368,6 +394,11 @@ export default function HiddenGems() {
                     ))}
                 </div>
             )}
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message={signInMessage}
+            />
         </div>
     );
 }

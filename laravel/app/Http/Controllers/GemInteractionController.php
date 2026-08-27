@@ -6,6 +6,7 @@ use App\Models\Location;
 use App\Models\GemInteraction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 
 class GemInteractionController extends Controller
 {
@@ -14,51 +15,95 @@ class GemInteractionController extends Controller
         $user = Auth::user();
 
         if (!$user) {
-            return response()->json(['message' => 'Please login first'], 401);
+            return response()->json([
+                'message' => 'Please login first'
+            ], 401);
         }
 
         $request->validate([
             'type' => 'required|in:like,dislike,comment',
             'comment' => 'nullable|string|max:500',
-            'rating' => 'nullable|integer|min:1|max:5',
+            'rating' => 'required|integer|min:1|max:5',
+            'photo' => 'nullable|image|max:5120',
         ]);
 
         $location = Location::findOrFail($locationId);
 
-        // ===== For like/dislike, remove the opposite type =====
-        if ($request->type === 'like' || $request->type === 'dislike') {
-            $oppositeType = $request->type === 'like' ? 'dislike' : 'like';
-            GemInteraction::where('user_id', $user->id)
-                ->where('location_id', $locationId)
-                ->where('type', $oppositeType)
-                ->delete();
-        }
-
-        // ===== For comment: must have rating, comment optional =====
+        // ============================
+        // COMMENT / RATING
+        // ============================
         if ($request->type === 'comment') {
-            // Rating is required
+
             if (!$request->rating) {
                 return response()->json([
                     'message' => 'Rating is required.'
                 ], 422);
             }
 
+            $photoPath = null;
+
+            // ============================
+            // Upload Comment Photo
+            // ============================
+            if ($request->hasFile('photo')) {
+
+                $photo = $request->file('photo');
+
+                // IMPORTANT:
+                // Bucket already called comment_photos,
+                // so do NOT add comment_photos/ again here.
+                $fileName = uniqid() . '.' . $photo->getClientOriginalExtension();
+
+                $uploadUrl = rtrim(env('SUPABASE_URL'), '/')
+                    . '/storage/v1/object/comment_photos/'
+                    . $fileName;
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                    'Content-Type' => $photo->getMimeType(),
+                ])
+                    ->withBody(
+                        file_get_contents($photo->getRealPath()),
+                        $photo->getMimeType()
+                    )
+                    ->post($uploadUrl);
+
+                if ($response->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to upload comment photo.',
+                        'status' => $response->status(),
+                        'error' => $response->json(),
+                    ], 500);
+                }
+
+                // Save public URL into photo_path
+                $photoPath = rtrim(env('SUPABASE_URL'), '/')
+                    . '/storage/v1/object/public/comment_photos/'
+                    . $fileName;
+            }
+
+            // Check whether user has already commented/rated
             $existingComment = GemInteraction::where('user_id', $user->id)
                 ->where('location_id', $locationId)
                 ->where('type', 'comment')
                 ->first();
 
+            // ============================
+            // Update Existing Comment
+            // ============================
             if ($existingComment) {
+
                 if (!$existingComment->isCommentEditable()) {
                     return response()->json([
                         'message' => 'Comments can only be edited within 72 hours of posting.',
                     ], 403);
                 }
 
-                // Update existing comment
                 $existingComment->update([
                     'comment' => $request->comment,
                     'rating' => $request->rating,
+                    'photo_path' => $photoPath ?? $existingComment->photo_path,
                 ]);
 
                 return response()->json([
@@ -69,13 +114,16 @@ class GemInteractionController extends Controller
                 ]);
             }
 
-            // Create new comment
+            // ============================
+            // Create New Comment
+            // ============================
             $interaction = GemInteraction::create([
                 'user_id' => $user->id,
                 'location_id' => $locationId,
                 'type' => 'comment',
                 'comment' => $request->comment,
                 'rating' => $request->rating,
+                'photo_path' => $photoPath,
             ]);
 
             return response()->json([
@@ -83,17 +131,21 @@ class GemInteractionController extends Controller
                 'action' => 'added',
                 'type' => 'comment',
                 'data' => $interaction,
-            ]);
+            ], 201);
         }
 
-        // ===== For like/dislike: toggle behavior =====
+        // ============================
+        // LIKE / DISLIKE
+        // ============================
         $existing = GemInteraction::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->where('type', $request->type)
             ->first();
 
         if ($existing) {
+
             $existing->delete();
+
             return response()->json([
                 'message' => 'Removed',
                 'action' => 'removed',
@@ -114,43 +166,26 @@ class GemInteractionController extends Controller
             'action' => 'added',
             'type' => $request->type,
             'data' => $interaction,
-        ]);
+        ], 201);
     }
 
+
+    // =====================================================
+    // GET INTERACTIONS
+    // =====================================================
     public function getInteractions($locationId)
     {
-        $location = Location::findOrFail($locationId);
-
-        $likes = GemInteraction::where('location_id', $locationId)
-            ->where('type', 'like')
-            ->count();
-
-        $dislikes = GemInteraction::where('location_id', $locationId)
-            ->where('type', 'dislike')
-            ->count();
-
         $comments = GemInteraction::where('location_id', $locationId)
             ->where('type', 'comment')
-            ->with('user')
+            ->with('user:id,name,avatar_url')
             ->orderBy('created_at', 'desc')
             ->get();
 
         $user = Auth::user();
-        $userLike = null;
-        $userDislike = null;
+
         $userComment = null;
 
         if ($user) {
-            $userLike = GemInteraction::where('user_id', $user->id)
-                ->where('location_id', $locationId)
-                ->where('type', 'like')
-                ->exists();
-
-            $userDislike = GemInteraction::where('user_id', $user->id)
-                ->where('location_id', $locationId)
-                ->where('type', 'dislike')
-                ->exists();
-
             $userComment = GemInteraction::where('user_id', $user->id)
                 ->where('location_id', $locationId)
                 ->where('type', 'comment')
@@ -158,63 +193,23 @@ class GemInteractionController extends Controller
         }
 
         return response()->json([
-            'likes' => $likes,
-            'dislikes' => $dislikes,
             'comments' => $comments,
-            'user_like' => $userLike,
-            'user_dislike' => $userDislike,
             'user_comment' => $userComment,
         ]);
     }
 
-    public function myRatings()
-    {
-        $ratings = GemInteraction::query()
-            ->where('user_id', Auth::id())
-            ->where('type', 'comment')
-            ->with([
-                'location:id,place_name,status',
-                'location.firstImage' => fn ($query) => $query->select([
-                    'location_images.id',
-                    'location_images.location_id',
-                    'location_images.image_url',
-                ]),
-            ])
-            ->orderByDesc('created_at')
-            ->get([
-                'id',
-                'user_id',
-                'location_id',
-                'rating',
-                'comment',
-                'created_at',
-                'updated_at',
-            ])
-            ->map(fn (GemInteraction $rating) => [
-                'id' => $rating->id,
-                'rating' => $rating->rating,
-                'comment' => $rating->comment,
-                'created_at' => $rating->created_at,
-                'updated_at' => $rating->updated_at,
-                'location' => $rating->location ? [
-                    'id' => $rating->location->id,
-                    'place_name' => $rating->location->place_name,
-                    'status' => $rating->location->status,
-                    'first_image' => $rating->location->firstImage ? [
-                        'image_url' => $rating->location->firstImage->image_url,
-                    ] : null,
-                ] : null,
-            ]);
 
-        return response()->json(['data' => $ratings]);
-    }
-
+    // =====================================================
+    // UPDATE COMMENT
+    // =====================================================
     public function updateComment(Request $request, $commentId)
     {
         $user = Auth::user();
 
         if (!$user) {
-            return response()->json(['message' => 'Please login first'], 401);
+            return response()->json([
+                'message' => 'Please login first'
+            ], 401);
         }
 
         $comment = GemInteraction::where('id', $commentId)
@@ -222,11 +217,15 @@ class GemInteractionController extends Controller
             ->first();
 
         if (!$comment) {
-            return response()->json(['message' => 'Comment not found'], 404);
+            return response()->json([
+                'message' => 'Comment not found'
+            ], 404);
         }
 
         if ($comment->user_id !== $user->id) {
-            return response()->json(['message' => 'You are not authorized to edit this comment'], 403);
+            return response()->json([
+                'message' => 'You are not authorized to edit this comment'
+            ], 403);
         }
 
         if (!$comment->isCommentEditable()) {
@@ -238,11 +237,107 @@ class GemInteractionController extends Controller
         $request->validate([
             'comment' => 'nullable|string|max:500',
             'rating' => 'required|integer|min:1|max:5',
+            'photo' => 'nullable|image|max:5120',
+            'remove_photo' => 'nullable|boolean',
         ]);
+
+        $photoPath = $comment->photo_path;
+
+        if ($request->boolean('remove_photo') && $comment->photo_path) {
+            $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
+                . '/storage/v1/object/public/comment_photos/';
+
+            if (str_starts_with($comment->photo_path, $publicPrefix)) {
+                $objectPath = substr(
+                    $comment->photo_path,
+                    strlen($publicPrefix)
+                );
+
+                $deleteUrl = rtrim(env('SUPABASE_URL'), '/')
+                    . '/storage/v1/object/comment_photos/'
+                    . $objectPath;
+
+                $deleteResponse = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                ])->delete($deleteUrl);
+
+                if ($deleteResponse->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to remove comment photo.',
+                        'status' => $deleteResponse->status(),
+                        'error' => $deleteResponse->json(),
+                    ], 500);
+                }
+            }
+
+            $photoPath = null;
+        }
+
+        // ============================
+        // Upload New Photo
+        // ============================
+        if ($request->hasFile('photo')) {
+
+            $photo = $request->file('photo');
+
+            $fileName = uniqid() . '.' . $photo->getClientOriginalExtension();
+
+            $uploadUrl = rtrim(env('SUPABASE_URL'), '/')
+                . '/storage/v1/object/comment_photos/'
+                . $fileName;
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                'apikey' => env('SUPABASE_KEY'),
+                'Content-Type' => $photo->getMimeType(),
+            ])
+                ->withBody(
+                    file_get_contents($photo->getRealPath()),
+                    $photo->getMimeType()
+                )
+                ->post($uploadUrl);
+
+            if ($response->failed()) {
+                return response()->json([
+                    'message' => 'Failed to upload comment photo.',
+                    'status' => $response->status(),
+                    'error' => $response->json(),
+                ], 500);
+            }
+
+            $newPhotoPath = rtrim(env('SUPABASE_URL'), '/')
+                . '/storage/v1/object/public/comment_photos/'
+                . $fileName;
+
+            if (!$request->boolean('remove_photo') && $comment->photo_path) {
+                $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
+                    . '/storage/v1/object/public/comment_photos/';
+
+                if (str_starts_with($comment->photo_path, $publicPrefix)) {
+                    $oldObjectPath = substr(
+                        $comment->photo_path,
+                        strlen($publicPrefix)
+                    );
+
+                    $oldDeleteUrl = rtrim(env('SUPABASE_URL'), '/')
+                        . '/storage/v1/object/comment_photos/'
+                        . $oldObjectPath;
+
+                    Http::withHeaders([
+                        'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                        'apikey' => env('SUPABASE_KEY'),
+                    ])->delete($oldDeleteUrl);
+                }
+            }
+
+            $photoPath = $newPhotoPath;
+        }
 
         $comment->update([
             'comment' => $request->comment,
             'rating' => $request->rating,
+            'photo_path' => $photoPath,
         ]);
 
         return response()->json([
@@ -251,12 +346,18 @@ class GemInteractionController extends Controller
         ]);
     }
 
+
+    // =====================================================
+    // DELETE COMMENT
+    // =====================================================
     public function deleteComment($commentId)
     {
         $user = Auth::user();
 
         if (!$user) {
-            return response()->json(['message' => 'Please login first'], 401);
+            return response()->json([
+                'message' => 'Please login first'
+            ], 401);
         }
 
         $comment = GemInteraction::where('id', $commentId)
@@ -264,17 +365,101 @@ class GemInteractionController extends Controller
             ->first();
 
         if (!$comment) {
-            return response()->json(['message' => 'Comment not found'], 404);
+            return response()->json([
+                'message' => 'Comment not found'
+            ], 404);
         }
 
         if ($comment->user_id !== $user->id) {
-            return response()->json(['message' => 'You are not authorized to delete this comment'], 403);
+            return response()->json([
+                'message' => 'You are not authorized to delete this comment'
+            ], 403);
+        }
+
+        if (!$comment->isCommentEditable()) {
+            return response()->json([
+                'message' => 'Comments can only be deleted within 72 hours of posting.',
+            ], 403);
         }
 
         $comment->delete();
 
         return response()->json([
             'message' => 'Comment deleted successfully',
+        ]);
+    }
+
+
+    // =====================================================
+    // DELETE COMMENT PHOTO
+    // =====================================================
+    public function deleteCommentPhoto($commentId)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Please login first'
+            ], 401);
+        }
+
+        $comment = GemInteraction::where('id', $commentId)
+            ->where('type', 'comment')
+            ->first();
+
+        if (!$comment) {
+            return response()->json([
+                'message' => 'Comment not found'
+            ], 404);
+        }
+
+        if ($comment->user_id !== $user->id) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        // ============================
+        // Delete From Supabase Storage
+        // ============================
+        if ($comment->photo_path) {
+
+            $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
+                . '/storage/v1/object/public/comment_photos/';
+
+            if (str_starts_with($comment->photo_path, $publicPrefix)) {
+
+                $objectPath = substr(
+                    $comment->photo_path,
+                    strlen($publicPrefix)
+                );
+
+                $deleteUrl = rtrim(env('SUPABASE_URL'), '/')
+                    . '/storage/v1/object/comment_photos/'
+                    . $objectPath;
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'apikey' => env('SUPABASE_KEY'),
+                ])->delete($deleteUrl);
+
+                if ($response->failed()) {
+                    return response()->json([
+                        'message' => 'Failed to delete photo from storage.',
+                        'status' => $response->status(),
+                        'error' => $response->json(),
+                    ], 500);
+                }
+            }
+        }
+
+        $comment->update([
+            'photo_path' => null
+        ]);
+
+        return response()->json([
+            'message' => 'Photo deleted successfully',
+            'data' => $comment->fresh(),
         ]);
     }
 }

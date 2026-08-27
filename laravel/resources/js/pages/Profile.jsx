@@ -4,8 +4,10 @@ import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { getMe, getUserProfile, updateProfile, changePassword, uploadAvatar } from '../api/auth';
 import { getMyHiddenGems } from '../api/hiddenGems';
 import { getTripItineraries } from '../api/TripItinerary';
+import { getFavouriteAchievements } from '../api/achievements';
 import { getPasswordStrength } from '../utils/password';
 import Avatar from '../components/Avatar';
+import FavouriteAchievementBadges from '../components/FavouriteAchievementBadges';
 
 function Profile({ setAppUser }) {
   const { id } = useParams();
@@ -36,6 +38,7 @@ function Profile({ setAppUser }) {
   const [stats, setStats] = useState({ totalGems: 0, verifiedGems: 0, pendingGems: 0, totalTrips: 0 });
   const [statsLoading, setStatsLoading] = useState(false);
   const [recentGems, setRecentGems] = useState([]);
+  const [favouriteAchievements, setFavouriteAchievements] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
 
   // 判断是不是自己的 profile
@@ -44,11 +47,12 @@ function Profile({ setAppUser }) {
   useEffect(() => {
     if (isOwnProfile) {
       setLoading(true);
-      getMe().then(res => {
-        setUser(res.data);
-        setName(res.data.name);
-        setEmail(res.data.email);
-        setHasPassword(res.data.has_password);
+      Promise.all([getMe(), getFavouriteAchievements()]).then(([userRes, favouritesRes]) => {
+        setUser(userRes.data);
+        setName(userRes.data.name);
+        setEmail(userRes.data.email);
+        setHasPassword(userRes.data.has_password);
+        setFavouriteAchievements(favouritesRes.data.data || []);
       }).finally(() => setLoading(false));
     } else {
       setLoading(true);
@@ -56,6 +60,7 @@ function Profile({ setAppUser }) {
         .then(res => {
           setUser(res.data.user);
           setRecentGems(res.data.gems || []);
+          setFavouriteAchievements(res.data.user?.favourite_achievements || []);
         })
         .catch(err => setError(err.response?.data?.message || 'Failed to load user profile'))
         .finally(() => setLoading(false));
@@ -197,12 +202,18 @@ function Profile({ setAppUser }) {
             </div>
 
             <div className="profile-header-info">
-              <h2>{user.name}</h2>
-              <p className="profile-header-email">{user.email}</p>
+              <div className="profile-name-row">
+                <h2>{user.name}</h2>
+                <FavouriteAchievementBadges
+                  favourites={favouriteAchievements}
+                  className="profile-achievement-badges"
+                />
+              </div>
+              {isOwnProfile && <p className="profile-header-email">{user.email}</p>}
               <div className="profile-header-badges">
                 {memberSince && <span className="profile-badge">Member since {memberSince}</span>}
-                {user.google_id && <span className="profile-badge profile-badge-google">Linked with Google</span>}
-                {user.email_verified_at && (
+                {isOwnProfile && user.google_id && <span className="profile-badge profile-badge-google">Linked with Google</span>}
+                {isOwnProfile && user.email_verified_at && (
                   <span className="profile-badge profile-badge-verified">Email verified</span>
                 )}
               </div>
@@ -270,7 +281,7 @@ function Profile({ setAppUser }) {
                   <p>{isOwnProfile ? "You haven't submitted any hidden gems yet." : "No hidden gems yet."}</p>
                   {isOwnProfile && (
                     <Link to="/hidden-gems/create" className="hidden-gems-submit-btn">
-                      Submit Your First Hidden Gem
+                      + Hidden Gem
                     </Link>
                   )}
                 </div>

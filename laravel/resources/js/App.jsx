@@ -61,13 +61,30 @@ function App() {
         <Route path="/resend-verification" element={<ResendVerification />} />
         <Route path="/google-callback" element={<GoogleCallback setUser={setUser} />} />
 
-        {/* 需要 Navbar 的页面(登入后才能进) */}
+        {/* Browsable without an account — read-only, no data-changing action
+            goes through without a "sign in to continue" prompt. See the
+            individual pages/components (Navbar, SidePanel, ReportButton, ...)
+            for how each one degrades when `user` is null. */}
         <Route path="/" element={
-          user ? <Layout user={user} setUser={setUser}><Home user={user} /></Layout> : <Navigate to="/login" />
+          <Layout user={user} setUser={setUser}><Home user={user} /></Layout>
         } />
         <Route path="/map" element={
-          user ? <Layout user={user} setUser={setUser}><Maps /></Layout> : <Navigate to="/login" />
+          <Layout user={user} setUser={setUser}><Maps user={user} /></Layout>
         } />
+        <Route path="/hidden-gems" element={
+          <Layout user={user} setUser={setUser}><HiddenGems user={user} /></Layout>
+        } />
+        <Route path="/hidden-gems/:id" element={
+          <Layout user={user} setUser={setUser}><HiddenGemDetail user={user} /></Layout>
+        } />
+        <Route path="/travel-posts" element={
+          <Layout user={user} setUser={setUser}><TravelPosts user={user} /></Layout>
+        } />
+        <Route path="/travel-posts/:id" element={
+          <Layout user={user} setUser={setUser}><TravelPostDetail user={user} /></Layout>
+        } />
+
+        {/* 需要 Navbar 的页面(登入后才能进) */}
         <Route path="/profile" element={
           user ? <Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout> : <Navigate to="/login" />
         } />
@@ -75,7 +92,7 @@ function App() {
           user ? <Layout user={user} setUser={setUser}><Profile /></Layout> : <Navigate to="/login" />
         } />
         <Route path="/wishlist" element={
-          user ? <Layout user={user} setUser={setUser}><Wishlist /></Layout> : <Navigate to="/login" />
+          user ? <Layout user={user} setUser={setUser}><Wishlist user={user} /></Layout> : <Navigate to="/login" />
         } />
         <Route path="/compare" element={
           user ? <Layout user={user} setUser={setUser}><CompareGems /></Layout> : <Navigate to="/login" />
@@ -106,32 +123,6 @@ function App() {
             )
           }
         />
-
-        <Route
-          path="/hidden-gems"
-          element={
-            user ? (
-              <Layout user={user} setUser={setUser}>
-                <HiddenGems />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-
-        <Route
-          path="/hidden-gems/:id"
-          element={
-              user ? (
-                  <Layout user={user} setUser={setUser}>
-                      <HiddenGemDetail />
-                  </Layout>
-              ) : (
-                  <Navigate to="/login" />
-              )
-          }
-      />
 
         <Route
           path="/hidden-gems/create"
@@ -173,37 +164,11 @@ function App() {
       />
 
         <Route
-          path="/travel-posts"
-          element={
-            user ? (
-              <Layout user={user} setUser={setUser}>
-                <TravelPosts />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-
-        <Route
           path="/travel-posts/create"
           element={
             user ? (
               <Layout user={user} setUser={setUser}>
                 <CreateTravelPost />
-              </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-
-        <Route
-          path="/travel-posts/:id"
-          element={
-            user ? (
-              <Layout user={user} setUser={setUser}>
-                <TravelPostDetail />
               </Layout>
             ) : (
               <Navigate to="/login" />

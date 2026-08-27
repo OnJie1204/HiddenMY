@@ -14,6 +14,12 @@ function Login({ onLoginSuccess }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [infoMessage] = useState(location.state?.message || '');
+  const requestedReturnPath = location.state?.from;
+  const returnPath = typeof requestedReturnPath === 'string'
+    && requestedReturnPath.startsWith('/')
+    && !requestedReturnPath.startsWith('//')
+      ? requestedReturnPath
+      : '/';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,7 +29,7 @@ function Login({ onLoginSuccess }) {
       const res = await login(email, password);
       setToken(res.data.token, rememberMe);
       onLoginSuccess(res.data.user);
-      navigate('/');
+      navigate(returnPath, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {
@@ -52,7 +58,7 @@ function Login({ onLoginSuccess }) {
       <div className="auth-form-panel">
         <form onSubmit={handleSubmit} className="auth-card">
           <h2>Welcome back</h2>
-          <p className="subtitle">Log in to continue to HiddenMY</p>
+          <p className="subtitle">Login to continue to HiddenMY</p>
           {infoMessage && <p className="msg-success">{infoMessage}</p>}
           {error && <p className="msg-error">{error}</p>}
           <input
@@ -101,7 +107,15 @@ function Login({ onLoginSuccess }) {
           <a href={`http://127.0.0.1:8000/api/auth/google/redirect?remember=${rememberMe}`} className="btn" style={{ background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', marginTop: '0.75rem', display: 'block', textAlign: 'center' }}>
             Continue with Google
           </a>
-          <p className="auth-link-row">Don't have an account? <Link to="/register">Register</Link></p>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ marginTop: '0.75rem' }}
+            onClick={() => navigate(returnPath)}
+          >
+            Continue as Guest
+          </button>
+          <p className="auth-link-row">Don't have an account? <Link to="/register" state={{ from: returnPath }}>Sign Up</Link></p>
           <p className="auth-link-row"><Link to="/resend-verification">Didn't receive verification email?</Link></p>
         </form>
       </div>

@@ -17,6 +17,7 @@ class GemInteraction extends Model
         'type',
         'comment',
         'rating',
+        'photo_path',
     ];
 
     protected $casts = [

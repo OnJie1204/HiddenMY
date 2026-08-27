@@ -16,3 +16,6 @@ export const checkVerifyEligibility = (reportId) =>
 
 export const verifyReport = (reportId, { verdict, comment }) =>
     api.post(`/reports/${reportId}/verify`, { verdict, comment });
+
+export const requestFixReview = (reportId) =>
+    api.post(`/reports/${reportId}/request-fix-review`);
