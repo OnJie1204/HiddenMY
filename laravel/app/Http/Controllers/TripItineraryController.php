@@ -16,6 +16,7 @@ class TripItineraryController extends Controller
     public function index(Request $request)
     {
         $itineraries = TripItinerary::where('user_id', $request->user()->id)
+            ->withCount('locations')
             ->orderBy('created_at', 'desc')
             ->get();
 
