@@ -10,6 +10,7 @@ import {
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { cartoTileUrl } from "../utils/cartoTiles";
 
 import { reverseGeocodeAddress } from "../api/hiddenGems";
 
@@ -161,7 +162,7 @@ export default function LocationPickerMap({
                     }}
                 >
                     <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                        url={cartoTileUrl("rastertiles/voyager")}
                         attribution='&copy; OpenStreetMap contributors &copy; CARTO'
                     />
 

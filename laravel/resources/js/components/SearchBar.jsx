@@ -3,7 +3,7 @@ import { searchHiddenGems } from "../api/hiddenGems";
 
 const DEBOUNCE_MS = 350;
 
-function SearchBar({ onSelect }) {
+function SearchBar({ onSelect, userLatitude, userLongitude }) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -43,7 +43,12 @@ function SearchBar({ onSelect }) {
             append ? setLoadingMore(true) : setLoading(true);
 
             const { dbOffset, osmOffset } = append ? offsetsRef.current : { dbOffset: 0, osmOffset: 0 };
-            const res = await searchHiddenGems(value, { dbOffset, osmOffset });
+            const res = await searchHiddenGems(value, {
+                dbOffset,
+                osmOffset,
+                latitude: userLatitude,
+                longitude: userLongitude,
+            });
 
             if (requestId !== latestRequestId.current) return;
 

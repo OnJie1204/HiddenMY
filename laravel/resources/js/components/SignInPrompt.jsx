@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 
 // Shared "you need an account for that" modal — every write action a guest
@@ -17,8 +18,12 @@ function SignInPrompt({ isOpen, onClose, message = "Login to continue." }) {
         navigate(path, { state: { from } });
     };
 
-    return (
-        <div className="vote-modal-overlay" onClick={onClose}>
+    // Portaled to <body> — see ReportModal.jsx for why (a hovered ancestor
+    // card's :hover transform would otherwise hijack this fixed-position
+    // modal's containing block, making it snap between full-screen and
+    // pinned-to-the-card).
+    return createPortal((
+        <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); onClose(); }}>
             <div className="vote-modal sign-in-prompt" onClick={(e) => e.stopPropagation()}>
                 <div className="vote-modal-header">
                     <h2>Login required</h2>
@@ -33,7 +38,7 @@ function SignInPrompt({ isOpen, onClose, message = "Login to continue." }) {
                 </div>
             </div>
         </div>
-    );
+    ), document.body);
 }
 
 export default SignInPrompt;

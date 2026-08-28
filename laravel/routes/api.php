@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\GemInteractionController;
+use App\Http\Controllers\MenuItemController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -120,6 +121,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/gem-interactions/comments/{commentId}', [GemInteractionController::class, 'updateComment']);
     Route::delete('/gem-interactions/comments/{commentId}', [GemInteractionController::class, 'deleteComment']);
     Route::delete('/gem-interactions/comments/{commentId}/photo', [GemInteractionController::class, 'deleteCommentPhoto']);
+
+    // ===== Menu Items — write only, reading is public =====
+    Route::post('/hidden-gems/{locationId}/menu-items', [MenuItemController::class, 'store']);
+    Route::post('/menu-items/{menuItemId}/like', [MenuItemController::class, 'toggleLike']);
+    Route::delete('/menu-items/{menuItemId}', [MenuItemController::class, 'destroy']);
 });
 
 // ===== Public Hidden Gems Routes — browsing only, no auth required. Every
@@ -139,6 +145,7 @@ Route::get('hidden-gems/{id}/nearby', [HiddenGemController::class, 'nearby']);
 Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
 Route::get('/votes/{locationId}', [VoteController::class, 'getVotes']);
 Route::get('/gem-interactions/{locationId}', [GemInteractionController::class, 'getInteractions']);
+Route::get('/hidden-gems/{locationId}/menu-items', [MenuItemController::class, 'index']);
 
 // ===== Public Travel Posts Routes =====
 Route::get('travel-posts', [TravelPostController::class, 'index']);

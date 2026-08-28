@@ -18,5 +18,11 @@ export function toCompareGem(raw) {
         category: raw.category?.name,
         status: raw.status,
         reportStatus: raw.report_status,
+        openingHours: raw.opening_hours,
+        phone: raw.phone,
+        website: raw.website,
+        ratingAvg: raw.ratings_avg_rating != null ? Number(raw.ratings_avg_rating) : null,
+        ratingCount: raw.ratings_count ?? 0,
+        checkInsCount: raw.check_ins_count ?? 0,
     };
 }

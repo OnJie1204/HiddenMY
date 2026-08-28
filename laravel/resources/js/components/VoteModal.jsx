@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getToken } from '../utils/tokenStorage';
 
@@ -502,10 +503,14 @@ function VoteModal({
     // UI
     // =====================================================
 
-    return (
+    // Portaled to <body> — see ReportModal.jsx for why (a hovered ancestor
+    // card's :hover transform would otherwise hijack this fixed-position
+    // modal's containing block, making it snap between full-screen and
+    // pinned-to-the-card).
+    return createPortal((
         <div
             className="vote-modal-overlay"
-            onClick={handleClose}
+            onClick={(e) => { e.stopPropagation(); handleClose(); }}
         >
             <div
                 className="vote-modal"
@@ -948,7 +953,7 @@ function VoteModal({
                 </div>
             </div>
         </div>
-    );
+    ), document.body);
 }
 
 export default VoteModal;
