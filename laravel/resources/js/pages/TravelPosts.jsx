@@ -27,6 +27,20 @@ export default function TravelPosts({ user }) {
     const [states, setStates] = useState([]);
     const [mineOnly, setMineOnly] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
+    const [signInMessage, setSignInMessage] = useState("");
+
+    const requireSignIn = (message) => {
+        setSignInMessage(message);
+        setShowSignIn(true);
+    };
+
+    const handleCreatePost = () => {
+        if (!user) {
+            requireSignIn("Login to write a travel post.");
+            return;
+        }
+        navigate("/travel-posts/create");
+    };
 
     const filters = {
         state: searchParams.get("state") || "",
@@ -80,7 +94,7 @@ export default function TravelPosts({ user }) {
                 <div>
                     <h1>Travel Posts</h1>
                 </div>
-                <button className="hidden-gems-submit-btn" onClick={() => navigate("/travel-posts/create")}>
+                <button className="hidden-gems-submit-btn" onClick={handleCreatePost}>
                     + Write a Post
                 </button>
             </div>
@@ -98,7 +112,7 @@ export default function TravelPosts({ user }) {
                     className={mineOnly ? "active" : ""}
                     onClick={() => {
                         if (!user) {
-                            setShowSignIn(true);
+                            requireSignIn("Login to see the posts you've written.");
                             return;
                         }
                         setMineOnly(true);
@@ -154,7 +168,7 @@ export default function TravelPosts({ user }) {
                             ? "You haven't written a travel post yet."
                             : "No one has shared a travel story yet — be the first!"}
                     </p>
-                    <button className="hidden-gems-submit-btn" onClick={() => navigate("/travel-posts/create")}>
+                    <button className="hidden-gems-submit-btn" onClick={handleCreatePost}>
                         Write a Travel Post
                     </button>
                 </div>
@@ -214,7 +228,7 @@ export default function TravelPosts({ user }) {
             <SignInPrompt
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
-                message="Sign in to see the posts you've written."
+                message={signInMessage}
             />
         </div>
     );

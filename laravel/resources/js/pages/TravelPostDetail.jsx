@@ -4,10 +4,11 @@ import { getTravelPostDetail, deleteTravelPost } from "../api/travelPosts";
 import { getMe } from "../api/auth";
 import Avatar from "../components/Avatar";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
+import SignInPrompt from "../components/SignInPrompt";
 
 import "../styles/global.css";
 
-export default function TravelPostDetail() {
+export default function TravelPostDetail({ user }) {
     const { id } = useParams();
     const navigate = useNavigate();
 
@@ -17,6 +18,7 @@ export default function TravelPostDetail() {
     const [currentUserId, setCurrentUserId] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
+    const [showSignIn, setShowSignIn] = useState(false);
 
     useEffect(() => {
         getMe().then((res) => setCurrentUserId(res.data.id)).catch(() => {});
@@ -65,16 +67,6 @@ export default function TravelPostDetail() {
     return (
         <div className="gem-detail-page travel-post-detail-page">
             <div className="travel-post-toolbar">
-                <button
-                    type="button"
-                    className="travel-post-icon-btn"
-                    onClick={() => navigate(-1)}
-                    title="Back"
-                    aria-label="Back"
-                >
-                    ←
-                </button>
-
                 {isOwner && (
                     <div className="travel-post-owner-actions">
                         <button
@@ -127,7 +119,13 @@ export default function TravelPostDetail() {
                                 {" · "}
                                 <span
                                     className="wishlist-link"
-                                    onClick={() => navigate(`/trip-itinerary/${post.trip_itinerary_id}`)}
+                                    onClick={() => {
+                                        if (!user) {
+                                            setShowSignIn(true);
+                                            return;
+                                        }
+                                        navigate(`/trip-itinerary/${post.trip_itinerary_id}`);
+                                    }}
                                 >
                                     View the trip
                                 </span>
@@ -223,6 +221,11 @@ export default function TravelPostDetail() {
                     </div>
                 </div>
             )}
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message="Login to view this trip itinerary."
+            />
         </div>
     );
 }

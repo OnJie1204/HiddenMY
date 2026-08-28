@@ -150,9 +150,6 @@ export default function CreateTravelPost() {
 
             <div className="travel-post-form-card">
                 <div className="travel-post-form-header">
-                    <button type="button" className="travel-post-icon-btn" onClick={() => navigate(-1)} title="Back" aria-label="Back">
-                        ←
-                    </button>
                     <h2>Write a Travel Post</h2>
                 </div>
 

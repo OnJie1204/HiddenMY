@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
-import { useNavigate } from "react-router-dom";
 import LocationPickerMap from "../components/LocationPickerMap";
 
 // Approximate state-capital coordinates, used only as a map-centering
@@ -31,7 +30,6 @@ const STATE_FALLBACK_ZOOM = 10;
 
 export default function HiddenGemSubmission() {
 
-    const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
     const [formData, setFormData] = useState({
@@ -245,15 +243,6 @@ export default function HiddenGemSubmission() {
             <div className="hidden-gem-form-card">
 
                 <div className="hidden-gem-submit-header">
-
-                    <button
-                        type="button"
-                        className="hidden-gem-back-btn"
-                        onClick={() => navigate(-1)}
-                    >
-                        ← 
-                    </button>
-
 
                     <h2>Submit Hidden Gem</h2>
 

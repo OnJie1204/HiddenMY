@@ -17,6 +17,10 @@ const gemIconPending = new L.Icon({
     className: "gem-marker-pending",
 });
 
+export function getHiddenGemMarkerIcon(status) {
+    return status === "pending_community_vote" ? gemIconPending : gemIcon;
+}
+
 function HiddenGemMarker({
     gem,
     postCount,
@@ -32,7 +36,7 @@ function HiddenGemMarker({
             Number(gem.longitude)
         ]}
 
-        icon={gem.status === "pending_community_vote" ? gemIconPending : gemIcon}
+        icon={getHiddenGemMarkerIcon(gem.status)}
         riseOnHover={true}
 
         eventHandlers={{

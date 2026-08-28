@@ -167,9 +167,6 @@ export default function EditTravelPost() {
 
             <div className="travel-post-form-card">
                 <div className="travel-post-form-header">
-                    <button type="button" className="travel-post-icon-btn" onClick={() => navigate(-1)} title="Back" aria-label="Back">
-                        ←
-                    </button>
                     <h2>Edit Travel Post</h2>
                 </div>
 

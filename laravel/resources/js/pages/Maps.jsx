@@ -138,7 +138,19 @@ function groupKey(lat, lng) {
 function Maps({ user }){
     const location = useLocation();
     const navigate = useNavigate();
-    
+
+    // Mirrors the shared <BackButton> (which is suppressed on /map because the
+    // full-bleed map hero has no room for it) — go back in history, or fall
+    // back to home when this is the first entry in the stack.
+    const handleBack = () => {
+        if (location.key === 'default') {
+            navigate('/');
+        } else {
+            navigate(-1);
+        }
+    };
+
+
     // ==================== URL Params (from HiddenGemDetail) ====================
     const queryParams = new URLSearchParams(location.search);
     const latParam = queryParams.get('lat');
@@ -235,9 +247,11 @@ function Maps({ user }){
                 .then(res => setRecentPosts(res.data))
                 .catch(err => console.log(err));
 
-            getMyHiddenGems()
-                .then(res => setMyGems(res.data.data || []))
-                .catch(err => console.log(err));
+            if (user) {
+                getMyHiddenGems()
+                    .then(res => setMyGems(res.data.data || []))
+                    .catch(err => console.log(err));
+            }
 
             getPopularHiddenGems()
                 .then(res => setPopularPosts(res.data || []))
@@ -249,7 +263,7 @@ function Maps({ user }){
 
     const loadedPanelExtrasRef = useRef(false);
     useEffect(() => {
-        if (!panelOpen || loadedPanelExtrasRef.current) return;
+        if (!user || !panelOpen || loadedPanelExtrasRef.current) return;
         loadedPanelExtrasRef.current = true;
 
         const id = setTimeout(() => {
@@ -263,7 +277,7 @@ function Maps({ user }){
         }, 300);
 
         return () => clearTimeout(id);
-    }, [panelOpen]);
+    }, [panelOpen, user]);
 
     // ==================== Handle URL params (from HiddenGemDetail) ====================
     useEffect(() => {
@@ -636,6 +650,13 @@ function Maps({ user }){
 
                 {/* Left column: search box always visible, gem panel docked beneath it */}
                 <div className="maps-left-stack">
+                    <button
+                        type="button"
+                        className="maps-back-btn"
+                        onClick={handleBack}
+                    >
+                        ← Back
+                    </button>
                     <div className="maps-search-float">
                         <SearchBar
                             onSelect={(item) => {
@@ -757,13 +778,15 @@ function Maps({ user }){
                     onItemClick={selectGem}
                     emptyText="No recent gems yet."
                 />
-                <GemCarousel
-                    title="My Hidden Gems"
-                    seeMoreTo="/my-hidden-gems"
-                    items={myGems}
-                    onItemClick={selectGem}
-                    emptyText="You haven't posted any hidden gems yet."
-                />
+                {user && (
+                    <GemCarousel
+                        title="My Hidden Gems"
+                        seeMoreTo="/my-hidden-gems"
+                        items={myGems}
+                        onItemClick={selectGem}
+                        emptyText="You haven't posted any hidden gems yet."
+                    />
+                )}
                 <GemCarousel
                     title="Popular Hidden Gems"
                     seeMoreTo="/hidden-gems"

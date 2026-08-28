@@ -37,6 +37,12 @@ function Home({ user }) {
         setShowSignIn(true);
     };
 
+    const handleProtectedNavigation = (event, message) => {
+        if (user) return;
+        event.preventDefault();
+        requireSignIn(message);
+    };
+
     useEffect(() => {
         if (!user) return;
         getWishlist()
@@ -48,7 +54,7 @@ function Home({ user }) {
         e.stopPropagation();
         if (wishlistBusyId) return;
         if (!user) {
-            requireSignIn("Sign in to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.");
             return;
         }
 
@@ -139,8 +145,9 @@ function Home({ user }) {
     const quickActions = [
         { to: '/map', label: 'Map' },
         { to: '/hidden-gems', label: 'Gems' },
-        { to: '/trip-itinerary', label: 'Trips' },
-        { to: '/profile', label: 'Profile' },
+        { to: '/wishlist', label: 'Wishlist', signInMessage: 'Login to view your wishlist.' },
+        { to: '/trip-itinerary', label: 'Trips', signInMessage: 'Login to view and plan your trips.' },
+        { to: '/profile', label: 'Profile', signInMessage: 'Login to view your profile.' },
     ];
 
     const greetings = ['Hey', 'Hi', 'Hello', 'Welcome back'];
@@ -211,16 +218,35 @@ function Home({ user }) {
                         </form>
                     </div>
                 </div>
-                {heroImageUrl && (
-                    <div className="home-hero-fun-image">
-                        <img src={heroImageUrl} alt={topGems[0].place_name} />
+                {loading ? (
+                    <div className="home-hero-fun-image home-hero-fun-image-loading" aria-hidden="true">
+                        <div className="home-hero-fun-image-loading-bar">
+                            <div className="home-hero-fun-image-loading-bar-indicator" />
+                        </div>
                     </div>
+                ) : heroImageUrl && (
+                    <button
+                        type="button"
+                        className="home-hero-fun-image"
+                        onClick={() => navigate(`/hidden-gems/${topGems[0].id}`)}
+                        aria-label={`View ${topGems[0].place_name}`}
+                    >
+                        <img src={heroImageUrl} alt={topGems[0].place_name} />
+                        <span className="home-hero-fun-image-caption">
+                            {topGems[0].place_name}
+                        </span>
+                    </button>
                 )}
             </div>
 
             <div className="home-quick-fun">
-                {quickActions.map(({ to, label }) => (
-                    <Link key={to} to={to} className="home-quick-fun-item">
+                {quickActions.map(({ to, label, signInMessage: actionSignInMessage }) => (
+                    <Link
+                        key={to}
+                        to={to}
+                        className="home-quick-fun-item"
+                        onClick={(event) => actionSignInMessage && handleProtectedNavigation(event, actionSignInMessage)}
+                    >
                         <span className="home-quick-fun-label">{label}</span>
                     </Link>
                 ))}
@@ -380,7 +406,13 @@ function Home({ user }) {
             <div className="home-adventures">
                 <div className="home-adventures-header">
                     <h2>Your Adventures</h2>
-                    <Link to="/trip-itinerary" className="home-adventures-seeall">See All →</Link>
+                    <Link
+                        to="/trip-itinerary"
+                        className="home-adventures-seeall"
+                        onClick={(event) => handleProtectedNavigation(event, 'Login to view your trips.')}
+                    >
+                        See All →
+                    </Link>
                 </div>
                 <div className="home-adventures-grid">
                     {loading ? (
@@ -388,7 +420,12 @@ function Home({ user }) {
                     ) : recentTrips.length === 0 ? (
                         <div className="home-empty-adventures">
                             <p>No adventures yet</p>
-                            <Link to="/trip-itinerary">Start planning →</Link>
+                            <Link
+                                to="/trip-itinerary"
+                                onClick={(event) => handleProtectedNavigation(event, 'Login to start planning a trip.')}
+                            >
+                                Start planning →
+                            </Link>
                         </div>
                     ) : (
                         recentTrips.slice(0, 2).map((trip) => (
@@ -400,7 +437,7 @@ function Home({ user }) {
                                 <div className="home-adventure-card-content">
                                     <h4>{trip.trip_name}</h4>
                                     <p>
-                                        {trip.locations?.length || 0} stops · {new Date(trip.created_at).toLocaleDateString('en-GB', {
+                                        {trip.locations_count ?? trip.locations?.length ?? 0} stops · {new Date(trip.created_at).toLocaleDateString('en-GB', {
                                             day: 'numeric',
                                             month: 'short'
                                         })}
@@ -420,7 +457,11 @@ function Home({ user }) {
                     <h2>Plan Your Adventure</h2>
                 </div>
                 <div className="home-plan-explore-grid">
-                    <Link to="/trip-itinerary" className="home-plan-card home-plan-card-trip">
+                    <Link
+                        to="/trip-itinerary"
+                        className="home-plan-card home-plan-card-trip"
+                        onClick={(event) => handleProtectedNavigation(event, 'Login to create a trip itinerary.')}
+                    >
                         <div className="home-plan-card-content">
                             <h3>Create New Trip</h3>
                             <p>Plan your next adventure from scratch</p>

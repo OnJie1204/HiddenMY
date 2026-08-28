@@ -125,7 +125,7 @@ export default function HiddenGems({ user }) {
         e.stopPropagation();
         if (wishlistBusyId) return;
         if (!user) {
-            requireSignIn("Sign in to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.");
             return;
         }
 
@@ -184,7 +184,13 @@ export default function HiddenGems({ user }) {
 
                 <button
                     className="hidden-gems-submit-btn"
-                    onClick={() => navigate("/hidden-gems/create")}
+                    onClick={() => {
+                        if (!user) {
+                            requireSignIn("Login to submit a hidden gem.");
+                            return;
+                        }
+                        navigate("/hidden-gems/create");
+                    }}
                 >
                     + Hidden Gem
                 </button>
@@ -343,7 +349,7 @@ export default function HiddenGems({ user }) {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (!user) {
-                                                    requireSignIn("Sign in to compare hidden gems.");
+                                                    requireSignIn("Login to compare hidden gems.");
                                                     return;
                                                 }
                                                 toggleCompare(gem);
@@ -375,7 +381,7 @@ export default function HiddenGems({ user }) {
                                         </span>
                                     ) : gem.status === 'pending_community_vote' ? (
                                         <span className="hidden-gems-card-pending">
-                                            Pending ({gem.vote_count || 0}/{gem.verification_threshold || 10} votes)
+                                            Pending ({gem.votes_count ?? 0}/{gem.verification_threshold || 10} votes)
                                         </span>
                                     ) : (
                                         <span className="hidden-gems-card-pending">
