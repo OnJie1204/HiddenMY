@@ -145,6 +145,7 @@ function Home({ user }) {
     const quickActions = [
         { to: '/map', label: 'Map' },
         { to: '/hidden-gems', label: 'Gems' },
+        { to: '/wishlist', label: 'Wishlist', signInMessage: 'Login to view your wishlist.' },
         { to: '/trip-itinerary', label: 'Trips', signInMessage: 'Login to view and plan your trips.' },
         { to: '/profile', label: 'Profile', signInMessage: 'Login to view your profile.' },
     ];
