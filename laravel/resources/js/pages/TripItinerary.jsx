@@ -39,15 +39,20 @@ export default function TripItinerary() {
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState("");
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isLoadingItineraries, setIsLoadingItineraries] = useState(true);
     const navigate = useNavigate();
 
     const loadTripItineraries = () => {
+        setIsLoadingItineraries(true);
         getTripItineraries()
             .then(res => {
                 setTripItineraries(res.data);
             })
             .catch(err => {
                 console.log(err);
+            })
+            .finally(() => {
+                setIsLoadingItineraries(false);
             });
     };
 
@@ -125,7 +130,17 @@ export default function TripItinerary() {
             </div>
 
 
-            {tripItineraries.length === 0 ? (
+            {isLoadingItineraries ? (
+
+                <div
+                    className="trip-detail-loading-bar"
+                    role="progressbar"
+                    aria-label="Loading itineraries"
+                >
+                    <div className="trip-detail-loading-bar-indicator" />
+                </div>
+
+            ) : tripItineraries.length === 0 ? (
 
                 <div className="hidden-gems-empty">
                     <p>You haven't created any trip itineraries yet.</p>

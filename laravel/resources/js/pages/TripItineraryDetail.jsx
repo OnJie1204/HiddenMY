@@ -267,6 +267,7 @@ export default function TripItineraryDetail() {
     const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+    const [isLoadingItinerary, setIsLoadingItinerary] = useState(true);
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -340,9 +341,14 @@ export default function TripItineraryDetail() {
     }, [trip]);
 
     useEffect(() => {
-        refreshItinerary().catch((error) => {
-            console.error("Failed to load itinerary locations.", error);
-        });
+        setIsLoadingItinerary(true);
+        refreshItinerary()
+            .catch((error) => {
+                console.error("Failed to load itinerary locations.", error);
+            })
+            .finally(() => {
+                setIsLoadingItinerary(false);
+            });
     }, [id]);
 
     useEffect(() => {
@@ -779,6 +785,15 @@ export default function TripItineraryDetail() {
 
         <div className="trip-detail-container">
 
+            {isLoadingItinerary && (
+                <div
+                    className="trip-detail-loading-bar"
+                    role="progressbar"
+                    aria-label="Loading itinerary"
+                >
+                    <div className="trip-detail-loading-bar-indicator" />
+                </div>
+            )}
 
             <button
                 className="trip-detail-back-btn"
