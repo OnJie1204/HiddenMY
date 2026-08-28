@@ -162,19 +162,6 @@ function Profile({ setAppUser }) {
   return (
     <div className="profile-page">
       <div className="gem-detail-page">
-        {!isOwnProfile && (
-          <Link 
-            to="/hidden-gems" 
-            className="gem-detail-back-link"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(-1);
-            }}
-          >
-            ← Back
-          </Link>
-        )}
-
         <h1 className="page-title">{isOwnProfile ? 'My Profile' : 'User Profile'}</h1>
 
         {/* Header Card */}

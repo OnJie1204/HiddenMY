@@ -193,6 +193,30 @@
     flex-shrink: 0;
 }
 
+/* Floating back control — pill so it stays legible over the map, but the
+   same "← Back" affordance the rest of the app uses via <BackButton>. */
+.maps-back-btn {
+    pointer-events: auto;
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 14px;
+    border: none;
+    border-radius: 999px;
+    background: var(--color-surface, #fff);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    color: var(--color-text, #1c2b28);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.maps-back-btn:hover {
+    transform: scale(1.04);
+    color: var(--color-gem-accent, #c2410c);
+}
+
 /* Search bar */
 .search-container {
     position: relative;

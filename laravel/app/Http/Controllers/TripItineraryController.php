@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Location;
 use App\Models\TripItinerary;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 
 class TripItineraryController extends Controller
@@ -111,6 +113,17 @@ class TripItineraryController extends Controller
                 'latitude' => ['required', 'numeric', 'between:-90,90'],
                 'longitude' => ['required', 'numeric', 'between:-180,180'],
             ]);
+
+            // OpenStreetMap stops reach here only via the map-click reverse
+            // geocode (which rejects points outside Malaysia by address) or the
+            // location search (restricted to countrycodes=my) — re-verify the
+            // country by address here so a crafted request can't slip a
+            // non-Malaysian coordinate through.
+            if (! $this->coordinatesAreInMalaysia((float) $validated['latitude'], (float) $validated['longitude'])) {
+                return response()->json([
+                    'message' => 'Stopping points must be within Malaysia.',
+                ], 422);
+            }
 
             $attributes = [
                 'location_id' => null,
@@ -247,5 +260,41 @@ class TripItineraryController extends Controller
         return response()->json([
             'message' => 'Trip itinerary deleted successfully.',
         ]);
+    }
+
+    /**
+     * Confirm a coordinate resolves to an address in Malaysia, via the same
+     * Nominatim reverse-geocode the map-click endpoint uses. Cached so repeated
+     * adds of the same point don't hit the network again. If Nominatim can't be
+     * reached the check passes — the coordinate was already country-checked on
+     * the way in, and we don't want an outage to block valid stops.
+     */
+    private function coordinatesAreInMalaysia(float $latitude, float $longitude): bool
+    {
+        $cacheKey = 'osm-reverse-country:'.md5(round($latitude, 5).':'.round($longitude, 5));
+
+        $countryCode = Cache::remember($cacheKey, now()->addHours(24), function () use ($latitude, $longitude) {
+            try {
+                $result = Http::acceptJson()
+                    ->withUserAgent(config('app.name', 'HiddenMY').' location search')
+                    ->timeout(5)
+                    ->get('https://nominatim.openstreetmap.org/reverse', [
+                        'lat' => $latitude,
+                        'lon' => $longitude,
+                        'format' => 'jsonv2',
+                        'addressdetails' => 1,
+                    ])
+                    ->throw()
+                    ->json();
+
+                return strtolower($result['address']['country_code'] ?? '') ?: null;
+            } catch (\Throwable $exception) {
+                report($exception);
+
+                return null;
+            }
+        });
+
+        return $countryCode === null || $countryCode === 'my';
     }
 }

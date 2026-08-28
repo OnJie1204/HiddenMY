@@ -486,37 +486,6 @@ export default function HiddenGemDetail({ user }) {
                 </div>
             )}
 
-            <Link
-                to="/hidden-gems"
-                className="gem-detail-back-link"
-                onClick={(event) => {
-                    event.preventDefault();
-                    if (routeLocation.state?.fromMyRatings) {
-                        navigate("/my-hidden-gems", {
-                            state: {
-                                activeTab: "contributions",
-                                contributionTab: "ratings",
-                            },
-                        });
-                        return;
-                    }
-
-                    if (routeLocation.state?.fromMyVotes) {
-                        navigate("/my-hidden-gems", {
-                            state: {
-                                activeTab: "contributions",
-                                contributionTab: "votes",
-                            },
-                        });
-                        return;
-                    }
-
-                    navigate(-1);
-                }}
-            >
-                ← Back
-            </Link>
-
             <div className="gem-detail-container">
 
                 <div className="gem-detail-gallery">

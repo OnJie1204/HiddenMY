@@ -617,6 +617,23 @@ img.avatar {
   width: 100%;
 }
 
+.app-back-btn {
+  display: inline-block;
+  padding: 0;
+  margin-bottom: 16px;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.app-back-btn:hover {
+  color: var(--color-gem-accent);
+}
+
 /* ===== Home Page - Fun Adventure Style ===== */
 .home-page {
     max-width: 1120px;
@@ -8917,7 +8934,7 @@ img.avatar {
 .travel-post-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     margin-bottom: 16px;
 }
 

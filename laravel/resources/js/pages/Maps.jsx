@@ -138,7 +138,19 @@ function groupKey(lat, lng) {
 function Maps({ user }){
     const location = useLocation();
     const navigate = useNavigate();
-    
+
+    // Mirrors the shared <BackButton> (which is suppressed on /map because the
+    // full-bleed map hero has no room for it) — go back in history, or fall
+    // back to home when this is the first entry in the stack.
+    const handleBack = () => {
+        if (location.key === 'default') {
+            navigate('/');
+        } else {
+            navigate(-1);
+        }
+    };
+
+
     // ==================== URL Params (from HiddenGemDetail) ====================
     const queryParams = new URLSearchParams(location.search);
     const latParam = queryParams.get('lat');
@@ -638,6 +650,13 @@ function Maps({ user }){
 
                 {/* Left column: search box always visible, gem panel docked beneath it */}
                 <div className="maps-left-stack">
+                    <button
+                        type="button"
+                        className="maps-back-btn"
+                        onClick={handleBack}
+                    >
+                        ← Back
+                    </button>
                     <div className="maps-search-float">
                         <SearchBar
                             onSelect={(item) => {

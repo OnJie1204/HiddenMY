@@ -76,6 +76,16 @@ const hasValidCoordinates = ({ latitude, longitude }) =>
 // selected pin from any neighbours.
 const HIDDEN_GEM_FOCUS_ZOOM = 18;
 
+// Approximate latitude/longitude boundaries of Malaysia — the stopping-point
+// map is locked to this area so users can only pick locations within Malaysia.
+// Loose rectangle used only to keep the map panned around Malaysia. It is not
+// a precise border — the actual "is this in Malaysia?" check is done against
+// the resolved address (see handleMapClick / the reverse-geocode endpoint).
+const MALAYSIA_BOUNDS = [
+    [0.5, 99.5],
+    [7.5, 119.5],
+];
+
 const toDisplayLocation = (location) => ({
     id: location.id,
     name: location.location?.place_name ?? location.osm_name ?? `OpenStreetMap location (${location.osm_id})`,
@@ -339,6 +349,17 @@ export default function TripItineraryDetail() {
             setRenameName(trip.trip_name);
         }
     }, [trip]);
+
+    // Once a valid location is picked — from the map, a search result, or the
+    // wishlist — clear any lingering selection error so it doesn't sit next to
+    // a perfectly good choice.
+    useEffect(() => {
+        if (selectedLocation) {
+            setMapClickError("");
+            setAddLocationError("");
+            setLocationSearchError("");
+        }
+    }, [selectedLocation]);
 
     useEffect(() => {
         setIsLoadingItinerary(true);
@@ -795,15 +816,6 @@ export default function TripItineraryDetail() {
                 </div>
             )}
 
-            <button
-                className="trip-detail-back-btn"
-                onClick={() => navigate("/trip-itinerary")}
-            >
-                ← Back to My Itineraries
-            </button>
-
-
-
             <div className="trip-detail-header">
 
 
@@ -1212,6 +1224,9 @@ export default function TripItineraryDetail() {
                             <MapContainer
                                 center={[4.2105, 101.9758]}
                                 zoom={6}
+                                minZoom={6}
+                                maxBounds={MALAYSIA_BOUNDS}
+                                maxBoundsViscosity={1.0}
                                 scrollWheelZoom
                                 className="stopping-point-leaflet-map"
                             >
