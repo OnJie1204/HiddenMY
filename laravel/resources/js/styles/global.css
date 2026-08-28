@@ -3633,6 +3633,20 @@ img.avatar {
     color: var(--color-text-muted);
 }
 
+.compare-card-muted {
+    color: var(--color-text-muted);
+    font-weight: 400;
+}
+
+.compare-card-menu-items {
+    list-style: none;
+    margin: 2px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .compare-card-actions {
     display: flex;
     flex-wrap: wrap;
@@ -3805,6 +3819,12 @@ img.avatar {
 .hidden-gem-description {
     min-height:120px;
     resize:vertical;
+}
+
+.hidden-gem-optional-hint {
+    font-size: 0.8rem;
+    color: var(--color-text-muted, #64766f);
+    margin: 0.2rem 0 0.4rem;
 }
 
 
@@ -7620,7 +7640,7 @@ img.avatar {
 
     gap: 15px;
 
-    padding: 18px 20px 16px;
+    padding: 22px 24px 18px;
 
     border-bottom: 1px solid #E5E7EB;
 }
@@ -7680,7 +7700,7 @@ img.avatar {
    ========================================================= */
 
 .vote-modal-body {
-    padding: 20px;
+    padding: 24px;
 }
 
 /* =========================================================
@@ -8329,6 +8349,46 @@ img.avatar {
     background: #111827;
 }
 
+.vote-btn-secondary {
+    min-width: 125px;
+    min-height: 40px;
+
+    padding: 8px 15px;
+
+    border: 1px solid #E5E7EB;
+    border-radius: 9px;
+
+    background: #FFFFFF;
+    color: #6B7280;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.vote-btn-secondary:hover:not(:disabled) {
+    background: #F8F8F7;
+}
+
+.sign-in-prompt-message {
+    margin: 0 0 20px;
+
+    color: #374151;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.sign-in-prompt-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.sign-in-prompt-actions .vote-btn-primary,
+.sign-in-prompt-actions .vote-btn-secondary {
+    flex: 1;
+}
+
 /* =========================================================
    Result
    ========================================================= */
@@ -8486,6 +8546,296 @@ img.avatar {
     .vote-small-btn {
         flex: 1;
     }
+}
+
+/* =========================================================
+   Report / Verify flow — shared step content
+   (ReportModal.jsx step="reason"/"flag-item"/"form"/"success"/"error",
+   VerifyReportModal.jsx step="checkin"/"manual_checkin"/"vote")
+
+   None of this had CSS at all — labels and their textarea/upload-area
+   siblings were falling back to plain inline flow with no stacking and
+   no spacing, which is what made these steps look cramped/overlapping.
+   ========================================================= */
+
+.vote-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.vote-location-info p {
+    margin: 0;
+    color: #1F2937;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.vote-location-address {
+    margin: 2px 0 0 !important;
+    color: #6B7280 !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+}
+
+.vote-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.vote-form-group > label {
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.vote-textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 90px;
+
+    padding: 12px 14px;
+
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+
+    font-family: inherit;
+    font-size: 14px;
+
+    resize: vertical;
+
+    transition: border-color 0.2s;
+}
+
+.vote-textarea:focus {
+    outline: none;
+    border-color: #1F2937;
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.1);
+}
+
+.vote-char-count {
+    align-self: flex-end;
+    margin-top: -4px;
+    color: #9CA3AF;
+    font-size: 11px;
+}
+
+.vote-upload-area {
+    padding: 16px;
+
+    background: #FAFAFA;
+    border: 1.5px dashed #D1D5DB;
+    border-radius: 12px;
+
+    text-align: center;
+    cursor: pointer;
+
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.vote-upload-area:hover {
+    background: #F3F4F6;
+    border-color: #9CA3AF;
+}
+
+.vote-upload-placeholder p {
+    margin: 0;
+    color: #6B7280;
+    font-size: 13px;
+}
+
+.vote-photo-preview {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    max-height: 180px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.vote-remove-photo {
+    margin-top: 8px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: #DC2626;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.vote-remove-photo:hover {
+    text-decoration: underline;
+}
+
+.vote-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vote-manual-back {
+    align-self: flex-start;
+    padding: 0;
+    background: none;
+    border: none;
+    color: #6B7280;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.vote-manual-back:hover {
+    color: #1F2937;
+}
+
+.vote-manual-hint {
+    margin: 0;
+    color: #6B7280;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.vote-manual-inputs {
+    display: flex;
+    gap: 12px;
+}
+
+.vote-manual-input-group {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.vote-manual-input-group label {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.vote-manual-input {
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 10px 12px;
+
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+
+    font-family: inherit;
+    font-size: 14px;
+
+    transition: border-color 0.2s;
+}
+
+.vote-manual-input:focus {
+    outline: none;
+    border-color: #1F2937;
+    box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.1);
+}
+
+.vote-manual-checkin {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.vote-manual-checkin h3 {
+    margin: 0;
+    color: #1F2937;
+    font-size: 16px;
+}
+
+.vote-checkin-location {
+    padding: 12px 14px;
+    background: #F8F8F7;
+    border-radius: 12px;
+}
+
+.vote-checkin-location-name {
+    margin: 0;
+    color: #1F2937;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.vote-checkin-location-address {
+    margin: 3px 0 0;
+    color: #6B7280;
+    font-size: 12px;
+}
+
+.vote-checkin-hint {
+    margin: 0;
+    color: #9CA3AF;
+    font-size: 12px;
+}
+
+.vote-checkin-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vote-checkin-option {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    padding: 12px 14px;
+
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+
+    text-align: left;
+    cursor: pointer;
+
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.vote-checkin-option:hover:not(:disabled) {
+    background: #F8F8F7;
+    border-color: #1F2937;
+}
+
+.vote-checkin-option:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.vote-checkin-option-label {
+    color: #1F2937;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.vote-checkin-option-desc {
+    color: #6B7280;
+    font-size: 12px;
+}
+
+.vote-success,
+.vote-error {
+    padding: 10px 0 4px;
+    text-align: center;
+}
+
+.vote-success h3,
+.vote-error h3 {
+    margin: 0 0 8px;
+    color: #1F2937;
+    font-size: 17px;
+}
+
+.vote-success p,
+.vote-error p {
+    margin: 0 0 18px;
+    color: #6B7280;
+    font-size: 14px;
+    line-height: 1.5;
 }
 
 /* ===== Report a Hidden Gem ===== */
@@ -8712,7 +9062,6 @@ img.avatar {
     background: #F8F8F7;
     border-radius: 12px;
     padding: 12px 14px;
-    margin-bottom: 16px;
 }
 
 .report-summary-label {
@@ -9627,6 +9976,140 @@ img.avatar {
     height: 100%;
     background: linear-gradient(90deg, #F97316, #FB923C);
     border-radius: 10px;
+}
+
+.gem-detail-contact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gem-detail-contact-row {
+    display: flex;
+    gap: 8px;
+    font-size: 14px;
+    color: #1F1F1F;
+}
+
+.gem-detail-contact-label {
+    font-weight: 600;
+    color: #6B7280;
+    min-width: 70px;
+}
+
+.menu-items-list {
+    list-style: none;
+    margin: 0 0 14px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.menu-items-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #F8F8F7;
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+
+.menu-items-item-info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+
+.menu-items-item-name {
+    font-weight: 600;
+    color: #1F1F1F;
+}
+
+.menu-items-item-price {
+    font-size: 13px;
+    color: #F97316;
+    font-weight: 600;
+}
+
+.menu-items-item-by {
+    font-size: 12px;
+    color: #9CA3AF;
+}
+
+.menu-items-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.menu-items-like-btn {
+    border: 1px solid #E5E7EB;
+    background: #fff;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6B7280;
+    cursor: pointer;
+}
+
+.menu-items-like-btn.active {
+    background: #FFF7ED;
+    border-color: #F97316;
+    color: #F97316;
+}
+
+.menu-items-remove-btn {
+    border: none;
+    background: transparent;
+    color: #9CA3AF;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 4px;
+}
+
+.menu-items-remove-btn:hover {
+    color: #DC2626;
+}
+
+.menu-items-add-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.menu-items-add-form .form-input {
+    flex: 1;
+    min-width: 140px;
+    margin-bottom: 0;
+}
+
+.menu-items-price-input {
+    max-width: 110px;
+}
+
+.menu-items-add-btn {
+    box-sizing: border-box;
+    padding: 0.65rem 16px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: #1F2937;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.menu-items-add-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .gem-detail-progress-text {

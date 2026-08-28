@@ -10,6 +10,7 @@ import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import { useCompare } from "../context/CompareContext";
+import MenuItems from "../components/MenuItems";
 import api from "../api";
 
 import "../styles/global.css";
@@ -647,6 +648,49 @@ export default function HiddenGemDetail({ user }) {
                                 "{gem.description || "No description available."}"
                             </p>
                         </div>
+
+                        {(gem.opening_hours || gem.phone || gem.website) && (
+                            <div className="gem-detail-section-card">
+                                <div className="gem-detail-section-header">
+                                    <span className="gem-detail-section-icon">ℹ️</span>
+                                    <h3>Contact Info</h3>
+                                </div>
+                                <div className="gem-detail-contact-list">
+                                    {gem.opening_hours && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Hours</span>
+                                            <span>{gem.opening_hours}</span>
+                                        </div>
+                                    )}
+                                    {gem.phone && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Phone</span>
+                                            <a href={`tel:${gem.phone}`}>{gem.phone}</a>
+                                        </div>
+                                    )}
+                                    {gem.website && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Website</span>
+                                            <a href={gem.website} target="_blank" rel="noopener noreferrer">{gem.website}</a>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {gem.category?.name === "Food & Beverage" && (
+                            <div className="gem-detail-section-card">
+                                <div className="gem-detail-section-header">
+                                    <span className="gem-detail-section-icon">🍽️</span>
+                                    <h3>Menu Items</h3>
+                                </div>
+                                <MenuItems
+                                    locationId={gem.id}
+                                    currentUser={currentUser}
+                                    onRequireSignIn={requireSignIn}
+                                />
+                            </div>
+                        )}
 
                         {/* Vote Progress Card */}
                         {gem.status === "pending_community_vote" && (

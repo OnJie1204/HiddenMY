@@ -23,10 +23,10 @@ export function getHiddenGemMarkerIcon(status) {
 
 function HiddenGemMarker({
     gem,
-    postCount,
     onClick
 }){
     const markerRef = useRef(null);
+    const isPending = gem.status === "pending_community_vote";
 
     return (
         <Marker
@@ -53,13 +53,16 @@ function HiddenGemMarker({
             }
         }}
         >
-            <Popup offset={[0, -25]}>
+            <Popup offset={[0, -30]}>
                 <b>{gem.title}</b>
                 <br />
                 <small>
-                    {gem.state}
-                    {postCount > 1 && <> · {postCount} posts here</>}
-                    {gem.status === "pending_community_vote" && <> · Awaiting community votes</>}
+                    {gem.category || gem.state}
+                    {gem.ratingCount > 0 && <> · ★ {gem.ratingAvg?.toFixed(1)} ({gem.ratingCount})</>}
+                    {gem.distanceKm != null && <> · {gem.distanceKm < 1
+                        ? `${Math.round(gem.distanceKm * 1000)}m away`
+                        : `${gem.distanceKm.toFixed(1)}km away`}</>}
+                    {isPending && <> · Awaiting community votes</>}
                 </small>
             </Popup>
         </Marker>

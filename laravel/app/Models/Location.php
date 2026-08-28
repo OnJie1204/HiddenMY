@@ -43,6 +43,9 @@ class Location extends Model
         'state',
         'postcode',
         'description',
+        'opening_hours',
+        'phone',
+        'website',
         'latitude',
         'longitude',
         'status',
@@ -105,6 +108,22 @@ class Location extends Model
     public function checkIns()
     {
         return $this->hasMany(CheckIn::class);
+    }
+
+    public function gemInteractions()
+    {
+        return $this->hasMany(GemInteraction::class);
+    }
+
+    /** Star ratings only — GemInteraction also stores like/dislike rows under other types. */
+    public function ratings()
+    {
+        return $this->hasMany(GemInteraction::class)->where('type', 'comment');
+    }
+
+    public function menuItems()
+    {
+        return $this->hasMany(MenuItem::class)->orderByDesc('like_count');
     }
 
     public function reports()

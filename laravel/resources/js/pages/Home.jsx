@@ -9,6 +9,7 @@ import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist'
 import HiddenGemMarker from '../components/HiddenGemMarker';
 import ReportButton from '../components/ReportButton';
 import SignInPrompt from '../components/SignInPrompt';
+import { cartoTileUrl } from '../utils/cartoTiles';
 
 // Fix leaflet default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -309,14 +310,13 @@ function Home({ user }) {
                             doubleClickZoom={false}
                         >
                             <TileLayer
-                                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                                url={cartoTileUrl("rastertiles/voyager")}
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             />
                             <ZoomControl position="bottomright" />
                             {selectedGem && (
                                 <HiddenGemMarker
                                     gem={formatGemForMarker(selectedGem)}
-                                    postCount={1}
                                     onClick={() => {}}
                                 />
                             )}
@@ -324,7 +324,6 @@ function Home({ user }) {
                                 <HiddenGemMarker
                                     key={`marker-${gem.id}`}
                                     gem={formatGemForMarker(gem)}
-                                    postCount={1}
                                     onClick={() => handleGemSelect(gem)}
                                 />
                             ))}

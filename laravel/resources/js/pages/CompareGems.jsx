@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
+import L from "leaflet";
 import { useCompare } from "../context/CompareContext";
 import { getHiddenGemDetail } from "../api/hiddenGems";
 import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
+import { getMenuItems } from "../api/menuItems";
 import { toCompareGem } from "../utils/compareGem";
 import { getGemStatusDisplay } from "../utils/gemStatus";
 import GemImage from "../components/GemImage";
@@ -39,6 +41,8 @@ export default function CompareGems() {
     const [itineraries, setItineraries] = useState([]);
     const [itineraryOpenId, setItineraryOpenId] = useState(null);
     const [itineraryStatusById, setItineraryStatusById] = useState({});
+    const [menuItemsByGemId, setMenuItemsByGemId] = useState({});
+    const [userPosition, setUserPosition] = useState(null);
 
     useEffect(() => {
         getTripItineraries()
@@ -47,39 +51,63 @@ export default function CompareGems() {
     }, []);
 
     useEffect(() => {
-        if (!urlIds) return;
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+            (pos) => setUserPosition([pos.coords.latitude, pos.coords.longitude]),
+            () => {} // distance is a nice-to-have here, not worth surfacing an error for
+        );
+    }, []);
 
-        const need = urlIds.filter((id) => !items.some((g) => String(g.id) === id) && !fetched[id]);
-        const numericNeed = need.filter((id) => /^\d+$/.test(id));
-        const unresolvable = need.filter((id) => !/^\d+$/.test(id));
+    useEffect(() => {
+        const ids = urlIds || items.map((g) => String(g.id));
+        const numericIds = ids.filter((id) => /^\d+$/.test(id) && !fetched[id]);
+        const nonNumericMissing = ids.filter((id) => !/^\d+$/.test(id) && !items.some((g) => String(g.id) === id));
 
-        if (unresolvable.length > 0) {
-            setMissing((prev) => Array.from(new Set([...prev, ...unresolvable])));
+        if (nonNumericMissing.length > 0) {
+            setMissing((prev) => Array.from(new Set([...prev, ...nonNumericMissing])));
         }
 
-        numericNeed.forEach((id) => {
+        numericIds.forEach((id) => {
             getHiddenGemDetail(id)
-                .then((res) => setFetched((prev) => ({ ...prev, [id]: toCompareGem(res.data.data) })))
+                .then((res) => setFetched((prev) => ({
+                    ...prev,
+                    [id]: { gem: toCompareGem(res.data.data), votes: res.data.data?.votes || [] },
+                })))
                 .catch(() => setMissing((prev) => Array.from(new Set([...prev, id]))));
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [urlIds]);
+    }, [urlIds, items]);
 
     const gems = useMemo(() => {
         const ids = urlIds || items.map((g) => String(g.id));
         return ids
-            .map((id) => items.find((g) => String(g.id) === id) || fetched[id])
-            .filter(Boolean);
-    }, [urlIds, items, fetched]);
+            .map((id) => fetched[id]?.gem || items.find((g) => String(g.id) === id))
+            .filter(Boolean)
+            .map((gem) => {
+                if (gem.source !== "database" || !userPosition) return gem;
+                const distanceKm = L.latLng(userPosition)
+                    .distanceTo(L.latLng(Number(gem.latitude), Number(gem.longitude))) / 1000;
+                return { ...gem, distanceKm };
+            });
+    }, [urlIds, items, fetched, userPosition]);
 
-    const [reviewsByGemId, setReviewsByGemId] = useState({});
+    const reviewsByGemId = useMemo(() => {
+        const map = {};
+        gems.forEach((g) => {
+            if (g.source === "database" && fetched[g.id]) {
+                map[g.id] = fetched[g.id].votes;
+            }
+        });
+        return map;
+    }, [gems, fetched]);
+
     useEffect(() => {
         gems
-            .filter((g) => g.source === "database" && reviewsByGemId[g.id] === undefined)
+            .filter((g) => g.source === "database" && menuItemsByGemId[g.id] === undefined)
             .forEach((g) => {
-                getHiddenGemDetail(g.id)
-                    .then((res) => setReviewsByGemId((prev) => ({ ...prev, [g.id]: res.data.data?.votes || [] })))
-                    .catch(() => setReviewsByGemId((prev) => ({ ...prev, [g.id]: [] })));
+                getMenuItems(g.id)
+                    .then((res) => setMenuItemsByGemId((prev) => ({ ...prev, [g.id]: res.data.data || [] })))
+                    .catch(() => setMenuItemsByGemId((prev) => ({ ...prev, [g.id]: [] })));
             });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gems]);
@@ -191,6 +219,31 @@ export default function CompareGems() {
                                     </div>
                                 )}
 
+                                {gem.source === "database" && (
+                                    <div className="compare-card-row">
+                                        <span className="compare-card-label">Rating</span>
+                                        <span>
+                                            {gem.ratingCount > 0
+                                                ? <>★ {gem.ratingAvg?.toFixed(1)} <span className="compare-card-muted">({gem.ratingCount})</span></>
+                                                : <span className="compare-card-muted">No ratings yet</span>}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {gem.source === "database" && gem.checkInsCount > 0 && (
+                                    <div className="compare-card-row">
+                                        <span className="compare-card-label">Check-ins</span>
+                                        <span>{gem.checkInsCount}</span>
+                                    </div>
+                                )}
+
+                                {gem.distanceKm != null && (
+                                    <div className="compare-card-row">
+                                        <span className="compare-card-label">Distance</span>
+                                        <span>{gem.distanceKm < 1 ? `${Math.round(gem.distanceKm * 1000)}m away` : `${gem.distanceKm.toFixed(1)}km away`}</span>
+                                    </div>
+                                )}
+
                                 <div className="compare-card-row">
                                     <span className="compare-card-label">Address</span>
                                     <span>{gem.address || "—"}</span>
@@ -228,6 +281,29 @@ export default function CompareGems() {
                                         <span><a href={gem.website} target="_blank" rel="noopener noreferrer">{gem.website}</a></span>
                                     </div>
                                 )}
+
+                                {gem.source === "database" && gem.category === "Food & Beverage" && (() => {
+                                    const menuItems = menuItemsByGemId[gem.id];
+                                    const topItems = menuItems?.slice(0, 3) || [];
+                                    return (
+                                        <div className="compare-card-row">
+                                            <span className="compare-card-label">Popular items</span>
+                                            {menuItems === undefined && <span className="compare-card-muted">Loading…</span>}
+                                            {menuItems && topItems.length === 0 && <span className="compare-card-muted">None suggested yet</span>}
+                                            {topItems.length > 0 && (
+                                                <ul className="compare-card-menu-items">
+                                                    {topItems.map((item) => (
+                                                        <li key={item.id}>
+                                                            {item.name}
+                                                            {item.price != null && ` (RM ${Number(item.price).toFixed(2)})`}
+                                                            {" — 👍 "}{item.like_count}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
 
                                 {gem.source === "database" && (() => {
                                     const reviews = reviewsByGemId[gem.id];

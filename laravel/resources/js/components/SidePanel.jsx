@@ -113,7 +113,6 @@ function SidePanel({
 
     const showNavChrome = mode === "nav";
     const embedded = mode === "gems";
-    const otherPosts = group ? group.filter((_, i) => i !== activeIndex) : [];
 
     function openGoogleMaps(g) {
         window.open(`https://www.google.com/maps/dir/?api=1&destination=${g.latitude},${g.longitude}`, "_blank");
@@ -402,6 +401,21 @@ function SidePanel({
                             </div>
                         </div>
                         {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
+                        {gem.source === "database" && (gem.ratingCount > 0 || gem.checkInsCount > 0 || gem.distanceKm != null) && (
+                            <div className="side-panel-stats-row">
+                                {gem.ratingCount > 0 && (
+                                    <span className="side-panel-stat">★ {gem.ratingAvg?.toFixed(1)} <em>({gem.ratingCount})</em></span>
+                                )}
+                                {gem.distanceKm != null && (
+                                    <span className="side-panel-stat">
+                                        📍 {gem.distanceKm < 1 ? `${Math.round(gem.distanceKm * 1000)}m away` : `${gem.distanceKm.toFixed(1)}km away`}
+                                    </span>
+                                )}
+                                {gem.checkInsCount > 0 && (
+                                    <span className="side-panel-stat">✓ {gem.checkInsCount} check-in{gem.checkInsCount > 1 ? "s" : ""}</span>
+                                )}
+                            </div>
+                        )}
                         <p className="side-panel-gem-desc">
                             <TruncatedText text={gem.description || "No description available."} limit={100} />
                         </p>
@@ -527,31 +541,6 @@ function SidePanel({
                             </div>
                         )}
 
-                        {/* Other posts at this same spot, below the detail */}
-                        {otherPosts.length > 0 && (
-                            <div className="side-panel-other-posts">
-                                <h3>{otherPosts.length} other post{otherPosts.length > 1 ? "s" : ""} at this spot</h3>
-                                {otherPosts.map((g) => {
-                                    const index = group.indexOf(g);
-                                    return (
-                                        <div
-                                            key={g.id ?? index}
-                                            className="side-panel-post-item"
-                                            onClick={() => {
-                                                setActiveIndex(index);
-                                                bodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-                                            }}
-                                        >
-                                            <GemImage src={g.image} alt={g.title} />
-                                            <div>
-                                                <strong>{g.title}</strong>
-                                                <p>{g.category}</p>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
 
                         {/* Reviews are the votes left when someone verifies/visits this gem */}
                         {gem.source === "database" && (

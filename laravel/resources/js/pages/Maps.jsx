@@ -5,6 +5,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import "../../css/maps.css";
+import { cartoTileUrl } from "../utils/cartoTiles";
 
 import {
     getMyHiddenGems,
@@ -13,6 +14,7 @@ import {
     getNearbyAttractionsAt,
     getHiddenGemsInBounds,
     getHiddenGemDetail,
+    getCategories,
 } from "../api/hiddenGems";
 import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
@@ -131,10 +133,6 @@ function MapClickExplorer({ onMapClick }) {
     return null;
 }
 
-function groupKey(lat, lng) {
-    return `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
-}
-
 function Maps({ user }){
     const location = useLocation();
     const navigate = useNavigate();
@@ -172,6 +170,10 @@ function Maps({ user }){
     const [popularPosts,setPopularPosts]=useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState(null); // null | 'hidden_gem' | 'pending_community_vote'
+    const [categories, setCategories] = useState([]);
+    const [categoryFilter, setCategoryFilter] = useState(null); // null = all categories
+    const [wishlistOnly, setWishlistOnly] = useState(false);
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const [nearby, setNearby] = useState([]);
     const [nearbyLoading, setNearbyLoading] = useState(false);
     const [explorePlaces, setExplorePlaces] = useState([]);
@@ -256,10 +258,24 @@ function Maps({ user }){
             getPopularHiddenGems()
                 .then(res => setPopularPosts(res.data || []))
                 .catch(err => console.log(err));
+
+            getCategories()
+                .then(res => setCategories(res.data.data || []))
+                .catch(err => console.log(err));
         }, 200);
 
         return () => clearTimeout(id);
     }, []);
+
+    // Fetched independently of the panel (not gated on panelOpen) — the
+    // "My Wishlist" map filter needs to know a user's wishlist before they've
+    // ever opened a gem in the panel.
+    useEffect(() => {
+        if (!user) return;
+        getWishlist()
+            .then(res => setWishlistIds(new Set((res.data.data || []).map(gem => gem.id))))
+            .catch(err => console.log(err));
+    }, [user]);
 
     const loadedPanelExtrasRef = useRef(false);
     useEffect(() => {
@@ -269,10 +285,6 @@ function Maps({ user }){
         const id = setTimeout(() => {
             getTripItineraries()
                 .then(res => setItineraries(res.data || []))
-                .catch(err => console.log(err));
-
-            getWishlist()
-                .then(res => setWishlistIds(new Set((res.data.data || []).map(gem => gem.id))))
                 .catch(err => console.log(err));
         }, 300);
 
@@ -392,6 +404,12 @@ function Maps({ user }){
     // Normalize the gem shape
     function normalizeGem(raw, source) {
         if (source === "database") {
+            // Laravel serializes decimal columns as JSON strings — coerce to
+            // numbers here so every downstream consumer (jitter offsetting,
+            // distance math, Leaflet's own position prop) gets real numbers
+            // instead of silently falling into string concatenation.
+            const latitude = Number(raw.latitude);
+            const longitude = Number(raw.longitude);
             return {
                 id: raw.id,
                 source: "database",
@@ -399,14 +417,23 @@ function Maps({ user }){
                 state: raw.state,
                 address: raw.address,
                 description: raw.description,
-                latitude: raw.latitude,
-                longitude: raw.longitude,
+                latitude,
+                longitude,
                 image: raw.first_image?.image_url || raw.images?.[0]?.image_url || null,
                 voteCount: raw.vote_count,
                 verificationThreshold: raw.verification_threshold,
                 category: raw.category?.name,
                 status: raw.status,
                 reportStatus: raw.report_status,
+                openingHours: raw.opening_hours,
+                phone: raw.phone,
+                website: raw.website,
+                ratingAvg: raw.ratings_avg_rating != null ? Number(raw.ratings_avg_rating) : null,
+                ratingCount: raw.ratings_count ?? 0,
+                checkInsCount: raw.check_ins_count ?? 0,
+                distanceKm: userPosition
+                    ? L.latLng(userPosition).distanceTo(L.latLng(Number(latitude), Number(longitude))) / 1000
+                    : null,
             };
         }
         return {
@@ -436,6 +463,21 @@ function Maps({ user }){
         // Cards live below the map, so without this the map flies to the gem
         // off-screen and the user never sees it happen.
         heroRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function selectAttraction(item) {
+        getNearbyAttractionsAt(item.latitude, item.longitude, 150)
+            .then((res) => {
+                const candidates = res.data.data || [];
+                const resolved = candidates.find((c) => c.name === item.name) || candidates[0] || item;
+                openGroup([normalizeGem(resolved, "attraction")]);
+                setSearchResults([resolved]);
+            })
+            .catch((err) => {
+                console.log(err);
+                openGroup([normalizeGem(item, "attraction")]);
+                setSearchResults([item]);
+            });
     }
 
     const activeGemIdRef = useRef(null);
@@ -528,17 +570,34 @@ function Maps({ user }){
         }
     }, []);
 
-    // Group hidden gems by coordinate
-    const groupedGems = useMemo(() => {
-        const map = new Map();
-        hiddenGems.forEach(raw => {
-            const gem = normalizeGem(raw, "database");
-            const key = groupKey(gem.latitude, gem.longitude);
-            if (!map.has(key)) map.set(key, []);
-            map.get(key).push(gem);
+    const normalizedGems = useMemo(() => {
+        let gems = hiddenGems.map(raw => normalizeGem(raw, "database"));
+
+        if (categoryFilter) {
+            gems = gems.filter(g => g.category === categoryFilter);
+        }
+        if (wishlistOnly) {
+            gems = gems.filter(g => wishlistIds.has(g.id));
+        }
+
+        const seenAt = new Map();
+        const JITTER_DEGREES = 0.00004; // 4m
+
+        return gems.map((gem) => {
+            const key = `${gem.latitude},${gem.longitude}`;
+            const index = seenAt.get(key) ?? 0;
+            seenAt.set(key, index + 1);
+
+            if (index === 0) return gem;
+
+            const angle = index * 137.5 * (Math.PI / 180); // golden-angle spread
+            return {
+                ...gem,
+                latitude: gem.latitude + Math.cos(angle) * JITTER_DEGREES,
+                longitude: gem.longitude + Math.sin(angle) * JITTER_DEGREES,
+            };
         });
-        return Array.from(map.values());
-    }, [hiddenGems]);
+    }, [hiddenGems, userPosition, categoryFilter, wishlistOnly, wishlistIds]);
 
     // OSM markers to draw: the selected gem's neighbours, the zoom-in discovery
     // results, a map-click explore, and any search hits — de-duplicated by id.
@@ -580,6 +639,8 @@ function Maps({ user }){
         { value: "pending_community_vote", label: "Awaiting Votes" },
     ];
 
+    const activeFilterCount = (statusFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (wishlistOnly ? 1 : 0);
+
     return (
         <div className="maps-page">
             <div className={`maps-hero ${mapFullscreen ? "fullscreen" : ""}`} ref={heroRef}>
@@ -597,7 +658,7 @@ function Maps({ user }){
                     style={{ height: '100%', width: '100%' }}
                 >
                 <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                    url={cartoTileUrl("rastertiles/voyager")}
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                 />
                 <ZoomControl position="bottomright" />
@@ -613,12 +674,11 @@ function Maps({ user }){
                     </>
                 }
                 <MarkerClusterGroup iconCreateFunction={createGemClusterIcon} zoomToBoundsOnClick={true} spiderfyOnMaxZoom={true}>
-                {groupedGems.map((group) => (
+                {normalizedGems.map((gem) => (
                     <HiddenGemMarker
-                        key={groupKey(group[0].latitude, group[0].longitude)}
-                        gem={group[0]}
-                        postCount={group.length}
-                        onClick={() => openGroup(group)}
+                        key={gem.id}
+                        gem={gem}
+                        onClick={() => openGroup([gem])}
                     />
                 ))}
             </MarkerClusterGroup>
@@ -659,6 +719,8 @@ function Maps({ user }){
                     </button>
                     <div className="maps-search-float">
                         <SearchBar
+                            userLatitude={userPosition?.[0]}
+                            userLongitude={userPosition?.[1]}
                             onSelect={(item) => {
                                 if (item.source === "database") {
                                     setSearchResults([]);
@@ -673,8 +735,7 @@ function Maps({ user }){
                                             .catch(err => console.log(err));
                                     }
                                 } else {
-                                    openGroup([normalizeGem(item, "attraction")]);
-                                    setSearchResults([item]);
+                                    selectAttraction(item);
                                 }
                             }}
                         />
@@ -705,34 +766,113 @@ function Maps({ user }){
                     {locationError && (
                         <p className="maps-hero-status">{locationError}</p>
                     )}
-                    <div className="maps-category-pills">
-                        {statusFilters.map((f) => (
-                            <button
-                                type="button"
-                                key={f.label}
-                                className={`maps-category-pill ${statusFilter === f.value ? "active" : ""}`}
-                                onClick={() => setStatusFilter(f.value)}
-                            >
-                                {f.label}
-                            </button>
-                        ))}
-                        <button
-                            type="button"
-                            className={`maps-category-pill ${exploreOn ? "active" : ""}`}
-                            onClick={() => setExploreOn(o => !o)}
-                            title={`Show nearby attractions from OpenStreetMap once zoomed in (level ${EXPLORE_MIN_ZOOM}+)`}
-                        >
-                            Nearby attractions
-                        </button>
-                        <button
-                            type="button"
-                            className={`maps-category-pill ${clickExploreOn ? "active" : ""}`}
-                            onClick={() => setClickExploreOn(o => !o)}
-                            title="When on, clicking anywhere on the map searches for nearby attractions at that point"
-                        >
-                            Click to scan
-                        </button>
-                    </div>
+
+                    <button
+                        type="button"
+                        className={`maps-filters-toggle ${filtersOpen ? "active" : ""}`}
+                        onClick={() => setFiltersOpen(o => !o)}
+                    >
+                        Filters
+                        {activeFilterCount > 0 && <span className="maps-filters-badge">{activeFilterCount}</span>}
+                        <span className="maps-filters-toggle-arrow">{filtersOpen ? "▲" : "▼"}</span>
+                    </button>
+
+                    {filtersOpen && (
+                        <div className="maps-filters-panel">
+                            <div className="maps-filters-group">
+                                <span className="maps-filters-group-label">Status</span>
+                                <div className="maps-category-pills">
+                                    {statusFilters.map((f) => (
+                                        <button
+                                            type="button"
+                                            key={f.label}
+                                            className={`maps-category-pill ${statusFilter === f.value ? "active" : ""}`}
+                                            onClick={() => setStatusFilter(f.value)}
+                                        >
+                                            {f.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {categories.length > 0 && (
+                                <div className="maps-filters-group">
+                                    <span className="maps-filters-group-label">Category</span>
+                                    <div className="maps-category-pills">
+                                        <button
+                                            type="button"
+                                            className={`maps-category-pill ${!categoryFilter ? "active" : ""}`}
+                                            onClick={() => setCategoryFilter(null)}
+                                        >
+                                            All
+                                        </button>
+                                        {categories.map((c) => (
+                                            <button
+                                                type="button"
+                                                key={c.id}
+                                                className={`maps-category-pill ${categoryFilter === c.name ? "active" : ""}`}
+                                                onClick={() => setCategoryFilter(c.name)}
+                                            >
+                                                {c.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="maps-filters-group">
+                                <span className="maps-filters-group-label">Discovery</span>
+                                <div className="maps-category-pills">
+                                    {user && (
+                                        <button
+                                            type="button"
+                                            className={`maps-category-pill ${wishlistOnly ? "active" : ""}`}
+                                            onClick={() => setWishlistOnly(o => !o)}
+                                            title="Only show gems on your wishlist"
+                                        >
+                                            ♥ My wishlist
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className={`maps-category-pill ${exploreOn ? "active" : ""}`}
+                                        onClick={() => setExploreOn(o => !o)}
+                                        title={`Show nearby attractions from OpenStreetMap once zoomed in (level ${EXPLORE_MIN_ZOOM}+)`}
+                                    >
+                                        Nearby attractions
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`maps-category-pill ${clickExploreOn ? "active" : ""}`}
+                                        onClick={() => setClickExploreOn(o => !o)}
+                                        title="When on, clicking anywhere on the map searches for nearby attractions at that point"
+                                    >
+                                        Click to scan
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="maps-filters-group">
+                                <span className="maps-filters-group-label">Legend</span>
+                                <div className="maps-legend">
+                                    <span className="maps-legend-item">
+                                        <img src="/images/gem_marker.png" alt="" className="maps-legend-icon" />
+                                        Hidden gem (verified)
+                                    </span>
+                                    <span className="maps-legend-item">
+                                        <img src="/images/gem_marker.png" alt="" className="maps-legend-icon maps-legend-icon-dim" />
+                                        Hidden gem (awaiting votes)
+                                    </span>
+                                    <span className="maps-legend-item">
+                                        <span className="maps-legend-swatch" style={{ background: "#f97316" }} />
+                                        Other (OSM attraction) — pin, colored/iconed by type
+                                    </span>
+                                    <span className="maps-legend-hint">The gem icon vs. a colored pin always tells them apart, regardless of category.</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {clickExploreOn && (
                         <p className="maps-hero-hint">Click anywhere on the map to search nearby</p>
                     )}

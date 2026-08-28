@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { checkVerifyEligibility, verifyReport } from '../api/reports';
 import { checkIn as postCheckIn } from '../api/votes';
@@ -142,8 +143,12 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         ? gemLocation?.images?.find((img) => String(img.id) === String(report.flagged_item))
         : null;
 
-    return (
-        <div className="vote-modal-overlay" onClick={handleClose}>
+    // Portaled to <body> — see ReportModal.jsx for why (a hovered ancestor
+    // card's :hover transform would otherwise hijack this fixed-position
+    // modal's containing block, making it snap between full-screen and
+    // pinned-to-the-card).
+    return createPortal((
+        <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
             <div className="vote-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="vote-modal-header">
                     <h2>{isFixReview ? 'Verify Fix' : 'Verify Report'}</h2>
@@ -305,7 +310,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                 </div>
             </div>
         </div>
-    );
+    ), document.body);
 }
 
 export default VerifyReportModal;

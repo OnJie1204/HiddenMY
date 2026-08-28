@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { checkReportEligibility, submitReport } from '../api/reports';
 import { checkIn as postCheckIn } from '../api/votes';
@@ -219,8 +220,16 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const selectedReasonMeta = REASONS.find((r) => r.value === reason);
     const gemImages = gemLocation?.images || [];
 
-    return (
-        <div className="vote-modal-overlay" onClick={handleClose}>
+    // Portaled to <body> — this modal is instantiated deep inside hoverable
+    // gem cards (HiddenGems.jsx, Home.jsx, Wishlist.jsx, SidePanel), and
+    // those cards apply a `transform` on :hover for a lift effect. A
+    // transformed ancestor becomes the containing block for any
+    // position:fixed descendant, so without portaling, hovering the card
+    // underneath while this modal is open made it visually snap between
+    // full-screen (no hover) and pinned/shrunk to the card's box (hover) —
+    // rendering outside the card's subtree entirely avoids that.
+    return createPortal((
+        <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
             <div className="vote-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="vote-modal-header">
                     <h2>Report Hidden Gem</h2>
@@ -497,7 +506,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                 </div>
             </div>
         </div>
-    );
+    ), document.body);
 }
 
 export default ReportModal;
