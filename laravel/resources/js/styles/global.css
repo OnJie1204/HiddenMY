@@ -634,6 +634,34 @@ img.avatar {
   color: var(--color-gem-accent);
 }
 
+/* Indeterminate loading bar shared across pages (trip itinerary, profile,
+   hidden gems, home hero). */
+.page-loading-bar {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  margin-bottom: 20px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.15);
+  overflow: hidden;
+}
+
+.page-loading-bar-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: #F97316;
+  animation: page-loading-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes page-loading-slide {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
 /* ===== Home Page - Fun Adventure Style ===== */
 .home-page {
     max-width: 1120px;
@@ -1911,17 +1939,20 @@ img.avatar {
 
 /* ---------- Trip Itinerary Detail Page ---------- */
 .trip-detail-container {
+    position: relative;
     padding: 32px 24px 56px;
     max-width: 1080px;
     margin: 0 auto;
 }
 
+/* Pinned to the very top of the container and taken out of flow, so the
+   header and everything below it stay put whether it is showing or not. */
 .trip-detail-loading-bar {
-    position: relative;
-    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     height: 4px;
-    margin-bottom: 20px;
-    border-radius: 999px;
     background: rgba(249, 115, 22, 0.15);
     overflow: hidden;
 }
@@ -1967,10 +1998,17 @@ img.avatar {
 }
 
 .trip-detail-content-panel {
+    position: relative;
     background: var(--color-surface);
     border-radius: 16px;
     padding: 24px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Same bar, but rounded to sit flush on the content panel's top edge while
+   the new stop order saves. */
+.trip-detail-loading-bar-panel {
+    border-radius: 16px 16px 0 0;
 }
 
 .location-card {
@@ -2764,6 +2802,42 @@ img.avatar {
 .trip-detail-location-card:hover {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     transform: translateY(-1px);
+}
+
+/* Placeholder rows shown while the itinerary loads, so the stop list holds
+   its height instead of collapsing and then popping open. */
+.trip-detail-location-card-skeleton {
+    min-height: 40px;
+    border-color: transparent;
+    pointer-events: none;
+    background: linear-gradient(110deg, #f1f1f0 30%, #e9e9e8 50%, #f1f1f0 70%);
+    background-size: 200% 100%;
+    animation: trip-detail-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes trip-detail-skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Matches the height of the three loading skeleton rows above, so an empty
+   itinerary doesn't collapse the panel once loading finishes. */
+.trip-detail-empty-stops {
+    min-height: 208px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 14px;
+}
+
+.trip-detail-empty-stops p {
+    margin: 0;
+    max-width: 42ch;
 }
 
 .trip-location-order-status {

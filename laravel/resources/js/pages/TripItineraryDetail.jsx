@@ -950,6 +950,16 @@ export default function TripItineraryDetail() {
 
             <div className="trip-detail-content-panel">
 
+            {isSavingLocationOrder && (
+                <div
+                    className="trip-detail-loading-bar trip-detail-loading-bar-panel"
+                    role="progressbar"
+                    aria-label="Saving stop order"
+                >
+                    <div className="trip-detail-loading-bar-indicator" />
+                </div>
+            )}
+
             <div className="trip-detail-section-header">
 
                 <h2>Trip Stops</h2>
@@ -982,39 +992,54 @@ export default function TripItineraryDetail() {
 
             <div className="location-list">
 
-                {isSavingLocationOrder && (
-                    <p className="trip-location-order-status">Saving stop order…</p>
-                )}
                 {locationOrderError && (
                     <p className="trip-location-order-status trip-location-order-error" role="alert">
                         {locationOrderError}
                     </p>
                 )}
 
-                <DndContext
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                >
+                {isLoadingItinerary && locations.length === 0 ? (
 
-                    <SortableContext
-                        items={locations}
-                        strategy={verticalListSortingStrategy}
+                    <>
+                        <div className="trip-detail-location-card trip-detail-location-card-skeleton" />
+                        <div className="trip-detail-location-card trip-detail-location-card-skeleton" />
+                        <div className="trip-detail-location-card trip-detail-location-card-skeleton" />
+                    </>
+
+                ) : locations.length === 0 ? (
+
+                    <div className="trip-detail-empty-stops">
+                        <p>No stops added yet. Use “+ Add Stopping Point” above to start building this itinerary.</p>
+                    </div>
+
+                ) : (
+
+                    <DndContext
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
                     >
 
-                        {locations.map((location, index) => (
+                        <SortableContext
+                            items={locations}
+                            strategy={verticalListSortingStrategy}
+                        >
 
-                            <SortableLocationCard
-                                key={location.id}
-                                location={location}
-                                index={index}
-                                onDelete={removeLocation}
-                            />
+                            {locations.map((location, index) => (
 
-                        ))}
+                                <SortableLocationCard
+                                    key={location.id}
+                                    location={location}
+                                    index={index}
+                                    onDelete={removeLocation}
+                                />
 
-                    </SortableContext>
+                            ))}
 
-                </DndContext>
+                        </SortableContext>
+
+                    </DndContext>
+
+                )}
 
             </div>
 

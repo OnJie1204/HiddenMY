@@ -133,11 +133,11 @@ export default function TripItinerary() {
             {isLoadingItineraries ? (
 
                 <div
-                    className="trip-detail-loading-bar"
+                    className="page-loading-bar"
                     role="progressbar"
                     aria-label="Loading itineraries"
                 >
-                    <div className="trip-detail-loading-bar-indicator" />
+                    <div className="page-loading-bar-indicator" />
                 </div>
 
             ) : tripItineraries.length === 0 ? (
