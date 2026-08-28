@@ -293,8 +293,8 @@ export default function HiddenGems({ user }) {
             </div>
 
             {loading ? (
-                <div className="hidden-gems-loading">
-                    <p>Loading hidden gems...</p>
+                <div className="page-loading-bar" role="progressbar" aria-label="Loading hidden gems">
+                    <div className="page-loading-bar-indicator" />
                 </div>
             ) : gems.length === 0 ? (
                 <div className="hidden-gems-empty">

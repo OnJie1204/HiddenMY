@@ -148,9 +148,14 @@ function Profile({ setAppUser }) {
 
   const newPasswordStrength = getPasswordStrength(newPassword);
 
-  if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
-  if (!user) return <p>Loading...</p>;
+  if (loading || !user) return (
+    <div className="profile-page">
+      <div className="page-loading-bar" role="progressbar" aria-label="Loading profile">
+        <div className="page-loading-bar-indicator" />
+      </div>
+    </div>
+  );
 
   const memberSince = user.created_at
     ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
