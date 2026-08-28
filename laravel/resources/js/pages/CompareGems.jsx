@@ -144,9 +144,6 @@ export default function CompareGems() {
         <div className="compare-page">
             <div className="compare-page-header">
                 <h1>Compare Gems</h1>
-                <button type="button" className="compare-page-back" onClick={() => navigate(-1)}>
-                    ← Back
-                </button>
             </div>
 
             {gems.length === 0 && missing.length === 0 && (

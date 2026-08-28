@@ -313,14 +313,6 @@ export default function EditHiddenGem() {
             <div className="hidden-gem-form-card">
 
                 <div className="hidden-gem-submit-header">
-                    <button
-                        type="button"
-                        className="hidden-gem-back-btn"
-                        onClick={() => navigate("/my-hidden-gems")}
-                    >
-                        ←
-                    </button>
-
                     <h2>Edit Hidden Gem</h2>
                 </div>
 

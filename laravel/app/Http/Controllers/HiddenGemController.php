@@ -692,6 +692,7 @@ class HiddenGemController extends Controller
                     'lat' => $latitude,
                     'lon' => $longitude,
                     'format' => 'jsonv2',
+                    'addressdetails' => 1,
                 ])
                 ->throw()
                 ->json();
@@ -703,6 +704,16 @@ class HiddenGemController extends Controller
 
         if (empty($result['osm_id']) || empty($result['display_name'])) {
             return response()->json(['message' => 'No location found at this point. Try clicking closer to a road or landmark.'], 404);
+        }
+
+        // The map's bounding box is a loose rectangle, so points that are near
+        // Malaysia (southern Thailand, Singapore, Brunei, Kalimantan) can still
+        // be clicked. Trust the resolved address's country to keep stops inside
+        // Malaysia even right at the border.
+        if (strtolower($result['address']['country_code'] ?? '') !== 'my') {
+            return response()->json([
+                'message' => 'That point is outside Malaysia. Please pick a location within the country.',
+            ], 422);
         }
 
         $location = [

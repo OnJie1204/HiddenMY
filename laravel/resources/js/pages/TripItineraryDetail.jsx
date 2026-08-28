@@ -76,6 +76,16 @@ const hasValidCoordinates = ({ latitude, longitude }) =>
 // selected pin from any neighbours.
 const HIDDEN_GEM_FOCUS_ZOOM = 18;
 
+// Approximate latitude/longitude boundaries of Malaysia — the stopping-point
+// map is locked to this area so users can only pick locations within Malaysia.
+// Loose rectangle used only to keep the map panned around Malaysia. It is not
+// a precise border — the actual "is this in Malaysia?" check is done against
+// the resolved address (see handleMapClick / the reverse-geocode endpoint).
+const MALAYSIA_BOUNDS = [
+    [0.5, 99.5],
+    [7.5, 119.5],
+];
+
 const toDisplayLocation = (location) => ({
     id: location.id,
     name: location.location?.place_name ?? location.osm_name ?? `OpenStreetMap location (${location.osm_id})`,
@@ -241,6 +251,7 @@ export default function TripItineraryDetail() {
 
     const [isRenaming, setIsRenaming] = useState(false);
     const [renameName, setRenameName] = useState("");
+    const [renameError, setRenameError] = useState("");
     const [isStoppingPointDialogOpen, setIsStoppingPointDialogOpen] = useState(false);
     const [hiddenGems, setHiddenGems] = useState([]);
     const [isLoadingHiddenGems, setIsLoadingHiddenGems] = useState(false);
@@ -266,6 +277,7 @@ export default function TripItineraryDetail() {
     const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+    const [isLoadingItinerary, setIsLoadingItinerary] = useState(true);
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -338,10 +350,26 @@ export default function TripItineraryDetail() {
         }
     }, [trip]);
 
+    // Once a valid location is picked — from the map, a search result, or the
+    // wishlist — clear any lingering selection error so it doesn't sit next to
+    // a perfectly good choice.
     useEffect(() => {
-        refreshItinerary().catch((error) => {
-            console.error("Failed to load itinerary locations.", error);
-        });
+        if (selectedLocation) {
+            setMapClickError("");
+            setAddLocationError("");
+            setLocationSearchError("");
+        }
+    }, [selectedLocation]);
+
+    useEffect(() => {
+        setIsLoadingItinerary(true);
+        refreshItinerary()
+            .catch((error) => {
+                console.error("Failed to load itinerary locations.", error);
+            })
+            .finally(() => {
+                setIsLoadingItinerary(false);
+            });
     }, [id]);
 
     useEffect(() => {
@@ -620,17 +648,12 @@ export default function TripItineraryDetail() {
         const newName = renameName.trim();
 
         if (!newName) {
-            alert("Trip name is required.");
-            return;
-        }
-
-        if (newName.length < 1) {
-            alert("Trip name must be at least 1 character.");
+            setRenameError("Trip name is required.");
             return;
         }
 
         if (newName.length > 10) {
-            alert("Trip name cannot exceed 10 characters.");
+            setRenameError("Trip name cannot exceed 10 characters.");
             return;
         }
 
@@ -644,10 +667,11 @@ export default function TripItineraryDetail() {
                 trip_name: newName
             });
 
+            setRenameError("");
             setIsRenaming(false);
         } catch (err) {
             console.error(err);
-            alert("Failed to rename itinerary.");
+            setRenameError(err?.response?.data?.message || "Failed to rename itinerary. Please try again.");
         }
     };
 
@@ -782,15 +806,15 @@ export default function TripItineraryDetail() {
 
         <div className="trip-detail-container">
 
-
-            <button
-                className="trip-detail-back-btn"
-                onClick={() => navigate("/trip-itinerary")}
-            >
-                ← Back to My Itineraries
-            </button>
-
-
+            {isLoadingItinerary && (
+                <div
+                    className="trip-detail-loading-bar"
+                    role="progressbar"
+                    aria-label="Loading itinerary"
+                >
+                    <div className="trip-detail-loading-bar-indicator" />
+                </div>
+            )}
 
             <div className="trip-detail-header">
 
@@ -799,16 +823,27 @@ export default function TripItineraryDetail() {
 
                     {isRenaming ? (
 
-                        <form onSubmit={handleRename}>
+                        <form onSubmit={handleRename} noValidate>
 
                             <input
                                 type="text"
                                 value={renameName}
-                                onChange={(e) => setRenameName(e.target.value)}
+                                onChange={(e) => {
+                                    setRenameName(e.target.value);
+                                    if (renameError) setRenameError("");
+                                }}
                                 placeholder="Enter itinerary name"
                                 autoFocus
-                                className="trip-rename-input"
+                                className={`trip-rename-input${renameError ? " trip-input-error" : ""}`}
+                                aria-invalid={renameError ? "true" : "false"}
+                                aria-describedby={renameError ? "trip-rename-error" : undefined}
                             />
+
+                            {renameError && (
+                                <p id="trip-rename-error" className="trip-name-error" role="alert">
+                                    {renameError}
+                                </p>
+                            )}
 
                             <div className="trip-rename-buttons">
 
@@ -824,6 +859,7 @@ export default function TripItineraryDetail() {
                                     className="trip-detail-btn trip-detail-cancel-btn"
                                     onClick={() => {
                                         setRenameName(trip.trip_name);
+                                        setRenameError("");
                                         setIsRenaming(false);
                                     }}
                                 >
@@ -1188,6 +1224,9 @@ export default function TripItineraryDetail() {
                             <MapContainer
                                 center={[4.2105, 101.9758]}
                                 zoom={6}
+                                minZoom={6}
+                                maxBounds={MALAYSIA_BOUNDS}
+                                maxBoundsViscosity={1.0}
                                 scrollWheelZoom
                                 className="stopping-point-leaflet-map"
                             >

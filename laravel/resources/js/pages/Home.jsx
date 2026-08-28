@@ -218,10 +218,24 @@ function Home({ user }) {
                         </form>
                     </div>
                 </div>
-                {heroImageUrl && (
-                    <div className="home-hero-fun-image">
-                        <img src={heroImageUrl} alt={topGems[0].place_name} />
+                {loading ? (
+                    <div className="home-hero-fun-image home-hero-fun-image-loading" aria-hidden="true">
+                        <div className="home-hero-fun-image-loading-bar">
+                            <div className="home-hero-fun-image-loading-bar-indicator" />
+                        </div>
                     </div>
+                ) : heroImageUrl && (
+                    <button
+                        type="button"
+                        className="home-hero-fun-image"
+                        onClick={() => navigate(`/hidden-gems/${topGems[0].id}`)}
+                        aria-label={`View ${topGems[0].place_name}`}
+                    >
+                        <img src={heroImageUrl} alt={topGems[0].place_name} />
+                        <span className="home-hero-fun-image-caption">
+                            {topGems[0].place_name}
+                        </span>
+                    </button>
                 )}
             </div>
 
@@ -423,7 +437,7 @@ function Home({ user }) {
                                 <div className="home-adventure-card-content">
                                     <h4>{trip.trip_name}</h4>
                                     <p>
-                                        {trip.locations?.length || 0} stops · {new Date(trip.created_at).toLocaleDateString('en-GB', {
+                                        {trip.locations_count ?? trip.locations?.length ?? 0} stops · {new Date(trip.created_at).toLocaleDateString('en-GB', {
                                             day: 'numeric',
                                             month: 'short'
                                         })}

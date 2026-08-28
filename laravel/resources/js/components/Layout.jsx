@@ -3,6 +3,7 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import SidePanel from './SidePanel';
 import CompareTray from './CompareTray';
+import BackButton from './BackButton';
 
 function Layout({ children, user, setUser }) {
     const [sidePanelOpen, setSidePanelOpen] = useState(false);
@@ -35,7 +36,10 @@ function Layout({ children, user, setUser }) {
                 user={user}
                 setUser={setUser}
             />
-            <main className="layout-main">{children}</main>
+            <main className="layout-main">
+                <BackButton />
+                {children}
+            </main>
             <CompareTray />
             <Footer />
         </div>
