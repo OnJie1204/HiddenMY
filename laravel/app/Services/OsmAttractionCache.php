@@ -98,6 +98,7 @@ class OsmAttractionCache
         $gridLng = (float) $gridLngPart;
 
         $places = $this->fetchLive($gridLat, $gridLng, self::SYNC_RADIUS_METERS, $timeoutSeconds ?? self::OVERPASS_TIMEOUT_SECONDS);
+        $places = $this->attachWikidataImages($places);
 
         foreach ($places as $place) {
             OsmAttraction::updateOrCreate(
@@ -111,6 +112,8 @@ class OsmAttractionCache
                     'opening_hours' => $place['openingHours'],
                     'phone' => $place['phone'],
                     'website' => $place['website'],
+                    'wikidata_id' => $place['wikidataId'],
+                    'image_url' => $place['image'],
                 ]
             );
         }
@@ -139,6 +142,7 @@ class OsmAttractionCache
                     'openingHours' => $row->opening_hours,
                     'phone' => $row->phone,
                     'website' => $row->website,
+                    'image' => $row->image_url,
                     'distance' => (int) round(Geo::distanceMeters($lat, $lng, $row->latitude, $row->longitude)),
                 ];
             })
@@ -208,6 +212,7 @@ class OsmAttractionCache
                     'openingHours' => $tags['opening_hours'] ?? null,
                     'phone' => $tags['phone'] ?? $tags['contact:phone'] ?? null,
                     'website' => $tags['website'] ?? $tags['contact:website'] ?? null,
+                    'wikidataId' => $tags['wikidata'] ?? null,
                 ];
             })
             ->filter()
@@ -222,6 +227,55 @@ class OsmAttractionCache
             })
             ->sortBy('distance')
             ->values();
+    }
+
+    private function attachWikidataImages(Collection $places): Collection
+    {
+        $ids = $places->pluck('wikidataId')->filter()->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return $places->map(function (array $place) {
+                $place['image'] = null;
+
+                return $place;
+            });
+        }
+
+        $images = [];
+
+        foreach ($ids->chunk(50) as $chunk) {
+            try {
+                $response = Http::withUserAgent(config('app.name', 'HiddenMY').' attraction images')
+                    ->timeout(5)
+                    ->get('https://www.wikidata.org/w/api.php', [
+                        'action' => 'wbgetentities',
+                        'ids' => $chunk->implode('|'),
+                        'props' => 'claims',
+                        'format' => 'json',
+                    ])
+                    ->throw()
+                    ->json();
+            } catch (\Throwable $exception) {
+                // Wikidata unreachable/slow/rate-limited — skip this batch,
+                // those places just keep image_url = null.
+                continue;
+            }
+
+            foreach ($response['entities'] ?? [] as $qid => $entity) {
+                $filename = $entity['claims']['P18'][0]['mainsnak']['datavalue']['value'] ?? null;
+
+                if ($filename) {
+                    $images[$qid] = 'https://commons.wikimedia.org/wiki/Special:FilePath/'
+                        .rawurlencode($filename).'?width=400';
+                }
+            }
+        }
+
+        return $places->map(function (array $place) use ($images) {
+            $place['image'] = $images[$place['wikidataId']] ?? null;
+
+            return $place;
+        });
     }
 
     private function formatOsmAddress(array $tags): ?string

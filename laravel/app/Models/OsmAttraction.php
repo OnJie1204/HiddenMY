@@ -17,5 +17,7 @@ class OsmAttraction extends Model
         'opening_hours',
         'phone',
         'website',
+        'wikidata_id',
+        'image_url',
     ];
 }

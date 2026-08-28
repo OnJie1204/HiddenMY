@@ -161,7 +161,7 @@ function FavouriteAchievementControl({ achievement, isFavourite, disabled, onTog
 
 function SpecialAchievementCard({ achievement, onPreview, favouriteProps }) {
     const statusLabel = achievement.available
-        ? achievement.unlocked ? "Completed" : "Locked"
+        ? achievement.unlocked ? "Earned" : "Locked"
         : achievement.loading ? "Loading" : "Unavailable";
     const progressPercent = achievement.available && achievement.target > 0
         ? Math.min(100, (achievement.progress / achievement.target) * 100)

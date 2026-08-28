@@ -98,14 +98,16 @@ class VoteController extends Controller
             ], 400);
         }
 
-        $hasCheckIn = CheckIn::where('user_id', $user->id)
+        $recentCheckIn = CheckIn::where('user_id', $user->id)
             ->where('location_id', $locationId)
-            ->exists();
+            ->where('check_in_at', '>=', now()->subMinutes(5))
+            ->latest('check_in_at')
+            ->first();
 
-        if (!$hasCheckIn) {
+        if (!$recentCheckIn) {
             return response()->json([
-                'message' => 'Please check-in at this location first before voting'
-            ], 400);
+                'message' => 'Please verify your current location before voting.'
+            ], 403);
         }
 
         $photoPath = null;
@@ -169,7 +171,7 @@ class VoteController extends Controller
 
     public function getVotes($locationId)
     {
-        $votes = Vote::with('user')
+        $votes = Vote::with('user:id,name,avatar_url')
             ->where('location_id', $locationId)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -303,14 +305,6 @@ class VoteController extends Controller
             ->where('location_id', $locationId)
             ->first();
 
-        if ($existingCheckIn) {
-            return response()->json([
-                'checked_in' => true,
-                'message' => 'You already checked in at this location',
-                'check_in' => $existingCheckIn
-            ]);
-        }
-
         $userLat = $request->input('latitude');
         $userLng = $request->input('longitude');
 
@@ -335,18 +329,29 @@ class VoteController extends Controller
             ], 400);
         }
 
-        $checkIn = CheckIn::create([
-            'user_id' => $user->id,
-            'location_id' => $locationId,
-            'latitude' => $userLat,
-            'longitude' => $userLng,
-            'check_in_at' => now(),
-        ]);
+        if ($existingCheckIn) {
+            $existingCheckIn->update([
+                'latitude' => $userLat,
+                'longitude' => $userLng,
+                'check_in_at' => now(),
+            ]);
+
+            $checkIn = $existingCheckIn->fresh();
+        } else {
+            $checkIn = CheckIn::create([
+                'user_id' => $user->id,
+                'location_id' => $locationId,
+                'latitude' => $userLat,
+                'longitude' => $userLng,
+                'check_in_at' => now(),
+            ]);
+        }
 
         return response()->json([
             'message' => 'Check-in successful! You are ' . round($distance, 2) . ' km away.',
             'checked_in' => true,
             'distance' => round($distance, 2),
+            'max_distance' => self::MAX_CHECKIN_DISTANCE,
             'check_in' => $checkIn
         ]);
     }

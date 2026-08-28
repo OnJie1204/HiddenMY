@@ -5,24 +5,30 @@ import { checkIn as postCheckIn } from '../api/votes';
 
 // Only categories a visitor can actually confirm or dispute from what they
 // see at the gem — see Report::REASONS on the backend for why this list is
-// fixed rather than freeform.
+// fixed rather than freeform. `requiresLocation` mirrors
+// Report::LOCATION_REQUIRED_REASONS: a closed shop or a wrong pin needs eyes
+// on the ground, but a viral gem, a duplicate listing, or an offensive photo
+// can be judged from what's already published — no need to demand a check-in
+// for those.
 const REASONS = [
-    { value: 'permanently_closed', label: 'Permanently closed' },
-    { value: 'incorrect_location', label: 'Incorrect location' },
-    { value: 'not_actually_hidden', label: 'No longer hidden (gone viral / well known)' },
-    { value: 'duplicate', label: 'Duplicate of another gem' },
-    { value: 'inappropriate_content', label: 'Inappropriate content' },
+    { value: 'permanently_closed', label: 'Permanently closed', requiresLocation: true },
+    { value: 'incorrect_location', label: 'Incorrect location', requiresLocation: true },
+    { value: 'not_actually_hidden', label: 'No longer hidden (gone viral / well known)', requiresLocation: false },
+    { value: 'duplicate', label: 'Duplicate of another gem', requiresLocation: false },
+    { value: 'inappropriate_content', label: 'Inappropriate content', requiresLocation: false },
 ];
 
-// Same checking -> checkin -> form -> success/error shape as VoteModal —
-// reuses the exact same check-in record (5km gate), so anyone who already
-// checked in here (e.g. to vote it in) can report it immediately.
+// checking -> reason -> [checkin -> manual_checkin] -> [flag-item] -> form -> success/error.
+// The check-in step only appears if the chosen reason actually needs it, and
+// the flag-item step only appears for inappropriate_content (it's the only
+// reason with a specific photo/description to point at).
 function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const navigate = useNavigate();
     const [step, setStep] = useState('checking');
     const [loading, setLoading] = useState(false);
     const [eligibility, setEligibility] = useState(null);
     const [reason, setReason] = useState('');
+    const [flaggedItem, setFlaggedItem] = useState('');
     const [description, setDescription] = useState('');
     const [photo, setPhoto] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
@@ -31,6 +37,13 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const [gpsStatus, setGpsStatus] = useState('');
     const [manualLat, setManualLat] = useState('');
     const [manualLng, setManualLng] = useState('');
+    // incorrect_location: the coordinates captured during THIS check-in step
+    // become the suggested correction — the reporter already has to stand
+    // within 5km to file this reason, so their GPS position is a ready-made
+    // candidate for the correct pin. check_ins itself never stores
+    // coordinates (used once for the distance check, then discarded), so
+    // this is captured here independently and sent along with the report.
+    const [suggestedCoords, setSuggestedCoords] = useState(null);
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -47,18 +60,42 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             const res = await checkReportEligibility(locationId);
             const data = res.data;
             setEligibility(data);
-            if (data.eligible) {
-                setStep(data.has_check_in ? 'form' : 'checkin');
-            } else {
-                setStep('error');
-                setMessage(data.message);
-            }
+            // Eligibility here is reason-agnostic (login, not your own gem,
+            // no report already open) — which reasons need a check-in is
+            // decided once the traveller actually picks one, below.
+            setStep(data.eligible ? 'reason' : 'error');
+            if (!data.eligible) setMessage(data.message);
         } catch (error) {
             setStep('error');
             setMessage(error?.response?.data?.message || 'Unable to check eligibility');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleReasonContinue = () => {
+        if (!reason) {
+            setMessage('Please choose a reason.');
+            return;
+        }
+        setMessage('');
+        const meta = REASONS.find((r) => r.value === reason);
+        if (meta?.requiresLocation && !eligibility?.has_check_in) {
+            setStep('checkin');
+        } else if (reason === 'inappropriate_content') {
+            setStep('flag-item');
+        } else {
+            setStep('form');
+        }
+    };
+
+    const handleFlagItemContinue = () => {
+        if (!flaggedItem) {
+            setMessage('Please choose what needs fixing.');
+            return;
+        }
+        setMessage('');
+        setStep('form');
     };
 
     const getCurrentLocation = () => {
@@ -88,7 +125,8 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
         try {
             const res = await postCheckIn(locationId, { latitude, longitude });
             setEligibility((prev) => ({ ...prev, has_check_in: true }));
-            setStep('form');
+            setSuggestedCoords({ latitude, longitude });
+            setStep(reason === 'inappropriate_content' ? 'flag-item' : 'form');
             const distanceMsg = res.data.distance ? ` (${res.data.distance} km away)` : '';
             setMessage('Check-in successful!' + distanceMsg);
         } catch (error) {
@@ -122,10 +160,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     };
 
     const handleSubmit = async () => {
-        if (!reason) {
-            setMessage('Please choose a reason.');
-            return;
-        }
         setLoading(true);
         setMessage('');
         try {
@@ -133,6 +167,13 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             formData.append('reason', reason);
             if (description) formData.append('description', description);
             if (photo) formData.append('photo', photo);
+            if (reason === 'incorrect_location' && suggestedCoords) {
+                formData.append('suggested_latitude', suggestedCoords.latitude);
+                formData.append('suggested_longitude', suggestedCoords.longitude);
+            }
+            if (reason === 'inappropriate_content' && flaggedItem) {
+                formData.append('flagged_item', flaggedItem);
+            }
 
             const res = await submitReport(locationId, formData);
             setStep('success');
@@ -149,6 +190,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const reset = () => {
         setStep('checking');
         setReason('');
+        setFlaggedItem('');
         setDescription('');
         setPhoto(null);
         setPhotoPreview(null);
@@ -157,6 +199,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
         setGpsStatus('');
         setManualLat('');
         setManualLng('');
+        setSuggestedCoords(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -173,6 +216,8 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     if (!isOpen) return null;
 
     const gemLocation = eligibility?.location;
+    const selectedReasonMeta = REASONS.find((r) => r.value === reason);
+    const gemImages = gemLocation?.images || [];
 
     return (
         <div className="vote-modal-overlay" onClick={handleClose}>
@@ -190,10 +235,53 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                         </div>
                     )}
 
+                    {step === 'reason' && (
+                        <div className="vote-form">
+                            <div className="vote-location-info">
+                                <p>{gemLocation?.place_name}</p>
+                                <p className="vote-location-address">{gemLocation?.address}</p>
+                            </div>
+
+                            <div className="vote-form-group">
+                                <label>What's the issue?</label>
+                                <select
+                                    className="report-reason-select"
+                                    value={reason}
+                                    onChange={(e) => { setReason(e.target.value); setMessage(''); }}
+                                >
+                                    <option value="" disabled>Choose a reason…</option>
+                                    {REASONS.map((r) => (
+                                        <option key={r.value} value={r.value}>{r.label}</option>
+                                    ))}
+                                </select>
+                                {selectedReasonMeta && (
+                                    <p className="report-reason-hint">
+                                        {selectedReasonMeta.requiresLocation
+                                            ? "You'll need to check in at this location — you have to have actually been there to know this."
+                                            : "No check-in needed — this can be judged from what's already published."}
+                                    </p>
+                                )}
+                            </div>
+
+                            {message && <div className="vote-message error">{message}</div>}
+
+                            <div className="vote-actions">
+                                <button className="vote-btn-primary" onClick={handleReasonContinue} disabled={!reason}>
+                                    Continue
+                                </button>
+                                <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
+                            </div>
+                        </div>
+                    )}
+
                     {step === 'checkin' && (
                         <div className="vote-checkin">
                             <h3>Check-in Required</h3>
-                            <p>You need to check-in at this location before you can report it.</p>
+                            <p>
+                                {reason === 'incorrect_location'
+                                    ? "We'll use your check-in position as the suggested correct location — others will vote on whether it looks right."
+                                    : 'This reason needs you to have actually been at the location — check in before you can report it.'}
+                            </p>
 
                             {gemLocation && (
                                 <div className="vote-checkin-location">
@@ -222,6 +310,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                             )}
                             {message && <div className="vote-message error">{message}</div>}
 
+                            <button className="vote-manual-back" onClick={() => setStep('reason')}>← Back to reason</button>
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
                         </div>
                     )}
@@ -230,6 +319,9 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                         <div className="vote-manual-checkin">
                             <button className="vote-manual-back" onClick={() => setStep('checkin')}>← Back</button>
                             <h3>Enter Your Current Location</h3>
+                            {reason === 'incorrect_location' && (
+                                <p className="vote-manual-hint">These coordinates will be suggested as the gem's correct location.</p>
+                            )}
 
                             <div className="vote-manual-inputs">
                                 <div className="vote-manual-input-group">
@@ -255,25 +347,82 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                         </div>
                     )}
 
-                    {step === 'form' && (
+                    {step === 'flag-item' && (
                         <div className="vote-form">
                             <div className="vote-location-info">
-                                <p>{eligibility?.location?.place_name}</p>
-                                <p className="vote-location-address">{eligibility?.location?.address}</p>
+                                <p>{gemLocation?.place_name}</p>
+                                <p className="vote-location-address">{gemLocation?.address}</p>
                             </div>
 
                             <div className="vote-form-group">
-                                <label>What's the issue?</label>
-                                <select
-                                    className="report-reason-select"
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
-                                >
-                                    <option value="" disabled>Choose a reason…</option>
-                                    {REASONS.map((r) => (
-                                        <option key={r.value} value={r.value}>{r.label}</option>
+                                <label>What exactly is inappropriate?</label>
+                                <p className="report-reason-hint" style={{ margin: '0 0 10px' }}>
+                                    Pick the specific thing, so the owner knows exactly what to fix.
+                                </p>
+
+                                <div className="report-flag-options">
+                                    <label className={`report-flag-option ${flaggedItem === 'description' ? 'active' : ''}`}>
+                                        <input
+                                            type="radio"
+                                            name="flagged-item"
+                                            value="description"
+                                            checked={flaggedItem === 'description'}
+                                            onChange={(e) => setFlaggedItem(e.target.value)}
+                                        />
+                                        <span>The description text</span>
+                                    </label>
+
+                                    {gemImages.map((img) => (
+                                        <label
+                                            key={img.id}
+                                            className={`report-flag-option report-flag-option-photo ${flaggedItem === String(img.id) ? 'active' : ''}`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="flagged-item"
+                                                value={String(img.id)}
+                                                checked={flaggedItem === String(img.id)}
+                                                onChange={(e) => setFlaggedItem(e.target.value)}
+                                            />
+                                            <img src={img.image_url} alt="" />
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
+                            </div>
+
+                            {message && <div className="vote-message error">{message}</div>}
+
+                            <button className="vote-manual-back" onClick={() => setStep('reason')}>← Back to reason</button>
+
+                            <div className="vote-actions">
+                                <button className="vote-btn-primary" onClick={handleFlagItemContinue} disabled={!flaggedItem}>
+                                    Continue
+                                </button>
+                                <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 'form' && (
+                        <div className="vote-form">
+                            <div className="vote-location-info">
+                                <p>{gemLocation?.place_name}</p>
+                                <p className="vote-location-address">{gemLocation?.address}</p>
+                            </div>
+
+                            <div className="report-summary">
+                                <span className="report-summary-label">Reason</span>
+                                <strong>{selectedReasonMeta?.label}</strong>
+                                {reason === 'incorrect_location' && suggestedCoords && (
+                                    <p className="report-summary-desc">
+                                        Suggested location: {suggestedCoords.latitude.toFixed(5)}, {suggestedCoords.longitude.toFixed(5)}
+                                    </p>
+                                )}
+                                {reason === 'inappropriate_content' && (
+                                    <p className="report-summary-desc">
+                                        Flagged: {flaggedItem === 'description' ? 'the description text' : 'a photo'}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="vote-form-group">
@@ -310,8 +459,15 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
 
                             {message && <div className="vote-message error">{message}</div>}
 
+                            <button
+                                className="vote-manual-back"
+                                onClick={() => setStep(reason === 'inappropriate_content' ? 'flag-item' : 'reason')}
+                            >
+                                ← {reason === 'inappropriate_content' ? 'Change what\'s flagged' : 'Change reason'}
+                            </button>
+
                             <div className="vote-actions">
-                                <button className="vote-btn-primary report-btn-primary" onClick={handleSubmit} disabled={loading || !reason}>
+                                <button className="vote-btn-primary report-btn-primary" onClick={handleSubmit} disabled={loading}>
                                     {loading ? 'Submitting...' : 'Submit Report'}
                                 </button>
                                 <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>

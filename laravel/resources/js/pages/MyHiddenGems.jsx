@@ -80,6 +80,9 @@ export default function MyHiddenGems() {
         category: searchParams.get("category") || "",
         state: searchParams.get("state") || "",
     };
+    const hasActiveFilters = Boolean(
+        filters.status || filters.category || filters.state
+    );
 
     const filteredGems = gems.filter((gem) =>
         (!filters.status || gem.status === filters.status)
@@ -174,6 +177,14 @@ export default function MyHiddenGems() {
             nextParams.delete(name);
         }
 
+        setSearchParams(nextParams, { replace: true });
+    };
+
+    const clearFilters = () => {
+        const nextParams = new URLSearchParams(searchParams);
+        ["status", "category", "state"].forEach((name) => {
+            nextParams.delete(name);
+        });
         setSearchParams(nextParams, { replace: true });
     };
 
@@ -311,7 +322,11 @@ export default function MyHiddenGems() {
 
             <div className="hidden-gems-header">
                 <div>
-                    <h1>{activeTab === "contributions" ? "My Contributions" : "My Hidden Gems"}</h1>
+                    <h1>{{
+                        "hidden-gems": "My Hidden Gems",
+                        contributions: "My Contributions",
+                        achievements: "My Achievements",
+                    }[activeTab]}</h1>
                 </div>
 
                 <button
@@ -433,6 +448,16 @@ export default function MyHiddenGems() {
                             </option>
                         ))}
                     </select>
+
+                    {hasActiveFilters && (
+                        <button
+                            type="button"
+                            className="hidden-gems-filter-clear hidden-gems-filter-clear-active"
+                            onClick={clearFilters}
+                        >
+                            <span aria-hidden="true">✕</span> Clear Filters
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -473,7 +498,7 @@ export default function MyHiddenGems() {
                         className="hidden-gems-submit-btn"
                         onClick={() => navigate("/hidden-gems/create")}
                     >
-                        Submit Your First Hidden Gem
+                        + Hidden Gem
                     </button>
                 </div>
 
@@ -545,7 +570,8 @@ export default function MyHiddenGems() {
                                     onClick={(event) => event.stopPropagation()}
                                 >
 
-                                    {["pending", "ai_rejected", "pending_community_vote"].includes(gem.status) && (
+                                    {["pending", "ai_rejected", "pending_community_vote"].includes(gem.status)
+                                        && Number(gem.vote_count) === 0 && (
                                         <button
                                             className="my-hidden-gems-edit-btn"
                                             onClick={() =>

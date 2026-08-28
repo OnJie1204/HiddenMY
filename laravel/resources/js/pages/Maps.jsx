@@ -135,7 +135,7 @@ function groupKey(lat, lng) {
     return `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
 }
 
-function Maps(){
+function Maps({ user }){
     const location = useLocation();
     const navigate = useNavigate();
     
@@ -235,9 +235,11 @@ function Maps(){
                 .then(res => setRecentPosts(res.data))
                 .catch(err => console.log(err));
 
-            getMyHiddenGems()
-                .then(res => setMyGems(res.data.data || []))
-                .catch(err => console.log(err));
+            if (user) {
+                getMyHiddenGems()
+                    .then(res => setMyGems(res.data.data || []))
+                    .catch(err => console.log(err));
+            }
 
             getPopularHiddenGems()
                 .then(res => setPopularPosts(res.data || []))
@@ -249,7 +251,7 @@ function Maps(){
 
     const loadedPanelExtrasRef = useRef(false);
     useEffect(() => {
-        if (!panelOpen || loadedPanelExtrasRef.current) return;
+        if (!user || !panelOpen || loadedPanelExtrasRef.current) return;
         loadedPanelExtrasRef.current = true;
 
         const id = setTimeout(() => {
@@ -263,7 +265,7 @@ function Maps(){
         }, 300);
 
         return () => clearTimeout(id);
-    }, [panelOpen]);
+    }, [panelOpen, user]);
 
     // ==================== Handle URL params (from HiddenGemDetail) ====================
     useEffect(() => {
@@ -402,7 +404,7 @@ function Maps(){
             title: raw.name,
             latitude: raw.latitude,
             longitude: raw.longitude,
-            image: null,
+            image: raw.image || null,
             attractionType: raw.type,
             address: raw.address,
             openingHours: raw.openingHours,
@@ -662,6 +664,7 @@ function Maps(){
                     <SidePanel
                         group={selectedGroup}
                         isOpen={panelOpen}
+                        user={user}
                         onClose={() => { setPanelOpen(false); setSelectedGroup(null); }}
                         mode="gems"
                         nearby={nearby}
@@ -756,13 +759,15 @@ function Maps(){
                     onItemClick={selectGem}
                     emptyText="No recent gems yet."
                 />
-                <GemCarousel
-                    title="My Hidden Gems"
-                    seeMoreTo="/my-hidden-gems"
-                    items={myGems}
-                    onItemClick={selectGem}
-                    emptyText="You haven't posted any hidden gems yet."
-                />
+                {user && (
+                    <GemCarousel
+                        title="My Hidden Gems"
+                        seeMoreTo="/my-hidden-gems"
+                        items={myGems}
+                        onItemClick={selectGem}
+                        emptyText="You haven't posted any hidden gems yet."
+                    />
+                )}
                 <GemCarousel
                     title="Popular Hidden Gems"
                     seeMoreTo="/hidden-gems"

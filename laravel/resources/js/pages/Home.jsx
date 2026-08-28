@@ -8,6 +8,7 @@ import { getHiddenGems } from '../api/hiddenGems';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist';
 import HiddenGemMarker from '../components/HiddenGemMarker';
 import ReportButton from '../components/ReportButton';
+import SignInPrompt from '../components/SignInPrompt';
 
 // Fix leaflet default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -27,17 +28,35 @@ function Home({ user }) {
     const [selectedGem, setSelectedGem] = useState(null);
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
+    const [showSignIn, setShowSignIn] = useState(false);
+    const [signInMessage, setSignInMessage] = useState("");
     const mapRef = useRef(null);
 
+    const requireSignIn = (message) => {
+        setSignInMessage(message);
+        setShowSignIn(true);
+    };
+
+    const handleProtectedNavigation = (event, message) => {
+        if (user) return;
+        event.preventDefault();
+        requireSignIn(message);
+    };
+
     useEffect(() => {
+        if (!user) return;
         getWishlist()
             .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
             .catch(err => console.error('Error fetching wishlist:', err));
-    }, []);
+    }, [user]);
 
     const handleToggleWishlist = async (e, gem) => {
         e.stopPropagation();
         if (wishlistBusyId) return;
+        if (!user) {
+            requireSignIn("Login to save gems to your wishlist.");
+            return;
+        }
 
         const isWishlisted = wishlistIds.has(gem.id);
         setWishlistBusyId(gem.id);
@@ -63,8 +82,12 @@ function Home({ user }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                // Trip itineraries are account-specific (and 401 for a guest) —
+                // fetched separately so a guest still gets the popular-gems
+                // section below instead of the whole page silently going empty
+                // because Promise.all rejected on the one call that needed login.
                 const [tripsRes, gemsRes] = await Promise.all([
-                    getTripItineraries(),
+                    user ? getTripItineraries().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
                     getHiddenGems({ limit: 20 })
                 ]);
 
@@ -122,8 +145,8 @@ function Home({ user }) {
     const quickActions = [
         { to: '/map', label: 'Map' },
         { to: '/hidden-gems', label: 'Gems' },
-        { to: '/trip-itinerary', label: 'Trips' },
-        { to: '/profile', label: 'Profile' },
+        { to: '/trip-itinerary', label: 'Trips', signInMessage: 'Login to view and plan your trips.' },
+        { to: '/profile', label: 'Profile', signInMessage: 'Login to view your profile.' },
     ];
 
     const greetings = ['Hey', 'Hi', 'Hello', 'Welcome back'];
@@ -202,8 +225,13 @@ function Home({ user }) {
             </div>
 
             <div className="home-quick-fun">
-                {quickActions.map(({ to, label }) => (
-                    <Link key={to} to={to} className="home-quick-fun-item">
+                {quickActions.map(({ to, label, signInMessage: actionSignInMessage }) => (
+                    <Link
+                        key={to}
+                        to={to}
+                        className="home-quick-fun-item"
+                        onClick={(event) => actionSignInMessage && handleProtectedNavigation(event, actionSignInMessage)}
+                    >
                         <span className="home-quick-fun-label">{label}</span>
                     </Link>
                 ))}
@@ -336,7 +364,7 @@ function Home({ user }) {
                                             >
                                                 {wishlistIds.has(gem.id) ? "♥" : "♡"}
                                             </button>
-                                            <ReportButton gem={gem} />
+                                            <ReportButton gem={gem} user={user} />
                                         </div>
                                         {gem.status === 'hidden_gem' ? (
                                             <span className="home-trending-card-status verified">✦ Hidden Gem</span>
@@ -363,7 +391,13 @@ function Home({ user }) {
             <div className="home-adventures">
                 <div className="home-adventures-header">
                     <h2>Your Adventures</h2>
-                    <Link to="/trip-itinerary" className="home-adventures-seeall">See All →</Link>
+                    <Link
+                        to="/trip-itinerary"
+                        className="home-adventures-seeall"
+                        onClick={(event) => handleProtectedNavigation(event, 'Login to view your trips.')}
+                    >
+                        See All →
+                    </Link>
                 </div>
                 <div className="home-adventures-grid">
                     {loading ? (
@@ -371,7 +405,12 @@ function Home({ user }) {
                     ) : recentTrips.length === 0 ? (
                         <div className="home-empty-adventures">
                             <p>No adventures yet</p>
-                            <Link to="/trip-itinerary">Start planning →</Link>
+                            <Link
+                                to="/trip-itinerary"
+                                onClick={(event) => handleProtectedNavigation(event, 'Login to start planning a trip.')}
+                            >
+                                Start planning →
+                            </Link>
                         </div>
                     ) : (
                         recentTrips.slice(0, 2).map((trip) => (
@@ -403,7 +442,11 @@ function Home({ user }) {
                     <h2>Plan Your Adventure</h2>
                 </div>
                 <div className="home-plan-explore-grid">
-                    <Link to="/trip-itinerary" className="home-plan-card home-plan-card-trip">
+                    <Link
+                        to="/trip-itinerary"
+                        className="home-plan-card home-plan-card-trip"
+                        onClick={(event) => handleProtectedNavigation(event, 'Login to create a trip itinerary.')}
+                    >
                         <div className="home-plan-card-content">
                             <h3>Create New Trip</h3>
                             <p>Plan your next adventure from scratch</p>
@@ -415,6 +458,11 @@ function Home({ user }) {
                 </div>
             </div>
 
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message={signInMessage}
+            />
         </div>
     );
 }

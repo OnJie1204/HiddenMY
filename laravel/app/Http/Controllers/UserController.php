@@ -15,8 +15,21 @@ class UserController extends Controller
     public function show($id)
     {
         $user = User::with(['locations' => function ($query) {
-            $query->with(['category', 'images'])
-                  ->whereIn('status', ['hidden_gem', 'pending_community_vote', 'ai_rejected'])
+            $query->select([
+                      'id',
+                      'user_id',
+                      'category_id',
+                      'place_name',
+                      'state',
+                      'status',
+                      'vote_count',
+                      'verification_threshold',
+                  ])
+                  ->with([
+                      'category:id,name',
+                      'images:id,location_id,image_url',
+                  ])
+                  ->publiclyVisible()
                   ->orderBy('created_at', 'desc');
         }])->findOrFail($id);
 
@@ -28,10 +41,8 @@ class UserController extends Controller
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
-                'email' => $user->email,
                 'avatar_url' => $user->avatar_url,
                 'created_at' => $user->created_at,
-                'email_verified_at' => $user->email_verified_at,
                 'favourite_achievements' => $activeFavourites,
             ],
             'gems' => $user->locations->map(function ($location) {
@@ -39,10 +50,6 @@ class UserController extends Controller
                     'id' => $location->id,
                     'place_name' => $location->place_name,
                     'state' => $location->state,
-                    'address' => $location->address,
-                    'description' => $location->description,
-                    'latitude' => $location->latitude,
-                    'longitude' => $location->longitude,
                     'status' => $location->status,
                     'vote_count' => $location->vote_count,
                     'verification_threshold' => $location->verification_threshold,
@@ -50,7 +57,6 @@ class UserController extends Controller
                     'images' => $location->images->map(function ($image) {
                         return ['image_url' => $image->image_url];
                     })->toArray(),
-                    'created_at' => $location->created_at,
                 ];
             }),
         ]);

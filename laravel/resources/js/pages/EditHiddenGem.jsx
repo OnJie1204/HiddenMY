@@ -39,9 +39,9 @@ export default function EditHiddenGem() {
 
     const [message, setMessage] = useState("");
     const [messageType, setMessageType] = useState("");
+    const [editUnavailableMessage, setEditUnavailableMessage] = useState("");
 
     const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
-    const [coreFieldsLocked, setCoreFieldsLocked] = useState(false);
     const [existingImages, setExistingImages] = useState([]);
     const [newImages, setNewImages] = useState([]);
 
@@ -60,8 +60,19 @@ export default function EditHiddenGem() {
 
                 // Extra frontend protection
                 const editableStatuses = ["pending", "ai_rejected", "pending_community_vote"];
+                if (Number(gem.vote_count) > 0) {
+                    setEditUnavailableMessage(
+                        "This Hidden Gem can no longer be edited because voting has started."
+                    );
+                    return;
+                }
+
                 if (!editableStatuses.includes(gem.status)) {
-                    navigate("/my-hidden-gems");
+                    setEditUnavailableMessage(
+                        gem.status === "hidden_gem"
+                            ? "Verified Hidden Gems can no longer be edited."
+                            : "This Hidden Gem can no longer be edited."
+                    );
                     return;
                 }
 
@@ -90,8 +101,6 @@ export default function EditHiddenGem() {
                     latitude: String(loadedFormData.latitude),
                     longitude: String(loadedFormData.longitude),
                 };
-
-                setCoreFieldsLocked(Number(gem.vote_count) > 0);
 
                 setCategories(categoryRes.data.data || []);
 
@@ -137,13 +146,10 @@ export default function EditHiddenGem() {
         setMessageType("");
 
         try {
-            let dataToSave = coreFieldsLocked
-                ? { description: formData.description }
-                : { ...formData };
+            let dataToSave = { ...formData };
 
-            if (!coreFieldsLocked) {
-                const currentLocation = locationFields(formData);
-                const coordinateLocation = coordinateLocationRef.current;
+            const currentLocation = locationFields(formData);
+            const coordinateLocation = coordinateLocationRef.current;
 
                 const locationChanged = !coordinateLocation
                     || ["address", "state", "postcode"].some((field) => {
@@ -243,7 +249,6 @@ export default function EditHiddenGem() {
                         return;
                     }
                 }
-            }
 
             let updateData = dataToSave;
 
@@ -319,15 +324,20 @@ export default function EditHiddenGem() {
                     <h2>Edit Hidden Gem</h2>
                 </div>
 
+                {editUnavailableMessage ? (
+                    <div className="hidden-gems-empty">
+                        <h3>Editing Unavailable</h3>
+                        <p>{editUnavailableMessage}</p>
+                        <button
+                            type="button"
+                            className="hidden-gem-submit-btn"
+                            onClick={() => navigate("/my-hidden-gems")}
+                        >
+                            Back to My Hidden Gems
+                        </button>
+                    </div>
+                ) : (
                 <form className="edit-hidden-gem-form" onSubmit={handleSubmit}>
-
-                    {coreFieldsLocked && (
-                        <small className="edit-hidden-gem-warning">
-                            Community voting has started.
-                            Location details can no longer be changed,
-                            but you can still update the description.
-                        </small>
-                    )}
 
                     <input
                         className="form-input"
@@ -335,7 +345,6 @@ export default function EditHiddenGem() {
                         placeholder="Place Name"
                         value={formData.place_name}
                         onChange={handleChange}
-                        disabled={coreFieldsLocked}
                         required
                     />
 
@@ -345,7 +354,6 @@ export default function EditHiddenGem() {
                         placeholder="Address"
                         value={formData.address}
                         onChange={handleChange}
-                        disabled={coreFieldsLocked}
                         required
                     />
 
@@ -354,7 +362,6 @@ export default function EditHiddenGem() {
                         name="state"
                         value={formData.state}
                         onChange={handleChange}
-                        disabled={coreFieldsLocked}
                         required
                     >
                         <option value="">Select State</option>
@@ -382,7 +389,6 @@ export default function EditHiddenGem() {
                         placeholder="Postcode"
                         value={formData.postcode}
                         onChange={handleChange}
-                        disabled={coreFieldsLocked}
                         required
                     />
 
@@ -402,7 +408,6 @@ export default function EditHiddenGem() {
                     <LocationPickerMap
                         latitude={formData.latitude}
                         longitude={formData.longitude}
-                        disabled={coreFieldsLocked}
                         onLocationSelected={(location) => {
                             const postcode =
                                 String(location.postcode ?? "").trim()
@@ -463,7 +468,6 @@ export default function EditHiddenGem() {
                         name="category_id"
                         value={formData.category_id}
                         onChange={handleChange}
-                        disabled={coreFieldsLocked}
                         required
                     >
                         <option value="">Select Category</option>
@@ -506,13 +510,7 @@ export default function EditHiddenGem() {
                         <h4>Add New Images</h4>
 
                         <div className="hidden-gem-upload-row">
-                            <label
-                                className={`hidden-gem-file-label ${
-                                    coreFieldsLocked
-                                        ? "edit-hidden-gem-file-label-disabled"
-                                        : ""
-                                }`}
-                            >
+                            <label className="hidden-gem-file-label">
                                 Choose Images
                                 <input
                                     ref={fileInputRef}
@@ -520,7 +518,6 @@ export default function EditHiddenGem() {
                                     accept="image/*"
                                     multiple
                                     hidden
-                                    disabled={coreFieldsLocked}
                                     onChange={(event) => {
                                         const selectedFiles = Array.from(
                                             event.target.files
@@ -540,11 +537,9 @@ export default function EditHiddenGem() {
                             </label>
 
                             <span className="hidden-gem-file-status">
-                                {coreFieldsLocked
-                                    ? "Image uploads are locked after voting starts."
-                                    : newImages.length > 0
-                                        ? `${newImages.length} file(s) selected`
-                                        : "No new images selected"}
+                                {newImages.length > 0
+                                    ? `${newImages.length} file(s) selected`
+                                    : "No new images selected"}
                             </span>
                         </div>
 
@@ -582,12 +577,10 @@ export default function EditHiddenGem() {
                         )}
                     </div>
 
-                    {!coreFieldsLocked && (
-                        <small className="edit-hidden-gem-warning">
-                            Editing this hidden gem will reset it for
-                            re-verification by AI.
-                        </small>
-                    )}
+                    <small className="edit-hidden-gem-warning">
+                        Editing this hidden gem will reset it for
+                        re-verification by AI.
+                    </small>
 
                     <button
                         type="submit"
@@ -598,6 +591,7 @@ export default function EditHiddenGem() {
                     </button>
 
                 </form>
+                )}
             </div>
         </div>
     );

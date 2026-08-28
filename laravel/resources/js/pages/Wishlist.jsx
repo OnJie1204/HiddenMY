@@ -5,7 +5,7 @@ import ReportButton from "../components/ReportButton";
 
 import "../styles/global.css";
 
-export default function Wishlist() {
+export default function Wishlist({ user }) {
     const navigate = useNavigate();
 
     const [gems, setGems] = useState([]);
@@ -100,7 +100,7 @@ export default function Wishlist() {
                                         >
                                             ♥
                                         </button>
-                                        <ReportButton gem={gem} />
+                                        <ReportButton gem={gem} user={user} />
                                     </div>
                                 </div>
 

@@ -137,12 +137,16 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     if (!isOpen || !report) return null;
 
     const gemLocation = eligibility?.location;
+    const isFixReview = !!report.parent_report_id;
+    const flaggedImage = report.flagged_item && report.flagged_item !== 'description'
+        ? gemLocation?.images?.find((img) => String(img.id) === String(report.flagged_item))
+        : null;
 
     return (
         <div className="vote-modal-overlay" onClick={handleClose}>
             <div className="vote-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="vote-modal-header">
-                    <h2>Verify Report</h2>
+                    <h2>{isFixReview ? 'Verify Fix' : 'Verify Report'}</h2>
                     <button className="vote-modal-close" onClick={handleClose}>✕</button>
                 </div>
 
@@ -219,16 +223,45 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                             </div>
 
                             <div className="report-summary">
-                                <span className="report-summary-label">Reported for</span>
+                                <span className="report-summary-label">{isFixReview ? 'Owner requested a fix review for' : 'Reported for'}</span>
                                 <strong>{REASON_LABELS[report.reason] || report.reason}</strong>
                                 {report.description && <p className="report-summary-desc">"{report.description}"</p>}
+
+                                {report.reason === 'incorrect_location' && report.suggested_latitude != null && (
+                                    <p className="report-summary-desc">
+                                        Suggested location: {Number(report.suggested_latitude).toFixed(5)}, {Number(report.suggested_longitude).toFixed(5)}
+                                        {' — '}
+                                        <a
+                                            href={`https://www.google.com/maps/search/?api=1&query=${report.suggested_latitude},${report.suggested_longitude}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            view on map
+                                        </a>
+                                    </p>
+                                )}
+
+                                {report.reason === 'inappropriate_content' && (
+                                    <div className="report-flagged-content">
+                                        {report.flagged_item === 'description' ? (
+                                            <p className="report-summary-desc">Flagged description: "{gemLocation?.description}"</p>
+                                        ) : flaggedImage ? (
+                                            <>
+                                                <p className="report-summary-desc">Flagged photo:</p>
+                                                <img src={flaggedImage.image_url} alt="Flagged" className="report-flagged-image" />
+                                            </>
+                                        ) : (
+                                            <p className="report-summary-desc">Flagged photo (no longer available).</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="vote-form-group">
                                 <label>Comment (optional)</label>
                                 <textarea
                                     className="vote-textarea"
-                                    placeholder="What did you find when you visited?"
+                                    placeholder={isFixReview ? 'Does the fix look right?' : 'What did you find when you visited?'}
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
                                     maxLength={1000}
@@ -240,10 +273,10 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
 
                             <div className="report-verdict-actions">
                                 <button className="report-verdict-btn report-verdict-dispute" onClick={() => handleVerdict('dispute')} disabled={loading}>
-                                    ✓ This is fine — dispute report
+                                    {isFixReview ? "✗ Still not fixed" : '✓ This is fine — dispute report'}
                                 </button>
                                 <button className="report-verdict-btn report-verdict-confirm" onClick={() => handleVerdict('confirm')} disabled={loading}>
-                                    ⚠ Confirm — issue is real
+                                    {isFixReview ? '✓ Fix looks good' : '⚠ Confirm — issue is real'}
                                 </button>
                             </div>
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>

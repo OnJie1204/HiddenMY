@@ -26,19 +26,15 @@ export const GEM_STATUS_COPY = {
         badgeClass: "hidden-gems-card-verified",
         message: "This place has been recognized as a HiddenMY Hidden Gem!",
     },
-};
-
-const REPORTED_BADGE = {
-    status: "under_review",
-    label: "Reported",
-    badgeClass: "hidden-gems-card-reported",
-    message: "This gem has an active report — the community is voting to confirm or dispute it.",
+    delisted: {
+        status: "delisted",
+        label: "Delisted",
+        badgeClass: "hidden-gems-card-reported",
+        message: "This place was removed after the community confirmed a reported problem.",
+    },
 };
 
 export function getGemStatusDisplay(gem) {
-    if ((gem?.reportStatus ?? gem?.report_status) === "under_review") {
-        return REPORTED_BADGE;
-    }
     return GEM_STATUS_COPY[gem?.status] ?? GEM_STATUS_COPY.pending;
 }
 

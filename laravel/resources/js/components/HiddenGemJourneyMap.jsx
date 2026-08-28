@@ -8,9 +8,10 @@ import {
     useMap,
     ZoomControl,
 } from "react-leaflet";
-import L from "leaflet";
 
 import malaysiaRegions from "../assets/malaysia-adm1.geo.json";
+import GemImage from "./GemImage";
+import { getHiddenGemMarkerIcon } from "./HiddenGemMarker";
 
 const CANONICAL_REGIONS = [
     "Johor",
@@ -43,22 +44,6 @@ const MALAYSIA_BOUNDS = [
 ];
 
 const PENINSULAR_MALAYSIA_CENTER = [4.2105, 101.9758];
-
-const verifiedMarkerIcon = L.divIcon({
-    className: "hiddenmy-journey-marker hiddenmy-journey-marker-verified",
-    html: "<span aria-hidden=\"true\">◆</span>",
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -14],
-});
-
-const pendingMarkerIcon = L.divIcon({
-    className: "hiddenmy-journey-marker hiddenmy-journey-marker-pending",
-    html: "<span aria-hidden=\"true\">◆</span>",
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -14],
-});
 
 function InitialJourneyView() {
     const map = useMap();
@@ -239,13 +224,22 @@ export default function HiddenGemJourneyMap({
                         <Marker
                             key={gem.id}
                             position={[Number(gem.latitude), Number(gem.longitude)]}
-                            icon={gem.status === "hidden_gem"
-                                ? verifiedMarkerIcon
-                                : pendingMarkerIcon}
+                            icon={getHiddenGemMarkerIcon(gem.status)}
                             bubblingMouseEvents={false}
                             riseOnHover
                         >
-                            <Popup className="hiddenmy-journey-popup">
+                            <Popup
+                                className="hiddenmy-journey-popup"
+                                autoPan
+                                autoPanPadding={[24, 24]}
+                                minWidth={180}
+                                maxWidth={240}
+                            >
+                                <GemImage
+                                    src={gem.images?.[0]?.image_url}
+                                    alt={gem.place_name}
+                                    className="hiddenmy-journey-popup-image"
+                                />
                                 <strong>{gem.place_name}</strong>
                                 <span>{gem.state || "Unknown region"}</span>
                                 <span className={`hiddenmy-journey-popup-status ${gem.status}`}>
