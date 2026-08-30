@@ -12,17 +12,18 @@ function VoteModal({
     const navigate = useNavigate();
 
     const [step, setStep] = useState('checking');
-
     const [loading, setLoading] = useState(false);
     const [checkingLocation, setCheckingLocation] = useState(false);
 
     const [eligibility, setEligibility] = useState(null);
+    const [authenticatedUserId, setAuthenticatedUserId] = useState(null);
 
     const [message, setMessage] = useState('');
     const [gpsStatus, setGpsStatus] = useState('');
 
     const [detectedLocation, setDetectedLocation] = useState(null);
     const [verifiedLocation, setVerifiedLocation] = useState(null);
+    const [savedLocation, setSavedLocation] = useState(null);
 
     useEffect(() => {
         if (!isOpen || !locationId) {
@@ -32,13 +33,77 @@ function VoteModal({
         checkEligibility();
     }, [isOpen, locationId]);
 
-    // =====================================================
-    // CHECK VOTING ELIGIBILITY
-    // =====================================================
+    const getStorageKey = (userId) => {
+        if (!userId || !locationId) {
+            return null;
+        }
+
+        return `vote_location_${userId}_${locationId}`;
+    };
+
+    const loadSavedLocation = (userId) => {
+        const storageKey = getStorageKey(userId);
+
+        if (!storageKey) {
+            setSavedLocation(null);
+            return null;
+        }
+
+        try {
+            const raw = localStorage.getItem(storageKey);
+
+            if (!raw) {
+                setSavedLocation(null);
+                return null;
+            }
+
+            const parsed = JSON.parse(raw);
+
+            const isValid =
+                Number(parsed.user_id) === Number(userId) &&
+                Number(parsed.location_id) === Number(locationId) &&
+                Number.isFinite(Number(parsed.latitude)) &&
+                Number.isFinite(Number(parsed.longitude));
+
+            if (!isValid) {
+                localStorage.removeItem(storageKey);
+                setSavedLocation(null);
+                return null;
+            }
+
+            const normalized = {
+                user_id: Number(parsed.user_id),
+                location_id: Number(parsed.location_id),
+                latitude: Number(parsed.latitude),
+                longitude: Number(parsed.longitude),
+                distance:
+                    parsed.distance !== null &&
+                    parsed.distance !== undefined
+                        ? Number(parsed.distance)
+                        : null,
+                verified_at: parsed.verified_at || null,
+                saved_at: parsed.saved_at || null,
+            };
+
+            setSavedLocation(normalized);
+
+            return normalized;
+
+        } catch (error) {
+            console.error(
+                'Error loading saved location:',
+                error
+            );
+
+            localStorage.removeItem(storageKey);
+            setSavedLocation(null);
+
+            return null;
+        }
+    };
 
     const checkEligibility = async () => {
         setLoading(true);
-
         setStep('checking');
 
         setMessage('');
@@ -46,6 +111,8 @@ function VoteModal({
 
         setDetectedLocation(null);
         setVerifiedLocation(null);
+        setSavedLocation(null);
+        setAuthenticatedUserId(null);
 
         try {
             const token = getToken();
@@ -75,13 +142,27 @@ function VoteModal({
                 return;
             }
 
-            /*
-             * Every vote requires a fresh GPS verification.
-             *
-             * A previous check-in or saved location
-             * cannot be used to bypass this step.
-             */
-            setStep('checkin');
+            if (!data.user_id) {
+                setStep('error');
+
+                setMessage(
+                    'Unable to identify the current user.'
+                );
+
+                return;
+            }
+
+            setAuthenticatedUserId(data.user_id);
+
+            const saved = loadSavedLocation(
+                data.user_id
+            );
+
+            if (saved) {
+                setStep('saved');
+            } else {
+                setStep('checkin');
+            }
 
         } catch (error) {
             console.error(
@@ -100,13 +181,8 @@ function VoteModal({
         }
     };
 
-    // =====================================================
-    // DETECT CURRENT GPS LOCATION
-    // =====================================================
-
     const getCurrentLocation = () => {
         setMessage('');
-
         setGpsStatus(
             'Getting your current location...'
         );
@@ -184,60 +260,59 @@ function VoteModal({
             },
 
             {
-                /*
-                 * Request a more accurate location.
-                 */
                 enableHighAccuracy: true,
-
-                /*
-                 * Give the browser up to 15 seconds.
-                 */
                 timeout: 15000,
-
-                /*
-                 * Do not reuse a previously cached GPS location.
-                 */
                 maximumAge: 0,
             }
         );
     };
 
-    // =====================================================
-    // VERIFY CURRENT GPS WITH BACKEND
-    // =====================================================
+    const verifyLocationWithBackend = async (
+        latitude,
+        longitude
+    ) => {
+        const token = getToken();
+
+        const response = await fetch(
+            `/api/votes/checkin/${locationId}`,
+            {
+                method: 'POST',
+
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
+
+                body: JSON.stringify({
+                    latitude,
+                    longitude,
+                    check_in_at:
+                        new Date().toISOString(),
+                }),
+            }
+        );
+
+        const data = await response.json();
+
+        return {
+            response,
+            data,
+        };
+    };
 
     const verifyCurrentLocation = async (
         latitude,
         longitude
     ) => {
         try {
-            const token = getToken();
-
-            const response = await fetch(
-                `/api/votes/checkin/${locationId}`,
-                {
-                    method: 'POST',
-
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                    },
-
-                    body: JSON.stringify({
-                        latitude,
-                        longitude,
-                        check_in_at:
-                            new Date().toISOString(),
-                    }),
-                }
+            const {
+                response,
+                data,
+            } = await verifyLocationWithBackend(
+                latitude,
+                longitude
             );
-
-            const data = await response.json();
-
-            // =================================================
-            // OUTSIDE 5 KM OR VERIFICATION FAILED
-            // =================================================
 
             if (!response.ok) {
                 setVerifiedLocation(null);
@@ -258,29 +333,18 @@ function VoteModal({
                     );
                 }
 
-                /*
-                 * Stay on the check-in screen.
-                 *
-                 * Vote buttons will NOT appear.
-                 */
                 setStep('checkin');
 
                 return;
             }
 
-            // =================================================
-            // WITHIN 5 KM
-            // =================================================
-
             const verified = {
-                latitude,
-                longitude,
-
+                latitude: Number(latitude),
+                longitude: Number(longitude),
                 distance:
                     data.distance !== undefined
-                        ? data.distance
+                        ? Number(data.distance)
                         : null,
-
                 verifiedAt:
                     new Date().toISOString(),
             };
@@ -304,10 +368,6 @@ function VoteModal({
                 );
             }
 
-            /*
-             * Only after successful verification
-             * will the Vote buttons appear.
-             */
             setStep('ready');
 
         } catch (error) {
@@ -329,55 +389,156 @@ function VoteModal({
         }
     };
 
-    // =====================================================
-    // SAVE VERIFIED LOCATION
-    // =====================================================
-
     const saveVerifiedLocation = () => {
-        if (!verifiedLocation) {
+        if (
+            !verifiedLocation ||
+            !authenticatedUserId
+        ) {
+            setStep('checkin');
+
+            setGpsStatus(
+                'error: Please verify your current location before saving it.'
+            );
+
+            return;
+        }
+
+        const storageKey =
+            getStorageKey(authenticatedUserId);
+
+        if (!storageKey) {
+            setStep('error');
+
+            setMessage(
+                'Unable to save this location.'
+            );
+
             return;
         }
 
         const locationData = {
+            user_id:
+                Number(authenticatedUserId),
+
+            location_id:
+                Number(locationId),
+
             latitude:
-                verifiedLocation.latitude,
+                Number(verifiedLocation.latitude),
 
             longitude:
-                verifiedLocation.longitude,
+                Number(verifiedLocation.longitude),
+
+            distance:
+                verifiedLocation.distance,
+
+            verified_at:
+                verifiedLocation.verifiedAt,
 
             saved_at:
                 new Date().toISOString(),
         };
 
-        /*
-         * Each Hidden Gem has its own saved location.
-         *
-         * Example:
-         * vote_location_12
-         * vote_location_35
-         *
-         * If a saved location already exists,
-         * this will replace it.
-         */
-        localStorage.setItem(
-            `vote_location_${locationId}`,
-            JSON.stringify(locationData)
-        );
+        try {
+            localStorage.setItem(
+                storageKey,
+                JSON.stringify(locationData)
+            );
+
+            setSavedLocation(locationData);
+
+            setMessage(
+                'Location saved successfully. You can return later and vote using this saved location.'
+            );
+
+            setStep('saved_success');
+
+        } catch (error) {
+            console.error(
+                'Error saving location:',
+                error
+            );
+
+            setStep('error');
+
+            setMessage(
+                'Unable to save this location.'
+            );
+        }
     };
 
-    // =====================================================
-    // SUBMIT VOTE
-    // =====================================================
+    const removeSavedLocation = () => {
+        if (!authenticatedUserId) {
+            return;
+        }
 
-    const submitVote = async (
-        saveLocation = false
-    ) => {
-        /*
-         * Frontend protection.
-         *
-         * A verified current GPS location
-         * must exist before voting.
-         */
+        const storageKey =
+            getStorageKey(authenticatedUserId);
+
+        if (storageKey) {
+            localStorage.removeItem(storageKey);
+        }
+
+        setSavedLocation(null);
+        setMessage('');
+        setGpsStatus('');
+        setStep('checkin');
+    };
+
+    const clearSavedLocationAfterVote = () => {
+        if (!authenticatedUserId) {
+            return;
+        }
+
+        const storageKey =
+            getStorageKey(authenticatedUserId);
+
+        if (storageKey) {
+            localStorage.removeItem(storageKey);
+        }
+
+        setSavedLocation(null);
+    };
+
+    const submitVoteRequest = async () => {
+        const token = getToken();
+
+        const response = await fetch(
+            `/api/votes/${locationId}`,
+            {
+                method: 'POST',
+
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                },
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.message ||
+                'Failed to submit vote.'
+            );
+        }
+
+        clearSavedLocationAfterVote();
+
+        setStep('success');
+
+        setMessage(
+            data.message ||
+            'Vote submitted successfully!'
+        );
+
+        if (onVoteSuccess) {
+            onVoteSuccess(data);
+        }
+    };
+
+    const submitVoteNow = async () => {
         if (!verifiedLocation) {
             setStep('checkin');
 
@@ -392,57 +553,7 @@ function VoteModal({
         setMessage('');
 
         try {
-            const token = getToken();
-
-            const response = await fetch(
-                `/api/votes/${locationId}`,
-                {
-                    method: 'POST',
-
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: 'application/json',
-                    },
-                }
-            );
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                setStep('error');
-
-                setMessage(
-                    data.message ||
-                    'Failed to submit vote.'
-                );
-
-                return;
-            }
-
-            /*
-             * IMPORTANT:
-             *
-             * Location is saved ONLY after:
-             *
-             * 1. GPS passed the 5 km check
-             * 2. Vote submission succeeded
-             * 3. User chose "Save Location & Vote"
-             */
-
-            if (saveLocation) {
-                saveVerifiedLocation();
-            }
-
-            setStep('success');
-
-            setMessage(
-                data.message ||
-                'Vote submitted successfully!'
-            );
-
-            if (onVoteSuccess) {
-                onVoteSuccess(data);
-            }
+            await submitVoteRequest();
 
         } catch (error) {
             console.error(
@@ -453,6 +564,7 @@ function VoteModal({
             setStep('error');
 
             setMessage(
+                error.message ||
                 'Failed to submit vote.'
             );
 
@@ -461,9 +573,85 @@ function VoteModal({
         }
     };
 
-    // =====================================================
-    // RESET
-    // =====================================================
+    const voteUsingSavedLocation = async () => {
+        if (!savedLocation) {
+            setStep('checkin');
+
+            setMessage('');
+            setGpsStatus('');
+
+            return;
+        }
+
+        if (
+            Number(savedLocation.user_id) !==
+                Number(authenticatedUserId) ||
+            Number(savedLocation.location_id) !==
+                Number(locationId)
+        ) {
+            removeSavedLocation();
+
+            setGpsStatus(
+                'error: This saved location does not belong to the current user or hidden gem.'
+            );
+
+            return;
+        }
+
+        setLoading(true);
+        setMessage('');
+        setGpsStatus('');
+
+        try {
+            const {
+                response,
+                data,
+            } = await verifyLocationWithBackend(
+                savedLocation.latitude,
+                savedLocation.longitude
+            );
+
+            if (!response.ok) {
+                setStep('checkin');
+
+                if (
+                    data.distance !== undefined &&
+                    data.max_distance !== undefined
+                ) {
+                    setGpsStatus(
+                        `error: The saved location is ${data.distance} km away from this hidden gem. Please verify your current location again.`
+                    );
+                } else {
+                    setGpsStatus(
+                        `error: ${
+                            data.message ||
+                            'The saved location can no longer be used.'
+                        }`
+                    );
+                }
+
+                return;
+            }
+
+            await submitVoteRequest();
+
+        } catch (error) {
+            console.error(
+                'Error voting with saved location:',
+                error
+            );
+
+            setStep('error');
+
+            setMessage(
+                error.message ||
+                'Failed to submit vote using the saved location.'
+            );
+
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const reset = () => {
         setStep('checking');
@@ -472,23 +660,23 @@ function VoteModal({
         setCheckingLocation(false);
 
         setEligibility(null);
+        setAuthenticatedUserId(null);
 
         setMessage('');
         setGpsStatus('');
 
         setDetectedLocation(null);
         setVerifiedLocation(null);
+        setSavedLocation(null);
     };
 
     const handleClose = () => {
         reset();
-
         onClose();
     };
 
     const goToLogin = () => {
         handleClose();
-
         navigate('/login');
     };
 
@@ -499,18 +687,13 @@ function VoteModal({
     const gemLocation =
         eligibility?.location;
 
-    // =====================================================
-    // UI
-    // =====================================================
-
-    // Portaled to <body> — see ReportModal.jsx for why (a hovered ancestor
-    // card's :hover transform would otherwise hijack this fixed-position
-    // modal's containing block, making it snap between full-screen and
-    // pinned-to-the-card).
     return createPortal((
         <div
             className="vote-modal-overlay"
-            onClick={(e) => { e.stopPropagation(); handleClose(); }}
+            onClick={(event) => {
+                event.stopPropagation();
+                handleClose();
+            }}
         >
             <div
                 className="vote-modal"
@@ -518,10 +701,6 @@ function VoteModal({
                     event.stopPropagation()
                 }
             >
-                {/* =========================================
-                    HEADER
-                ========================================= */}
-
                 <div className="vote-modal-header">
                     <div>
                         <h2>
@@ -529,8 +708,8 @@ function VoteModal({
                         </h2>
 
                         <p>
-                            Verify that you are currently
-                            near this location.
+                            Verify your current location or use
+                            your saved verified location.
                         </p>
                     </div>
 
@@ -546,10 +725,6 @@ function VoteModal({
 
                 <div className="vote-modal-body">
 
-                    {/* =====================================
-                        CHECKING ELIGIBILITY
-                    ===================================== */}
-
                     {step === 'checking' && (
                         <div className="vote-loading">
                             <div
@@ -562,9 +737,158 @@ function VoteModal({
                         </div>
                     )}
 
-                    {/* =====================================
-                        DETECT CURRENT GPS
-                    ===================================== */}
+                    {step === 'saved' &&
+                        savedLocation && (
+                            <div className="vote-ready">
+
+                                <div className="vote-ready-icon">
+                                    📍
+                                </div>
+
+                                <div className="vote-section-heading">
+                                    <h3>
+                                        Saved Location Available
+                                    </h3>
+
+                                    <p>
+                                        You previously verified and
+                                        saved a location for this
+                                        hidden gem.
+                                    </p>
+                                </div>
+
+                                <div className="vote-verified-card">
+
+                                    <div>
+                                        <span>
+                                            Saved Location
+                                        </span>
+
+                                        <strong>
+                                            {savedLocation.latitude.toFixed(6)}
+                                            ,
+                                            {' '}
+                                            {savedLocation.longitude.toFixed(6)}
+                                        </strong>
+                                    </div>
+
+                                    {savedLocation.distance !==
+                                        null && (
+                                            <div>
+                                                <span>
+                                                    Verified Distance
+                                                </span>
+
+                                                <strong>
+                                                    {savedLocation.distance}
+                                                    {' '}
+                                                    km
+                                                </strong>
+                                            </div>
+                                        )}
+
+                                    {savedLocation.saved_at && (
+                                        <div>
+                                            <span>
+                                                Saved On
+                                            </span>
+
+                                            <strong>
+                                                {new Date(
+                                                    savedLocation.saved_at
+                                                ).toLocaleString()}
+                                            </strong>
+                                        </div>
+                                    )}
+
+                                </div>
+
+                                <div className="vote-choice-list">
+
+                                    <button
+                                        type="button"
+                                        className="vote-choice vote-choice-primary"
+                                        onClick={
+                                            voteUsingSavedLocation
+                                        }
+                                        disabled={loading}
+                                    >
+                                        <span>
+
+                                            <strong>
+                                                {loading
+                                                    ? 'Submitting...'
+                                                    : 'Vote Using Saved Location'}
+                                            </strong>
+
+                                            <small>
+                                                Use this saved verified
+                                                location to vote now
+                                            </small>
+
+                                        </span>
+
+                                        <span>
+                                            →
+                                        </span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="vote-choice vote-choice-save"
+                                        onClick={() => {
+                                            setStep('checkin');
+                                            setMessage('');
+                                            setGpsStatus('');
+                                        }}
+                                        disabled={loading}
+                                    >
+                                        <span>
+
+                                            <strong>
+                                                Verify New Location
+                                            </strong>
+
+                                            <small>
+                                                Detect and verify your
+                                                current GPS location
+                                            </small>
+
+                                        </span>
+
+                                        <span>
+                                            ◎
+                                        </span>
+                                    </button>
+
+                                </div>
+
+                                <div className="vote-ready-footer">
+
+                                    <button
+                                        type="button"
+                                        className="vote-small-btn"
+                                        onClick={
+                                            removeSavedLocation
+                                        }
+                                        disabled={loading}
+                                    >
+                                        Remove Saved Location
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="vote-small-btn"
+                                        onClick={handleClose}
+                                        disabled={loading}
+                                    >
+                                        Cancel
+                                    </button>
+
+                                </div>
+
+                            </div>
+                        )}
 
                     {step === 'checkin' && (
                         <div className="vote-checkin">
@@ -580,8 +904,6 @@ function VoteModal({
                                     hidden gem.
                                 </p>
                             </div>
-
-                            {/* Hidden Gem Location */}
 
                             {gemLocation && (
                                 <div className="vote-location-card">
@@ -612,8 +934,6 @@ function VoteModal({
                                 </div>
                             )}
 
-                            {/* GPS Detect */}
-
                             <button
                                 type="button"
                                 className="vote-detect-btn"
@@ -641,8 +961,6 @@ function VoteModal({
 
                             </button>
 
-                            {/* Detected Coordinates */}
-
                             {detectedLocation &&
                                 !verifiedLocation && (
                                     <div className="vote-detected-location">
@@ -658,8 +976,6 @@ function VoteModal({
 
                                     </div>
                                 )}
-
-                            {/* GPS Status */}
 
                             {gpsStatus && (
                                 <div
@@ -681,8 +997,6 @@ function VoteModal({
                                     )}
                                 </div>
                             )}
-
-                            {/* Retry */}
 
                             {gpsStatus.startsWith(
                                 'error:'
@@ -710,10 +1024,6 @@ function VoteModal({
                         </div>
                     )}
 
-                    {/* =====================================
-                        LOCATION VERIFIED
-                    ===================================== */}
-
                     {step === 'ready' &&
                         verifiedLocation && (
                             <div className="vote-ready">
@@ -730,13 +1040,10 @@ function VoteModal({
 
                                     <p>
                                         You are within 5 km of
-                                        this hidden gem and can
-                                        now vote.
+                                        this hidden gem.
                                     </p>
 
                                 </div>
-
-                                {/* Verified Information */}
 
                                 <div className="vote-verified-card">
 
@@ -778,20 +1085,12 @@ function VoteModal({
                                     </div>
                                 )}
 
-                                {/* =================================
-                                    USER CHOICE
-                                ================================= */}
-
                                 <div className="vote-choice-list">
-
-                                    {/* Vote Only */}
 
                                     <button
                                         type="button"
                                         className="vote-choice vote-choice-primary"
-                                        onClick={() =>
-                                            submitVote(false)
-                                        }
+                                        onClick={submitVoteNow}
                                         disabled={loading}
                                     >
                                         <span>
@@ -803,9 +1102,9 @@ function VoteModal({
                                             </strong>
 
                                             <small>
-                                                Submit your vote
-                                                without saving
-                                                this location
+                                                Submit your vote now
+                                                without saving this
+                                                location
                                             </small>
 
                                         </span>
@@ -815,26 +1114,24 @@ function VoteModal({
                                         </span>
                                     </button>
 
-                                    {/* Save + Vote */}
-
                                     <button
                                         type="button"
                                         className="vote-choice vote-choice-save"
-                                        onClick={() =>
-                                            submitVote(true)
+                                        onClick={
+                                            saveVerifiedLocation
                                         }
                                         disabled={loading}
                                     >
                                         <span>
 
                                             <strong>
-                                                Save Location & Vote
+                                                Save Location for Later
                                             </strong>
 
                                             <small>
                                                 Save this verified
-                                                location for this
-                                                hidden gem
+                                                location without
+                                                voting now
                                             </small>
 
                                         </span>
@@ -845,8 +1142,6 @@ function VoteModal({
                                     </button>
 
                                 </div>
-
-                                {/* Other Actions */}
 
                                 <div className="vote-ready-footer">
 
@@ -878,9 +1173,31 @@ function VoteModal({
                             </div>
                         )}
 
-                    {/* =====================================
-                        SUCCESS
-                    ===================================== */}
+                    {step === 'saved_success' && (
+                        <div className="vote-result vote-success">
+
+                            <div className="vote-result-icon success">
+                                ✓
+                            </div>
+
+                            <h3>
+                                Location Saved
+                            </h3>
+
+                            <p>
+                                {message}
+                            </p>
+
+                            <button
+                                type="button"
+                                className="vote-btn-primary"
+                                onClick={handleClose}
+                            >
+                                Close
+                            </button>
+
+                        </div>
+                    )}
 
                     {step === 'success' && (
                         <div className="vote-result vote-success">
@@ -907,10 +1224,6 @@ function VoteModal({
 
                         </div>
                     )}
-
-                    {/* =====================================
-                        ERROR
-                    ===================================== */}
 
                     {step === 'error' && (
                         <div className="vote-result vote-error">

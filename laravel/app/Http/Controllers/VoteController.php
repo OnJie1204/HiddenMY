@@ -55,6 +55,7 @@ class VoteController extends Controller
 
         return response()->json([
             'eligible' => true,
+            'user_id' => $user->id,
             'has_check_in' => $hasCheckIn,
             'message' => $hasCheckIn ? 'You can vote!' : 'Please check-in at this location first',
             'location' => $location
