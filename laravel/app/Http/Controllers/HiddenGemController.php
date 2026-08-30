@@ -93,6 +93,9 @@ class HiddenGemController extends Controller
             'state' => 'required|string',
             'postcode' => 'required|digits:5',
             'description' => 'required|string',
+            'opening_hours' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:30',
+            'website' => 'nullable|url|max:255',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'images.*' => 'image|max:5120'
@@ -117,6 +120,9 @@ class HiddenGemController extends Controller
             'state' => $request->state,
             'postcode' => $request->postcode,
             'description' => $request->description,
+            'opening_hours' => $request->opening_hours,
+            'phone' => $request->phone,
+            'website' => $request->website,
             'latitude' => $request->latitude,
             'longitude' => $request->longitude,
             'status' => 'pending',
@@ -190,6 +196,8 @@ class HiddenGemController extends Controller
                 'images:id,location_id,image_url',
             ])
             ->withCount('votes')
+            ->withAvg('ratings', 'rating')
+            ->withCount(['ratings', 'checkIns'])
             ->publiclyVisible();
 
         // Filter by status (hidden_gem / pending_community_vote)
@@ -310,6 +318,9 @@ class HiddenGemController extends Controller
             'state' => 'required|string|max:100',
             'postcode' => 'required|digits:5',
             'description' => 'required|string',
+            'opening_hours' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:30',
+            'website' => 'nullable|url|max:255',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'images' => 'nullable|array',
@@ -387,7 +398,10 @@ class HiddenGemController extends Controller
             'category',
             'images',
             'votes.user:id,name,avatar_url',
+            'menuItems.addedBy:id,name',
         ])
+                            ->withAvg('ratings', 'rating')
+                            ->withCount(['ratings', 'checkIns'])
                             ->findOrFail($id);
 
         $isPubliclyVisible = in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true);
@@ -502,6 +516,8 @@ class HiddenGemController extends Controller
                 // shorthand is ambiguous between the two.
                 'firstImage' => fn ($q) => $q->select(['location_images.id', 'location_images.location_id', 'location_images.image_url']),
             ])
+            ->withAvg('ratings', 'rating')
+            ->withCount(['ratings', 'checkIns'])
             ->publiclyVisible()
             ->whereBetween('latitude', [$validated['south'], $validated['north']])
             ->whereBetween('longitude', [$validated['west'], $validated['east']]);
@@ -692,6 +708,7 @@ class HiddenGemController extends Controller
                     'lat' => $latitude,
                     'lon' => $longitude,
                     'format' => 'jsonv2',
+                    'addressdetails' => 1,
                 ])
                 ->throw()
                 ->json();
@@ -703,6 +720,16 @@ class HiddenGemController extends Controller
 
         if (empty($result['osm_id']) || empty($result['display_name'])) {
             return response()->json(['message' => 'No location found at this point. Try clicking closer to a road or landmark.'], 404);
+        }
+
+        // The map's bounding box is a loose rectangle, so points that are near
+        // Malaysia (southern Thailand, Singapore, Brunei, Kalimantan) can still
+        // be clicked. Trust the resolved address's country to keep stops inside
+        // Malaysia even right at the border.
+        if (strtolower($result['address']['country_code'] ?? '') !== 'my') {
+            return response()->json([
+                'message' => 'That point is outside Malaysia. Please pick a location within the country.',
+            ], 422);
         }
 
         $location = [
@@ -866,6 +893,8 @@ class HiddenGemController extends Controller
                 'images:id,location_id,image_url',
             ])
             ->withCount('votes')
+            ->withAvg('ratings', 'rating')
+            ->withCount(['ratings', 'checkIns'])
             ->publiclyVisible()
             ->latest()
             ->take(6)
@@ -886,6 +915,8 @@ class HiddenGemController extends Controller
                 'images:id,location_id,image_url',
             ])
             ->withCount('votes')
+            ->withAvg('ratings', 'rating')
+            ->withCount(['ratings', 'checkIns'])
             ->where('status', 'hidden_gem')
             ->orderByDesc('votes_count')
             ->take(6)

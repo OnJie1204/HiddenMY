@@ -34,6 +34,12 @@ class GemInteractionController extends Controller
         // ============================
         if ($request->type === 'comment') {
 
+            if ((int) $location->user_id === (int) $user->id) {
+                return response()->json([
+                    'message' => 'You cannot rate or comment on your own Hidden Gem.'
+                ], 403);
+            }
+
             if (!$request->rating) {
                 return response()->json([
                     'message' => 'Rating is required.'
@@ -225,6 +231,14 @@ class GemInteractionController extends Controller
         if ($comment->user_id !== $user->id) {
             return response()->json([
                 'message' => 'You are not authorized to edit this comment'
+            ], 403);
+        }
+
+        $location = Location::find($comment->location_id);
+
+        if ($location && (int) $location->user_id === (int) $user->id) {
+            return response()->json([
+                'message' => 'You cannot rate or comment on your own Hidden Gem.'
             ], 403);
         }
 

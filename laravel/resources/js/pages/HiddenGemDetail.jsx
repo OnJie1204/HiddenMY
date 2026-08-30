@@ -10,6 +10,7 @@ import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import { useCompare } from "../context/CompareContext";
+import MenuItems from "../components/MenuItems";
 import api from "../api";
 
 import "../styles/global.css";
@@ -151,6 +152,11 @@ export default function HiddenGemDetail({ user }) {
 
         if (!currentUser) {
             requireSignIn("Login to rate or comment on this hidden gem.");
+            return;
+        }
+
+        if (gem && Number(gem.user_id) === Number(currentUser.id)) {
+            setCommentActionMessage("You cannot rate or comment on your own Hidden Gem.");
             return;
         }
 
@@ -457,6 +463,12 @@ export default function HiddenGemDetail({ user }) {
         comment => Number(comment.user_id) === Number(currentUser?.id)
     );
 
+    const isGemOwner = Boolean(
+        currentUser &&
+        gem &&
+        Number(gem.user_id) === Number(currentUser.id)
+    );
+
     if (loading) {
         return (
             <div className="gem-detail-loading">
@@ -485,37 +497,6 @@ export default function HiddenGemDetail({ user }) {
                     {voteMessage}
                 </div>
             )}
-
-            <Link
-                to="/hidden-gems"
-                className="gem-detail-back-link"
-                onClick={(event) => {
-                    event.preventDefault();
-                    if (routeLocation.state?.fromMyRatings) {
-                        navigate("/my-hidden-gems", {
-                            state: {
-                                activeTab: "contributions",
-                                contributionTab: "ratings",
-                            },
-                        });
-                        return;
-                    }
-
-                    if (routeLocation.state?.fromMyVotes) {
-                        navigate("/my-hidden-gems", {
-                            state: {
-                                activeTab: "contributions",
-                                contributionTab: "votes",
-                            },
-                        });
-                        return;
-                    }
-
-                    navigate(-1);
-                }}
-            >
-                ← Back
-            </Link>
 
             <div className="gem-detail-container">
 
@@ -678,6 +659,49 @@ export default function HiddenGemDetail({ user }) {
                                 "{gem.description || "No description available."}"
                             </p>
                         </div>
+
+                        {(gem.opening_hours || gem.phone || gem.website) && (
+                            <div className="gem-detail-section-card">
+                                <div className="gem-detail-section-header">
+                                    <span className="gem-detail-section-icon">ℹ️</span>
+                                    <h3>Contact Info</h3>
+                                </div>
+                                <div className="gem-detail-contact-list">
+                                    {gem.opening_hours && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Hours</span>
+                                            <span>{gem.opening_hours}</span>
+                                        </div>
+                                    )}
+                                    {gem.phone && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Phone</span>
+                                            <a href={`tel:${gem.phone}`}>{gem.phone}</a>
+                                        </div>
+                                    )}
+                                    {gem.website && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Website</span>
+                                            <a href={gem.website} target="_blank" rel="noopener noreferrer">{gem.website}</a>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {gem.category?.name === "Food & Beverage" && (
+                            <div className="gem-detail-section-card">
+                                <div className="gem-detail-section-header">
+                                    <span className="gem-detail-section-icon">🍽️</span>
+                                    <h3>Menu Items</h3>
+                                </div>
+                                <MenuItems
+                                    locationId={gem.id}
+                                    currentUser={currentUser}
+                                    onRequireSignIn={requireSignIn}
+                                />
+                            </div>
+                        )}
 
                         {/* Vote Progress Card */}
                         {gem.status === "pending_community_vote" && (
@@ -962,7 +986,11 @@ export default function HiddenGemDetail({ user }) {
                             )}
 
                             {/* Rating + Comment Form */}
-                            {hasUserCommented ? (
+                            {isGemOwner ? (
+                                <div className="gem-detail-already-commented">
+                                    <p>You cannot rate or comment on your own Hidden Gem.</p>
+                                </div>
+                            ) : hasUserCommented ? (
                                 <div className="gem-detail-already-commented">
                                     <p>You have already rated this location.</p>
                                     <p>You can edit your comment below.</p>
@@ -1153,7 +1181,7 @@ export default function HiddenGemDetail({ user }) {
                                                             )}
                                                             {isOwnComment && !isEditing && (
                                                                 <span className="gem-detail-comment-actions">
-                                                                    {canEdit && (
+                                                                    {canEdit && !isGemOwner && (
                                                                         <button
                                                                             type="button"
                                                                             className="gem-detail-comment-edit-btn"

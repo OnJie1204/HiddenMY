@@ -9,6 +9,7 @@ import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist'
 import HiddenGemMarker from '../components/HiddenGemMarker';
 import ReportButton from '../components/ReportButton';
 import SignInPrompt from '../components/SignInPrompt';
+import { cartoTileUrl } from '../utils/cartoTiles';
 
 // Fix leaflet default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -145,6 +146,7 @@ function Home({ user }) {
     const quickActions = [
         { to: '/map', label: 'Map' },
         { to: '/hidden-gems', label: 'Gems' },
+        { to: '/wishlist', label: 'Wishlist', signInMessage: 'Login to view your wishlist.' },
         { to: '/trip-itinerary', label: 'Trips', signInMessage: 'Login to view and plan your trips.' },
         { to: '/profile', label: 'Profile', signInMessage: 'Login to view your profile.' },
     ];
@@ -217,10 +219,24 @@ function Home({ user }) {
                         </form>
                     </div>
                 </div>
-                {heroImageUrl && (
-                    <div className="home-hero-fun-image">
-                        <img src={heroImageUrl} alt={topGems[0].place_name} />
+                {loading ? (
+                    <div className="home-hero-fun-image home-hero-fun-image-loading" aria-hidden="true">
+                        <div className="home-hero-fun-image-loading-bar">
+                            <div className="home-hero-fun-image-loading-bar-indicator" />
+                        </div>
                     </div>
+                ) : heroImageUrl && (
+                    <button
+                        type="button"
+                        className="home-hero-fun-image"
+                        onClick={() => navigate(`/hidden-gems/${topGems[0].id}`)}
+                        aria-label={`View ${topGems[0].place_name}`}
+                    >
+                        <img src={heroImageUrl} alt={topGems[0].place_name} />
+                        <span className="home-hero-fun-image-caption">
+                            {topGems[0].place_name}
+                        </span>
+                    </button>
                 )}
             </div>
 
@@ -294,14 +310,13 @@ function Home({ user }) {
                             doubleClickZoom={false}
                         >
                             <TileLayer
-                                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                                url={cartoTileUrl("rastertiles/voyager")}
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             />
                             <ZoomControl position="bottomright" />
                             {selectedGem && (
                                 <HiddenGemMarker
                                     gem={formatGemForMarker(selectedGem)}
-                                    postCount={1}
                                     onClick={() => {}}
                                 />
                             )}
@@ -309,7 +324,6 @@ function Home({ user }) {
                                 <HiddenGemMarker
                                     key={`marker-${gem.id}`}
                                     gem={formatGemForMarker(gem)}
-                                    postCount={1}
                                     onClick={() => handleGemSelect(gem)}
                                 />
                             ))}
@@ -422,7 +436,7 @@ function Home({ user }) {
                                 <div className="home-adventure-card-content">
                                     <h4>{trip.trip_name}</h4>
                                     <p>
-                                        {trip.locations?.length || 0} stops · {new Date(trip.created_at).toLocaleDateString('en-GB', {
+                                        {trip.locations_count ?? trip.locations?.length ?? 0} stops · {new Date(trip.created_at).toLocaleDateString('en-GB', {
                                             day: 'numeric',
                                             month: 'short'
                                         })}

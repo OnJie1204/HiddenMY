@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
-import { useNavigate } from "react-router-dom";
 import LocationPickerMap from "../components/LocationPickerMap";
 
 // Approximate state-capital coordinates, used only as a map-centering
@@ -31,7 +30,6 @@ const STATE_FALLBACK_ZOOM = 10;
 
 export default function HiddenGemSubmission() {
 
-    const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
     const [formData, setFormData] = useState({
@@ -41,6 +39,9 @@ export default function HiddenGemSubmission() {
         state: "",
         postcode: "",
         description: "",
+        opening_hours: "",
+        phone: "",
+        website: "",
         latitude: "",
         longitude: "",
     });
@@ -211,6 +212,9 @@ export default function HiddenGemSubmission() {
                 state: "",
                 postcode: "",
                 description: "",
+                opening_hours: "",
+                phone: "",
+                website: "",
                 latitude: "",
                 longitude: "",
             });
@@ -245,15 +249,6 @@ export default function HiddenGemSubmission() {
             <div className="hidden-gem-form-card">
 
                 <div className="hidden-gem-submit-header">
-
-                    <button
-                        type="button"
-                        className="hidden-gem-back-btn"
-                        onClick={() => navigate(-1)}
-                    >
-                        ← 
-                    </button>
-
 
                     <h2>Submit Hidden Gem</h2>
 
@@ -320,6 +315,31 @@ export default function HiddenGemSubmission() {
                         name="description"
                         placeholder="Description"
                         value={formData.description}
+                        onChange={handleChange}
+                    />
+
+                    <p className="hidden-gem-optional-hint">
+                        Optional — please fill in to the best of your knowledge.
+                    </p>
+                    <input
+                        className="form-input"
+                        name="opening_hours"
+                        placeholder="Opening hours (e.g. Tue–Sun 8am–2pm)"
+                        value={formData.opening_hours}
+                        onChange={handleChange}
+                    />
+                    <input
+                        className="form-input"
+                        name="phone"
+                        placeholder="Phone / WhatsApp number"
+                        value={formData.phone}
+                        onChange={handleChange}
+                    />
+                    <input
+                        className="form-input"
+                        name="website"
+                        placeholder="Website or social media link"
+                        value={formData.website}
                         onChange={handleChange}
                     />
 

@@ -67,16 +67,6 @@ export default function TravelPostDetail({ user }) {
     return (
         <div className="gem-detail-page travel-post-detail-page">
             <div className="travel-post-toolbar">
-                <button
-                    type="button"
-                    className="travel-post-icon-btn"
-                    onClick={() => navigate(-1)}
-                    title="Back"
-                    aria-label="Back"
-                >
-                    ←
-                </button>
-
                 {isOwner && (
                     <div className="travel-post-owner-actions">
                         <button

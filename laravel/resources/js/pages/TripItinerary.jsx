@@ -13,20 +13,22 @@ import "../styles/global.css";
 export default function TripItinerary() {
 
     const [tripName, setTripName] = useState("");
+    const [nameError, setNameError] = useState("");
 
     const handleSubmit = (e) => {
         e.preventDefault();
 
         if (tripName.trim().length < 1) {
-            alert("Trip name must contain at least 1 character");
+            setNameError("Trip name must contain at least 1 character.");
             return;
         }
 
         if (tripName.trim().length > 10) {
-            alert("Trip name cannot exceed 10 characters");
+            setNameError("Trip name cannot exceed 10 characters.");
             return;
         }
 
+        setNameError("");
         handleCreate(); // your existing create function
 
         setShowCreateModal(false);
@@ -37,15 +39,20 @@ export default function TripItinerary() {
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState("");
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isLoadingItineraries, setIsLoadingItineraries] = useState(true);
     const navigate = useNavigate();
 
     const loadTripItineraries = () => {
+        setIsLoadingItineraries(true);
         getTripItineraries()
             .then(res => {
                 setTripItineraries(res.data);
             })
             .catch(err => {
                 console.log(err);
+            })
+            .finally(() => {
+                setIsLoadingItineraries(false);
             });
     };
 
@@ -123,7 +130,17 @@ export default function TripItinerary() {
             </div>
 
 
-            {tripItineraries.length === 0 ? (
+            {isLoadingItineraries ? (
+
+                <div
+                    className="page-loading-bar"
+                    role="progressbar"
+                    aria-label="Loading itineraries"
+                >
+                    <div className="page-loading-bar-indicator" />
+                </div>
+
+            ) : tripItineraries.length === 0 ? (
 
                 <div className="hidden-gems-empty">
                     <p>You haven't created any trip itineraries yet.</p>
@@ -201,6 +218,7 @@ export default function TripItinerary() {
                         onClick={() => {
                             setShowCreateModal(false);
                             setTripName("");
+                            setNameError("");
                         }}
                     >
 
@@ -217,6 +235,7 @@ export default function TripItinerary() {
                                     onClick={() => {
                                         setShowCreateModal(false);
                                         setTripName("");
+                                        setNameError("");
                                     }}
                                     aria-label="Close"
                                 >
@@ -225,13 +244,25 @@ export default function TripItinerary() {
                             </div>
 
                             <div className="modal-body">
-                                <form onSubmit={handleSubmit}>
+                                <form onSubmit={handleSubmit} noValidate>
                                     <input
                                         placeholder="Enter trip name"
                                         value={tripName}
-                                        onChange={(e) => setTripName(e.target.value)}
+                                        onChange={(e) => {
+                                            setTripName(e.target.value);
+                                            if (nameError) setNameError("");
+                                        }}
+                                        className={nameError ? "trip-input-error" : ""}
+                                        aria-invalid={nameError ? "true" : "false"}
+                                        aria-describedby={nameError ? "trip-name-error" : undefined}
                                         autoFocus
                                     />
+
+                                    {nameError && (
+                                        <p id="trip-name-error" className="trip-name-error" role="alert">
+                                            {nameError}
+                                        </p>
+                                    )}
 
                                     <div className="trip-create-modal-actions">
 
@@ -241,6 +272,7 @@ export default function TripItinerary() {
                                             onClick={() => {
                                                 setShowCreateModal(false);
                                                 setTripName("");
+                                                setNameError("");
                                             }}
                                         >
                                             Cancel

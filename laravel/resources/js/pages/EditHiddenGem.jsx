@@ -29,6 +29,9 @@ export default function EditHiddenGem() {
         state: "",
         postcode: "",
         description: "",
+        opening_hours: "",
+        phone: "",
+        website: "",
         latitude: "",
         longitude: "",
     });
@@ -83,6 +86,9 @@ export default function EditHiddenGem() {
                     state: gem.state || "",
                     postcode: gem.postcode || "",
                     description: gem.description || "",
+                    opening_hours: gem.opening_hours || "",
+                    phone: gem.phone || "",
+                    website: gem.website || "",
                     latitude: gem.latitude || "",
                     longitude: gem.longitude || "",
                 };
@@ -313,14 +319,6 @@ export default function EditHiddenGem() {
             <div className="hidden-gem-form-card">
 
                 <div className="hidden-gem-submit-header">
-                    <button
-                        type="button"
-                        className="hidden-gem-back-btn"
-                        onClick={() => navigate("/my-hidden-gems")}
-                    >
-                        ←
-                    </button>
-
                     <h2>Edit Hidden Gem</h2>
                 </div>
 
@@ -461,6 +459,31 @@ export default function EditHiddenGem() {
                         value={formData.description}
                         onChange={handleChange}
                         required
+                    />
+
+                    <p className="hidden-gem-optional-hint">
+                        Optional — fill in anything you know. Since you're not necessarily the owner, it's fine to leave these blank.
+                    </p>
+                    <input
+                        className="form-input"
+                        name="opening_hours"
+                        placeholder="Opening hours (e.g. Tue–Sun 8am–2pm)"
+                        value={formData.opening_hours}
+                        onChange={handleChange}
+                    />
+                    <input
+                        className="form-input"
+                        name="phone"
+                        placeholder="Phone / WhatsApp number"
+                        value={formData.phone}
+                        onChange={handleChange}
+                    />
+                    <input
+                        className="form-input"
+                        name="website"
+                        placeholder="Website or social media link"
+                        value={formData.website}
+                        onChange={handleChange}
                     />
 
                     <select

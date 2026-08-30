@@ -12,6 +12,7 @@ import {
 import malaysiaRegions from "../assets/malaysia-adm1.geo.json";
 import GemImage from "./GemImage";
 import { getHiddenGemMarkerIcon } from "./HiddenGemMarker";
+import { cartoTileUrl } from "../utils/cartoTiles";
 
 const CANONICAL_REGIONS = [
     "Johor",
@@ -206,7 +207,7 @@ export default function HiddenGemJourneyMap({
                     style={{ height: "100%", width: "100%" }}
                 >
                     <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                        url={cartoTileUrl("light_all")}
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> · Boundaries: <a href="https://www.geoboundaries.org/">geoBoundaries</a>'
                     />
 
