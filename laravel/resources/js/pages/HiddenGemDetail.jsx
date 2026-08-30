@@ -155,6 +155,11 @@ export default function HiddenGemDetail({ user }) {
             return;
         }
 
+        if (gem && Number(gem.user_id) === Number(currentUser.id)) {
+            setCommentActionMessage("You cannot rate or comment on your own Hidden Gem.");
+            return;
+        }
+
         if (!newRating) return;
 
         setSubmittingComment(true);
@@ -456,6 +461,12 @@ export default function HiddenGemDetail({ user }) {
     // ==================== Has User Commented ====================
     const hasUserCommented = interactions.comments?.some(
         comment => Number(comment.user_id) === Number(currentUser?.id)
+    );
+
+    const isGemOwner = Boolean(
+        currentUser &&
+        gem &&
+        Number(gem.user_id) === Number(currentUser.id)
     );
 
     if (loading) {
@@ -975,7 +986,11 @@ export default function HiddenGemDetail({ user }) {
                             )}
 
                             {/* Rating + Comment Form */}
-                            {hasUserCommented ? (
+                            {isGemOwner ? (
+                                <div className="gem-detail-already-commented">
+                                    <p>You cannot rate or comment on your own Hidden Gem.</p>
+                                </div>
+                            ) : hasUserCommented ? (
                                 <div className="gem-detail-already-commented">
                                     <p>You have already rated this location.</p>
                                     <p>You can edit your comment below.</p>
@@ -1166,7 +1181,7 @@ export default function HiddenGemDetail({ user }) {
                                                             )}
                                                             {isOwnComment && !isEditing && (
                                                                 <span className="gem-detail-comment-actions">
-                                                                    {canEdit && (
+                                                                    {canEdit && !isGemOwner && (
                                                                         <button
                                                                             type="button"
                                                                             className="gem-detail-comment-edit-btn"

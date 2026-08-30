@@ -10082,6 +10082,7 @@ img.avatar {
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+    margin-top: 12px;
 }
 
 .menu-items-add-form .form-input {
