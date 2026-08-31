@@ -173,7 +173,9 @@ class HiddenGemController extends Controller
             }
         }
 
-        VerifyHiddenGemSubmission::dispatch($location->id);
+        // afterCommit(): when the queue is not 'sync' the worker must not pick
+        // the job up before this request's writes are committed.
+        VerifyHiddenGemSubmission::dispatch($location->id)->afterCommit();
 
         return response()->json([
             'message' => 'Hidden gem submitted successfully.',
@@ -380,7 +382,7 @@ class HiddenGemController extends Controller
         $gem->votes()->delete();
 
         // Re-run Stage 1 AI verification against the updated submission.
-        VerifyHiddenGemSubmission::dispatch($gem->id);
+        VerifyHiddenGemSubmission::dispatch($gem->id)->afterCommit();
 
         return response()->json([
             'message' => 'Hidden gem updated successfully and is being re-verified.',

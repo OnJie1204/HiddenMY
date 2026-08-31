@@ -43,6 +43,14 @@ return [
 
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
+
+        // Model names are configurable so a Google deprecation or capacity
+        // outage is a .env change, not a code deploy. Defaults are models
+        // verified against the full Call A (grounded search) + Call B
+        // (structured JSON + image) pipeline. Leave GEMINI_FALLBACK_MODEL
+        // empty to disable model fallback.
+        'model' => env('GEMINI_MODEL', 'gemini-3.6-flash'),
+        'fallback_model' => env('GEMINI_FALLBACK_MODEL', 'gemini-flash-lite-latest'),
     ],
 
 ];
