@@ -1196,3 +1196,38 @@
         min-height: 0;
     }
 }
+
+/* Phone — give the floating search / filter overlays the full width and
+   trim the chrome so they don't blanket the map. */
+@media (max-width: 560px) {
+    .maps-left-stack {
+        width: calc(100% - 16px);
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .maps-hero-topbar {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+        align-items: flex-end;
+    }
+
+    .maps-filters-panel {
+        max-width: 100%;
+        width: 100%;
+        padding: 12px;
+    }
+
+    .maps-hero-title {
+        font-size: 13px;
+        padding: 7px 12px;
+    }
+
+    .maps-locate-btn,
+    .maps-fullscreen-btn {
+        width: 38px;
+        height: 38px;
+    }
+}

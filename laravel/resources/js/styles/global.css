@@ -10481,3 +10481,176 @@ img.avatar {
         font-size: 21px;
     }
 }
+
+/* =========================================================================
+   RESPONSIVE SUPPLEMENT
+   Cross-page adaptation for tablet / phone widths. Appended last so these
+   rules win by source order over the per-section rules above at equal
+   specificity. Breakpoints used app-wide: 1024 / 768 / 560 / 400.
+   ========================================================================= */
+
+/* ---- Global overflow & fluid-media guard ------------------------------- */
+/* `clip` (not `hidden`) does not create a scroll container, so the sticky
+   navbar and any position: sticky children keep working. */
+body,
+#app {
+    overflow-x: clip;
+}
+
+/* Media guard — scoped to content elements only. Deliberately NOT applied to
+   svg/canvas or .leaflet-container: Leaflet sizes those itself and a blanket
+   max-width there distorts the map. */
+img,
+video {
+    max-width: 100%;
+}
+
+table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+pre {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* Shared card grids (Hidden Gems, My Hidden Gems, Travel Posts, Wishlist,
+   Trip list): stop the minimum track from ever exceeding a narrow viewport,
+   which used to force ~40px of horizontal scroll on phones. */
+.hidden-gems-list,
+.trip-list {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+}
+
+.compare-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+/* ---- Tablet ----------------------------------------------------------- */
+@media (max-width: 1024px) {
+    .compare-page {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+}
+
+/* ---- Small tablet / large phone -------------------------------------- */
+@media (max-width: 768px) {
+    /* Page shells — tighten the horizontal gutters everywhere */
+    .hidden-gems-page,
+    .trip-page {
+        padding: 24px 16px 48px;
+    }
+
+    .trip-detail-container {
+        padding: 20px 16px 48px;
+    }
+
+    .compare-page {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    /* Page headers wrap instead of squashing the title / action button */
+    .hidden-gems-header,
+    .trip-header {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .hidden-gems-header h1,
+    .trip-header h1,
+    .trip-detail-header h1 {
+        font-size: 22px;
+    }
+
+    /* Trip-detail panels */
+    .trip-detail-header,
+    .trip-detail-content-panel {
+        padding: 16px;
+    }
+
+    /* Achievements header: the minmax(360px) column can just overflow a
+       ~600-660px viewport before the ≤600 rule kicks in — stack earlier. */
+    .hiddenmy-achievements-header {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    /* Centred form pages: pin to the top so tall forms (Register,
+       Submit a Gem, Travel Post) are never clipped or unreachable. */
+    .auth-page,
+    .hidden-gem-form-page,
+    .travel-post-form-page {
+        align-items: flex-start;
+        padding: 1.5rem 1rem;
+    }
+
+    .auth-card,
+    .hidden-gem-form-card,
+    .travel-post-form-card {
+        padding: 1.75rem 1.5rem;
+    }
+
+    /* Home quick-actions: 5 across is unreadable on a phone */
+    .home-quick-fun {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* Button rows that were fixed single-line */
+    .my-hidden-gems-actions {
+        flex-wrap: wrap;
+    }
+}
+
+/* ---- Phone ---------------------------------------------------------- */
+@media (max-width: 560px) {
+    .home-quick-fun {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .navbar {
+        padding: 0.6rem 0.9rem;
+    }
+
+    .navbar-links {
+        gap: 0.15rem;
+    }
+
+    .navbar-link {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.82rem;
+    }
+}
+
+/* ---- Small phone --------------------------------------------------- */
+@media (max-width: 400px) {
+    .hidden-gems-page,
+    .trip-page,
+    .trip-detail-container {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .compare-page {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .hidden-gems-card-content {
+        padding: 14px;
+    }
+
+    .auth-card,
+    .hidden-gem-form-card,
+    .travel-post-form-card {
+        padding: 1.4rem 1.15rem;
+    }
+
+    .hidden-gems-header h1,
+    .trip-header h1 {
+        font-size: 20px;
+    }
+}
