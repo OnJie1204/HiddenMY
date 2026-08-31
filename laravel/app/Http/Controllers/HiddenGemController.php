@@ -61,6 +61,17 @@ class HiddenGemController extends Controller
 
     private const SEARCH_RESULT_LIMIT = 20;
 
+    /** Max address suggestions returned to the Submit / Edit form's type-ahead. */
+    private const ADDRESS_SUGGESTION_LIMIT = 6;
+
+    /** The 16 values the submit form's state <select> accepts. A geocoded state
+     *  that doesn't map to one of these is returned blank so the user picks it. */
+    private const MALAYSIA_STATES = [
+        'Johor', 'Kuala Lumpur', 'Penang', 'Selangor', 'Melaka', 'Perak', 'Pahang',
+        'Sarawak', 'Sabah', 'Terengganu', 'Kelantan', 'Kedah', 'Negeri Sembilan',
+        'Perlis', 'Putrajaya', 'Labuan',
+    ];
+
     /** Nominatim's own documented hard cap on `limit` — asking for more does nothing. */
     private const OSM_SEARCH_FETCH_LIMIT = 50;
 
@@ -847,6 +858,155 @@ class HiddenGemController extends Controller
             'latitude' => $latitude,
             'longitude' => $longitude,
         ]);
+    }
+
+    /**
+     * Live address suggestions for the "Submit a Hidden Gem" form's type-ahead.
+     *
+     * Backed by Photon (photon.komoot.io) — an OpenStreetMap-based geocoder
+     * built for autocomplete (prefix matching), unlike Nominatim which the
+     * rest of this controller uses for one-shot lookups. Free, no API key.
+     * Results are filtered to Malaysia and normalised into exactly the fields
+     * the form needs: address / state / postcode / latitude / longitude.
+     */
+    public function addressAutocomplete(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'query' => ['required', 'string', 'min:3', 'max:150'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+        ]);
+
+        $query = trim($validated['query']);
+        $cacheKey = 'photon-autocomplete:'.md5(strtolower($query));
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return response()->json(['data' => $cached]);
+        }
+
+        // Bias ranking toward the pin the user has already placed, else toward
+        // peninsular Malaysia's rough centre so local results surface first.
+        $latitude = isset($validated['latitude']) ? (float) $validated['latitude'] : 4.2;
+        $longitude = isset($validated['longitude']) ? (float) $validated['longitude'] : 102.0;
+
+        try {
+            $features = Http::acceptJson()
+                ->withUserAgent(config('app.name', 'HiddenMY').' address autocomplete')
+                ->timeout(5)
+                ->get(rtrim((string) config('services.photon.url'), '/').'/api', [
+                    'q' => $query,
+                    'lang' => 'en',
+                    'limit' => 15, // over-fetch, then filter to MY and trim
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                ])
+                ->throw()
+                ->json('features', []);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Address lookup is unavailable right now. You can still type the address and use the map.',
+            ], 502);
+        }
+
+        $suggestions = collect($features)
+            ->filter(fn ($feature) => strtoupper((string) data_get($feature, 'properties.countrycode')) === 'MY')
+            ->map(fn ($feature) => $this->normalisePhotonFeature($feature))
+            ->filter(fn ($s) => $s['latitude'] !== null && $s['longitude'] !== null && $s['label'] !== '')
+            ->unique('label')
+            ->take(self::ADDRESS_SUGGESTION_LIMIT)
+            ->values()
+            ->all();
+
+        Cache::put($cacheKey, $suggestions, now()->addHours(6));
+
+        return response()->json(['data' => $suggestions]);
+    }
+
+    /**
+     * Turn one Photon GeoJSON feature into the flat shape the form consumes.
+     */
+    private function normalisePhotonFeature(array $feature): array
+    {
+        $props = $feature['properties'] ?? [];
+        $coordinates = $feature['geometry']['coordinates'] ?? [null, null];
+
+        $name = trim((string) ($props['name'] ?? ''));
+        $street = trim(implode(' ', array_filter([
+            $props['housenumber'] ?? null,
+            $props['street'] ?? null,
+        ])));
+
+        // Lead with the POI name when it isn't already the street (e.g. a
+        // café or a kampung waterfall), otherwise the street line alone.
+        if ($name !== '' && ($street === '' || stripos($street, $name) === false)) {
+            $street = trim($name.($street !== '' ? ', '.$street : ''));
+        }
+
+        $locality = trim((string) (
+            $props['district']
+            ?? $props['city']
+            ?? $props['county']
+            ?? $props['locality']
+            ?? ''
+        ));
+
+        // Photon usually gives `state`, but the three federal territories
+        // (Kuala Lumpur, Putrajaya, Labuan) come through as `city`/`county`
+        // with no `state` — fall back through those so the form's state
+        // dropdown still auto-fills.
+        $state = $this->canonicalMalaysiaState($props['state'] ?? '')
+            ?: $this->canonicalMalaysiaState($props['county'] ?? '')
+            ?: $this->canonicalMalaysiaState($props['city'] ?? '');
+
+        $postcode = trim((string) ($props['postcode'] ?? ''));
+
+        $address = trim(implode(', ', array_filter([$street, $locality])));
+        if ($address === '') {
+            $address = $locality !== '' ? $locality : ($name !== '' ? $name : $state);
+        }
+
+        $label = trim(implode(', ', array_filter([$address, $state, $postcode])), ', ');
+
+        return [
+            'label' => $label,
+            'address' => $address,
+            'state' => $state,
+            'postcode' => $postcode,
+            'latitude' => isset($coordinates[1]) ? (float) $coordinates[1] : null,
+            'longitude' => isset($coordinates[0]) ? (float) $coordinates[0] : null,
+        ];
+    }
+
+    /**
+     * Normalise a geocoder's state name (Malay / English / federal-territory
+     * variants) to one of the 16 values the form's <select> accepts, or '' if
+     * it doesn't map to one.
+     */
+    private function canonicalMalaysiaState(?string $state): string
+    {
+        $state = trim((string) $state);
+
+        $aliases = [
+            'Pulau Pinang' => 'Penang',
+            'Penang Island' => 'Penang',
+            'Malacca' => 'Melaka',
+            'Malacca City' => 'Melaka',
+            'Wilayah Persekutuan Kuala Lumpur' => 'Kuala Lumpur',
+            'Federal Territory of Kuala Lumpur' => 'Kuala Lumpur',
+            'Kuala Lumpur Federal Territory' => 'Kuala Lumpur',
+            'Wilayah Persekutuan Putrajaya' => 'Putrajaya',
+            'Federal Territory of Putrajaya' => 'Putrajaya',
+            'Wilayah Persekutuan Labuan' => 'Labuan',
+            'Federal Territory of Labuan' => 'Labuan',
+            'Negeri Sembilan Darul Khusus' => 'Negeri Sembilan',
+        ];
+
+        $state = $aliases[$state] ?? $state;
+
+        return in_array($state, self::MALAYSIA_STATES, true) ? $state : '';
     }
 
     /**

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
 import LocationPickerMap from "../components/LocationPickerMap";
+import AddressAutocomplete from "../components/AddressAutocomplete";
 
 // Approximate state-capital coordinates, used only as a map-centering
 // fallback when the address itself can't be geocoded — never submitted as
@@ -265,12 +266,47 @@ export default function HiddenGemSubmission() {
                     />
 
 
-                    <input
+                    <AddressAutocomplete
                         className="form-input"
                         name="address"
                         placeholder="Address"
                         value={formData.address}
-                        onChange={handleChange}
+                        latitude={formData.latitude}
+                        longitude={formData.longitude}
+                        onChange={(text) =>
+                            setFormData((prev) => ({ ...prev, address: text }))
+                        }
+                        onSelect={(suggestion) => {
+                            setFormData((prev) => ({
+                                ...prev,
+                                address: suggestion.address || prev.address,
+                                state: suggestion.state || prev.state,
+                                postcode: suggestion.postcode || prev.postcode,
+                                latitude:
+                                    suggestion.latitude != null
+                                        ? String(suggestion.latitude)
+                                        : prev.latitude,
+                                longitude:
+                                    suggestion.longitude != null
+                                        ? String(suggestion.longitude)
+                                        : prev.longitude,
+                            }));
+
+                            if (
+                                suggestion.latitude != null &&
+                                suggestion.longitude != null
+                            ) {
+                                setMapFocusRequest({
+                                    latitude: suggestion.latitude,
+                                    longitude: suggestion.longitude,
+                                    zoom: 16,
+                                });
+                            }
+
+                            setGeocodeStatus(
+                                "success:Address selected and pinned on the map below — drag or click to fine-tune the exact spot."
+                            );
+                        }}
                     />
 
 

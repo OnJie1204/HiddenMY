@@ -53,4 +53,12 @@ return [
         'fallback_model' => env('GEMINI_FALLBACK_MODEL', 'gemini-flash-lite-latest'),
     ],
 
+    // Photon (photon.komoot.io) — OpenStreetMap-based geocoder used for the
+    // address type-ahead on the Submit / Edit Hidden Gem forms. Free, no API
+    // key. Point PHOTON_URL at a self-hosted instance if the public one is
+    // rate-limiting.
+    'photon' => [
+        'url' => env('PHOTON_URL', 'https://photon.komoot.io'),
+    ],
+
 ];
