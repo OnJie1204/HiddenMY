@@ -7,6 +7,7 @@ import ReportButton from "../components/ReportButton";
 import SignInPrompt from "../components/SignInPrompt";
 import { getReportForLocation, requestFixReview } from "../api/reports";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
+import PhotoCarousel from "../components/PhotoCarousel";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import { useCompare } from "../context/CompareContext";
@@ -75,6 +76,8 @@ export default function HiddenGemDetail({ user }) {
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
+
+    const galleryImages = gem?.images ?? [];
 
     const requireSignIn = (message) => {
         setSignInMessage(message);
@@ -501,40 +504,18 @@ export default function HiddenGemDetail({ user }) {
             <div className="gem-detail-container">
 
                 <div className="gem-detail-gallery">
-                    <div className="gem-detail-main-image">
-                        {gem.images && gem.images.length > 0 ? (
-                            <img
-                                src={gem.images[0].image_url}
-                                alt={gem.place_name}
-                                onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.parentElement.innerHTML = `<div class="gem-detail-main-placeholder">No Image</div>`;
-                                }}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
+                    {galleryImages.length > 0 ? (
+                        <PhotoCarousel
+                            images={galleryImages}
+                            alt={gem.place_name}
+                            className="gem-detail-carousel"
+                            onImageClick={(url) => setSelectedPhoto(url)}
+                        />
+                    ) : (
+                        <div className="gem-detail-main-image">
                             <div className="gem-detail-main-placeholder">No Image</div>
-                        )}
-                    </div>
-                    <div className="gem-detail-thumbnails">
-                        {gem.images && gem.images.slice(1, 4).map((img, index) => (
-                            <div key={index} className="gem-detail-thumbnail">
-                                <img
-                                    src={img.image_url}
-                                    alt={`${gem.place_name} ${index + 2}`}
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
-                            </div>
-                        ))}
-                        {gem.images && gem.images.length > 4 && (
-                            <div className="gem-detail-thumbnail-more">
-                                +{gem.images.length - 4}
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="gem-detail-header">

@@ -191,6 +191,7 @@ function Maps({ user }){
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [gemReviews, setGemReviews] = useState([]);
     const [gemReviewsLoading, setGemReviewsLoading] = useState(false);
+    const [activeGemImages, setActiveGemImages] = useState([]);
     const [mapFullscreen, setMapFullscreen] = useState(false);
     const mapRef = useRef(null);
     const viewportTimer = useRef(null);
@@ -490,16 +491,22 @@ function Maps({ user }){
             setNearbyLoading(false);
             setGemReviews([]);
             setGemReviewsLoading(false);
+            setActiveGemImages([]);
             return;
         }
 
         // detail only for whichever gem is actually open in the panel.
         setGemReviewsLoading(true);
+        setActiveGemImages([]);
         getHiddenGemDetail(activeGem.id)
-            .then(res => setGemReviews(res.data.data?.votes || []))
+            .then(res => {
+                setGemReviews(res.data.data?.votes || []);
+                setActiveGemImages(res.data.data?.images || []);
+            })
             .catch(err => {
                 console.log(err);
                 setGemReviews([]);
+                setActiveGemImages([]);
             })
             .finally(() => setGemReviewsLoading(false));
 
@@ -757,6 +764,7 @@ function Maps({ user }){
                         onToggleWishlist={handleToggleWishlist}
                         reviews={gemReviews}
                         reviewsLoading={gemReviewsLoading}
+                        images={activeGemImages}
                     />
                 </div>
 

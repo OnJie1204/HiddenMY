@@ -61,4 +61,13 @@ return [
         'url' => env('PHOTON_URL', 'https://photon.komoot.io'),
     ],
 
+    // Supabase Storage — where Hidden Gem / vote photos are uploaded. The
+    // HiddenGemController uploads via raw env() calls; this mirror exists so
+    // the achievement demo seeder can reuse the same bucket in a testable way.
+    'supabase' => [
+        'url' => env('SUPABASE_URL'),
+        'key' => env('SUPABASE_KEY'),
+        'location_images_bucket' => env('SUPABASE_LOCATION_IMAGES_BUCKET', 'location_images'),
+    ],
+
 ];

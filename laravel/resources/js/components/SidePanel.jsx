@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
+import PhotoCarousel from "./PhotoCarousel";
 import Avatar from "./Avatar";
 import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
@@ -34,6 +35,7 @@ function SidePanel({
     itineraries = [], onAddToItinerary,
     wishlistIds = new Set(), onToggleWishlist,
     reviews = [], reviewsLoading = false,
+    images = [],
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [width, setWidth] = useState(340);
@@ -325,7 +327,16 @@ function SidePanel({
                 {gem && (
                     <>
                         <div className="side-panel-gem-header">
-                            <GemImage src={gem.image} alt={gem.title} className="side-panel-gem-image" />
+                            {images && images.length > 0 ? (
+                                <PhotoCarousel
+                                    images={images}
+                                    alt={gem.title}
+                                    showThumbs={false}
+                                    className="side-panel-carousel"
+                                />
+                            ) : (
+                                <GemImage src={gem.image} alt={gem.title} className="side-panel-gem-image" />
+                            )}
                             <div className="side-panel-badges">
                                 {gem.category && <span className="badge badge-neutral">{gem.category}</span>}
                                 {gem.attractionType && (
