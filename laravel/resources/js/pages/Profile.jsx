@@ -369,7 +369,7 @@ function Profile({ setAppUser }) {
                       onClick={() => setShowCurrentPassword((prev) => !prev)}
                       aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showCurrentPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                      {showCurrentPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                     </button>
                   </div>
                 )}
@@ -389,7 +389,7 @@ function Profile({ setAppUser }) {
                     onClick={() => setShowNewPassword((prev) => !prev)}
                     aria-label={showNewPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showNewPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                    {showNewPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                   </button>
                 </div>
 
@@ -424,7 +424,7 @@ function Profile({ setAppUser }) {
                     onClick={() => setShowConfirmPassword((prev) => !prev)}
                     aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showConfirmPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                    {showConfirmPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                   </button>
                 </div>
                 {newPasswordConfirmation && (
