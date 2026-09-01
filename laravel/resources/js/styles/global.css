@@ -2638,6 +2638,13 @@ img.avatar {
     letter-spacing: 0.3px;
 }
 
+.trip-detail-modified-date {
+    margin-top: 2px;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    letter-spacing: 0.3px;
+}
+
 .trip-detail-section-header {
     display: flex;
     justify-content: space-between;
