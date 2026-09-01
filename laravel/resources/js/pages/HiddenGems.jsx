@@ -4,6 +4,8 @@ import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import { useCompare } from "../context/CompareContext";
 import TruncatedText from "../components/TruncatedText";
+import PhotoCarousel from "../components/PhotoCarousel";
+import LoadingCards from "../components/LoadingCards";
 import ReportButton from "../components/ReportButton";
 import SignInPrompt from "../components/SignInPrompt";
 
@@ -293,9 +295,7 @@ export default function HiddenGems({ user }) {
             </div>
 
             {loading ? (
-                <div className="page-loading-bar" role="progressbar" aria-label="Loading hidden gems">
-                    <div className="page-loading-bar-indicator" />
-                </div>
+                <LoadingCards count={9} />
             ) : gems.length === 0 ? (
                 <div className="hidden-gems-empty">
                     <p>No hidden gems found.</p>
@@ -309,21 +309,13 @@ export default function HiddenGems({ user }) {
                             onClick={() => navigate(`/hidden-gems/${gem.id}?${location.search.substring(1)}`)}
                         >
                             <div className="hidden-gems-card-image">
-                                {gem.images && gem.images.length > 0 ? (
-                                    <img
-                                        src={gem.images[0].image_url}
-                                        alt={gem.place_name}
-                                        onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            e.target.parentElement.innerHTML = `<div class="hidden-gems-card-no-image">No Image</div>`;
-                                        }}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    />
-                                ) : (
-                                    <div className="hidden-gems-card-no-image">
-                                        No Image
-                                    </div>
-                                )}
+                                <PhotoCarousel
+                                    images={gem.images || []}
+                                    alt={gem.place_name}
+                                    compact
+                                    fill
+                                    showThumbs={false}
+                                />
                             </div>
 
                             <div className="hidden-gems-card-content">

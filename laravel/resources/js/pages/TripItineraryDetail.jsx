@@ -32,6 +32,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { createGemClusterIcon } from "../components/GemClusterIcon";
+import Spinner from "../components/Spinner";
 
 
 import "../styles/global.css";
@@ -1174,7 +1175,7 @@ export default function TripItineraryDetail() {
                                     <div className="stopping-point-list-items">
 
                                         {isLoadingWishlist && (
-                                            <p className="stopping-point-list-status">Loading your wishlist…</p>
+                                            <Spinner size="sm" inline label="Loading your wishlist…" />
                                         )}
 
                                         {!isLoadingWishlist && wishlistItems.length === 0 && (
@@ -1228,7 +1229,7 @@ export default function TripItineraryDetail() {
                                         )}
 
                                         {isSearchingLocations && (
-                                            <p className="stopping-point-list-status">Searching locations…</p>
+                                            <Spinner size="sm" inline label="Searching locations…" />
                                         )}
 
                                         {locationSearchError && (
@@ -1335,7 +1336,7 @@ export default function TripItineraryDetail() {
                         )}
 
                         {isLoadingHiddenGems && (
-                            <p className="stopping-point-map-status">Loading hidden gems…</p>
+                            <Spinner size="sm" inline label="Loading hidden gems…" />
                         )}
                         {hiddenGemsError && (
                             <p className="stopping-point-map-status stopping-point-map-status-error" role="alert">

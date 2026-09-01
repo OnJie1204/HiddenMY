@@ -4,6 +4,7 @@ import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { getMe, getUserProfile, updateProfile, changePassword, uploadAvatar } from '../api/auth';
 import { getMyHiddenGems } from '../api/hiddenGems';
 import { getTripItineraries } from '../api/TripItinerary';
+import PhotoCarousel from '../components/PhotoCarousel';
 import { getFavouriteAchievements } from '../api/achievements';
 import { getPasswordStrength } from '../utils/password';
 import Avatar from '../components/Avatar';
@@ -287,11 +288,13 @@ function Profile({ setAppUser }) {
                       style={{ cursor: 'pointer' }}
                     >
                       <div className="hidden-gems-card-image">
-                        {gem.images && gem.images.length > 0 ? (
-                          <img src={gem.images[0].image_url} alt={gem.place_name} />
-                        ) : (
-                          <div className="hidden-gems-card-no-image">No Image</div>
-                        )}
+                        <PhotoCarousel
+                          images={gem.images || []}
+                          alt={gem.place_name}
+                          compact
+                          fill
+                          showThumbs={false}
+                        />
                       </div>
                       <div className="hidden-gems-card-content">
                         <h2>{gem.place_name}</h2>

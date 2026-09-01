@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
 import LocationPickerMap from "../components/LocationPickerMap";
+import AddressAutocomplete from "../components/AddressAutocomplete";
+import Spinner from "../components/Spinner";
 
 // Approximate state-capital coordinates, used only as a map-centering
 // fallback when the address itself can't be geocoded — never submitted as
@@ -47,6 +49,7 @@ export default function HiddenGemSubmission() {
     });
 
     const [message, setMessage] = useState("");
+    const [submitting, setSubmitting] = useState(false);
     const [categories, setCategories] = useState([]);
     const [images,setImages]=useState([]);
     const [imagePreview,setImagePreview] = useState([]);
@@ -185,6 +188,9 @@ export default function HiddenGemSubmission() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (submitting) return;
+        setSubmitting(true);
+
         try {
 
             const data = new FormData();
@@ -234,6 +240,8 @@ export default function HiddenGemSubmission() {
                 "Failed to submit hidden gem."
             );
 
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -265,12 +273,47 @@ export default function HiddenGemSubmission() {
                     />
 
 
-                    <input
+                    <AddressAutocomplete
                         className="form-input"
                         name="address"
                         placeholder="Address"
                         value={formData.address}
-                        onChange={handleChange}
+                        latitude={formData.latitude}
+                        longitude={formData.longitude}
+                        onChange={(text) =>
+                            setFormData((prev) => ({ ...prev, address: text }))
+                        }
+                        onSelect={(suggestion) => {
+                            setFormData((prev) => ({
+                                ...prev,
+                                address: suggestion.address || prev.address,
+                                state: suggestion.state || prev.state,
+                                postcode: suggestion.postcode || prev.postcode,
+                                latitude:
+                                    suggestion.latitude != null
+                                        ? String(suggestion.latitude)
+                                        : prev.latitude,
+                                longitude:
+                                    suggestion.longitude != null
+                                        ? String(suggestion.longitude)
+                                        : prev.longitude,
+                            }));
+
+                            if (
+                                suggestion.latitude != null &&
+                                suggestion.longitude != null
+                            ) {
+                                setMapFocusRequest({
+                                    latitude: suggestion.latitude,
+                                    longitude: suggestion.longitude,
+                                    zoom: 16,
+                                });
+                            }
+
+                            setGeocodeStatus(
+                                "success:Address selected and pinned on the map below — drag or click to fine-tune the exact spot."
+                            );
+                        }}
                     />
 
 
@@ -350,7 +393,11 @@ export default function HiddenGemSubmission() {
                             onClick={handleFindCoordinates}
                             disabled={geocoding}
                         >
-                            {geocoding ? "Finding…" : "Find Coordinates from Address"}
+                            {geocoding ? (
+                                <Spinner size="sm" inline label="Finding…" className="btn-spinner" />
+                            ) : (
+                                "Find Coordinates from Address"
+                            )}
                         </button>
 
                         {geocodeStatus && (
@@ -496,11 +543,16 @@ export default function HiddenGemSubmission() {
                         ))}
                     </div>
 
-                    <button 
+                    <button
                         type="submit"
                         className="hidden-gem-submit-btn"
+                        disabled={submitting}
                     >
-                        Submit Hidden Gem
+                        {submitting ? (
+                            <Spinner size="sm" inline label="Submitting…" className="btn-spinner" />
+                        ) : (
+                            "Submit Hidden Gem"
+                        )}
                     </button>
 
                 </form>

@@ -9,6 +9,7 @@ import { toCompareGem } from "../utils/compareGem";
 import { getGemStatusDisplay } from "../utils/gemStatus";
 import GemImage from "../components/GemImage";
 import TruncatedText from "../components/TruncatedText";
+import Spinner from "../components/Spinner";
 
 import "../styles/global.css";
 
@@ -288,7 +289,7 @@ export default function CompareGems() {
                                     return (
                                         <div className="compare-card-row">
                                             <span className="compare-card-label">Popular items</span>
-                                            {menuItems === undefined && <span className="compare-card-muted">Loading…</span>}
+                                            {menuItems === undefined && <Spinner size="sm" inline label="Loading…" />}
                                             {menuItems && topItems.length === 0 && <span className="compare-card-muted">None suggested yet</span>}
                                             {topItems.length > 0 && (
                                                 <ul className="compare-card-menu-items">
@@ -313,7 +314,7 @@ export default function CompareGems() {
                                                 <h3>Reviews ({reviews?.length ?? 0})</h3>
                                             </div>
                                             {reviews === undefined && (
-                                                <p className="side-panel-nearby-status">Loading reviews…</p>
+                                                <Spinner size="sm" inline label="Loading reviews…" />
                                             )}
                                             {reviews && reviews.length === 0 && (
                                                 <p className="side-panel-nearby-status">No reviews yet.</p>

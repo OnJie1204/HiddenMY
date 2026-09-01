@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { searchHiddenGems } from "../api/hiddenGems";
+import Spinner from "./Spinner";
 
 const DEBOUNCE_MS = 350;
 
@@ -113,7 +114,7 @@ function SearchBar({ onSelect, userLatitude, userLongitude }) {
                 placeholder="Search hidden gems or attractions..."
                 className="search-input"
             />
-            {loading && <p>Searching...</p>}
+            {loading && <Spinner size="sm" inline label="Searching…" className="search-bar-loading" />}
 
             {results.length > 0 && (
                 <div className="search-dropdown">

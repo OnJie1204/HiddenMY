@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { createTravelPost } from "../api/travelPosts";
 import { getTripItineraries, getTripItinerary } from "../api/TripItinerary";
 import SearchBar from "../components/SearchBar";
+import Spinner from "../components/Spinner";
 
 export default function CreateTravelPost() {
     const navigate = useNavigate();
@@ -276,7 +277,11 @@ export default function CreateTravelPost() {
                     </div>
 
                     <button type="submit" className="travel-post-submit-btn" disabled={submitting}>
-                        {submitting ? "Publishing…" : "Publish Travel Post"}
+                        {submitting ? (
+                            <Spinner size="sm" inline label="Publishing…" className="btn-spinner" />
+                        ) : (
+                            "Publish Travel Post"
+                        )}
                     </button>
                 </form>
             </div>

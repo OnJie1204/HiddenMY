@@ -9,8 +9,19 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Sweep up hidden gem submissions stuck at 'pending' after a technical AI
-// verification failure (Gemini timeout/5xx) and retry them.
+// verification failure (Gemini timeout/5xx) and retry them. Also the safety
+// net if the queue worker below is not running.
 Schedule::command('hidden-gems:retry-verification')->everyFiveMinutes();
+
+// Drain queued jobs (AI verification) in one short pass per minute, so the
+// deployment needs a working scheduler cron but NOT a long-running worker
+// process. Skipped entirely when QUEUE_CONNECTION=sync (jobs run inline, so
+// there is nothing to drain).
+if (config('queue.default') !== 'sync') {
+    Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=1')
+        ->everyMinute()
+        ->withoutOverlapping();
+}
 
 // Re-run daily rather than once: Overpass is unreliable enough that a single
 // pass reliably leaves some cells failed (timeouts, 5xx) — each cell that
