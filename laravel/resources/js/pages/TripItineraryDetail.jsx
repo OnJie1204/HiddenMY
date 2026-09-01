@@ -90,6 +90,9 @@ const toDisplayLocation = (location) => ({
     id: location.id,
     name: location.location?.place_name ?? location.osm_name ?? `OpenStreetMap location (${location.osm_id})`,
     type: location.isHidden ? "hidden" : "osm",
+    // The underlying Hidden Gem (Location) id, so a hidden-gem stop can link
+    // straight to its detail page. Null for OpenStreetMap stops.
+    gemId: location.isHidden ? location.location?.id ?? null : null,
     latitude: location.isHidden ? location.location?.latitude : location.latitude,
     longitude: location.isHidden ? location.location?.longitude : location.longitude,
 });
@@ -155,7 +158,9 @@ function SortableLocationCard({
 
     index,
 
-    onDelete
+    onDelete,
+
+    onOpen
 
 }) {
 
@@ -211,9 +216,16 @@ function SortableLocationCard({
 
             </div>
 
-            <div className="trip-detail-location-name">
+            <button
+                type="button"
+                className="trip-detail-location-name"
+                onClick={() => onOpen(location)}
+                title={location.type === "hidden"
+                    ? "View hidden gem details"
+                    : "Search for this location on Google"}
+            >
                 {index + 1}. {location.name}
-            </div>
+            </button>
 
             <button
 
@@ -721,6 +733,22 @@ export default function TripItineraryDetail() {
 
 
 
+    // Clicking a stop opens its details: hidden gems go to their in-app
+    // detail page; OpenStreetMap stops (which have no in-app page) open a
+    // Google search for the place name so the user can still look it up.
+    const handleOpenLocation = (location) => {
+        if (location.type === "hidden" && location.gemId) {
+            navigate(`/hidden-gems/${location.gemId}`);
+            return;
+        }
+
+        window.open(
+            `https://www.google.com/search?q=${encodeURIComponent(location.name)}`,
+            "_blank",
+            "noopener,noreferrer",
+        );
+    };
+
     const handleOpenRouteInGoogleMaps = () => {
         const stopsWithCoordinates = locations.filter(hasValidCoordinates);
 
@@ -1031,6 +1059,7 @@ export default function TripItineraryDetail() {
                                     location={location}
                                     index={index}
                                     onDelete={removeLocation}
+                                    onOpen={handleOpenLocation}
                                 />
 
                             ))}
