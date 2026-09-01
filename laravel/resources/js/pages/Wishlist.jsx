@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getWishlist, removeFromWishlist } from "../api/wishlist";
 import ReportButton from "../components/ReportButton";
 import PhotoCarousel from "../components/PhotoCarousel";
+import LoadingCards from "../components/LoadingCards";
 
 import "../styles/global.css";
 
@@ -52,9 +53,7 @@ export default function Wishlist({ user }) {
             </div>
 
             {loading ? (
-                <div className="hidden-gems-loading">
-                    <p>Loading your wishlist...</p>
-                </div>
+                <LoadingCards count={6} />
             ) : error ? (
                 <div className="hidden-gems-empty">
                     <p>{error}</p>

@@ -4,6 +4,7 @@ import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
 import PhotoCarousel from "./PhotoCarousel";
+import Spinner from "./Spinner";
 import Avatar from "./Avatar";
 import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
@@ -566,7 +567,7 @@ function SidePanel({
                                         See all
                                     </button>
                                 </div>
-                                {reviewsLoading && <p className="side-panel-nearby-status">Loading reviews…</p>}
+                                {reviewsLoading && <Spinner size="sm" inline label="Loading reviews…" />}
                                 {!reviewsLoading && reviews.length === 0 && (
                                     <p className="side-panel-nearby-status">No reviews yet.</p>
                                 )}
@@ -603,7 +604,7 @@ function SidePanel({
                         {gem.source === "database" && (
                             <div className="side-panel-nearby">
                                 <h3>Near this gem</h3>
-                                {nearbyLoading && <p className="side-panel-nearby-status">Loading nearby spots…</p>}
+                                {nearbyLoading && <Spinner size="sm" inline label="Loading nearby spots…" />}
                                 {!nearbyLoading && nearby.length === 0 && (
                                     <p className="side-panel-nearby-status">Nothing found nearby.</p>
                                 )}

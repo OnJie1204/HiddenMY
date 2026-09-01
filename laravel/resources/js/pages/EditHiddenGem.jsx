@@ -1,5 +1,6 @@
 import LocationPickerMap from "../components/LocationPickerMap";
 import AddressAutocomplete from "../components/AddressAutocomplete";
+import Spinner from "../components/Spinner";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -295,11 +296,7 @@ export default function EditHiddenGem() {
     };
 
     if (loading) {
-        return (
-            <div className="hidden-gems-loading">
-                <p>Loading hidden gem...</p>
-            </div>
-        );
+        return <Spinner size="lg" label="Loading hidden gem…" />;
     }
 
     return (
@@ -652,7 +649,11 @@ export default function EditHiddenGem() {
                         className="hidden-gem-submit-btn"
                         disabled={saving}
                     >
-                        {saving ? "Saving..." : "Save Changes"}
+                        {saving ? (
+                            <Spinner size="sm" inline label="Saving…" className="btn-spinner" />
+                        ) : (
+                            "Save Changes"
+                        )}
                     </button>
 
                 </form>

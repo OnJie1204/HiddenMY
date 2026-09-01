@@ -5,6 +5,7 @@ import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist"
 import { useCompare } from "../context/CompareContext";
 import TruncatedText from "../components/TruncatedText";
 import PhotoCarousel from "../components/PhotoCarousel";
+import LoadingCards from "../components/LoadingCards";
 import ReportButton from "../components/ReportButton";
 import SignInPrompt from "../components/SignInPrompt";
 
@@ -294,9 +295,7 @@ export default function HiddenGems({ user }) {
             </div>
 
             {loading ? (
-                <div className="page-loading-bar" role="progressbar" aria-label="Loading hidden gems">
-                    <div className="page-loading-bar-indicator" />
-                </div>
+                <LoadingCards count={9} />
             ) : gems.length === 0 ? (
                 <div className="hidden-gems-empty">
                     <p>No hidden gems found.</p>

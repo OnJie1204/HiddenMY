@@ -4,6 +4,7 @@ import { getTravelPostDetail, deleteTravelPost } from "../api/travelPosts";
 import { getMe } from "../api/auth";
 import Avatar from "../components/Avatar";
 import PhotoCarousel from "../components/PhotoCarousel";
+import Spinner from "../components/Spinner";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import SignInPrompt from "../components/SignInPrompt";
 
@@ -49,11 +50,7 @@ export default function TravelPostDetail({ user }) {
     }
 
     if (loading) {
-        return (
-            <div className="hidden-gems-loading">
-                <p>Loading travel post...</p>
-            </div>
-        );
+        return <Spinner size="lg" label="Loading travel post…" />;
     }
 
     if (error || !post) {

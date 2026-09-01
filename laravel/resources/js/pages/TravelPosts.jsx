@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { getTravelPosts, getMyTravelPosts } from "../api/travelPosts";
 import { getCategories, getStates } from "../api/hiddenGems";
 import Avatar from "../components/Avatar";
+import LoadingCards from "../components/LoadingCards";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import SignInPrompt from "../components/SignInPrompt";
 
@@ -153,9 +154,7 @@ export default function TravelPosts({ user }) {
             )}
 
             {loading ? (
-                <div className="hidden-gems-loading">
-                    <p>Loading travel posts...</p>
-                </div>
+                <LoadingCards count={6} />
             ) : error ? (
                 <div className="hidden-gems-empty">
                     <p>{error}</p>

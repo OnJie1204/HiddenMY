@@ -10,6 +10,7 @@ import { getMyVotes } from "../api/votes";
 import { getMyRatings } from "../api/gemInteractions";
 import GemImage from "../components/GemImage";
 import PhotoCarousel from "../components/PhotoCarousel";
+import LoadingCards from "../components/LoadingCards";
 import HiddenGemJourneyMap from "../components/HiddenGemJourneyMap";
 import HiddenMYAchievements from "../components/HiddenMYAchievements";
 import { getGemStatusDisplay, voteProgressLabel } from "../utils/gemStatus";
@@ -478,10 +479,7 @@ export default function MyHiddenGems() {
             )}
 
             {activeTab === "achievements" ? null : activeTab === "hidden-gems" ? (loading ? (
-                <div className="hidden-gems-loading">
-                    <p>Loading your hidden gems...</p>
-                </div>
-
+                <LoadingCards count={6} />
             ) : error ? (
                 <div className="hidden-gems-empty">
                     <p>{error}</p>
@@ -604,9 +602,7 @@ export default function MyHiddenGems() {
 
                 </div>
             )) : contributionTab === "votes" ? (votesLoading ? (
-                <div className="hidden-gems-loading">
-                    <p>Loading your votes...</p>
-                </div>
+                <LoadingCards count={4} />
             ) : votesError ? (
                 <div className="hidden-gems-empty">
                     <p>{votesError}</p>
@@ -666,9 +662,7 @@ export default function MyHiddenGems() {
                     ))}
                 </div>
             )) : ratingsLoading ? (
-                <div className="hidden-gems-loading">
-                    <p>Loading your ratings...</p>
-                </div>
+                <LoadingCards count={4} />
             ) : ratingsError ? (
                 <div className="hidden-gems-empty">
                     <p>{ratingsError}</p>

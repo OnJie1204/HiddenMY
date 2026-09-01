@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
 import LocationPickerMap from "../components/LocationPickerMap";
 import AddressAutocomplete from "../components/AddressAutocomplete";
+import Spinner from "../components/Spinner";
 
 // Approximate state-capital coordinates, used only as a map-centering
 // fallback when the address itself can't be geocoded — never submitted as
@@ -48,6 +49,7 @@ export default function HiddenGemSubmission() {
     });
 
     const [message, setMessage] = useState("");
+    const [submitting, setSubmitting] = useState(false);
     const [categories, setCategories] = useState([]);
     const [images,setImages]=useState([]);
     const [imagePreview,setImagePreview] = useState([]);
@@ -186,6 +188,9 @@ export default function HiddenGemSubmission() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (submitting) return;
+        setSubmitting(true);
+
         try {
 
             const data = new FormData();
@@ -235,6 +240,8 @@ export default function HiddenGemSubmission() {
                 "Failed to submit hidden gem."
             );
 
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -386,7 +393,11 @@ export default function HiddenGemSubmission() {
                             onClick={handleFindCoordinates}
                             disabled={geocoding}
                         >
-                            {geocoding ? "Finding…" : "Find Coordinates from Address"}
+                            {geocoding ? (
+                                <Spinner size="sm" inline label="Finding…" className="btn-spinner" />
+                            ) : (
+                                "Find Coordinates from Address"
+                            )}
                         </button>
 
                         {geocodeStatus && (
@@ -532,11 +543,16 @@ export default function HiddenGemSubmission() {
                         ))}
                     </div>
 
-                    <button 
+                    <button
                         type="submit"
                         className="hidden-gem-submit-btn"
+                        disabled={submitting}
                     >
-                        Submit Hidden Gem
+                        {submitting ? (
+                            <Spinner size="sm" inline label="Submitting…" className="btn-spinner" />
+                        ) : (
+                            "Submit Hidden Gem"
+                        )}
                     </button>
 
                 </form>

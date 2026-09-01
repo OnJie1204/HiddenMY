@@ -4,6 +4,7 @@ import { getHiddenGemDetail } from "../api/hiddenGems";
 import { getMe } from "../api/auth";
 import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
+import Spinner from "../components/Spinner";
 import SignInPrompt from "../components/SignInPrompt";
 import { getReportForLocation, requestFixReview } from "../api/reports";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
@@ -950,7 +951,7 @@ export default function HiddenGemDetail({ user }) {
                     {activeTab === "stories" && (
                         <div className="gem-detail-stories-list">
                             {storiesLoading ? (
-                                <p className="gem-detail-no-votes">Loading community stories…</p>
+                                <Spinner size="sm" inline label="Loading community stories…" />
                             ) : storiesError ? (
                                 <p className="gem-detail-no-votes">{storiesError}</p>
                             ) : storyPosts.length === 0 ? (

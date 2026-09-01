@@ -1233,3 +1233,32 @@
         height: 38px;
     }
 }
+
+/* "Updating gems…" pill shown while the map refetches markers for the viewport */
+.maps-updating-pill {
+    align-self: flex-end;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 999px;
+    padding: 4px 12px 4px 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    pointer-events: none;
+}
+
+.maps-updating-pill .app-spinner-wrap {
+    padding: 2px 0;
+    font-size: 12px;
+}
+
+/* Skeleton cards inside the horizontal "Recent / My / Popular" carousels */
+.gem-carousel-item .skeleton-card {
+    padding: 14px;
+}
+
+.gem-carousel-item .skeleton-card-image {
+    height: 150px;
+    border-radius: 12px;
+}
+
+.gem-carousel-item .skeleton-card-body {
+    padding: 12px 0 0;
+}

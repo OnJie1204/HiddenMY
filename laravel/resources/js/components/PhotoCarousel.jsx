@@ -98,7 +98,11 @@ export default function PhotoCarousel({
                                 loading={i === 0 ? "eager" : "lazy"}
                                 draggable={false}
                                 onClick={onImageClick ? (e) => { stop(e); onImageClick(img.image_url, i); } : undefined}
-                                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                                onLoad={(e) => e.currentTarget.parentElement.classList.add("is-loaded")}
+                                onError={(e) => {
+                                    e.currentTarget.style.visibility = "hidden";
+                                    e.currentTarget.parentElement.classList.add("is-loaded");
+                                }}
                                 style={onImageClick ? { cursor: "zoom-in" } : undefined}
                             />
                         </div>

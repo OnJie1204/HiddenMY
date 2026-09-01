@@ -4,7 +4,7 @@ import RecentHiddenGemCard from "./RecentHiddenGemCard";
 
 const SCROLL_AMOUNT = 320;
 
-function GemCarousel({ title, seeMoreTo, items, onItemClick, emptyText }) {
+function GemCarousel({ title, seeMoreTo, items, onItemClick, emptyText, loading = false }) {
     const trackRef = useRef(null);
 
     function scrollByAmount(amount) {
@@ -22,7 +22,22 @@ function GemCarousel({ title, seeMoreTo, items, onItemClick, emptyText }) {
                 )}
             </div>
 
-            {!items || items.length === 0 ? (
+            {loading ? (
+                <div className="gem-carousel-track" aria-hidden="true">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div className="gem-carousel-item" key={i}>
+                            <div className="skeleton-card">
+                                <div className="skeleton-card-image skeleton-shimmer" />
+                                <div className="skeleton-card-body">
+                                    <div className="skeleton-line skeleton-shimmer skeleton-line--title" />
+                                    <div className="skeleton-line skeleton-shimmer skeleton-line--short" />
+                                    <div className="skeleton-line skeleton-shimmer skeleton-line--wide" />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : !items || items.length === 0 ? (
                 <p className="gem-carousel-empty">{emptyText || "Nothing here yet."}</p>
             ) : (
                 <div className="gem-carousel-wrap">
