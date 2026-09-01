@@ -9,6 +9,7 @@ import { getReportForLocation, requestFixReview } from "../api/reports";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import PhotoCarousel from "../components/PhotoCarousel";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
+import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import { useCompare } from "../context/CompareContext";
 import MenuItems from "../components/MenuItems";
@@ -75,9 +76,16 @@ export default function HiddenGemDetail({ user }) {
     const [fixReviewMessage, setFixReviewMessage] = useState("");
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
+    const [itineraries, setItineraries] = useState([]);
+    const [itineraryOpen, setItineraryOpen] = useState(false);
+    const [itineraryStatus, setItineraryStatus] = useState(null);
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
     const galleryImages = gem?.images ?? [];
+
+    // Same rule the backend enforces (TripItineraryController::publiclyVisible()).
+    const canAddToItinerary = gem
+        && (gem.status === "hidden_gem" || gem.status === "pending_community_vote");
 
     const requireSignIn = (message) => {
         setSignInMessage(message);
@@ -306,6 +314,35 @@ export default function HiddenGemDetail({ user }) {
             .then((res) => setReportInfo(res.data))
             .catch(() => setReportInfo(null));
     }, [gem, currentUser]);
+
+    useEffect(() => {
+        if (!currentUser) {
+            setItineraries([]);
+            return;
+        }
+        getTripItineraries()
+            .then((res) => setItineraries(res.data || []))
+            .catch(() => setItineraries([]));
+    }, [currentUser]);
+
+    useEffect(() => {
+        setItineraryOpen(false);
+        setItineraryStatus(null);
+    }, [id]);
+
+    async function handleAddToItinerary(trip) {
+        setItineraryStatus({ type: "loading", message: `Adding to "${trip.trip_name}"…` });
+        try {
+            await addTripLocation(trip.id, { source: "database", location_id: gem.id });
+            setItineraryStatus({ type: "success", message: `Added to "${trip.trip_name}".` });
+            setItineraryOpen(false);
+        } catch (error) {
+            setItineraryStatus({
+                type: "error",
+                message: error?.response?.data?.message || "Could not add this gem to the trip.",
+            });
+        }
+    }
 
     useEffect(() => {
         if (
@@ -580,6 +617,55 @@ export default function HiddenGemDetail({ user }) {
                                 </span>
                             ) : null}
                         </div>
+
+                        {canAddToItinerary && (
+                            <div className="gem-detail-itinerary">
+                                <button
+                                    type="button"
+                                    className="gem-detail-itinerary-btn"
+                                    onClick={() => {
+                                        if (!currentUser) {
+                                            requireSignIn("Login to add this gem to a trip itinerary.");
+                                            return;
+                                        }
+                                        setItineraryStatus(null);
+                                        setItineraryOpen((open) => !open);
+                                    }}
+                                >
+                                    ＋ Add to itinerary
+                                </button>
+
+                                {itineraryOpen && currentUser && (
+                                    <div className="gem-detail-itinerary-picker">
+                                        {itineraries.length === 0 ? (
+                                            <p className="gem-detail-itinerary-empty">
+                                                No itineraries yet — <Link to="/trip-itinerary">create one</Link> first.
+                                            </p>
+                                        ) : (
+                                            <>
+                                                <h4>Add to which trip?</h4>
+                                                {itineraries.map((trip) => (
+                                                    <button
+                                                        key={trip.id}
+                                                        type="button"
+                                                        className="gem-detail-itinerary-option"
+                                                        onClick={() => handleAddToItinerary(trip)}
+                                                    >
+                                                        {trip.trip_name}
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
+                                {itineraryStatus && (
+                                    <p className={`gem-detail-itinerary-status ${itineraryStatus.type}`}>
+                                        {itineraryStatus.message}
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                 </div>
 

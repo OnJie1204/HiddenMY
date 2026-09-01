@@ -1103,6 +1103,8 @@
     height: 150px;
     object-fit: cover;
     border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
 }
 
 /* Marker interactivity — a hover "pop" instead of sitting static. Leaflet

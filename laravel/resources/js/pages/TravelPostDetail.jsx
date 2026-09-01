@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getTravelPostDetail, deleteTravelPost } from "../api/travelPosts";
 import { getMe } from "../api/auth";
 import Avatar from "../components/Avatar";
+import PhotoCarousel from "../components/PhotoCarousel";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import SignInPrompt from "../components/SignInPrompt";
 
@@ -156,15 +157,13 @@ export default function TravelPostDetail({ user }) {
                                 onClick={() => navigate(`/hidden-gems/${location.id}`)}
                             >
                                 <div className="hidden-gems-card-image">
-                                    {location.images?.[0]?.image_url ? (
-                                        <img
-                                            src={location.images[0].image_url}
-                                            alt={location.place_name}
-                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                        />
-                                    ) : (
-                                        <div className="hidden-gems-card-no-image">No Image</div>
-                                    )}
+                                    <PhotoCarousel
+                                        images={location.images || []}
+                                        alt={location.place_name}
+                                        compact
+                                        fill
+                                        showThumbs={false}
+                                    />
                                 </div>
                                 <div className="hidden-gems-card-content">
                                     <h2>{location.place_name}</h2>

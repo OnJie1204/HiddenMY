@@ -7,6 +7,7 @@ import { getTripItineraries } from '../api/tripItinerary';
 import { getHiddenGems } from '../api/hiddenGems';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist';
 import HiddenGemMarker from '../components/HiddenGemMarker';
+import PhotoCarousel from '../components/PhotoCarousel';
 import ReportButton from '../components/ReportButton';
 import SignInPrompt from '../components/SignInPrompt';
 import { cartoTileUrl } from '../utils/cartoTiles';
@@ -352,18 +353,13 @@ function Home({ user }) {
                                 onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                             >
                                 <div className="home-trending-card-image">
-                                    {gem.images && gem.images.length > 0 ? (
-                                        <img
-                                            src={gem.images[0].image_url}
-                                            alt={gem.place_name}
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                                e.target.parentElement.innerHTML = `<div class="home-trending-card-placeholder">No Image</div>`;
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="home-trending-card-placeholder">No Image</div>
-                                    )}
+                                    <PhotoCarousel
+                                        images={gem.images || []}
+                                        alt={gem.place_name}
+                                        compact
+                                        fill
+                                        showThumbs={false}
+                                    />
                                 </div>
                                 <div className="home-trending-card-body">
                                     <div className="home-trending-card-header-row">

@@ -4107,6 +4107,13 @@ img.avatar {
     width: 100%;
 }
 
+/* Fill mode — the carousel takes its parent's height (used inside list/grid
+   card image slots that already have a fixed height). */
+.photo-carousel--fill,
+.photo-carousel--fill .photo-carousel-viewport {
+    height: 100%;
+}
+
 .photo-carousel-viewport {
     position: relative;
     width: 100%;
@@ -4254,6 +4261,29 @@ img.avatar {
     border-color: var(--color-primary);
 }
 
+/* Compact variant for list / grid cards */
+.photo-carousel--compact .photo-carousel-nav {
+    width: 26px;
+    height: 26px;
+    font-size: 15px;
+}
+
+.photo-carousel--compact .photo-carousel-prev { left: 6px; }
+.photo-carousel--compact .photo-carousel-next { right: 6px; }
+
+.photo-carousel--compact .photo-carousel-dots {
+    bottom: 6px;
+    gap: 4px;
+}
+
+.photo-carousel--compact .photo-carousel-dot { width: 5px; height: 5px; }
+.photo-carousel--compact .photo-carousel-dot.is-active { width: 13px; }
+
+/* Touch devices have no hover — keep the arrows visible (a little dimmer). */
+@media (hover: none) {
+    .photo-carousel-nav { opacity: 0.85; }
+}
+
 /* Compact variant for the map side panel */
 .photo-carousel.side-panel-carousel {
     --photo-carousel-height: 170px;
@@ -4278,6 +4308,82 @@ img.avatar {
     box-shadow: 0 2px 12px rgba(0,0,0,0.04);
     margin-bottom: 20px;
 }
+
+/* ----- Add to itinerary (detail page) ----- */
+.gem-detail-itinerary {
+    margin-top: 14px;
+}
+
+.gem-detail-itinerary-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.5rem 0.95rem;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.gem-detail-itinerary-btn:hover {
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
+}
+
+.gem-detail-itinerary-picker {
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-muted);
+    max-width: 320px;
+}
+
+.gem-detail-itinerary-picker h4 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 8px;
+}
+
+.gem-detail-itinerary-empty {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.gem-detail-itinerary-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.75rem;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.gem-detail-itinerary-option:last-child { margin-bottom: 0; }
+.gem-detail-itinerary-option:hover { background: var(--color-primary-soft); }
+
+.gem-detail-itinerary-status {
+    margin: 8px 0 0;
+    font-size: 0.85rem;
+}
+
+.gem-detail-itinerary-status.loading { color: var(--color-text-muted); }
+.gem-detail-itinerary-status.success { color: #15803d; }
+.gem-detail-itinerary-status.error { color: var(--color-accent-dark); }
 
 .gem-detail-title-row {
     display: flex;

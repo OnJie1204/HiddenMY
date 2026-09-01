@@ -9,6 +9,7 @@ import {
 import { getMyVotes } from "../api/votes";
 import { getMyRatings } from "../api/gemInteractions";
 import GemImage from "../components/GemImage";
+import PhotoCarousel from "../components/PhotoCarousel";
 import HiddenGemJourneyMap from "../components/HiddenGemJourneyMap";
 import HiddenMYAchievements from "../components/HiddenMYAchievements";
 import { getGemStatusDisplay, voteProgressLabel } from "../utils/gemStatus";
@@ -520,7 +521,13 @@ export default function MyHiddenGems() {
                             onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                         >
                             <div className="hidden-gems-card-image">
-                                <GemImage src={gem.images?.[0]?.image_url} alt={gem.place_name} />
+                                <PhotoCarousel
+                                    images={gem.images || []}
+                                    alt={gem.place_name}
+                                    compact
+                                    fill
+                                    showThumbs={false}
+                                />
                             </div>
 
                             <div className="hidden-gems-card-content">
