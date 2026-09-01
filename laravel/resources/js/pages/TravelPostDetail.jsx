@@ -20,6 +20,7 @@ export default function TravelPostDetail({ user }) {
     const [deleting, setDeleting] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
+    const [lightboxUrl, setLightboxUrl] = useState(null);
 
     useEffect(() => {
         getMe().then((res) => setCurrentUserId(res.data.id)).catch(() => {});
@@ -140,9 +141,21 @@ export default function TravelPostDetail({ user }) {
 
             {post.images?.length > 0 && (
                 <div className="travel-post-gallery">
-                    {post.images.map((image) => (
-                        <img key={image.id} src={image.image_url} alt="" className="travel-post-gallery-image" />
-                    ))}
+                    <PhotoCarousel
+                        images={post.images}
+                        alt={post.title}
+                        className="travel-post-carousel"
+                        onImageClick={(url) => setLightboxUrl(url)}
+                    />
+                </div>
+            )}
+
+            {lightboxUrl && (
+                <div className="photo-modal-overlay" onClick={() => setLightboxUrl(null)}>
+                    <div className="photo-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <button className="photo-modal-close" onClick={() => setLightboxUrl(null)}>✕</button>
+                        <img src={lightboxUrl} alt="" className="photo-modal-image" />
+                    </div>
                 </div>
             )}
 

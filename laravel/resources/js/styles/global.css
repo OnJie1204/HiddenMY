@@ -9674,10 +9674,18 @@ img.avatar {
 }
 
 .travel-post-gallery {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
     margin: 0 0 32px;
+}
+
+.travel-post-carousel {
+    --photo-carousel-height: 380px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.travel-post-carousel .photo-carousel-thumbs {
+    background: var(--color-surface-muted);
 }
 
 .travel-post-gallery-image {
@@ -9685,6 +9693,12 @@ img.avatar {
     height: 140px;
     object-fit: cover;
     border-radius: var(--radius-sm);
+}
+
+@media (max-width: 600px) {
+    .travel-post-carousel {
+        --photo-carousel-height: 260px;
+    }
 }
 
 .travel-post-section-title {
