@@ -16,7 +16,11 @@ class HiddenGemVerificationTest extends TestCase
     {
         parent::setUp();
 
-        config(['services.gemini.key' => 'fake-key']);
+        config([
+            'services.gemini.key' => 'fake-key',
+            'services.gemini.model' => 'gemini-3.6-flash',
+            'services.gemini.fallback_model' => 'gemini-flash-lite-latest',
+        ]);
     }
 
     private function fakeGemini(?string $groundingText, ?array $scoringJson): void
@@ -117,25 +121,26 @@ class HiddenGemVerificationTest extends TestCase
             'status' => 'pending',
         ]);
 
-        Http::fake([
-            // Grounding retries once on a transient 503 (see VerifyHiddenGemSubmission::RETRYABLE_HTTP_STATUSES)
-            // before giving up and falling back to Call B's own best-effort read — so two 503s are needed to
-            // exhaust the grounding call before the scoring call's success response is reached.
-            'generativelanguage.googleapis.com/*' => Http::sequence()
-                ->push(['error' => ['message' => 'unavailable']], 503)
-                ->push(['error' => ['message' => 'unavailable']], 503)
-                ->push([
-                    'candidates' => [
-                        ['content' => ['parts' => [['text' => json_encode($this->scoring([
-                            'google_visibility' => ['level' => 'VERY_HIGH', 'score' => 0, 'found_on_google' => true, 'reason' => 'Recognized from general knowledge as a globally famous landmark.'],
-                            'legitimacy' => ['score' => 100, 'level' => 'STRONG'],
-                            'tourism_value' => ['score' => 10, 'level' => 'LOW'],
-                            'evidence' => ['score' => 90, 'level' => 'STRONG'],
-                            'is_hidden_gem' => false,
-                        ]))]]]],
-                    ],
-                ]),
-        ]);
+        // Call A (has a `tools` key) fails on every model and every attempt;
+        // Call B (has `generationConfig`) succeeds. Keyed on request shape so
+        // the test doesn't depend on the exact retry/fallback attempt counts.
+        Http::fake(function ($request) {
+            if (isset($request->data()['tools'])) {
+                return Http::response(['error' => ['message' => 'unavailable']], 503);
+            }
+
+            return Http::response([
+                'candidates' => [
+                    ['content' => ['parts' => [['text' => json_encode($this->scoring([
+                        'google_visibility' => ['level' => 'VERY_HIGH', 'score' => 0, 'found_on_google' => true, 'reason' => 'Recognized from general knowledge as a globally famous landmark.'],
+                        'legitimacy' => ['score' => 100, 'level' => 'STRONG'],
+                        'tourism_value' => ['score' => 10, 'level' => 'LOW'],
+                        'evidence' => ['score' => 90, 'level' => 'STRONG'],
+                        'is_hidden_gem' => false,
+                    ]))]]]],
+                ],
+            ]);
+        });
 
         $location = $this->runJob($location);
 
@@ -284,16 +289,19 @@ class HiddenGemVerificationTest extends TestCase
     {
         $location = Location::factory()->create(['status' => 'pending']);
 
-        $callA = [
-            'candidates' => [['content' => ['parts' => [['text' => 'Some research text.']]]]],
-        ];
-        $callB = [
-            'candidates' => [['content' => ['parts' => [['text' => 'not valid json at all {{{']]]]],
-        ];
+        // Call A returns usable research text; Call B returns 200 but an
+        // unparseable body on every model/attempt.
+        Http::fake(function ($request) {
+            if (isset($request->data()['tools'])) {
+                return Http::response([
+                    'candidates' => [['content' => ['parts' => [['text' => 'Some research text.']]]]],
+                ]);
+            }
 
-        Http::fake([
-            'generativelanguage.googleapis.com/*' => Http::sequence()->push($callA)->push($callB),
-        ]);
+            return Http::response([
+                'candidates' => [['content' => ['parts' => [['text' => 'not valid json at all {{{']]]]],
+            ]);
+        });
 
         $location = $this->runJob($location);
 

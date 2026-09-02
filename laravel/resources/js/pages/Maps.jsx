@@ -21,6 +21,7 @@ import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist"
 
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
+import Spinner from "../components/Spinner";
 import SearchBar from "../components/SearchBar";
 import SidePanel from "../components/SidePanel";
 import AttractionMarker from "../components/AttractionMarker";
@@ -167,6 +168,8 @@ function Maps({ user }){
     const [searchResults, setSearchResults] = useState([]);
     const [recentPosts,setRecentPosts]=useState([]);
     const [myGems,setMyGems]=useState([]);
+    const [discoverLoading,setDiscoverLoading]=useState(true);
+    const [boundsLoading,setBoundsLoading]=useState(false);
     const [popularPosts,setPopularPosts]=useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState(null); // null | 'hidden_gem' | 'pending_community_vote'
@@ -191,6 +194,7 @@ function Maps({ user }){
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [gemReviews, setGemReviews] = useState([]);
     const [gemReviewsLoading, setGemReviewsLoading] = useState(false);
+    const [activeGemImages, setActiveGemImages] = useState([]);
     const [mapFullscreen, setMapFullscreen] = useState(false);
     const mapRef = useRef(null);
     const viewportTimer = useRef(null);
@@ -245,23 +249,27 @@ function Maps({ user }){
 
     useEffect(() => {
         const id = setTimeout(() => {
-            api.get("/recent-hidden-gems")
-                .then(res => setRecentPosts(res.data))
-                .catch(err => console.log(err));
+            const jobs = [
+                api.get("/recent-hidden-gems")
+                    .then(res => setRecentPosts(res.data))
+                    .catch(err => console.log(err)),
 
-            if (user) {
-                getMyHiddenGems()
-                    .then(res => setMyGems(res.data.data || []))
-                    .catch(err => console.log(err));
-            }
+                user
+                    ? getMyHiddenGems()
+                        .then(res => setMyGems(res.data.data || []))
+                        .catch(err => console.log(err))
+                    : Promise.resolve(),
 
-            getPopularHiddenGems()
-                .then(res => setPopularPosts(res.data || []))
-                .catch(err => console.log(err));
+                getPopularHiddenGems()
+                    .then(res => setPopularPosts(res.data || []))
+                    .catch(err => console.log(err)),
 
-            getCategories()
-                .then(res => setCategories(res.data.data || []))
-                .catch(err => console.log(err));
+                getCategories()
+                    .then(res => setCategories(res.data.data || []))
+                    .catch(err => console.log(err)),
+            ];
+
+            Promise.allSettled(jobs).then(() => setDiscoverLoading(false));
         }, 200);
 
         return () => clearTimeout(id);
@@ -369,6 +377,7 @@ function Maps({ user }){
     useEffect(() => {
         if (!viewport) return;
 
+        setBoundsLoading(true);
         getHiddenGemsInBounds({
             north: viewport.north,
             south: viewport.south,
@@ -376,7 +385,8 @@ function Maps({ user }){
             west: viewport.west,
         }, statusFilter)
             .then(res => setHiddenGems(res.data.data || []))
-            .catch(err => console.log(err));
+            .catch(err => console.log(err))
+            .finally(() => setBoundsLoading(false));
     }, [viewport, statusFilter]);
 
     const exploreCell = exploreOn && viewport && viewport.zoom >= EXPLORE_MIN_ZOOM
@@ -490,16 +500,22 @@ function Maps({ user }){
             setNearbyLoading(false);
             setGemReviews([]);
             setGemReviewsLoading(false);
+            setActiveGemImages([]);
             return;
         }
 
         // detail only for whichever gem is actually open in the panel.
         setGemReviewsLoading(true);
+        setActiveGemImages([]);
         getHiddenGemDetail(activeGem.id)
-            .then(res => setGemReviews(res.data.data?.votes || []))
+            .then(res => {
+                setGemReviews(res.data.data?.votes || []);
+                setActiveGemImages(res.data.data?.images || []);
+            })
             .catch(err => {
                 console.log(err);
                 setGemReviews([]);
+                setActiveGemImages([]);
             })
             .finally(() => setGemReviewsLoading(false));
 
@@ -757,12 +773,18 @@ function Maps({ user }){
                         onToggleWishlist={handleToggleWishlist}
                         reviews={gemReviews}
                         reviewsLoading={gemReviewsLoading}
+                        images={activeGemImages}
                     />
                 </div>
 
                 {/* Right column: title, status, filters */}
                 <div className="maps-hero-topbar">
                     <h1 className="maps-hero-title">HiddenMY Interactive Map</h1>
+                    {boundsLoading && (
+                        <div className="maps-updating-pill">
+                            <Spinner size="sm" inline label="Updating gems…" />
+                        </div>
+                    )}
                     {locationError && (
                         <p className="maps-hero-status">{locationError}</p>
                     )}
@@ -880,7 +902,7 @@ function Maps({ user }){
                         <p className="maps-hero-hint">Zoom in to load nearby attractions</p>
                     )}
                     {exploreLoading && (
-                        <p className="maps-hero-hint">Loading nearby attractions</p>
+                        <Spinner size="sm" inline label="Loading nearby attractions…" className="maps-hero-hint" />
                     )}
                     {!exploreLoading && exploreOn && explorePlaces.length > 0 && (
                         <p className="maps-hero-hint">{explorePlaces.length} places in view</p>
@@ -915,6 +937,7 @@ function Maps({ user }){
                     title="Recent Hidden Gems"
                     seeMoreTo="/hidden-gems"
                     items={recentPosts}
+                    loading={discoverLoading}
                     onItemClick={selectGem}
                     emptyText="No recent gems yet."
                 />
@@ -923,6 +946,7 @@ function Maps({ user }){
                         title="My Hidden Gems"
                         seeMoreTo="/my-hidden-gems"
                         items={myGems}
+                        loading={discoverLoading}
                         onItemClick={selectGem}
                         emptyText="You haven't posted any hidden gems yet."
                     />
@@ -931,6 +955,7 @@ function Maps({ user }){
                     title="Popular Hidden Gems"
                     seeMoreTo="/hidden-gems"
                     items={popularPosts}
+                    loading={discoverLoading}
                     onItemClick={selectGem}
                     emptyText="No popular gems yet."
                 />

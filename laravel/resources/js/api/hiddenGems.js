@@ -36,6 +36,18 @@ export const getStates = () =>
 export const geocodeAddress = (query) =>
     api.get('/hidden-gems/geocode', { params: { query } });
 
+// Live address type-ahead for the Submit / Edit Hidden Gem forms (Photon).
+// Pass an AbortController signal so superseded keystrokes get cancelled.
+export const autocompleteAddress = (query, { signal, latitude, longitude } = {}) =>
+    api.get('/hidden-gems/address-autocomplete', {
+        params: {
+            query,
+            latitude: latitude || undefined,
+            longitude: longitude || undefined,
+        },
+        signal,
+    });
+
 export const reverseGeocodeLocation = (latitude, longitude) =>
     api.get('/hidden-gems/reverse-geocode', { params: { latitude, longitude } });
 

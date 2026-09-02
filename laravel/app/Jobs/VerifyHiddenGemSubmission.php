@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -26,11 +27,24 @@ class VerifyHiddenGemSubmission implements ShouldQueue
 {
     use Queueable;
 
-    // A dated snapshot (e.g. 'gemini-2.5-flash') can 404 as "no longer
-    // available to new users" once Google deprecates it for a given API key
-    // even while it still appears in ListModels — use the stable rolling
-    // alias instead so this doesn't silently break again later.
-    private const MODEL = 'gemini-flash-latest';
+    /**
+     * We run our own model-fallback + retry policy inside handle(); the queue
+     * must never re-run the whole job (that would re-bill every Gemini call
+     * and could double-write the result).
+     */
+    public int $tries = 1;
+
+    /** Worst-case ceiling: Call A + Call B, each with retries and a fallback
+     *  model, plus up to 5 image downloads. */
+    public int $timeout = 240;
+
+    // The model is configurable (config/services.php -> GEMINI_MODEL /
+    // GEMINI_FALLBACK_MODEL) so a Google deprecation or capacity outage is a
+    // .env change, not a code deploy. A dated snapshot (e.g. 'gemini-2.5-flash')
+    // 404s once Google retires it for a key; even the 'gemini-flash-latest'
+    // rolling alias went to persistent 503 in Aug 2026. This is the last-resort
+    // default if config and env are both somehow empty.
+    private const DEFAULT_MODEL = 'gemini-3.6-flash';
 
     private const MAX_IMAGES = 5;
 
@@ -105,16 +119,16 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         }
 
         try {
-            [$groundingText, $visibilityUnknown] = $this->runVisibilityResearch($apiKey, $location);
-            $parsed = $this->runStructuredScoring($apiKey, $location, $groundingText, $duplicate);
+            $research = $this->runVisibilityResearch($apiKey, $location);
+            $scoring = $this->runStructuredScoring($apiKey, $location, $research['text'], $duplicate);
 
-            if ($parsed === null) {
-                $this->markPendingOnFailure($location, 'Gemini returned an invalid or unparseable verification response.');
-
-                return;
-            }
-
-            $this->applyResult($location, $parsed, $duplicate, $visibilityUnknown);
+            $this->applyResult(
+                $location,
+                $scoring['parsed'],
+                $duplicate,
+                $research['unknown'],
+                $scoring['model'],
+            );
         } catch (Throwable $e) {
             $this->markPendingOnFailure($location, $e->getMessage());
         }
@@ -128,89 +142,103 @@ class VerifyHiddenGemSubmission implements ShouldQueue
      * used together in one request). Failure here doesn't fail the job; it
      * just falls through to Call B with visibility treated as unknown.
      *
-     * @return array{0: ?string, 1: bool} [research summary text, whether visibility is unknown]
+     * @return array{text: ?string, unknown: bool}
      */
     private function runVisibilityResearch(string $apiKey, Location $location): array
     {
         try {
-            $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
-                ->timeout(20)
-                ->retry(2, 1000, fn (Throwable $e) => $this->isRetryableGeminiError($e))
-                ->post(
-                    'https://generativelanguage.googleapis.com/v1beta/models/'.self::MODEL.':generateContent',
-                    [
-                        'contents' => [
-                            [
-                                'role' => 'user',
-                                'parts' => [['text' => $this->visibilityResearchPrompt($location)]],
-                            ],
+            $result = $this->postToGemini(
+                $apiKey,
+                fn (string $model) => [
+                    'contents' => [
+                        [
+                            'role' => 'user',
+                            'parts' => [['text' => $this->visibilityResearchPrompt($location)]],
                         ],
-                        'tools' => [
-                            ['google_search' => (object) []],
-                        ],
-                    ]
-                )
-                ->throw();
+                    ],
+                    'tools' => [
+                        ['google_search' => (object) []],
+                    ],
+                ],
+                20,
+            );
         } catch (Throwable $e) {
             Log::warning('Hidden gem Google visibility research failed; falling back to unknown visibility.', [
                 'location_id' => $location->id,
                 'error' => $e->getMessage(),
             ]);
 
-            return [null, true];
+            return ['text' => null, 'unknown' => true];
         }
 
-        $parts = $response->json('candidates.0.content.parts') ?? [];
+        $parts = $result['response']->json('candidates.0.content.parts') ?? [];
         $text = collect($parts)->pluck('text')->filter()->implode("\n");
 
-        if ($text === '') {
-            return [null, true];
-        }
-
-        return [$text, false];
+        return $text === ''
+            ? ['text' => null, 'unknown' => true]
+            : ['text' => $text, 'unknown' => false];
     }
 
     /**
      * Call B: structured JSON scoring — legitimacy/tourism/evidence assessment
      * plus the model's own read of Call A's research, informed by the PHP-side
-     * duplicate check. Returns null on any unrecoverable validation failure
-     * (caller treats that the same as a technical error: status stays pending).
+     * duplicate check. Tries the configured models in order; a 200 whose body
+     * isn't usable JSON is retried like a transient failure before moving on.
+     * Throws if every model is exhausted (handle()'s catch then leaves the
+     * submission 'pending' for a later retry — never 'ai_rejected').
+     *
+     * @return array{parsed: array, model: string}
      */
     private function runStructuredScoring(
         string $apiKey,
         Location $location,
         ?string $groundingText,
         array $duplicate
-    ): ?array {
-        $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
-            ->timeout(30)
-            ->retry(2, 1000, fn (Throwable $e) => $this->isRetryableGeminiError($e))
-            ->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/'.self::MODEL.':generateContent',
-                [
-                    'contents' => [
-                        [
-                            'role' => 'user',
-                            'parts' => $this->buildScoringParts($location, $groundingText, $duplicate),
-                        ],
-                    ],
-                    'systemInstruction' => [
-                        'parts' => [['text' => $this->scoringSystemPrompt()]],
-                    ],
-                    'generationConfig' => [
-                        'response_mime_type' => 'application/json',
-                        'response_schema' => $this->scoringResponseSchema(),
-                    ],
-                ]
-            )
-            ->throw();
+    ): array {
+        // Build the multimodal parts (incl. image downloads) once, not per retry.
+        $parts = $this->buildScoringParts($location, $groundingText, $duplicate);
 
-        $text = $response->json('candidates.0.content.parts.0.text');
+        $result = $this->postToGemini(
+            $apiKey,
+            fn (string $model) => [
+                'contents' => [
+                    ['role' => 'user', 'parts' => $parts],
+                ],
+                'systemInstruction' => [
+                    'parts' => [['text' => $this->scoringSystemPrompt()]],
+                ],
+                'generationConfig' => [
+                    'response_mime_type' => 'application/json',
+                    'response_schema' => $this->scoringResponseSchema(),
+                ],
+            ],
+            30,
+            fn (Response $response): bool => $this->extractScoringResult($response) !== null,
+        );
 
-        return $this->validateScoringResponse($this->decodeJson((string) $text));
+        return [
+            'parsed' => $this->extractScoringResult($result['response']),
+            'model' => $result['model'],
+        ];
     }
 
-    private function applyResult(Location $location, array $parsed, array $duplicate, bool $visibilityUnknown): void
+    /**
+     * Pull the validated scoring array out of a Call B response, or null if the
+     * body is unusable: no text (safety-filtered), malformed JSON, or a schema
+     * mismatch. Used both as the retry validator and to read the final result.
+     */
+    private function extractScoringResult(Response $response): ?array
+    {
+        $text = $response->json('candidates.0.content.parts.0.text');
+
+        if (! is_string($text) || $text === '') {
+            return null;
+        }
+
+        return $this->validateScoringResponse($this->decodeJson($text));
+    }
+
+    private function applyResult(Location $location, array $parsed, array $duplicate, bool $visibilityUnknown, string $model): void
     {
         // Even when live Search grounding failed, Call B was still asked for its
         // own best-effort visibility read (it has general knowledge of famous
@@ -278,7 +306,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
             'ai_review_reason' => Str::limit($reason, 500),
             'ai_reviewed_at' => now(),
             'verification_result_json' => $parsed,
-            'verification_model' => self::MODEL,
+            'verification_model' => $model,
             'verification_attempts' => 0,
         ]);
     }
@@ -578,15 +606,154 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         return $parsed;
     }
 
-    /** Used as the `retry()` `when` callback for both Gemini calls — only transient failures are worth an immediate retry. */
-    private function isRetryableGeminiError(Throwable $exception): bool
+    /**
+     * POST to Gemini's generateContent endpoint, trying each configured model
+     * in order. Retry / fallback policy by failure class:
+     *   - transient (5xx, timeout, connection): up to 2 retries on the primary
+     *     model, then a single attempt on the fallback
+     *   - bad_response (HTTP 200 but unusable body): 1 retry on the primary,
+     *     then the fallback
+     *   - rate_limit (429): one Retry-After-aware retry on the primary, then
+     *     the fallback
+     *   - model_missing (404): straight to the fallback, no retry (and log —
+     *     GEMINI_MODEL is probably pointing at a retired model)
+     *   - deterministic (400/401/403): abort immediately; a bad request to one
+     *     model is a bad request to all of them
+     * Worst case is 4 HTTP calls per invocation (3 primary + 1 fallback).
+     *
+     * @param  callable(string $model): array  $payload    builds the request body for a given model
+     * @param  callable(Response): bool|null   $validator  return false to treat a 200 as bad_response
+     * @return array{response: Response, model: string}
+     */
+    private function postToGemini(string $apiKey, callable $payload, int $timeout, ?callable $validator = null): array
     {
-        if ($exception instanceof ConnectionException) {
-            return true;
+        $models = $this->models();
+        $lastError = null;
+
+        foreach ($models as $index => $model) {
+            $isFallback = $index > 0;
+
+            for ($attempt = 1; ; $attempt++) {
+                try {
+                    $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
+                        ->timeout($timeout)
+                        ->post(
+                            'https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent',
+                            $payload($model),
+                        )
+                        ->throw();
+
+                    if ($validator !== null && ! $validator($response)) {
+                        throw new GeminiBadResponseException(
+                            'Gemini returned an unusable response (malformed JSON or content-filtered).'
+                        );
+                    }
+
+                    return ['response' => $response, 'model' => $model];
+                } catch (Throwable $e) {
+                    $lastError = $e;
+                    $class = $this->classifyGeminiFailure($e);
+
+                    Log::warning('Gemini call failed.', [
+                        'location_id' => $this->locationId,
+                        'model' => $model,
+                        'attempt' => $attempt,
+                        'class' => $class,
+                        'error' => $e->getMessage(),
+                    ]);
+
+                    // A malformed request won't be fixed by retrying or by
+                    // switching models — stop the whole pipeline now.
+                    if ($class === 'deterministic') {
+                        throw $e;
+                    }
+
+                    if ($class === 'model_missing') {
+                        Log::error('Gemini model unavailable (404) — update GEMINI_MODEL / GEMINI_FALLBACK_MODEL.', [
+                            'model' => $model,
+                        ]);
+
+                        break; // straight to the next model, no retry
+                    }
+
+                    $maxAttempts = match (true) {
+                        $isFallback => 1, // fallback model is a single shot
+                        $class === 'rate_limit', $class === 'bad_response' => 2,
+                        default => 3, // transient on the primary: 2 retries
+                    };
+
+                    if ($attempt >= $maxAttempts) {
+                        break; // give up on this model, try the next one
+                    }
+
+                    $delay = $this->retryDelayMicroseconds($class, $attempt, $e);
+                    if ($delay > 0) {
+                        usleep($delay);
+                    }
+                }
+            }
         }
 
-        return $exception instanceof RequestException
-            && in_array($exception->response->status(), self::RETRYABLE_HTTP_STATUSES, true);
+        throw $lastError ?? new \RuntimeException('Gemini request failed: no model configured.');
+    }
+
+    /** @return 'transient'|'rate_limit'|'model_missing'|'deterministic'|'bad_response' */
+    private function classifyGeminiFailure(Throwable $e): string
+    {
+        if ($e instanceof GeminiBadResponseException) {
+            return 'bad_response';
+        }
+
+        if ($e instanceof ConnectionException) {
+            return 'transient'; // DNS / connect / read timeout
+        }
+
+        if ($e instanceof RequestException) {
+            $status = $e->response->status();
+
+            return match (true) {
+                $status === 429 => 'rate_limit',
+                $status === 404 => 'model_missing',
+                in_array($status, self::RETRYABLE_HTTP_STATUSES, true) => 'transient',
+                $status >= 400 && $status < 500 => 'deterministic',
+                default => 'transient',
+            };
+        }
+
+        return 'transient';
+    }
+
+    private function retryDelayMicroseconds(string $class, int $attempt, Throwable $e): int
+    {
+        if (app()->runningUnitTests()) {
+            return 0;
+        }
+
+        if ($class === 'rate_limit' && $e instanceof RequestException) {
+            $retryAfter = (int) $e->response->header('Retry-After');
+
+            if ($retryAfter > 0) {
+                return min($retryAfter, 30) * 1_000_000;
+            }
+        }
+
+        // Exponential backoff: 1s, 2s, 4s.
+        return (2 ** ($attempt - 1)) * 1_000_000;
+    }
+
+    /**
+     * Ordered list of models to try: [primary] or [primary, fallback]. Both
+     * come from config, which carries hard-coded defaults, plus a final
+     * literal guard here so a blank config value can never disable verification.
+     *
+     * @return list<string>
+     */
+    private function models(): array
+    {
+        $primary = trim((string) config('services.gemini.model')) ?: self::DEFAULT_MODEL;
+        $fallback = trim((string) config('services.gemini.fallback_model'));
+
+        return array_values(array_unique(array_filter([$primary, $fallback])));
     }
 
     private function clampScore(mixed $value): int

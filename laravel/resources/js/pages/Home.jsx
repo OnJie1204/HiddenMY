@@ -7,6 +7,8 @@ import { getTripItineraries } from '../api/tripItinerary';
 import { getHiddenGems } from '../api/hiddenGems';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../api/wishlist';
 import HiddenGemMarker from '../components/HiddenGemMarker';
+import PhotoCarousel from '../components/PhotoCarousel';
+import Spinner from '../components/Spinner';
 import ReportButton from '../components/ReportButton';
 import SignInPrompt from '../components/SignInPrompt';
 import { cartoTileUrl } from '../utils/cartoTiles';
@@ -263,7 +265,7 @@ function Home({ user }) {
                     <div className="home-map-flight-list">
                         <div className="home-map-flight-list-header">Top Hidden Gems</div>
                         {loading ? (
-                            <p className="home-map-flight-loading">Loading gems...</p>
+                            <Spinner size="sm" inline label="Loading gems…" />
                         ) : topGems.length === 0 ? (
                             <div className="home-map-flight-empty">
                                 <p>No hidden gems yet.</p>
@@ -339,7 +341,7 @@ function Home({ user }) {
                 </div>
                 <div className="home-trending-scroll">
                     {loading ? (
-                        <p className="home-loading">Loading gems...</p>
+                        <Spinner size="sm" inline label="Loading gems…" />
                     ) : popularGems.length === 0 ? (
                         <div className="home-empty-trending">
                             <p>No hidden gems yet. Be the first to share one!</p>
@@ -352,18 +354,13 @@ function Home({ user }) {
                                 onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                             >
                                 <div className="home-trending-card-image">
-                                    {gem.images && gem.images.length > 0 ? (
-                                        <img
-                                            src={gem.images[0].image_url}
-                                            alt={gem.place_name}
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                                e.target.parentElement.innerHTML = `<div class="home-trending-card-placeholder">No Image</div>`;
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="home-trending-card-placeholder">No Image</div>
-                                    )}
+                                    <PhotoCarousel
+                                        images={gem.images || []}
+                                        alt={gem.place_name}
+                                        compact
+                                        fill
+                                        showThumbs={false}
+                                    />
                                 </div>
                                 <div className="home-trending-card-body">
                                     <div className="home-trending-card-header-row">
@@ -415,7 +412,7 @@ function Home({ user }) {
                 </div>
                 <div className="home-adventures-grid">
                     {loading ? (
-                        <p className="home-loading">Loading trips...</p>
+                        <Spinner size="sm" inline label="Loading trips…" />
                     ) : recentTrips.length === 0 ? (
                         <div className="home-empty-adventures">
                             <p>No adventures yet</p>

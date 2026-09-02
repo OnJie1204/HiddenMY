@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
+import PhotoCarousel from "./PhotoCarousel";
+import Spinner from "./Spinner";
 import Avatar from "./Avatar";
 import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
@@ -34,6 +36,7 @@ function SidePanel({
     itineraries = [], onAddToItinerary,
     wishlistIds = new Set(), onToggleWishlist,
     reviews = [], reviewsLoading = false,
+    images = [],
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [width, setWidth] = useState(340);
@@ -325,7 +328,16 @@ function SidePanel({
                 {gem && (
                     <>
                         <div className="side-panel-gem-header">
-                            <GemImage src={gem.image} alt={gem.title} className="side-panel-gem-image" />
+                            {images && images.length > 0 ? (
+                                <PhotoCarousel
+                                    images={images}
+                                    alt={gem.title}
+                                    showThumbs={false}
+                                    className="side-panel-carousel"
+                                />
+                            ) : (
+                                <GemImage src={gem.image} alt={gem.title} className="side-panel-gem-image" />
+                            )}
                             <div className="side-panel-badges">
                                 {gem.category && <span className="badge badge-neutral">{gem.category}</span>}
                                 {gem.attractionType && (
@@ -555,7 +567,7 @@ function SidePanel({
                                         See all
                                     </button>
                                 </div>
-                                {reviewsLoading && <p className="side-panel-nearby-status">Loading reviews…</p>}
+                                {reviewsLoading && <Spinner size="sm" inline label="Loading reviews…" />}
                                 {!reviewsLoading && reviews.length === 0 && (
                                     <p className="side-panel-nearby-status">No reviews yet.</p>
                                 )}
@@ -592,7 +604,7 @@ function SidePanel({
                         {gem.source === "database" && (
                             <div className="side-panel-nearby">
                                 <h3>Near this gem</h3>
-                                {nearbyLoading && <p className="side-panel-nearby-status">Loading nearby spots…</p>}
+                                {nearbyLoading && <Spinner size="sm" inline label="Loading nearby spots…" />}
                                 {!nearbyLoading && nearby.length === 0 && (
                                     <p className="side-panel-nearby-status">Nothing found nearby.</p>
                                 )}

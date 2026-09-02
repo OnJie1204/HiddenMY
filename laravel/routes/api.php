@@ -96,6 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/wishlist/{locationId}', [WishlistController::class, 'destroy']);
 
     // ===== Hidden Gems (write / account-specific) =====
+    Route::get('hidden-gems/address-autocomplete', [HiddenGemController::class, 'addressAutocomplete']);
     Route::get('hidden-gems/geocode', [HiddenGemController::class, 'geocode']);
     Route::get('hidden-gems/reverse-geocode', [HiddenGemController::class, 'reverseGeocode']);
     Route::get('hidden-gems/reverse-geocode-address', [HiddenGemController::class, 'reverseGeocodeAddress']);

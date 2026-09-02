@@ -81,7 +81,7 @@ function Register({ onRegisterSuccess }) {
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+              {showPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
             </button>
           </div>
 
@@ -116,7 +116,7 @@ function Register({ onRegisterSuccess }) {
               onClick={() => setShowConfirmPassword((prev) => !prev)}
               aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
             >
-              {showConfirmPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+              {showConfirmPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
             </button>
           </div>
           {form.password_confirmation && (
