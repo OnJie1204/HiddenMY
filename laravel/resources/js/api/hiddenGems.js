@@ -76,6 +76,9 @@ export const getPopularHiddenGems = () =>
 export const getNearbyAttractions = (id, radius) =>
     api.get(`/hidden-gems/${id}/nearby`, { params: radius ? { radius } : {} });
 
+export const getNearbyGems = (id, radius) =>
+    api.get(`/hidden-gems/${id}/nearby-gems`, { params: radius ? { radius } : {} });
+
 // Nearby attractions around an arbitrary coordinate (map "explore nearby" mode)
 export const getNearbyAttractionsAt = (latitude, longitude, radius) =>
     api.get('/nearby-attractions', { params: { latitude, longitude, radius } });

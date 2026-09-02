@@ -20,20 +20,6 @@ import "../styles/global.css";
 const MY_VOTES_SORT_KEY = "myVotesSortOrder";
 const MY_RATINGS_SORT_KEY = "myRatingsSortOrder";
 
-function getVotePhotoUrl(photoPath) {
-    if (!photoPath) return "";
-
-    if (/^https?:\/\//i.test(photoPath)) {
-        return photoPath;
-    }
-
-    const relativePath = String(photoPath).replace(/^\/+/, "");
-
-    return relativePath.startsWith("storage/")
-        ? `/${relativePath}`
-        : `/storage/${relativePath}`;
-}
-
 export default function MyHiddenGems() {
     const navigate = useNavigate();
     const routeLocation = useLocation();
@@ -421,8 +407,9 @@ export default function MyHiddenGems() {
                         <option value="">All Status</option>
                         <option value="pending">Being Verified</option>
                         <option value="ai_rejected">Not Accepted</option>
-                        <option value="pending_community_vote">Awaiting Votes</option>
+                        <option value="pending_community_vote">Awaiting Community Votes</option>
                         <option value="hidden_gem">Hidden Gem</option>
+                        <option value="delisted">Delisted</option>
                     </select>
 
                     <select
@@ -561,7 +548,7 @@ export default function MyHiddenGems() {
                                         </span>
                                     ) : gem.status === "pending_community_vote" ? (
                                         <span className={getGemStatusDisplay(gem).badgeClass}>
-                                            {voteProgressLabel(gem)}
+                                            {getGemStatusDisplay(gem).label} · {voteProgressLabel(gem)}
                                         </span>
                                     ) : (
                                         <span className={getGemStatusDisplay(gem).badgeClass}>
@@ -575,8 +562,7 @@ export default function MyHiddenGems() {
                                     onClick={(event) => event.stopPropagation()}
                                 >
 
-                                    {["pending", "ai_rejected", "pending_community_vote"].includes(gem.status)
-                                        && Number(gem.vote_count) === 0 && (
+                                    {gem.can_edit && (
                                         <button
                                             className="my-hidden-gems-edit-btn"
                                             onClick={() =>
@@ -587,12 +573,14 @@ export default function MyHiddenGems() {
                                         </button>
                                     )}
 
-                                    <button
-                                        className="my-hidden-gems-delete-btn"
-                                        onClick={() => setDeleteId(gem.id)}
-                                    >
-                                        Delete
-                                    </button>
+                                    {gem.can_delete && (
+                                        <button
+                                            className="my-hidden-gems-delete-btn"
+                                            onClick={() => setDeleteId(gem.id)}
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
 
                                 </div>
 
@@ -625,11 +613,18 @@ export default function MyHiddenGems() {
                                         openTab: "votes",
                                         voteId: vote.id,
                                         fromMyVotes: true,
+                                        returnTo: {
+                                            pathname: "/my-hidden-gems",
+                                            state: {
+                                                activeTab: "contributions",
+                                                contributionTab: "votes",
+                                            },
+                                        },
                                     },
                                 }
                             )}
                         >
-                            <div className="my-vote-card-content">
+                            <div className="my-vote-card-content" style={{ alignSelf: "stretch" }}>
                                 <div className="my-vote-card-header">
                                     <h2>
                                         {vote.location?.place_name || "Hidden Gem"}
@@ -645,17 +640,13 @@ export default function MyHiddenGems() {
                                         )}
                                     </time>
                                 </div>
-                                <p>{vote.comment || "No comment"}</p>
                             </div>
 
-                            {vote.photo_path && (
-                                <img
-                                    src={getVotePhotoUrl(vote.photo_path)}
-                                    alt="Your vote"
+                            {vote.location?.first_image?.image_url && (
+                                <GemImage
+                                    src={vote.location.first_image.image_url}
+                                    alt={vote.location?.place_name || "Hidden Gem"}
                                     className="my-vote-thumbnail"
-                                    onError={(event) => {
-                                        event.currentTarget.style.display = "none";
-                                    }}
                                 />
                             )}
                         </article>
@@ -685,6 +676,13 @@ export default function MyHiddenGems() {
                                         openTab: "comments",
                                         interactionId: rating.id,
                                         fromMyRatings: true,
+                                        returnTo: {
+                                            pathname: "/my-hidden-gems",
+                                            state: {
+                                                activeTab: "contributions",
+                                                contributionTab: "ratings",
+                                            },
+                                        },
                                     },
                                 }
                             )}

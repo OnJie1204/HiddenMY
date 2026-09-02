@@ -57,7 +57,7 @@ class HiddenGemDetailFavouriteAchievementTest extends TestCase
             ]);
     }
 
-    public function test_detail_suppresses_stale_unearned_submitter_favourite(): void
+    public function test_detail_keeps_permanently_earned_submitter_favourite(): void
     {
         $viewer = User::factory()->create();
         $submitter = User::factory()->create();
@@ -67,7 +67,9 @@ class HiddenGemDetailFavouriteAchievementTest extends TestCase
         $this->actingAs($viewer)
             ->getJson("/api/hidden-gems/{$gem->id}")
             ->assertOk()
-            ->assertJsonPath('data.user.favourite_achievements', []);
+            ->assertJsonPath('data.user.favourite_achievements', [
+                ['key' => 'hiddenmy-master', 'position' => 1],
+            ]);
     }
 
     public function test_viewers_favourites_are_not_substituted_for_submitters(): void

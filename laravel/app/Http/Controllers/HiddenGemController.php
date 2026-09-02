@@ -6,6 +6,7 @@ use App\Jobs\VerifyHiddenGemSubmission;
 use App\Models\Location;
 use App\Models\Category;
 use App\Models\LocationImage;
+use App\Models\Report;
 use App\Services\OsmAttractionCache;
 use App\Services\SpecialAchievementService;
 use App\Support\Geo;
@@ -261,10 +262,19 @@ class HiddenGemController extends Controller
             'category',
             'images'
         ])
+        ->withExists('votes')
         ->where('user_id', $user->id)
         ->where('status', '!=', 'deleted')
         ->latest()
         ->get();
+
+        $hiddenGems->each(function (Location $gem) {
+            $eligibility = $this->managementEligibility($gem);
+            $gem->setAttribute('can_edit', $eligibility['can_edit']);
+            $gem->setAttribute('can_delete', $eligibility['can_delete']);
+            $gem->setAttribute('edit_mode', $eligibility['edit_mode']);
+            $gem->makeHidden('votes_exists');
+        });
 
         return response()->json([
             'data' => $hiddenGems
@@ -282,6 +292,15 @@ class HiddenGemController extends Controller
         if ($gem->user_id !== Auth::id()) {
             return response()->json([
                 'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        $eligibility = $this->managementEligibility($gem);
+
+        if (! $eligibility['can_delete']) {
+            return response()->json([
+                'title' => 'Deletion Unavailable',
+                'message' => $this->deleteUnavailableMessage($gem),
             ], 403);
         }
 
@@ -304,21 +323,22 @@ class HiddenGemController extends Controller
             ], 403);
         }
 
-        if ($gem->status === 'hidden_gem') {
-            return response()->json([
-                'message' => 'Verified Hidden Gems can no longer be edited.'
-            ], 403);
-        }
+        $eligibility = $this->managementEligibility($gem);
+        $isRepair = $eligibility['edit_mode'] === 'repair';
 
-        if ($gem->votes()->exists()) {
-            return response()->json([
-                'message' => 'This Hidden Gem can no longer be edited because voting has started.'
-            ], 403);
-        }
+        if (! $eligibility['can_edit']) {
+            if ($gem->status === 'hidden_gem') {
+                return response()->json([
+                    'message' => 'Verified Hidden Gems can no longer be edited.'
+                ], 403);
+            }
 
-        $editableStatuses = ['pending', 'ai_rejected', 'pending_community_vote'];
+            if ($gem->votes()->exists()) {
+                return response()->json([
+                    'message' => 'This Hidden Gem can no longer be edited because voting has started.'
+                ], 403);
+            }
 
-        if (! in_array($gem->status, $editableStatuses, true)) {
             return response()->json([
                 'message' => 'This hidden gem can no longer be edited.'
             ], 403);
@@ -382,6 +402,13 @@ class HiddenGemController extends Controller
             ]);
         }
 
+        if ($isRepair) {
+            return response()->json([
+                'message' => 'Changes saved. You can now request a Fix Review.',
+                'data' => $gem->fresh()->load(['category', 'images'])
+            ]);
+        }
+
         // Reset verification progress after editing
         $gem->vote_count = 0;
         $gem->status = 'pending';
@@ -439,6 +466,21 @@ class HiddenGemController extends Controller
             $location->user->setAttribute('favourite_achievements', $activeFavourites);
         }
 
+        if ($isOwner) {
+            $eligibility = $this->managementEligibility($location);
+            $location->setAttribute('can_edit', $eligibility['can_edit']);
+            $location->setAttribute('can_delete', $eligibility['can_delete']);
+            $location->setAttribute('edit_mode', $eligibility['edit_mode']);
+
+            if ($eligibility['edit_mode'] === 'repair') {
+                $report = $this->upheldRepairReport($location);
+                $location->setAttribute('repair_context', [
+                    'reason' => $report?->reason,
+                    'flagged_item' => $report?->flagged_item,
+                ]);
+            }
+        }
+
         return response()->json(['data' => $location]);
     }
 
@@ -470,10 +512,49 @@ class HiddenGemController extends Controller
         return response()->json(['data' => $results]);
     }
 
-    /**
-     * Nearby attractions around an arbitrary coordinate — used by the map's
-     * zoom-in "explore nearby" discovery, which has no Hidden Gem to key off.
-     */
+    public function nearbyGems(Request $request, $id): JsonResponse
+    {
+        $gem = Location::findOrFail($id);
+
+        if (!Auth::check() && !in_array($gem->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+            abort(404);
+        }
+
+        $radius = (int) $request->query('radius', self::NEARBY_RADIUS_METERS);
+        $radius = max(100, min(3000, $radius));
+
+        $lat = (float) $gem->latitude;
+        $lng = (float) $gem->longitude;
+        [$minLat, $maxLat, $minLng, $maxLng] = Geo::boundingBox($lat, $lng, $radius);
+
+        $results = Location::query()
+            ->select(['id', 'place_name', 'category_id', 'latitude', 'longitude', 'status'])
+            ->with('category:id,name')
+            ->publiclyVisible()
+            ->where('id', '!=', $gem->id)
+            ->whereBetween('latitude', [$minLat, $maxLat])
+            ->whereBetween('longitude', [$minLng, $maxLng])
+            ->get()
+            ->map(function (Location $row) use ($lat, $lng) {
+                return [
+                    'id' => $row->id,
+                    'name' => $row->place_name,
+                    'type' => $row->category?->name ?? 'Hidden gem',
+                    'status' => $row->status,
+                    'latitude' => (float) $row->latitude,
+                    'longitude' => (float) $row->longitude,
+                    'source' => 'database',
+                    'distance' => (int) round(Geo::distanceMeters($lat, $lng, $row->latitude, $row->longitude)),
+                ];
+            })
+            ->filter(fn (array $nearbyGem) => $nearbyGem['distance'] <= $radius)
+            ->sortBy('distance')
+            ->take(10)
+            ->values();
+
+        return response()->json(['data' => $results]);
+    }
+
     public function nearbyAttractions(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -1085,6 +1166,50 @@ class HiddenGemController extends Controller
             ->get();
 
         return response()->json($popularLocations);
+    }
+
+    private function managementEligibility(Location $gem): array
+    {
+        $hasVotes = array_key_exists('votes_exists', $gem->getAttributes())
+            ? (bool) $gem->getAttribute('votes_exists')
+            : $gem->votes()->exists();
+        $normalStatus = in_array($gem->status, ['pending', 'ai_rejected', 'pending_community_vote'], true);
+        $repair = $gem->status === 'delisted'
+            && $gem->report_status === 'upheld'
+            && $this->upheldRepairReport($gem) !== null;
+
+        return [
+            'can_edit' => $repair || ($normalStatus && ! $hasVotes),
+            'can_delete' => $normalStatus && ! $hasVotes,
+            'edit_mode' => $repair ? 'repair' : ($normalStatus && ! $hasVotes ? 'normal' : null),
+        ];
+    }
+
+    private function upheldRepairReport(Location $gem): ?Report
+    {
+        return $gem->reports()
+            ->whereNull('parent_report_id')
+            ->where('reason', 'inappropriate_content')
+            ->where('status', 'upheld')
+            ->latest('id')
+            ->first();
+    }
+
+    private function deleteUnavailableMessage(Location $gem): string
+    {
+        if ($gem->status === 'hidden_gem') {
+            return 'Verified Hidden Gems can no longer be deleted.';
+        }
+
+        if (! in_array($gem->status, ['pending', 'ai_rejected', 'pending_community_vote'], true)) {
+            return 'This Hidden Gem can no longer be deleted.';
+        }
+
+        if ($gem->votes()->exists()) {
+            return 'This Hidden Gem can no longer be deleted because community voting has started.';
+        }
+
+        return 'This Hidden Gem can no longer be deleted.';
     }
 
     // ==================== PRIVATE METHODS ====================

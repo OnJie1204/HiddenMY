@@ -209,7 +209,14 @@ class VoteController extends Controller
             ], 401);
         }
 
-        $votes = Vote::with('location:id,place_name')
+        $votes = Vote::with([
+            'location:id,place_name',
+            'location.firstImage' => fn ($query) => $query->select([
+                'location_images.id',
+                'location_images.location_id',
+                'location_images.image_url',
+            ]),
+        ])
             ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get([
@@ -218,6 +225,20 @@ class VoteController extends Controller
                 'location_id',
                 'created_at',
                 'updated_at',
+            ])
+            ->map(fn (Vote $vote) => [
+                'id' => $vote->id,
+                'user_id' => $vote->user_id,
+                'location_id' => $vote->location_id,
+                'created_at' => $vote->created_at,
+                'updated_at' => $vote->updated_at,
+                'location' => $vote->location ? [
+                    'id' => $vote->location->id,
+                    'place_name' => $vote->location->place_name,
+                    'first_image' => $vote->location->firstImage ? [
+                        'image_url' => $vote->location->firstImage->image_url,
+                    ] : null,
+                ] : null,
             ]);
 
         return response()->json([

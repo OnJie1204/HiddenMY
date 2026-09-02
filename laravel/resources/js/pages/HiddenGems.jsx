@@ -340,10 +340,6 @@ export default function HiddenGems({ user }) {
                                                 : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (!user) {
-                                                    requireSignIn("Login to compare hidden gems.");
-                                                    return;
-                                                }
                                                 toggleCompare(gem);
                                             }}
                                         >

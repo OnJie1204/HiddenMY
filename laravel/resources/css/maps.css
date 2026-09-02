@@ -177,7 +177,7 @@
     pointer-events: auto;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 10px;
     max-width: min(360px, 100%);
     padding: 14px;
@@ -186,10 +186,31 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
+.maps-filters-clear {
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--color-primary-dark, #0f766e);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.maps-filters-clear:hover {
+    text-decoration: underline;
+}
+
+.maps-filters-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
 .maps-filters-group {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 6px;
     width: 100%;
 }
@@ -203,7 +224,7 @@
 }
 
 .maps-filters-panel .maps-category-pills {
-    justify-content: flex-end;
+    justify-content: flex-start;
 }
 
 .maps-filters-panel .maps-category-pill {
@@ -223,7 +244,7 @@
 .maps-legend {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 4px;
     font-size: 12px;
     color: var(--color-text, #1c2b28);
@@ -261,7 +282,7 @@
 .maps-legend-hint {
     font-size: 11px;
     color: var(--color-text-muted, #64766f);
-    text-align: right;
+    text-align: left;
     margin-top: 2px;
 }
 

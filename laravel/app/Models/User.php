@@ -61,6 +61,14 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function favouriteAchievements()
     {
-        return $this->hasMany(UserFavouriteAchievement::class)->orderBy('position');
+        return $this->hasMany(UserFavouriteAchievement::class)
+            ->where('achievement_type', UserAchievement::TYPE_SPECIAL)
+            ->whereNotNull('position')
+            ->orderBy('position');
+    }
+
+    public function achievements()
+    {
+        return $this->hasMany(UserAchievement::class);
     }
 }
