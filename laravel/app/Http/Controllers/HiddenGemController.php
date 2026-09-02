@@ -470,10 +470,49 @@ class HiddenGemController extends Controller
         return response()->json(['data' => $results]);
     }
 
-    /**
-     * Nearby attractions around an arbitrary coordinate — used by the map's
-     * zoom-in "explore nearby" discovery, which has no Hidden Gem to key off.
-     */
+    public function nearbyGems(Request $request, $id): JsonResponse
+    {
+        $gem = Location::findOrFail($id);
+
+        if (!Auth::check() && !in_array($gem->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+            abort(404);
+        }
+
+        $radius = (int) $request->query('radius', self::NEARBY_RADIUS_METERS);
+        $radius = max(100, min(3000, $radius));
+
+        $lat = (float) $gem->latitude;
+        $lng = (float) $gem->longitude;
+        [$minLat, $maxLat, $minLng, $maxLng] = Geo::boundingBox($lat, $lng, $radius);
+
+        $results = Location::query()
+            ->select(['id', 'place_name', 'category_id', 'latitude', 'longitude', 'status'])
+            ->with('category:id,name')
+            ->publiclyVisible()
+            ->where('id', '!=', $gem->id)
+            ->whereBetween('latitude', [$minLat, $maxLat])
+            ->whereBetween('longitude', [$minLng, $maxLng])
+            ->get()
+            ->map(function (Location $row) use ($lat, $lng) {
+                return [
+                    'id' => $row->id,
+                    'name' => $row->place_name,
+                    'type' => $row->category?->name ?? 'Hidden gem',
+                    'status' => $row->status,
+                    'latitude' => (float) $row->latitude,
+                    'longitude' => (float) $row->longitude,
+                    'source' => 'database',
+                    'distance' => (int) round(Geo::distanceMeters($lat, $lng, $row->latitude, $row->longitude)),
+                ];
+            })
+            ->filter(fn (array $nearbyGem) => $nearbyGem['distance'] <= $radius)
+            ->sortBy('distance')
+            ->take(10)
+            ->values();
+
+        return response()->json(['data' => $results]);
+    }
+
     public function nearbyAttractions(Request $request): JsonResponse
     {
         $validated = $request->validate([

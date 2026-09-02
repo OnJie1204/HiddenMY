@@ -56,7 +56,7 @@ function SidePanel({
     const [localStatus, setLocalStatus] = useState(null);
     const bodyRef = useRef(null);
     const navigate = useNavigate();
-    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
+    const { isComparing, toggleCompare, canAddMore, maxCompare, clearCompare } = useCompare();
 
     // A new selection always lands on the first post's detail view, and resets
     // any scroll from the previously-shown gem.
@@ -230,6 +230,7 @@ function SidePanel({
     const handleLogout = async () => {
         localStorage.removeItem('token');
         setUser(null);
+        clearCompare();
         onClose();
         navigate('/login');
     };
@@ -380,13 +381,7 @@ function SidePanel({
                                     <button
                                         type="button"
                                         className={`compare-toggle-btn ${comparing ? "compare-toggle-btn-active" : ""}`}
-                                        onClick={() => {
-                                            if (!user) {
-                                                requireSignIn("Login to compare hidden gems.");
-                                                return;
-                                            }
-                                            toggleCompare(gem);
-                                        }}
+                                        onClick={() => toggleCompare(gem)}
                                         disabled={!canCompare || (!comparing && !canAddMore)}
                                         title={!canCompare
                                             ? "Only gems that have passed AI review can be compared"
@@ -618,7 +613,7 @@ function SidePanel({
                                             >
                                                 <div>
                                                     <strong>{place.name}</strong>
-                                                    <p>{place.type.replace(/_/g, " ")} · {place.distance}m away</p>
+                                                    <p>{place.source === "database" ? "Hidden gem" : place.type.replace(/_/g, " ")} · {place.distance}m away</p>
                                                 </div>
                                             </div>
                                         ))}
