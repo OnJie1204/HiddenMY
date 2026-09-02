@@ -54,7 +54,9 @@ class SeedAchievementDemoDataTest extends TestCase
         $this->artisan('hiddenmy:seed-achievements', ['email' => 'demo@example.com'])
             ->assertExitCode(0);
 
-        $earned = app(SpecialAchievementService::class)->earnedKeys($user->fresh());
+        $service = app(SpecialAchievementService::class);
+        $service->sync($user->fresh());
+        $earned = $service->earnedKeys($user->fresh());
 
         $this->assertEqualsCanonicalizing(SpecialAchievementService::KEYS, $earned);
     }

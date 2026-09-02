@@ -22,6 +22,7 @@ import labuanStamp from "../assets/achievements/labuan.png";
 import gemMascot from "../assets/achievements/gem-mascot.png";
 import {
     getFavouriteAchievements,
+    syncAchievements,
     updateFavouriteAchievements,
 } from "../api/achievements";
 import { SPECIAL_ACHIEVEMENT_METADATA } from "../constants/specialAchievements";
@@ -239,7 +240,8 @@ export default function HiddenMYAchievements({
     const [favouritesLoaded, setFavouritesLoaded] = useState(false);
     const [favouritesSaving, setFavouritesSaving] = useState(false);
     const [favouritesError, setFavouritesError] = useState("");
-    const verifiedCounts = useMemo(() => {
+    const [permanentAwardKeys, setPermanentAwardKeys] = useState([]);
+    const currentVerifiedCounts = useMemo(() => {
         const counts = Object.fromEntries(REGIONS.map(([region]) => [region, 0]));
 
         gems.forEach((gem) => {
@@ -251,8 +253,22 @@ export default function HiddenMYAchievements({
 
         return counts;
     }, [gems]);
+    const verifiedCounts = useMemo(() => {
+        const counts = { ...currentVerifiedCounts };
+
+        REGIONS.forEach(([region]) => {
+            const key = `region:${region.toLowerCase().replaceAll(" ", "-")}`;
+            if (permanentAwardKeys.includes(key)) {
+                counts[region] = Math.max(1, counts[region]);
+            }
+        });
+
+        return counts;
+    }, [currentVerifiedCounts, permanentAwardKeys]);
 
     const discoveredCount = Object.values(verifiedCounts)
+        .filter((count) => count > 0).length;
+    const currentDiscoveredCount = Object.values(currentVerifiedCounts)
         .filter((count) => count > 0).length;
     const verifiedGemCount = gems.filter(
         (gem) => gem.status === "hidden_gem"
@@ -263,6 +279,12 @@ export default function HiddenMYAchievements({
 
         async function loadFavourites() {
             try {
+                const syncResponse = await syncAchievements();
+                if (!active) return;
+                setPermanentAwardKeys(
+                    (syncResponse.data?.data || []).map((achievement) => achievement.key)
+                );
+
                 const response = await getFavouriteAchievements();
                 if (!active) return;
 
@@ -304,7 +326,7 @@ export default function HiddenMYAchievements({
 
     const specialAchievements = useMemo(() => {
         const discoveredRegions = new Set(
-            Object.entries(verifiedCounts)
+            Object.entries(currentVerifiedCounts)
                 .filter(([, count]) => count > 0)
                 .map(([region]) => region)
         );
@@ -362,7 +384,7 @@ export default function HiddenMYAchievements({
             && allCategoryIds.size > 0;
         const votesAvailable = votesLoaded && !votesError;
 
-        return [
+        const calculated = [
             {
                 key: "first-footprint",
                 title: SPECIAL_ACHIEVEMENT_METADATA["first-footprint"].title,
@@ -391,10 +413,10 @@ export default function HiddenMYAchievements({
                 key: "halfway-there",
                 title: SPECIAL_ACHIEVEMENT_METADATA["halfway-there"].title,
                 requirement: "Discover 8 of Malaysia's 16 regions.",
-                progress: discoveredCount,
+                progress: currentDiscoveredCount,
                 target: 8,
-                progressLabel: `${Math.min(discoveredCount, 8)} / 8`,
-                unlocked: discoveredCount >= 8,
+                progressLabel: `${Math.min(currentDiscoveredCount, 8)} / 8`,
+                unlocked: currentDiscoveredCount >= 8,
                 available: gemsLoaded,
                 remainingUnitSingular: "region",
                 remainingUnitPlural: "regions",
@@ -461,24 +483,44 @@ export default function HiddenMYAchievements({
                 key: "hiddenmy-master",
                 title: SPECIAL_ACHIEVEMENT_METADATA["hiddenmy-master"].title,
                 requirement: "Discover all 16 regions of Malaysia.",
-                progress: discoveredCount,
+                progress: currentDiscoveredCount,
                 target: 16,
-                progressLabel: `${discoveredCount} / 16`,
-                unlocked: discoveredCount === 16,
+                progressLabel: `${currentDiscoveredCount} / 16`,
+                unlocked: currentDiscoveredCount === 16,
                 available: gemsLoaded,
                 remainingItemsLabel: "Regions remaining",
                 remainingItems: remainingMalaysiaRegions,
                 completionMessage: "All required regions discovered.",
             },
         ];
+
+        return calculated.map((achievement) => {
+            if (!permanentAwardKeys.includes(achievement.key)) {
+                return achievement;
+            }
+
+            return {
+                ...achievement,
+                progress: achievement.target,
+                progressLabel: achievement.key === "off-the-beaten-path"
+                    ? `${achievement.target} / ${achievement.target} Categories`
+                    : `${achievement.target} / ${achievement.target}`,
+                unlocked: true,
+                available: true,
+                loading: false,
+                remainingItems: [],
+            };
+        });
     }, [
         categories,
         categoriesError,
         categoriesLoaded,
         categoriesLoading,
-        discoveredCount,
+        currentDiscoveredCount,
+        currentVerifiedCounts,
         gems,
         gemsLoaded,
+        permanentAwardKeys,
         verifiedCounts,
         votes,
         votesError,

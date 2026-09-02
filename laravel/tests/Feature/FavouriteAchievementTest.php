@@ -74,7 +74,11 @@ class FavouriteAchievementTest extends TestCase
             ->assertOk()
             ->assertExactJson(['data' => []]);
 
-        $this->assertDatabaseCount('user_favourite_achievements', 0);
+        $this->assertDatabaseHas('user_achievements', [
+            'user_id' => $user->id,
+            'achievement_key' => 'first-footprint',
+            'position' => null,
+        ]);
     }
 
     public function test_duplicate_keys_are_rejected(): void
@@ -141,7 +145,7 @@ class FavouriteAchievementTest extends TestCase
             ->putJson('/api/me/favourite-achievements', ['achievement_keys' => []])
             ->assertOk();
 
-        $this->assertDatabaseHas('user_favourite_achievements', [
+        $this->assertDatabaseHas('user_achievements', [
             'user_id' => $secondUser->id,
             'achievement_key' => 'first-footprint',
             'position' => 1,
@@ -252,7 +256,8 @@ class FavouriteAchievementTest extends TestCase
         $regions[array_search('Melaka', $regions, true)] = 'Malacca';
         $this->createHiddenGems($user, $regions);
 
-        $states = app(SpecialAchievementService::class)->earnedStates($user);
+        app(SpecialAchievementService::class)->sync($user);
+        $states = app(SpecialAchievementService::class)->earnedStates($user->fresh());
 
         $this->assertTrue($states['halfway-there']);
         $this->assertTrue($states['west-malaysia-explorer']);
@@ -260,7 +265,7 @@ class FavouriteAchievementTest extends TestCase
         $this->assertTrue($states['hiddenmy-master']);
     }
 
-    public function test_get_suppresses_a_favourite_that_is_no_longer_earned(): void
+    public function test_get_keeps_a_permanently_earned_favourite(): void
     {
         $user = User::factory()->create();
         UserFavouriteAchievement::create([
@@ -272,7 +277,10 @@ class FavouriteAchievementTest extends TestCase
         $this->actingAs($user)
             ->getJson('/api/me/favourite-achievements')
             ->assertOk()
-            ->assertExactJson(['data' => []]);
+            ->assertExactJson(['data' => [[
+                'key' => 'gem-hunter',
+                'position' => 1,
+            ]]]);
     }
 
     private function createHiddenGems(User $user, array $regions, ?Category $category = null): void

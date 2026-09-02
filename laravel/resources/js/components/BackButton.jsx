@@ -12,6 +12,14 @@ function BackButton() {
     if (HIDDEN_ON_PATHS.has(location.pathname)) return null;
 
     const handleBack = () => {
+        if (location.state?.returnTo) {
+            navigate(location.state.returnTo.pathname, {
+                replace: true,
+                state: location.state.returnTo.state,
+            });
+            return;
+        }
+
         // location.key is "default" only for the first entry in the history
         // stack (direct load / opened in a new tab) — there is nothing to go
         // back to, so fall back to the home page.

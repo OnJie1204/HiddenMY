@@ -14,12 +14,10 @@ class FavouriteAchievementController extends Controller
 {
     public function index(Request $request, SpecialAchievementService $achievements)
     {
-        $earnedKeys = array_flip($achievements->earnedKeys($request->user()));
-
         $data = $request->user()
             ->favouriteAchievements()
             ->get()
-            ->filter(fn (UserFavouriteAchievement $favourite) => isset($earnedKeys[$favourite->achievement_key]))
+            ->filter(fn (UserFavouriteAchievement $favourite) => $achievements->isValidKey($favourite->achievement_key))
             ->map(fn (UserFavouriteAchievement $favourite) => [
                 'key' => $favourite->achievement_key,
                 'position' => $favourite->position,
@@ -36,7 +34,8 @@ class FavouriteAchievementController extends Controller
             'achievement_keys.*' => ['string', 'distinct', Rule::in($achievements->keys())],
         ]);
 
-        $earnedKeys = array_flip($achievements->earnedKeys($request->user()));
+        $achievements->sync($request->user());
+        $earnedKeys = array_flip($achievements->earnedKeys($request->user()->fresh()));
         $unearnedKeys = array_values(array_filter(
             $validated['achievement_keys'],
             fn (string $key) => ! isset($earnedKeys[$key])
@@ -51,13 +50,16 @@ class FavouriteAchievementController extends Controller
         $data = DB::transaction(function () use ($request, $validated) {
             $user = User::query()->lockForUpdate()->findOrFail($request->user()->id);
 
-            $user->favouriteAchievements()->delete();
+            $user->achievements()
+                ->where('achievement_type', 'special')
+                ->whereNotNull('position')
+                ->update(['position' => null]);
 
             foreach ($validated['achievement_keys'] as $index => $key) {
-                $user->favouriteAchievements()->create([
-                    'achievement_key' => $key,
-                    'position' => $index + 1,
-                ]);
+                $user->achievements()
+                    ->where('achievement_type', 'special')
+                    ->where('achievement_key', $key)
+                    ->update(['position' => $index + 1]);
             }
 
             return $user->favouriteAchievements()->get()->map(fn (UserFavouriteAchievement $favourite) => [

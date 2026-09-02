@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Jobs\VerifyHiddenGemSubmission;
-use App\Models\Category;
 use App\Models\Location;
 use App\Models\User;
 use App\Models\Vote;
@@ -101,7 +100,7 @@ class HiddenGemEditingTest extends TestCase
             ->assertJsonPath('message', 'Unauthorized');
     }
 
-    public function test_existing_delete_behavior_is_unchanged_for_a_verified_gem_with_a_vote(): void
+    public function test_verified_gem_with_a_vote_cannot_be_deleted(): void
     {
         $owner = User::factory()->create();
         $voter = User::factory()->create();
@@ -117,11 +116,12 @@ class HiddenGemEditingTest extends TestCase
         Sanctum::actingAs($owner);
 
         $this->patchJson("/api/hidden-gems/{$gem->id}/status", ['status' => 'deleted'])
-            ->assertOk();
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Verified Hidden Gems can no longer be deleted.');
 
         $this->assertDatabaseHas('locations', [
             'id' => $gem->id,
-            'status' => 'deleted',
+            'status' => 'hidden_gem',
         ]);
         $this->assertDatabaseHas('votes', [
             'location_id' => $gem->id,

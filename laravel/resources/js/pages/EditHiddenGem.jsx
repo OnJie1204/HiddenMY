@@ -45,6 +45,8 @@ export default function EditHiddenGem() {
     const [message, setMessage] = useState("");
     const [messageType, setMessageType] = useState("");
     const [editUnavailableMessage, setEditUnavailableMessage] = useState("");
+    const [editMode, setEditMode] = useState(null);
+    const [repairContext, setRepairContext] = useState(null);
 
     const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
     const [existingImages, setExistingImages] = useState([]);
@@ -63,23 +65,19 @@ export default function EditHiddenGem() {
 
                 const gem = gemRes.data.data;
 
-                // Extra frontend protection
-                const editableStatuses = ["pending", "ai_rejected", "pending_community_vote"];
-                if (Number(gem.vote_count) > 0) {
-                    setEditUnavailableMessage(
-                        "This Hidden Gem can no longer be edited because voting has started."
-                    );
-                    return;
-                }
-
-                if (!editableStatuses.includes(gem.status)) {
+                if (!gem.can_edit) {
                     setEditUnavailableMessage(
                         gem.status === "hidden_gem"
                             ? "Verified Hidden Gems can no longer be edited."
+                            : ["pending", "ai_rejected", "pending_community_vote"].includes(gem.status)
+                                ? "This Hidden Gem can no longer be edited because voting has started."
                             : "This Hidden Gem can no longer be edited."
                     );
                     return;
                 }
+
+                setEditMode(gem.edit_mode);
+                setRepairContext(gem.repair_context || null);
 
                 const loadedFormData = {
                     category_id: gem.category_id || "",
@@ -278,7 +276,10 @@ export default function EditHiddenGem() {
             setMessage(response.data.message);
 
             setTimeout(() => {
-                navigate("/my-hidden-gems");
+                navigate(
+                    editMode === "repair" ? `/hidden-gems/${id}` : "/my-hidden-gems",
+                    editMode === "repair" ? { state: { repairSaved: true } } : undefined
+                );
             }, 1200);
 
         } catch (error) {
@@ -317,7 +318,7 @@ export default function EditHiddenGem() {
             <div className="hidden-gem-form-card">
 
                 <div className="hidden-gem-submit-header">
-                    <h2>Edit Hidden Gem</h2>
+                    <h2>{editMode === "repair" ? "Repair Delisted Hidden Gem" : "Edit Hidden Gem"}</h2>
                 </div>
 
                 {editUnavailableMessage ? (
@@ -334,6 +335,19 @@ export default function EditHiddenGem() {
                     </div>
                 ) : (
                 <form className="edit-hidden-gem-form" onSubmit={handleSubmit}>
+
+                    {editMode === "repair" && (
+                        <div className="hidden-gems-empty">
+                            <h3>This Hidden Gem remains Delisted while you make repairs.</h3>
+                            <p>
+                                {repairContext?.flagged_item === "description"
+                                    ? "The report identified the description."
+                                    : repairContext?.flagged_item
+                                        ? "The report identified a photo."
+                                        : "Update the reported content, then request a Fix Review from the Hidden Gem detail page."}
+                            </p>
+                        </div>
+                    )}
 
                     <input
                         className="form-input"
@@ -372,9 +386,6 @@ export default function EditHiddenGem() {
                                             : prev.longitude,
                                 };
 
-                                // Treat the picked suggestion as an already-resolved
-                                // location so handleSubmit doesn't re-geocode it
-                                // (unless the user edits the address text afterward).
                                 coordinateLocationRef.current = {
                                     source: "loaded",
                                     fields: locationFields(updated),
@@ -640,8 +651,9 @@ export default function EditHiddenGem() {
                     </div>
 
                     <small className="edit-hidden-gem-warning">
-                        Editing this hidden gem will reset it for
-                        re-verification by AI.
+                        {editMode === "repair"
+                            ? "Saving repairs will not relist this Hidden Gem. Return to its detail page to request a Fix Review."
+                            : "Editing this hidden gem will reset it for re-verification by AI."}
                     </small>
 
                     <button

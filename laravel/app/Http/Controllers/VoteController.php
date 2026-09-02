@@ -182,25 +182,31 @@ class VoteController extends Controller
 
     public function myVotes()
     {
-        $votes = Vote::with('location:id,place_name')
+        $votes = Vote::with([
+            'location:id,place_name',
+            'location.firstImage' => fn ($query) => $query->select([
+                'location_images.id',
+                'location_images.location_id',
+                'location_images.image_url',
+            ]),
+        ])
             ->where('user_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->get([
                 'id',
                 'user_id',
                 'location_id',
-                'travel_description',
-                'photo_path',
                 'created_at',
             ])
             ->map(fn (Vote $vote) => [
                 'id' => $vote->id,
                 'created_at' => $vote->created_at,
-                'comment' => $vote->travel_description,
-                'photo_path' => $vote->photo_path,
                 'location' => $vote->location ? [
                     'id' => $vote->location->id,
                     'place_name' => $vote->location->place_name,
+                    'first_image' => $vote->location->firstImage ? [
+                        'image_url' => $vote->location->firstImage->image_url,
+                    ] : null,
                 ] : null,
             ]);
 

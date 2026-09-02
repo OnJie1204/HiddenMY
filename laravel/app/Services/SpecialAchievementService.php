@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Models\Category;
 use App\Models\Location;
 use App\Models\User;
+use App\Models\UserAchievement;
 use App\Models\UserFavouriteAchievement;
 use App\Models\Vote;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class SpecialAchievementService
@@ -59,7 +61,15 @@ class SpecialAchievementService
     /** @return array<string, bool> */
     public function earnedStates(User $user): array
     {
-        return $this->earnedStatesForUserIds([$user->id])->get($user->id, $this->emptyEarnedStates());
+        $earned = $user->achievements()
+            ->where('achievement_type', UserAchievement::TYPE_SPECIAL)
+            ->whereIn('achievement_key', self::KEYS)
+            ->pluck('achievement_key')
+            ->flip();
+
+        return collect($this->emptyEarnedStates())
+            ->map(fn (bool $state, string $key) => $earned->has($key))
+            ->all();
     }
 
     /**
@@ -75,19 +85,17 @@ class SpecialAchievementService
             return collect();
         }
 
-        $earnedStates = $this->earnedStatesForUserIds($ids);
-
         return UserFavouriteAchievement::query()
             ->whereIn('user_id', $ids)
+            ->where('achievement_type', UserAchievement::TYPE_SPECIAL)
+            ->whereIn('achievement_key', self::KEYS)
+            ->whereNotNull('position')
             ->orderBy('user_id')
             ->orderBy('position')
             ->get(['user_id', 'achievement_key', 'position'])
             ->groupBy('user_id')
-            ->map(function (Collection $favourites, $userId) use ($earnedStates) {
-                $states = $earnedStates->get((int) $userId, $this->emptyEarnedStates());
-
+            ->map(function (Collection $favourites) {
                 return $favourites
-                    ->filter(fn (UserFavouriteAchievement $favourite) => $states[$favourite->achievement_key] ?? false)
                     ->take(2)
                     ->map(fn (UserFavouriteAchievement $favourite) => [
                         'key' => $favourite->achievement_key,
@@ -99,7 +107,69 @@ class SpecialAchievementService
     }
 
     /** @return Collection<int, array<string, bool>> */
-    private function earnedStatesForUserIds(iterable $userIds): Collection
+    public function sync(User $user): Collection
+    {
+        return DB::transaction(function () use ($user) {
+            $persistedKeys = $user->achievements()
+                ->lockForUpdate()
+                ->pluck('achievement_key')
+                ->all();
+            $persisted = array_flip($persistedKeys);
+            $liveStates = $this->liveEarnedStatesForUserIds([$user->id])
+                ->get($user->id, $this->emptyEarnedStates());
+            $now = now();
+
+            foreach ($liveStates as $key => $earned) {
+                if (! $earned || isset($persisted[$key])) {
+                    continue;
+                }
+
+                UserAchievement::query()->insertOrIgnore([
+                    'user_id' => $user->id,
+                    'achievement_key' => $key,
+                    'achievement_type' => UserAchievement::TYPE_SPECIAL,
+                    'earned_at' => $now,
+                    'position' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $persisted[$key] = true;
+            }
+
+            $regions = Location::query()
+                ->where('user_id', $user->id)
+                ->where('status', 'hidden_gem')
+                ->pluck('state')
+                ->map(fn ($state) => $this->canonicalRegion((string) $state))
+                ->filter(fn ($state) => in_array($state, self::ALL_REGIONS, true))
+                ->unique();
+
+            foreach ($regions as $region) {
+                $key = $this->regionKey($region);
+
+                if (isset($persisted[$key])) {
+                    continue;
+                }
+
+                UserAchievement::query()->insertOrIgnore([
+                    'user_id' => $user->id,
+                    'achievement_key' => $key,
+                    'achievement_type' => UserAchievement::TYPE_REGION_STAMP,
+                    'earned_at' => $now,
+                    'position' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $persisted[$key] = true;
+            }
+
+            return $user->achievements()
+                ->orderBy('earned_at')
+                ->get(['achievement_key', 'achievement_type', 'earned_at', 'position']);
+        });
+    }
+
+    private function liveEarnedStatesForUserIds(iterable $userIds): Collection
     {
         $ids = collect($userIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
 
@@ -169,6 +239,11 @@ class SpecialAchievementService
     public function earnedKeys(User $user): array
     {
         return array_keys(array_filter($this->earnedStates($user)));
+    }
+
+    public function regionKey(string $region): string
+    {
+        return 'region:'.Str::slug($this->canonicalRegion($region));
     }
 
     private function canonicalRegion(string $region): string

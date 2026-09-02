@@ -2,25 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-
-class UserFavouriteAchievement extends Model
+class UserFavouriteAchievement extends UserAchievement
 {
-    protected $fillable = [
-        'user_id',
-        'achievement_key',
-        'position',
-    ];
+    protected $table = 'user_achievements';
 
-    protected function casts(): array
+    protected static function booted(): void
     {
-        return [
-            'position' => 'integer',
-        ];
-    }
-
-    public function user()
-    {
-        return $this->belongsTo(User::class);
+        static::creating(function (UserFavouriteAchievement $achievement) {
+            $achievement->achievement_type ??= self::TYPE_SPECIAL;
+            $achievement->earned_at ??= now();
+        });
     }
 }
