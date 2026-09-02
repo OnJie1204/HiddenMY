@@ -11255,3 +11255,71 @@ pre {
     margin: 0 !important;
     justify-self: start !important;
 }
+
+.hidden-gems-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 32px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.hidden-gems-pagination-numbers {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.hidden-gems-pagination-btn,
+.hidden-gems-pagination-number {
+    min-width: 40px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.hidden-gems-pagination-btn:hover:not(:disabled),
+.hidden-gems-pagination-number:hover {
+    border-color: #F97316;
+    color: #F97316;
+}
+
+.hidden-gems-pagination-active {
+    background: #F97316;
+    border-color: #F97316;
+    color: #FFFFFF;
+}
+
+.hidden-gems-pagination-active:hover {
+    color: #FFFFFF;
+}
+
+.hidden-gems-pagination-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+    .hidden-gems-pagination {
+        gap: 6px;
+    }
+
+    .hidden-gems-pagination-btn,
+    .hidden-gems-pagination-number {
+        min-width: 36px;
+        height: 36px;
+        padding: 0 10px;
+        font-size: 13px;
+    }
+}
