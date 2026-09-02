@@ -1435,7 +1435,7 @@ export default function TripItineraryDetail() {
             )}
 
             {routeError && (
-                <p className="trip-location-order-status trip-location-order-error" role="alert">
+                <p className="trip-location-order-status trip-location-order-error trip-route-error" role="alert">
                     {routeError}
                 </p>
             )}
