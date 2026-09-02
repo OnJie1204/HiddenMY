@@ -11187,3 +11187,71 @@ pre {
     font-size: 0.8rem;
     color: var(--color-text-muted);
 }
+
+
+.gem-detail-comment-text-wrapper {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: auto auto !important;
+    align-items: center !important;
+
+    width: 100% !important;
+    column-gap: 0 !important;
+    row-gap: 14px !important;
+}
+
+.gem-detail-comment-text-wrapper .gem-detail-comment-text {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+
+    padding: 14px 0 14px 16px !important;
+
+    background: #F8F8F7 !important;
+    border-left: 3px solid #F97316 !important;
+    border-radius: 12px 0 0 12px !important;
+}
+
+.gem-detail-comment-text-wrapper .gem-detail-comment-actions {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+
+    align-self: stretch !important;
+
+    width: auto !important;
+    margin: 0 !important;
+    padding: 8px 10px 8px 8px !important;
+    gap: 6px !important;
+
+    background: #F8F8F7 !important;
+    border-radius: 0 12px 12px 0 !important;
+
+    flex-shrink: 0 !important;
+}
+
+.gem-detail-comment-text-wrapper .gem-detail-comment-edit-btn,
+.gem-detail-comment-text-wrapper .gem-detail-comment-delete-btn {
+    width: 32px !important;
+    height: 32px !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    flex-shrink: 0 !important;
+}
+
+.gem-detail-comment-text-wrapper .gem-detail-comment-photo-display {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+
+    margin: 0 !important;
+    justify-self: start !important;
+}

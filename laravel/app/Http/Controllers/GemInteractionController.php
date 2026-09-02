@@ -204,6 +204,7 @@ class GemInteractionController extends Controller
         ]);
     }
 
+
     public function myRatings()
     {
         $ratings = GemInteraction::query()
@@ -429,12 +430,6 @@ class GemInteractionController extends Controller
         if ($comment->user_id !== $user->id) {
             return response()->json([
                 'message' => 'You are not authorized to delete this comment'
-            ], 403);
-        }
-
-        if (!$comment->isCommentEditable()) {
-            return response()->json([
-                'message' => 'Comments can only be deleted within 72 hours of posting.',
             ], 403);
         }
 
