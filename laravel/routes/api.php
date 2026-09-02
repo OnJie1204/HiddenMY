@@ -37,6 +37,7 @@ Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/resend-verification', [AuthController::class, 'resendVerification']);
+Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']);
 
 // Email verification
 Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
@@ -63,7 +64,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile', [AuthController::class, 'updateProfile']);
     Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
-    Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']);
     Route::get('/me/favourite-achievements', [FavouriteAchievementController::class, 'index']);
     Route::put('/me/favourite-achievements', [FavouriteAchievementController::class, 'update']);
     Route::post('/me/achievements/sync', [AchievementController::class, 'sync']);
