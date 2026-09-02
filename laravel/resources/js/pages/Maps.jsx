@@ -12,6 +12,7 @@ import {
     getPopularHiddenGems,
     getNearbyAttractions,
     getNearbyAttractionsAt,
+    getNearbyGems,
     getHiddenGemsInBounds,
     getHiddenGemDetail,
     getCategories,
@@ -174,7 +175,7 @@ function Maps({ user }){
     const [panelOpen, setPanelOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState(null); // null | 'hidden_gem' | 'pending_community_vote'
     const [categories, setCategories] = useState([]);
-    const [categoryFilter, setCategoryFilter] = useState(null); // null = all categories
+    const [categoryFilter, setCategoryFilter] = useState([]); // [] = all categories, otherwise a set of selected category names
     const [wishlistOnly, setWishlistOnly] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [nearby, setNearby] = useState([]);
@@ -522,23 +523,36 @@ function Maps({ user }){
         setNearbyLoading(true);
         setTimeout(() => {
             if (activeGemIdRef.current !== activeGem.id) return;
+            Promise.allSettled([
+                getNearbyGems(activeGem.id),
+                getNearbyAttractions(activeGem.id),
+            ]).then(([gemsResult, attractionsResult]) => {
+                if (activeGemIdRef.current !== activeGem.id) return;
 
-            getNearbyAttractions(activeGem.id)
-                .then(res => {
-                    if (activeGemIdRef.current !== activeGem.id) return;
-                    setNearby(res.data.data || []);
-                })
-                .catch(err => {
-                    console.log(err);
-                    if (activeGemIdRef.current === activeGem.id) setNearby([]);
-                })
-                .finally(() => {
-                    if (activeGemIdRef.current === activeGem.id) setNearbyLoading(false);
-                });
+                const nearbyGems = gemsResult.status === "fulfilled" ? (gemsResult.value.data.data || []) : [];
+                const nearbyAttractions = attractionsResult.status === "fulfilled" ? (attractionsResult.value.data.data || []) : [];
+                if (gemsResult.status === "rejected") console.log(gemsResult.reason);
+                if (attractionsResult.status === "rejected") console.log(attractionsResult.reason);
+
+                setNearby([...nearbyGems, ...nearbyAttractions].sort((a, b) => a.distance - b.distance));
+            }).finally(() => {
+                if (activeGemIdRef.current === activeGem.id) setNearbyLoading(false);
+            });
         }, 400);
     }, []);
 
     const selectNearby = useCallback((place) => {
+        if (place.source === "database") {
+            openGroup([normalizeGem({
+                id: place.id,
+                place_name: place.name,
+                latitude: place.latitude,
+                longitude: place.longitude,
+                category: { name: place.type },
+                status: place.status,
+            }, "database")]);
+            return;
+        }
         openGroup([normalizeGem(place, "attraction")]);
     }, []);
 
@@ -589,8 +603,8 @@ function Maps({ user }){
     const normalizedGems = useMemo(() => {
         let gems = hiddenGems.map(raw => normalizeGem(raw, "database"));
 
-        if (categoryFilter) {
-            gems = gems.filter(g => g.category === categoryFilter);
+        if (categoryFilter.length > 0) {
+            gems = gems.filter(g => categoryFilter.includes(g.category));
         }
         if (wishlistOnly) {
             gems = gems.filter(g => wishlistIds.has(g.id));
@@ -619,9 +633,16 @@ function Maps({ user }){
     // results, a map-click explore, and any search hits — de-duplicated by id.
     const osmMarkers = useMemo(() => {
         const byId = new Map();
-        [...nearby, ...explorePlaces, ...clickedPlaces, ...searchResults].forEach(p => {
-            if (p && p.id != null && !byId.has(p.id)) byId.set(p.id, p);
-        });
+        // `nearby` now also carries nearby hidden gems (for the side panel's
+        // "Near this gem" list) alongside OSM attractions — gems already have
+        // their own proper marker via the main gems layer below, so exclude
+        // them here or AttractionMarker renders a second, generic pin on top
+        // of them (it has no gem-specific icon, just a category fallback).
+        [...nearby, ...explorePlaces, ...clickedPlaces, ...searchResults]
+            .filter(p => p && p.source !== "database")
+            .forEach(p => {
+                if (p.id != null && !byId.has(p.id)) byId.set(p.id, p);
+            });
         return Array.from(byId.values());
     }, [nearby, explorePlaces, clickedPlaces, searchResults]);
 
@@ -655,7 +676,20 @@ function Maps({ user }){
         { value: "pending_community_vote", label: "Awaiting Votes" },
     ];
 
-    const activeFilterCount = (statusFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (wishlistOnly ? 1 : 0);
+    const activeFilterCount = (statusFilter ? 1 : 0) + (categoryFilter.length > 0 ? 1 : 0) + (wishlistOnly ? 1 : 0);
+
+    function toggleCategoryFilter(name) {
+        setCategoryFilter(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]);
+    }
+
+    // Resets every filter/discovery toggle back to the app's defaults
+    function clearAllFilters() {
+        setStatusFilter(null);
+        setCategoryFilter([]);
+        setWishlistOnly(false);
+        setExploreOn(true);
+        setClickExploreOn(false);
+    }
 
     return (
         <div className="maps-page">
@@ -802,7 +836,18 @@ function Maps({ user }){
                     {filtersOpen && (
                         <div className="maps-filters-panel">
                             <div className="maps-filters-group">
-                                <span className="maps-filters-group-label">Status</span>
+                                <div className="maps-filters-group-header">
+                                    <span className="maps-filters-group-label">Status</span>
+                                    {activeFilterCount > 0 && (
+                                        <button
+                                            type="button"
+                                            className="maps-filters-clear"
+                                            onClick={clearAllFilters}
+                                        >
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="maps-category-pills">
                                     {statusFilters.map((f) => (
                                         <button
@@ -823,8 +868,8 @@ function Maps({ user }){
                                     <div className="maps-category-pills">
                                         <button
                                             type="button"
-                                            className={`maps-category-pill ${!categoryFilter ? "active" : ""}`}
-                                            onClick={() => setCategoryFilter(null)}
+                                            className={`maps-category-pill ${categoryFilter.length === 0 ? "active" : ""}`}
+                                            onClick={() => setCategoryFilter([])}
                                         >
                                             All
                                         </button>
@@ -832,8 +877,8 @@ function Maps({ user }){
                                             <button
                                                 type="button"
                                                 key={c.id}
-                                                className={`maps-category-pill ${categoryFilter === c.name ? "active" : ""}`}
-                                                onClick={() => setCategoryFilter(c.name)}
+                                                className={`maps-category-pill ${categoryFilter.includes(c.name) ? "active" : ""}`}
+                                                onClick={() => toggleCategoryFilter(c.name)}
                                             >
                                                 {c.name}
                                             </button>

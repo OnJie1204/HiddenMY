@@ -188,6 +188,11 @@ class TripItineraryController extends Controller
                     ->whereKey($location['id'])
                     ->update(['order_number' => $location['sequence']]);
             }
+
+            // The updates above run through the query builder, which doesn't
+            // fire model events, so TripLocation's $touches never runs here —
+            // bump the itinerary's "Last Modified" date explicitly.
+            $tripItinerary->touch();
         });
 
         return response()->json([
@@ -231,7 +236,7 @@ class TripItineraryController extends Controller
         }
 
         $request->validate([
-            'trip_name' => 'required|string|max:50',
+            'trip_name' => 'required|string|min:1|max:10',
         ]);
 
         $tripItinerary->update([

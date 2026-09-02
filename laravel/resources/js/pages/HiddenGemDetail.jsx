@@ -4,6 +4,7 @@ import { getHiddenGemDetail } from "../api/hiddenGems";
 import { getMe } from "../api/auth";
 import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
+import VerifyReportModal from "../components/VerifyReportModal";
 import Spinner from "../components/Spinner";
 import SignInPrompt from "../components/SignInPrompt";
 import { getReportForLocation, requestFixReview } from "../api/reports";
@@ -80,6 +81,9 @@ export default function HiddenGemDetail({ user }) {
     const [itineraries, setItineraries] = useState([]);
     const [itineraryOpen, setItineraryOpen] = useState(false);
     const [itineraryStatus, setItineraryStatus] = useState(null);
+    const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+    const [activeReport, setActiveReport] = useState(null);
+    const [loadingReport, setLoadingReport] = useState(false);
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
     const galleryImages = gem?.images ?? [];
@@ -418,6 +422,26 @@ export default function HiddenGemDetail({ user }) {
         }
     };
 
+    // Dedicated "Help Verify" entry point on the detail page — separate from
+    // the small report-icon toggle, which visitors could easily miss or
+    // mistake for "report a new problem" instead of "verify the existing one".
+    async function handleHelpVerify() {
+        if (!currentUser) {
+            requireSignIn("Login to help verify this report.");
+            return;
+        }
+        setLoadingReport(true);
+        try {
+            const res = await getReportForLocation(gem.id);
+            setActiveReport(res.data.data);
+            setVerifyModalOpen(true);
+        } catch (error) {
+            console.error("Error checking report status:", error);
+        } finally {
+            setLoadingReport(false);
+        }
+    }
+
     const showStories = async () => {
         setActiveTab("stories");
 
@@ -573,13 +597,7 @@ export default function HiddenGemDetail({ user }) {
                                 <button
                                     type="button"
                                     className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
-                                    onClick={() => {
-                                        if (!currentUser) {
-                                            requireSignIn("Login to compare hidden gems.");
-                                            return;
-                                        }
-                                        toggleCompare(gem);
-                                    }}
+                                    onClick={() => toggleCompare(gem)}
                                     disabled={!isComparing(gem.id) && !canAddMore}
                                     title={isComparing(gem.id)
                                         ? "Remove from comparison"
@@ -871,6 +889,23 @@ export default function HiddenGemDetail({ user }) {
                                 </button>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {gem.report_status === "under_review" && Number(gem.user_id) !== Number(currentUser?.id) && (
+                    <div className="report-banner">
+                        <div className="report-banner-text">
+                            <strong>This gem has a report under review</strong>
+                            <p>If you've visited recently, help the community verify whether the issue is real.</p>
+                        </div>
+                        <button
+                            type="button"
+                            className="report-banner-verify-btn"
+                            onClick={handleHelpVerify}
+                            disabled={loadingReport}
+                        >
+                            {loadingReport ? "Loading…" : "Help Verify"}
+                        </button>
                     </div>
                 )}
 
@@ -1344,6 +1379,17 @@ export default function HiddenGemDetail({ user }) {
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
                 message={signInMessage}
+            />
+
+            <VerifyReportModal
+                report={activeReport}
+                isOpen={verifyModalOpen}
+                onClose={() => setVerifyModalOpen(false)}
+                onVerifySuccess={(data) => {
+                    if (data?.location) {
+                        setGem((prev) => (prev ? { ...prev, ...data.location } : prev));
+                    }
+                }}
             />
 
             {selectedPhoto && (
