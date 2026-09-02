@@ -289,6 +289,7 @@ export default function TripItineraryDetail() {
     const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+    const [deleteError, setDeleteError] = useState("");
     const [isLoadingItinerary, setIsLoadingItinerary] = useState(true);
     const [successMessage, setSuccessMessage] = useState("");
 
@@ -717,6 +718,7 @@ export default function TripItineraryDetail() {
     const handleDelete = async () => {
 
         setIsDeletingTrip(true);
+        setDeleteError("");
 
         try {
 
@@ -727,6 +729,7 @@ export default function TripItineraryDetail() {
         } catch (err) {
 
             console.error(err);
+            setDeleteError(err?.response?.data?.message || "Unable to delete this itinerary. Please try again.");
             setIsDeletingTrip(false);
 
         }
@@ -983,7 +986,10 @@ export default function TripItineraryDetail() {
 
                     <button
                         className="trip-detail-btn trip-detail-delete-btn"
-                        onClick={() => setIsConfirmingDelete(true)}
+                        onClick={() => {
+                            setDeleteError("");
+                            setIsConfirmingDelete(true);
+                        }}
                     >
                         Delete
                     </button>
@@ -1001,6 +1007,11 @@ export default function TripItineraryDetail() {
                     <div className="delete-modal" onClick={(event) => event.stopPropagation()}>
                         <h2>Delete Itinerary?</h2>
                         <p>Are you sure you want to delete this trip itinerary? This action cannot be undone.</p>
+                        {deleteError && (
+                            <p className="delete-modal-error" role="alert">
+                                {deleteError}
+                            </p>
+                        )}
                         <div className="delete-modal-actions">
                             <button
                                 className="delete-modal-cancel"
