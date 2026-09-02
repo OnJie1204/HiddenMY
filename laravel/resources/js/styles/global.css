@@ -2978,6 +2978,19 @@ img.avatar {
     color: #b91c1c;
 }
 
+.trip-route-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.trip-route-error::before {
+    content: "⚠";
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
 .trip-detail-location-icon {
     font-size: 24px;
 }
@@ -7809,6 +7822,15 @@ img.avatar {
     font-size: 14px;
     line-height: 1.6;
     color: #6b7280;
+}
+
+.delete-modal-error {
+    margin-top: 14px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 13px;
 }
 
 .delete-modal-actions {
