@@ -21,6 +21,11 @@ function VerifyEmail() {
         <h2>Email verification</h2>
         {message && !error && <p className="msg-success">{message}</p>}
         {error && <p className="msg-error">{error}</p>}
+        {error && (
+          <p className="auth-link-row">
+            Link expired or invalid? <Link to="/resend-verification">Request a new verification email</Link>
+          </p>
+        )}
         <p className="auth-link-row"><Link to="/login">Go to login</Link></p>
       </div>
     </div>
