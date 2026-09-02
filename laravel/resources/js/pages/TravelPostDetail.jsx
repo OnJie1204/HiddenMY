@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getTravelPostDetail, deleteTravelPost } from "../api/travelPosts";
 import { getMe } from "../api/auth";
 import Avatar from "../components/Avatar";
+import PhotoCarousel from "../components/PhotoCarousel";
+import Spinner from "../components/Spinner";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import SignInPrompt from "../components/SignInPrompt";
 
@@ -19,6 +21,7 @@ export default function TravelPostDetail({ user }) {
     const [deleting, setDeleting] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
+    const [lightboxUrl, setLightboxUrl] = useState(null);
 
     useEffect(() => {
         getMe().then((res) => setCurrentUserId(res.data.id)).catch(() => {});
@@ -47,11 +50,7 @@ export default function TravelPostDetail({ user }) {
     }
 
     if (loading) {
-        return (
-            <div className="hidden-gems-loading">
-                <p>Loading travel post...</p>
-            </div>
-        );
+        return <Spinner size="lg" label="Loading travel post…" />;
     }
 
     if (error || !post) {
@@ -139,9 +138,21 @@ export default function TravelPostDetail({ user }) {
 
             {post.images?.length > 0 && (
                 <div className="travel-post-gallery">
-                    {post.images.map((image) => (
-                        <img key={image.id} src={image.image_url} alt="" className="travel-post-gallery-image" />
-                    ))}
+                    <PhotoCarousel
+                        images={post.images}
+                        alt={post.title}
+                        className="travel-post-carousel"
+                        onImageClick={(url) => setLightboxUrl(url)}
+                    />
+                </div>
+            )}
+
+            {lightboxUrl && (
+                <div className="photo-modal-overlay" onClick={() => setLightboxUrl(null)}>
+                    <div className="photo-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <button className="photo-modal-close" onClick={() => setLightboxUrl(null)}>✕</button>
+                        <img src={lightboxUrl} alt="" className="photo-modal-image" />
+                    </div>
                 </div>
             )}
 
@@ -156,15 +167,13 @@ export default function TravelPostDetail({ user }) {
                                 onClick={() => navigate(`/hidden-gems/${location.id}`)}
                             >
                                 <div className="hidden-gems-card-image">
-                                    {location.images?.[0]?.image_url ? (
-                                        <img
-                                            src={location.images[0].image_url}
-                                            alt={location.place_name}
-                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                        />
-                                    ) : (
-                                        <div className="hidden-gems-card-no-image">No Image</div>
-                                    )}
+                                    <PhotoCarousel
+                                        images={location.images || []}
+                                        alt={location.place_name}
+                                        compact
+                                        fill
+                                        showThumbs={false}
+                                    />
                                 </div>
                                 <div className="hidden-gems-card-content">
                                     <h2>{location.place_name}</h2>

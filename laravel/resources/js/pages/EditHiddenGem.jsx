@@ -1,4 +1,6 @@
 import LocationPickerMap from "../components/LocationPickerMap";
+import AddressAutocomplete from "../components/AddressAutocomplete";
+import Spinner from "../components/Spinner";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -294,11 +296,7 @@ export default function EditHiddenGem() {
     };
 
     if (loading) {
-        return (
-            <div className="hidden-gems-loading">
-                <p>Loading hidden gem...</p>
-            </div>
-        );
+        return <Spinner size="lg" label="Loading hidden gem…" />;
     }
 
     return (
@@ -346,13 +344,54 @@ export default function EditHiddenGem() {
                         required
                     />
 
-                    <input
+                    <AddressAutocomplete
                         className="form-input"
                         name="address"
                         placeholder="Address"
                         value={formData.address}
-                        onChange={handleChange}
+                        latitude={formData.latitude}
+                        longitude={formData.longitude}
                         required
+                        onChange={(text) =>
+                            setFormData((prev) => ({ ...prev, address: text }))
+                        }
+                        onSelect={(suggestion) => {
+                            setFormData((prev) => {
+                                const updated = {
+                                    ...prev,
+                                    address: suggestion.address || prev.address,
+                                    state: suggestion.state || prev.state,
+                                    postcode: suggestion.postcode || prev.postcode,
+                                    latitude:
+                                        suggestion.latitude != null
+                                            ? String(suggestion.latitude)
+                                            : prev.latitude,
+                                    longitude:
+                                        suggestion.longitude != null
+                                            ? String(suggestion.longitude)
+                                            : prev.longitude,
+                                };
+
+                                // Treat the picked suggestion as an already-resolved
+                                // location so handleSubmit doesn't re-geocode it
+                                // (unless the user edits the address text afterward).
+                                coordinateLocationRef.current = {
+                                    source: "loaded",
+                                    fields: locationFields(updated),
+                                    missing: {
+                                        address: false,
+                                        state: false,
+                                        postcode: false,
+                                    },
+                                    latitude: updated.latitude,
+                                    longitude: updated.longitude,
+                                };
+
+                                return updated;
+                            });
+
+                            setPostcodeDetectionFailed(false);
+                        }}
                     />
 
                     <select
@@ -610,7 +649,11 @@ export default function EditHiddenGem() {
                         className="hidden-gem-submit-btn"
                         disabled={saving}
                     >
-                        {saving ? "Saving..." : "Save Changes"}
+                        {saving ? (
+                            <Spinner size="sm" inline label="Saving…" className="btn-spinner" />
+                        ) : (
+                            "Save Changes"
+                        )}
                     </button>
 
                 </form>

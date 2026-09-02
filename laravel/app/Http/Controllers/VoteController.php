@@ -8,22 +8,31 @@ use App\Models\CheckIn;
 use App\Support\Geo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 
 class VoteController extends Controller
 {
+    // Maximum allowed distance for location verification in kilometres
     private const MAX_CHECKIN_DISTANCE = 5.0;
 
+    /**
+     * Check whether the authenticated user is eligible to vote
+     * for the selected Pending Hidden Gem.
+     */
     public function checkEligibility($locationId)
     {
         $user = Auth::user();
-        
+
+        // User must be authenticated before voting
         if (!$user) {
-            return response()->json(['eligible' => false, 'message' => 'Please login first'], 401);
+            return response()->json([
+                'eligible' => false,
+                'message' => 'Please login first'
+            ], 401);
         }
 
         $location = Location::findOrFail($locationId);
 
+        // Prevent users from voting for their own Hidden Gem
         if ($location->user_id === $user->id) {
             return response()->json([
                 'eligible' => false,
@@ -31,6 +40,7 @@ class VoteController extends Controller
             ]);
         }
 
+        // Voting is only available for Pending Hidden Gems
         if ($location->status !== 'pending_community_vote') {
             return response()->json([
                 'eligible' => false,
@@ -38,6 +48,7 @@ class VoteController extends Controller
             ]);
         }
 
+        // Prevent duplicate voting by the same user
         $existingVote = Vote::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->first();
@@ -49,6 +60,7 @@ class VoteController extends Controller
             ]);
         }
 
+        // Check whether the user has previously verified this location
         $hasCheckIn = CheckIn::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->exists();
@@ -57,38 +69,44 @@ class VoteController extends Controller
             'eligible' => true,
             'user_id' => $user->id,
             'has_check_in' => $hasCheckIn,
-            'message' => $hasCheckIn ? 'You can vote!' : 'Please check-in at this location first',
+            'message' => $hasCheckIn
+                ? 'You can vote!'
+                : 'Please check-in at this location first',
             'location' => $location
         ]);
     }
 
+    /**
+     * Submit a vote for a Pending Hidden Gem.
+     */
     public function store(Request $request, $locationId)
     {
         $user = Auth::user();
 
+        // User must be authenticated before submitting a vote
         if (!$user) {
-            return response()->json(['message' => 'Please login first'], 401);
+            return response()->json([
+                'message' => 'Please login first'
+            ], 401);
         }
 
         $location = Location::findOrFail($locationId);
 
-        $validated = $request->validate([
-            'comment' => 'nullable|string|max:1000',
-            'photo' => 'nullable|image|max:5120'
-        ]);
-
+        // Prevent users from voting for their own Hidden Gem
         if ($location->user_id === $user->id) {
             return response()->json([
                 'message' => 'You cannot vote for your own hidden gem'
             ], 403);
         }
 
+        // Only Pending Hidden Gems can receive community votes
         if ($location->status !== 'pending_community_vote') {
             return response()->json([
                 'message' => $this->notVotableMessage($location->status)
             ], 400);
         }
 
+        // Prevent duplicate votes
         $existingVote = Vote::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->first();
@@ -99,6 +117,12 @@ class VoteController extends Controller
             ], 400);
         }
 
+        /*
+         * Require a recent successful location verification.
+         *
+         * The check-in must belong to the same user and Hidden Gem
+         * and must have been verified within the last five minutes.
+         */
         $recentCheckIn = CheckIn::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->where('check_in_at', '>=', now()->subMinutes(5))
@@ -111,46 +135,25 @@ class VoteController extends Controller
             ], 403);
         }
 
-        $photoPath = null;
-        if ($request->hasFile('photo')) {
-            $photo = $request->file('photo');
-            $fileName = 'votes/' . uniqid() . '.' . $photo->getClientOriginalExtension();
-
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
-                'apikey' => env('SUPABASE_KEY'),
-                'Content-Type' => $photo->getMimeType(),
-            ])->withBody(
-                file_get_contents($photo->getRealPath()),
-                $photo->getMimeType()
-            )->post(
-                env('SUPABASE_URL') . '/storage/v1/object/vote_photos/' . $fileName
-            );
-
-            if ($response->failed()) {
-                return response()->json([
-                    'message' => 'Failed to upload vote photo.',
-                    'error' => $response->json()
-                ], 500);
-            }
-
-            $photoPath = env('SUPABASE_URL')
-                . '/storage/v1/object/public/vote_photos/'
-                . $fileName;
-        }
-
+        // Create the vote record
         $vote = Vote::create([
             'user_id' => $user->id,
             'location_id' => $locationId,
-            'travel_description' => $validated['comment'] ?? null,
-            'photo_path' => $photoPath,
         ]);
 
+        // Increase the community voting progress
         $location->increment('vote_count');
 
+        /*
+         * Automatically verify the Hidden Gem when the required
+         * community voting threshold has been reached.
+         */
         $threshold = $location->verification_threshold ?? 10;
+
         if ($location->vote_count >= $threshold) {
-            $location->update(['status' => 'hidden_gem']);
+            $location->update([
+                'status' => 'hidden_gem'
+            ]);
         }
 
         return response()->json([
@@ -161,15 +164,26 @@ class VoteController extends Controller
         ], 201);
     }
 
+    /**
+     * Return an appropriate message when a location cannot be voted on.
+     */
     private function notVotableMessage(string $status): string
     {
         return match ($status) {
-            'hidden_gem' => 'This location is already a recognized Hidden Gem.',
-            'ai_rejected' => 'This location did not pass AI verification and is not open for voting.',
-            default => 'This location has not yet passed AI verification, so it cannot be voted on.',
+            'hidden_gem' =>
+                'This location is already a recognized Hidden Gem.',
+
+            'ai_rejected' =>
+                'This location did not pass AI verification and is not open for voting.',
+
+            default =>
+                'This location has not yet passed AI verification, so it cannot be voted on.',
         };
     }
 
+    /**
+     * Get all votes submitted for a specific Hidden Gem.
+     */
     public function getVotes($locationId)
     {
         $votes = Vote::with('user:id,name,avatar_url')
@@ -177,131 +191,60 @@ class VoteController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return response()->json(['data' => $votes]);
+        return response()->json([
+            'data' => $votes
+        ]);
     }
 
+    /**
+     * Get the voting history of the authenticated user.
+     */
     public function myVotes()
     {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Please login first'
+            ], 401);
+        }
+
         $votes = Vote::with('location:id,place_name')
-            ->where('user_id', Auth::id())
+            ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get([
                 'id',
                 'user_id',
                 'location_id',
-                'travel_description',
-                'photo_path',
                 'created_at',
-            ])
-            ->map(fn (Vote $vote) => [
-                'id' => $vote->id,
-                'created_at' => $vote->created_at,
-                'comment' => $vote->travel_description,
-                'photo_path' => $vote->photo_path,
-                'location' => $vote->location ? [
-                    'id' => $vote->location->id,
-                    'place_name' => $vote->location->place_name,
-                ] : null,
+                'updated_at',
             ]);
 
-        return response()->json(['data' => $votes]);
-    }
-
-    public function updateComment(Request $request, Vote $vote)
-    {
-        if ($vote->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        if (!$vote->isCommentEditable()) {
-            return response()->json([
-                'message' => 'Comments can only be edited within 72 hours of posting.',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'comment' => 'required|string|max:1000',
-        ]);
-
-        $vote->update([
-            'travel_description' => $validated['comment'],
-        ]);
-
         return response()->json([
-            'message' => 'Comment updated successfully.',
-            'data' => $vote,
+            'data' => $votes
         ]);
     }
 
-    public function deleteComment(Vote $vote)
-    {
-        if ($vote->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $vote->update(['travel_description' => null]);
-
-        return response()->json([
-            'message' => 'Comment deleted successfully.',
-            'data' => $vote,
-        ]);
-    }
-
-    public function deletePhoto(Vote $vote)
-    {
-        if ($vote->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $photoPath = $vote->photo_path;
-        $publicPrefix = rtrim((string) env('SUPABASE_URL'), '/')
-            . '/storage/v1/object/public/vote_photos/';
-
-        if ($photoPath && str_starts_with($photoPath, $publicPrefix)) {
-            $objectPath = substr($photoPath, strlen($publicPrefix));
-            $decodedObjectPath = rawurldecode($objectPath);
-
-            if (
-                $objectPath !== ''
-                && !str_starts_with($decodedObjectPath, '/')
-                && !str_contains($decodedObjectPath, '..')
-            ) {
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
-                    'apikey' => env('SUPABASE_KEY'),
-                ])->delete(
-                    rtrim((string) env('SUPABASE_URL'), '/')
-                    . '/storage/v1/object/vote_photos/'
-                    . $objectPath
-                );
-
-                if ($response->failed()) {
-                    return response()->json([
-                        'message' => 'Failed to delete vote photo.',
-                        'error' => $response->json(),
-                    ], 500);
-                }
-            }
-        }
-
-        $vote->update(['photo_path' => null]);
-
-        return response()->json([
-            'message' => 'Photo deleted successfully.',
-            'data' => $vote,
-        ]);
-    }
-
+    /**
+     * Verify the user's submitted GPS location before voting.
+     */
     public function checkIn(Request $request, $locationId)
     {
         $user = Auth::user();
 
+        // User must be authenticated before location verification
         if (!$user) {
-            return response()->json(['message' => 'Please login first'], 401);
+            return response()->json([
+                'message' => 'Please login first'
+            ], 401);
         }
 
         $location = Location::findOrFail($locationId);
 
+        /*
+         * Find an existing check-in for the same user and Hidden Gem.
+         * It will be updated after successful location verification.
+         */
         $existingCheckIn = CheckIn::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->first();
@@ -309,12 +252,17 @@ class VoteController extends Controller
         $userLat = $request->input('latitude');
         $userLng = $request->input('longitude');
 
+        // Latitude and longitude are required for verification
         if (!$userLat || !$userLng) {
             return response()->json([
                 'message' => 'Please provide your location to check in'
             ], 400);
         }
 
+        /*
+         * Calculate the distance between the submitted GPS coordinates
+         * and the coordinates of the selected Hidden Gem.
+         */
         $distance = $this->calculateDistance(
             (float) $userLat,
             (float) $userLng,
@@ -322,14 +270,28 @@ class VoteController extends Controller
             (float) $location->longitude
         );
 
+        // Reject the location when it is outside the allowed 5 km radius
         if ($distance > self::MAX_CHECKIN_DISTANCE) {
             return response()->json([
-                'message' => 'You are ' . round($distance, 2) . ' km away. You must be within ' . self::MAX_CHECKIN_DISTANCE . ' km to check in.',
+                'message' =>
+                    'You are '
+                    . round($distance, 2)
+                    . ' km away. You must be within '
+                    . self::MAX_CHECKIN_DISTANCE
+                    . ' km to check in.',
+
                 'distance' => round($distance, 2),
                 'max_distance' => self::MAX_CHECKIN_DISTANCE
             ], 400);
         }
 
+        /*
+         * Update an existing check-in or create a new one.
+         *
+         * check_in_at is refreshed every time the location is
+         * successfully verified so the voting process can enforce
+         * the recent five-minute verification requirement.
+         */
         if ($existingCheckIn) {
             $existingCheckIn->update([
                 'latitude' => $userLat,
@@ -349,7 +311,11 @@ class VoteController extends Controller
         }
 
         return response()->json([
-            'message' => 'Check-in successful! You are ' . round($distance, 2) . ' km away.',
+            'message' =>
+                'Check-in successful! You are '
+                . round($distance, 2)
+                . ' km away.',
+
             'checked_in' => true,
             'distance' => round($distance, 2),
             'max_distance' => self::MAX_CHECKIN_DISTANCE,
@@ -357,8 +323,19 @@ class VoteController extends Controller
         ]);
     }
 
+    /**
+     * Calculate the distance between two geographical coordinates.
+     *
+     * Geo::distanceMeters() returns metres, so the result
+     * is converted to kilometres for the voting requirement.
+     */
     private function calculateDistance($lat1, $lon1, $lat2, $lon2)
     {
-        return Geo::distanceMeters($lat1, $lon1, $lat2, $lon2) / 1000;
+        return Geo::distanceMeters(
+            $lat1,
+            $lon1,
+            $lat2,
+            $lon2
+        ) / 1000;
     }
 }

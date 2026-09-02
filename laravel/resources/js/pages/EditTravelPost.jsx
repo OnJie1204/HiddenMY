@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getTravelPostDetail, updateTravelPost } from "../api/travelPosts";
 import { getTripItineraries } from "../api/TripItinerary";
 import SearchBar from "../components/SearchBar";
+import Spinner from "../components/Spinner";
 
 export default function EditTravelPost() {
     const { id } = useParams();
@@ -154,11 +155,7 @@ export default function EditTravelPost() {
     }
 
     if (loading) {
-        return (
-            <div className="hidden-gems-loading">
-                <p>Loading travel post...</p>
-            </div>
-        );
+        return <Spinner size="lg" label="Loading travel post…" />;
     }
 
     return (
@@ -298,7 +295,11 @@ export default function EditTravelPost() {
                     </div>
 
                     <button type="submit" className="travel-post-submit-btn" disabled={submitting}>
-                        {submitting ? "Saving…" : "Save Changes"}
+                        {submitting ? (
+                            <Spinner size="sm" inline label="Saving…" className="btn-spinner" />
+                        ) : (
+                            "Save Changes"
+                        )}
                     </button>
                 </form>
             </div>

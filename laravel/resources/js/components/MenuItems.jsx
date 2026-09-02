@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getMenuItems, addMenuItem, toggleMenuItemLike, deleteMenuItem } from "../api/menuItems";
+import Spinner from "./Spinner";
 
 // Community suggested menu items
 function MenuItems({ locationId, currentUser, onRequireSignIn }) {
@@ -80,7 +81,7 @@ function MenuItems({ locationId, currentUser, onRequireSignIn }) {
 
     return (
         <div className="menu-items">
-            {loading && <p className="side-panel-nearby-status">Loading menu items…</p>}
+            {loading && <Spinner size="sm" inline label="Loading menu items…" />}
 
             {!loading && items.length === 0 && (
                 <p className="side-panel-nearby-status">No items suggested yet — be the first to add one you tried.</p>

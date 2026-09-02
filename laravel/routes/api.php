@@ -32,7 +32,7 @@ Route::get('/users/{id}', [UserController::class, 'show']);
 
 // ===== Public Auth Routes =====
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login'])->name('login');  
+Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/resend-verification', [AuthController::class, 'resendVerification']);
@@ -77,15 +77,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('trip-itineraries', TripItineraryController::class);
 
     // ===== Vote Routes =====
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/votes/check/{locationId}', [VoteController::class, 'checkEligibility']);
-        Route::post('/votes/{locationId}', [VoteController::class, 'store']);
-        Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
-        Route::get('/my-votes', [VoteController::class, 'myVotes']);
-        Route::patch('/votes/{vote}/comment', [VoteController::class, 'updateComment']);
-        Route::delete('/votes/{vote}/comment', [VoteController::class, 'deleteComment']);
-        Route::delete('/votes/{vote}/photo', [VoteController::class, 'deletePhoto']);
-    });
+    Route::get('/votes/check/{locationId}', [VoteController::class, 'checkEligibility']);
+    Route::post('/votes/{locationId}', [VoteController::class, 'store']);
+    Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
+    Route::get('/my-votes', [VoteController::class, 'myVotes']);
 
     // ===== Report Routes =====
     Route::get('/reports/check/{locationId}', [ReportController::class, 'checkEligibility']);
@@ -101,6 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/wishlist/{locationId}', [WishlistController::class, 'destroy']);
 
     // ===== Hidden Gems (write / account-specific) =====
+    Route::get('hidden-gems/address-autocomplete', [HiddenGemController::class, 'addressAutocomplete']);
     Route::get('hidden-gems/geocode', [HiddenGemController::class, 'geocode']);
     Route::get('hidden-gems/reverse-geocode', [HiddenGemController::class, 'reverseGeocode']);
     Route::get('hidden-gems/reverse-geocode-address', [HiddenGemController::class, 'reverseGeocodeAddress']);

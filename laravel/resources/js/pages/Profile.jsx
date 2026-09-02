@@ -4,6 +4,7 @@ import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { getMe, getUserProfile, updateProfile, changePassword, uploadAvatar } from '../api/auth';
 import { getMyHiddenGems } from '../api/hiddenGems';
 import { getTripItineraries } from '../api/TripItinerary';
+import PhotoCarousel from '../components/PhotoCarousel';
 import { getFavouriteAchievements } from '../api/achievements';
 import { getPasswordStrength } from '../utils/password';
 import Avatar from '../components/Avatar';
@@ -287,11 +288,13 @@ function Profile({ setAppUser }) {
                       style={{ cursor: 'pointer' }}
                     >
                       <div className="hidden-gems-card-image">
-                        {gem.images && gem.images.length > 0 ? (
-                          <img src={gem.images[0].image_url} alt={gem.place_name} />
-                        ) : (
-                          <div className="hidden-gems-card-no-image">No Image</div>
-                        )}
+                        <PhotoCarousel
+                          images={gem.images || []}
+                          alt={gem.place_name}
+                          compact
+                          fill
+                          showThumbs={false}
+                        />
                       </div>
                       <div className="hidden-gems-card-content">
                         <h2>{gem.place_name}</h2>
@@ -369,7 +372,7 @@ function Profile({ setAppUser }) {
                       onClick={() => setShowCurrentPassword((prev) => !prev)}
                       aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showCurrentPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                      {showCurrentPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                     </button>
                   </div>
                 )}
@@ -389,7 +392,7 @@ function Profile({ setAppUser }) {
                     onClick={() => setShowNewPassword((prev) => !prev)}
                     aria-label={showNewPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showNewPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                    {showNewPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                   </button>
                 </div>
 
@@ -424,7 +427,7 @@ function Profile({ setAppUser }) {
                     onClick={() => setShowConfirmPassword((prev) => !prev)}
                     aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showConfirmPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                    {showConfirmPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                   </button>
                 </div>
                 {newPasswordConfirmation && (
