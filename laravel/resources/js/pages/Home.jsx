@@ -21,6 +21,14 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+const tripColors = [
+    '#8DB99C',
+    '#C58C7A',
+    '#A99B72',
+    '#9B8798',
+    '#6FA39A',
+];
+
 function Home({ user }) {
     const navigate = useNavigate();
 
@@ -664,29 +672,36 @@ function Home({ user }) {
                             label="Loading trips…"
                         />
                     ) : recentTrips.length === 0 ? (
-                        <div className="home-empty-adventures">
-                            <p>No adventures yet</p>
+                        <Link
+                            to="/trip-itinerary"
+                            className="home-adventure-create-card"
+                            onClick={(event) =>
+                                handleProtectedNavigation(
+                                    event,
+                                    'Login to create a trip itinerary.'
+                                )
+                            }
+                        >
+                            <div className="home-adventure-create-content">
+                                <h3>Create New Trip</h3>
+                                <p>Plan your next adventure from scratch</p>
+                            </div>
 
-                            <Link
-                                to="/trip-itinerary"
-                                onClick={(event) =>
-                                    handleProtectedNavigation(
-                                        event,
-                                        'Login to start planning a trip.'
-                                    )
-                                }
-                            >
-                                Start planning →
-                            </Link>
-                        </div>
+                            <div className="home-adventure-create-bottom">
+                                <span>Start →</span>
+                            </div>
+                        </Link>
                     ) : (
                         recentTrips
                             .slice(0, 2)
-                            .map((trip) => (
+                            .map((trip, index) => (
                                 <Link
                                     key={trip.id}
                                     to={`/trip-itinerary/${trip.id}`}
                                     className="home-adventure-card"
+                                    style={{
+                                        backgroundColor: tripColors[index % tripColors.length],
+                                    }}
                                 >
                                     <div className="home-adventure-card-content">
                                         <h4>

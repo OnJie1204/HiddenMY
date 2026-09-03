@@ -1195,18 +1195,18 @@ img.avatar {
     flex-direction: column;
     justify-content: space-between;
     padding: 20px;
-    background: #FFFFFF;
-    border: 1px solid #E5E7EB;
+    border: none;
     border-radius: 14px;
     text-decoration: none;
-    color: #1F1F1F;
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    color: #FFFFFF;
+    transition: box-shadow 0.2s ease, transform 0.2s ease, filter 0.2s ease;
     min-height: 104px;
 }
 
 .home-adventure-card:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
     transform: translateY(-2px);
+    filter: brightness(0.95);
 }
 
 .home-adventure-card-content {
@@ -1221,13 +1221,13 @@ img.avatar {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: #1F1F1F;
+    color: #FFFFFF;
 }
 
 .home-adventure-card-content p {
     font-size: 13px;
     font-weight: 400;
-    color: #6B7280;
+    color: rgba(255, 255, 255, 0.85);
     margin: 4px 0 0;
 }
 
@@ -1240,7 +1240,7 @@ img.avatar {
 .home-adventure-card-arrow {
     font-size: 13px;
     font-weight: 500;
-    color: #1F2937;
+    color: #FFFFFF;
     transition: transform 0.2s ease;
 }
 
@@ -11439,4 +11439,57 @@ pre {
     .home-trending-scroll-btn {
         display: none;
     }
+}
+
+.home-adventure-create-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+    min-height: 104px;
+    background: #1F2937;
+    border-radius: 14px;
+    color: #FFFFFF;
+    text-decoration: none !important;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.home-adventure-create-card:link,
+.home-adventure-create-card:visited,
+.home-adventure-create-card:hover,
+.home-adventure-create-card:focus,
+.home-adventure-create-card:active {
+    color: #FFFFFF;
+    text-decoration: none !important;
+}
+
+.home-adventure-create-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+.home-adventure-create-content h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    color: #FFFFFF;
+}
+
+.home-adventure-create-content p {
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 4px 0 0;
+}
+
+.home-adventure-create-bottom {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.home-adventure-create-bottom span {
+    font-size: 13px;
+    font-weight: 500;
+    color: #FFFFFF;
 }
