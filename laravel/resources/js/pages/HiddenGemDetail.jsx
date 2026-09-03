@@ -85,7 +85,7 @@ export default function HiddenGemDetail({ user }) {
 
     const galleryImages = gem?.images ?? [];
 
-    // A permanently-closed gem is frozen: no new check-ins, votes, ratings,
+    // A permanently-closed gem is frozen: no new votes, ratings,
     // comments, menu items, itinerary adds or reports (see
     // Location::acceptsNewInteractions on the backend). Existing content stays
     // readable; the owner can still resubmit or delete it.
@@ -502,12 +502,13 @@ export default function HiddenGemDetail({ user }) {
 
     const handleVoteSuccess = (data) => {
         setVoteSuccess(true);
-        setVoteMessage(data.message);
+        setVoteMessage(data.message || "Vote submitted successfully.");
         fetchDetail();
+
         setTimeout(() => {
             setVoteSuccess(false);
             setVoteMessage("");
-        }, 5000);
+        }, 3000);
     };
 
     // ==================== Star Rating Component ====================
@@ -592,11 +593,6 @@ export default function HiddenGemDetail({ user }) {
     return (
         <div className={`gem-detail-page${gem.permanently_closed_at ? " gem-detail-page-closed" : ""}`}>
 
-            {voteSuccess && (
-                <div className="gem-detail-vote-success">
-                    {voteMessage}
-                </div>
-            )}
 
             <div className="gem-detail-container">
 
@@ -832,7 +828,7 @@ export default function HiddenGemDetail({ user }) {
                         <h3>⚠ Marked permanently closed</h3>
                         <p>
                             The community confirmed this place has closed for good. It stays listed for
-                            reference but is greyed out, and check-ins, votes, ratings, comments and menu
+                            reference but is greyed out, and votes, ratings, comments and menu
                             items are frozen.
                         </p>
                         {Number(gem.user_id) === Number(currentUser?.id) && (
@@ -1100,39 +1096,40 @@ export default function HiddenGemDetail({ user }) {
                             </div>
                         </div>
 
+                        {voteSuccess && activeTab === "details" && (
+                            <p className="vote-message success gem-detail-vote-message">
+                                {voteMessage || "Vote submitted successfully."}
+                            </p>
+                        )}
+
                         {/* Vote Button */}
-                        <div className="gem-detail-vote-section">
-                            {isClosed ? (
-                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ⚠ Permanently closed
-                                </button>
-                            ) : gem.status === "pending_community_vote" ? (
-                                <button
-                                    className="gem-detail-vote-btn"
-                                    onClick={() => {
-                                        if (!currentUser) {
-                                            requireSignIn("Login to vote on this hidden gem.");
-                                            return;
-                                        }
-                                        setShowVoteModal(true);
-                                    }}
-                                >
-                                    🗳️ Vote Now
-                                </button>
-                            ) : gem.status === "hidden_gem" ? (
-                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ✓ Already a Hidden Gem
-                                </button>
-                            ) : gem.status === "ai_rejected" ? null : gem.status === "delisted" ? (
-                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ⚠ Delisted after a confirmed report
-                                </button>
-                            ) : (
-                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ⏳ Being Verified
-                                </button>
-                            )}
-                        </div>
+                        {(isClosed || gem.status === "pending_community_vote" || gem.status === "delisted") && (
+                            <div className="gem-detail-vote-section">
+                                {isClosed ? (
+                                    <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                        ⚠ Permanently closed
+                                    </button>
+                                ) : gem.status === "pending_community_vote" ? (
+                                    <button
+                                        className="gem-detail-vote-btn"
+                                        onClick={() => {
+                                            if (!currentUser) {
+                                                requireSignIn("Login to vote on this hidden gem.");
+                                                return;
+                                            }
+
+                                            setShowVoteModal(true);
+                                        }}
+                                    >
+                                        🗳️ Vote Now
+                                    </button>
+                                ) : gem.status === "delisted" ? (
+                                    <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                        ⚠ Delisted after a confirmed report
+                                    </button>
+                                ) : null}
+                            </div>
+                        )}
                     </div>
                 )}
 
