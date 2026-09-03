@@ -651,11 +651,6 @@ function SidePanel({
                                                         })}
                                                     </span>
                                                 </div>
-                                                {review.rating > 0 && (
-                                                    <span className="side-panel-review-stars" aria-label={`${review.rating} out of 5 stars`}>
-                                                        {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
-                                                    </span>
-                                                )}
                                                 {review.photo_path && (
                                                     <img
                                                         src={getVotePhotoUrl(review.photo_path)}
@@ -664,8 +659,8 @@ function SidePanel({
                                                         onError={(e) => { e.target.style.display = "none"; }}
                                                     />
                                                 )}
-                                                {review.comment && (
-                                                    <p className="side-panel-review-text">"{review.comment}"</p>
+                                                {review.travel_description && (
+                                                    <p className="side-panel-review-text">"{review.travel_description}"</p>
                                                 )}
                                             </div>
                                         ))}
