@@ -9,37 +9,25 @@ class Report extends Model
 {
     use HasFactory;
 
+    /**
+     * A Hidden Gem — verified, or still in community voting — can be reported
+     * for these two things. Both go through the same community confirm/dispute
+     * vote (see ReportController).
+     */
     public const REASONS = [
         'permanently_closed',
-        'incorrect_location',
-        'not_actually_hidden',
-        'duplicate',
         'inappropriate_content',
     ];
 
+    /**
+     * Reasons that always need the reporter (and each verifier) to have
+     * physically checked in at the gem — you can only know a place has closed
+     * for good if you have been there. inappropriate_content is conditionally
+     * check-in-gated instead (see requiresCheckIn()): only when it proposes a
+     * corrected location.
+     */
     public const LOCATION_REQUIRED_REASONS = [
         'permanently_closed',
-        'incorrect_location',
-    ];
-
-    public const TIER_A_REASONS = [
-        'duplicate',
-        'not_actually_hidden',
-    ];
-
-    public const TIER_B_REASONS = [
-        'permanently_closed',
-        'incorrect_location',
-        'inappropriate_content',
-    ];
-
-    public const IMMEDIATE_DELETE_REASONS = [
-        'permanently_closed',
-    ];
-
-    public const AMENDABLE_REASONS = [
-        'inappropriate_content',
-        'incorrect_location',
     ];
 
     protected $fillable = [
@@ -52,6 +40,10 @@ class Report extends Model
         'suggested_latitude',
         'suggested_longitude',
         'flagged_item',
+        'suggested_opening_hours',
+        'suggested_phone',
+        'suggested_website',
+        'suggested_description',
         'status',
         'confirm_count',
         'dispute_count',
@@ -81,29 +73,49 @@ class Report extends Model
         return $this->hasMany(ReportVote::class);
     }
 
-    public function parent()
-    {
-        return $this->belongsTo(Report::class, 'parent_report_id');
-    }
-
-    /** Fix-review cycles filed against this (upheld) report. */
-    public function children()
-    {
-        return $this->hasMany(Report::class, 'parent_report_id');
-    }
-
     public function isPending(): bool
     {
         return $this->status === 'pending';
     }
 
-    public function isTierA(): bool
+    /**
+     * The reporter must have checked in at the gem to file this report (and
+     * so must each verifier). Always true for permanently_closed; true for an
+     * inappropriate_content report only when it proposes a new location — you
+     * have to have stood there to know the pin is wrong.
+     */
+    public function requiresCheckIn(): bool
     {
-        return in_array($this->reason, self::TIER_A_REASONS, true);
+        if (in_array($this->reason, self::LOCATION_REQUIRED_REASONS, true)) {
+            return true;
+        }
+
+        return $this->reason === 'inappropriate_content' && $this->suggested_latitude !== null;
     }
 
-    public function isTierB(): bool
+    /** True when the reporter attached at least one corrected contact field. */
+    public function hasSuggestedContact(): bool
     {
-        return in_array($this->reason, self::TIER_B_REASONS, true);
+        return $this->suggested_opening_hours !== null
+            || $this->suggested_phone !== null
+            || $this->suggested_website !== null;
+    }
+
+    public function hasSuggestedLocation(): bool
+    {
+        return $this->suggested_latitude !== null && $this->suggested_longitude !== null;
+    }
+
+    public function hasSuggestedDescription(): bool
+    {
+        return $this->suggested_description !== null && $this->suggested_description !== '';
+    }
+
+    /** Any correction at all attached to this report. */
+    public function hasSuggestedFix(): bool
+    {
+        return $this->hasSuggestedContact()
+            || $this->hasSuggestedLocation()
+            || $this->hasSuggestedDescription();
     }
 }

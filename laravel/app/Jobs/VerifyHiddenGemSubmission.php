@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\Location;
-use App\Models\Report;
 use App\Services\DuplicateDetectionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -116,8 +115,6 @@ class VerifyHiddenGemSubmission implements ShouldQueue
                 'ai_reviewed_at' => now(),
             ]);
 
-            $this->resolveNotActuallyHiddenReports($location);
-
             return;
         }
 
@@ -132,36 +129,8 @@ class VerifyHiddenGemSubmission implements ShouldQueue
                 $research['unknown'],
                 $scoring['model'],
             );
-
-            $this->resolveNotActuallyHiddenReports($location);
         } catch (Throwable $e) {
             $this->markPendingOnFailure($location, $e->getMessage());
-        }
-    }
-
-    private function resolveNotActuallyHiddenReports(Location $location): void
-    {
-        $pending = Report::where('location_id', $location->id)
-            ->where('reason', 'not_actually_hidden')
-            ->whereNull('resolved_at')
-            ->get();
-
-        if ($pending->isEmpty()) {
-            return;
-        }
-
-        $passed = $location->status === 'pending_community_vote';
-
-        if ($passed) {
-            $threshold = $location->verification_threshold ?? 10;
-
-            if ($location->vote_count >= $threshold) {
-                $location->update(['status' => 'hidden_gem']);
-            }
-
-            $pending->each->update(['status' => 'rejected', 'resolved_at' => now()]);
-        } else {
-            $pending->each->update(['status' => 'upheld', 'resolved_at' => now()]);
         }
     }
 

@@ -28,12 +28,23 @@ export default function TripItinerary() {
         setNameError("");
 
         try {
-            await handleCreate();
+            const newTrip = await handleCreate();
 
             // Only dismiss the dialog once the itinerary is actually saved —
             // otherwise a failed create looks exactly like a successful one.
             setShowCreateModal(false);
             setTripName("");
+
+            // Drop the user straight into the itinerary they just created, and
+            // carry the success notice over so the detail page can show it.
+            if (newTrip?.id) {
+                navigate(`/trip-itinerary/${newTrip.id}`, {
+                    state: {
+                        itinerary: newTrip,
+                        notice: "Trip itinerary created successfully.",
+                    },
+                });
+            }
         } catch (err) {
             console.error(err);
             setNameError(
@@ -95,6 +106,8 @@ export default function TripItinerary() {
             ]);
 
             setSuccessMessage(res.data.message || "Trip itinerary created successfully.");
+
+            return newTrip;
         } finally {
             setIsCreating(false);
         }

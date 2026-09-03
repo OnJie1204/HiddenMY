@@ -12,6 +12,10 @@ import VerifyReportModal from "./VerifyReportModal";
 import SignInPrompt from "./SignInPrompt";
 import { useCompare } from "../context/CompareContext";
 import { getReportForLocation } from "../api/reports";
+import { createTripItinerary } from "../api/TripItinerary";
+
+// Backend caps trip_name at 10 characters (TripItineraryController::store).
+const ITINERARY_NAME_MAX = 10;
 
 function getVotePhotoUrl(photoPath) {
     if (!photoPath) return "";
@@ -33,7 +37,7 @@ const MAX_WIDTH = 420;
 function SidePanel({
     group, isOpen, onClose, user, setUser, mode = "nav", headerExtra = null,
     nearby = [], nearbyLoading = false, onSelectNearby, onGemChange,
-    itineraries = [], onAddToItinerary,
+    itineraries = [], itinerariesLoading = false, onAddToItinerary, onItineraryCreated,
     wishlistIds = new Set(), onToggleWishlist,
     reviews = [], reviewsLoading = false,
     images = [],
@@ -44,6 +48,9 @@ function SidePanel({
     const [isResizing, setIsResizing] = useState(false);
     const [itineraryOpen, setItineraryOpen] = useState(false);
     const [itineraryStatus, setItineraryStatus] = useState(null);
+    const [showItineraryForm, setShowItineraryForm] = useState(false);
+    const [newItineraryName, setNewItineraryName] = useState("");
+    const [creatingItinerary, setCreatingItinerary] = useState(false);
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
@@ -66,6 +73,8 @@ function SidePanel({
         setIsFullscreen(false);
         setItineraryOpen(false);
         setItineraryStatus(null);
+        setShowItineraryForm(false);
+        setNewItineraryName("");
         setLocalReportStatus(null);
         setLocalStatus(null);
         bodyRef.current?.scrollTo({ top: 0 });
@@ -194,21 +203,26 @@ function SidePanel({
     const canAddToItinerary = gem
         && (gem.source === "attraction" || status === "hidden_gem" || status === "pending_community_vote");
 
+    // A permanently-closed gem is frozen — no new wishlisting, comparing or
+    // reporting (see Location::acceptsNewInteractions on the backend).
+    const isClosed = !!(gem && (gem.permanently_closed_at || gem.permanentlyClosedAt));
+
     // OSM attractions aren't Location records, so there's nothing to wishlist
     // or compare — only our own database gems that have passed AI review qualify.
     const canWishlist = gem
         && gem.source === "database"
+        && !isClosed
         && (status === "hidden_gem" || status === "pending_community_vote");
     const isWishlisted = gem && wishlistIds.has(gem.id);
     const canCompare = canWishlist;
     const comparing = gem && isComparing(gem.id);
 
-    // A delisted gem whose report is "upheld" has a fix pending review
-    const isDelistedAwaitingFix = gem && status === "delisted" && reportStatus === "upheld";
-
+    // A verified Hidden Gem, or one still in community voting (permanently_closed
+    // only) — the backend enforces per-reason and returns the allowed reasons.
     const canReportOrVerify = gem
         && gem.source === "database"
-        && (status === "hidden_gem" || status === "pending_community_vote" || isDelistedAwaitingFix);
+        && !isClosed
+        && (status === "hidden_gem" || status === "pending_community_vote");
 
     function requireSignIn(message) {
         setSignInMessage(message);
@@ -219,7 +233,7 @@ function SidePanel({
         // Guests can see the icon (it advertises the feature) but reporting
         // and verifying both require an account — skip the API round-trip
         // entirely and point them at sign-in.
-        const isPending = reportStatus === "under_review" || isDelistedAwaitingFix;
+        const isPending = reportStatus === "under_review";
         if (!user) {
             requireSignIn(isPending
                 ? "Login to help verify this report."
@@ -248,11 +262,34 @@ function SidePanel({
             await onAddToItinerary(itinerary, gem);
             setItineraryStatus({ type: "success", message: `Added to "${itinerary.trip_name}".` });
             setItineraryOpen(false);
+            setShowItineraryForm(false);
+            setNewItineraryName("");
         } catch (error) {
             setItineraryStatus({
                 type: "error",
                 message: error?.response?.data?.message || "Could not add this stop.",
             });
+        }
+    }
+
+    async function handleCreateItineraryAndAdd() {
+        const name = newItineraryName.trim();
+        if (!name || creatingItinerary) return;
+
+        setCreatingItinerary(true);
+        setItineraryStatus({ type: "loading", message: `Creating "${name}"…` });
+        try {
+            const res = await createTripItinerary({ trip_name: name });
+            const newTrip = res.data?.data;
+            onItineraryCreated?.(newTrip);
+            await handleAddToItinerary(newTrip);
+        } catch (error) {
+            setItineraryStatus({
+                type: "error",
+                message: error?.response?.data?.message || "Could not create the itinerary.",
+            });
+        } finally {
+            setCreatingItinerary(false);
         }
     }
 
@@ -373,7 +410,7 @@ function SidePanel({
 
                 {gem && (
                     <>
-                        <div className="side-panel-gem-header">
+                        <div className={`side-panel-gem-header${isClosed ? " gem-card-closed" : ""}`}>
                             {images && images.length > 0 ? (
                                 <PhotoCarousel
                                     images={images}
@@ -400,6 +437,9 @@ function SidePanel({
                                 )}
                                 {gem.source === "database" && status === "delisted" && (
                                     <span className="badge badge-reported">Delisted</span>
+                                )}
+                                {gem.source === "database" && (gem.permanently_closed_at || gem.permanentlyClosedAt) && (
+                                    <span className="badge badge-reported">Permanently closed</span>
                                 )}
                             </div>
                         </div>
@@ -445,29 +485,18 @@ function SidePanel({
                                         disabled={loadingReport}
                                         title={reportStatus === "under_review"
                                             ? "Help verify a reported problem with this gem"
-                                            : isDelistedAwaitingFix
-                                                ? "Help verify the owner's fix for this gem"
-                                                : "Report a problem with this gem"}
+                                            : "Report a problem with this gem"}
                                     >
                                         ⚠
                                     </button>
                                 )}
                             </div>
                         </div>
-                        {gem.source === "database" && (reportStatus === "under_review" || isDelistedAwaitingFix) && Number(gem.user_id) !== Number(user?.id) && (
+                        {gem.source === "database" && reportStatus === "under_review" && Number(gem.user_id) !== Number(user?.id) && (
                             <div className="report-banner">
                                 <div className="report-banner-text">
-                                    {isDelistedAwaitingFix ? (
-                                        <>
-                                            <strong>This gem was delisted — a fix is pending review</strong>
-                                            <p>If you've visited recently, help the community verify whether the fix resolves the issue.</p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <strong>This gem has a report under review</strong>
-                                            <p>If you've visited recently, help the community verify whether the issue is real.</p>
-                                        </>
-                                    )}
+                                    <strong>This gem has a report under review</strong>
+                                    <p>Help the community confirm or dispute it — 5 votes either way settles it.</p>
                                 </div>
                                 <button
                                     type="button"
@@ -522,6 +551,8 @@ function SidePanel({
                                         return;
                                     }
                                     setItineraryStatus(null);
+                                    setShowItineraryForm(false);
+                                    setNewItineraryName("");
                                     setItineraryOpen(o => !o);
                                 }}
                                 disabled={!canAddToItinerary}
@@ -548,11 +579,11 @@ function SidePanel({
 
                         {itineraryOpen && (
                             <div className="side-panel-itinerary-picker">
-                                {itineraries.length === 0 ? (
-                                    <p className="side-panel-nearby-status">
-                                        No itineraries yet — <Link to="/trip-itinerary">create one</Link> first.
-                                    </p>
-                                ) : (
+                                {itinerariesLoading && (
+                                    <Spinner size="sm" inline label="Loading itineraries…" />
+                                )}
+
+                                {!itinerariesLoading && itineraries.length > 0 && (
                                     <>
                                         <h3>Add to which trip?</h3>
                                         {itineraries.map((trip) => (
@@ -566,6 +597,57 @@ function SidePanel({
                                         ))}
                                     </>
                                 )}
+
+                                {!itinerariesLoading && (showItineraryForm ? (
+                                    <form
+                                        className="side-panel-itinerary-create"
+                                        onSubmit={(event) => {
+                                            event.preventDefault();
+                                            handleCreateItineraryAndAdd();
+                                        }}
+                                    >
+                                        <input
+                                            type="text"
+                                            className="side-panel-itinerary-create-input"
+                                            placeholder="New trip name"
+                                            maxLength={ITINERARY_NAME_MAX}
+                                            value={newItineraryName}
+                                            onChange={(event) => setNewItineraryName(event.target.value)}
+                                            autoFocus
+                                        />
+                                        <div className="side-panel-itinerary-create-actions">
+                                            <button
+                                                type="button"
+                                                className="side-panel-itinerary-create-cancel"
+                                                onClick={() => {
+                                                    setShowItineraryForm(false);
+                                                    setNewItineraryName("");
+                                                }}
+                                                disabled={creatingItinerary}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="side-panel-itinerary-create-submit"
+                                                disabled={!newItineraryName.trim() || creatingItinerary}
+                                            >
+                                                Create &amp; add
+                                            </button>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="side-panel-itinerary-option side-panel-itinerary-new"
+                                        onClick={() => {
+                                            setItineraryStatus(null);
+                                            setShowItineraryForm(true);
+                                        }}
+                                    >
+                                        ＋ New itinerary
+                                    </button>
+                                ))}
                             </div>
                         )}
 

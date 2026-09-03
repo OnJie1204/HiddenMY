@@ -29,6 +29,10 @@ class GemInteractionController extends Controller
 
         $location = Location::findOrFail($locationId);
 
+        if (!$location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
+        }
+
         // ============================
         // COMMENT / RATING
         // ============================

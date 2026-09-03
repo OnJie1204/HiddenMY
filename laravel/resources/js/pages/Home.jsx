@@ -282,6 +282,7 @@ function Home({ user }) {
             verificationThreshold: gem.verification_threshold,
             category: gem.category?.name,
             status: gem.status,
+            permanentlyClosedAt: gem.permanently_closed_at ?? null,
         };
     };
 
@@ -399,7 +400,11 @@ function Home({ user }) {
                                                 {gem.place_name}
                                             </span>
 
-                                            {gem.status ===
+                                            {gem.permanently_closed_at ? (
+                                                <span className="home-map-flight-item-status pending">
+                                                    Permanently closed
+                                                </span>
+                                            ) : gem.status ===
                                             'hidden_gem' ? (
                                                 <span className="home-map-flight-item-status verified">
                                                     Hidden Gem
@@ -541,7 +546,7 @@ function Home({ user }) {
                             popularGems.map((gem) => (
                                 <div
                                     key={gem.id}
-                                    className="home-trending-card"
+                                    className={`home-trending-card${gem.permanently_closed_at ? ' gem-card-closed' : ''}`}
                                     onClick={() =>
                                         navigate(
                                             `/hidden-gems/${gem.id}`

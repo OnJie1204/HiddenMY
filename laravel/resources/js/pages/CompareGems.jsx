@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import L from "leaflet";
 import { useCompare } from "../context/CompareContext";
 import { getHiddenGemDetail } from "../api/hiddenGems";
-import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
+import { getTripItineraries, addTripLocation, createTripItinerary } from "../api/TripItinerary";
+
+// Backend caps trip_name at 10 characters (TripItineraryController::store).
+const ITINERARY_NAME_MAX = 10;
 import { getMenuItems } from "../api/menuItems";
 import { toCompareGem } from "../utils/compareGem";
 import { getGemStatusDisplay } from "../utils/gemStatus";
@@ -40,15 +43,21 @@ export default function CompareGems() {
     const [fetched, setFetched] = useState({});
     const [missing, setMissing] = useState([]);
     const [itineraries, setItineraries] = useState([]);
+    const [itinerariesLoading, setItinerariesLoading] = useState(true);
     const [itineraryOpenId, setItineraryOpenId] = useState(null);
     const [itineraryStatusById, setItineraryStatusById] = useState({});
+    const [showItineraryForm, setShowItineraryForm] = useState(false);
+    const [newItineraryName, setNewItineraryName] = useState("");
+    const [creatingItinerary, setCreatingItinerary] = useState(false);
     const [menuItemsByGemId, setMenuItemsByGemId] = useState({});
     const [userPosition, setUserPosition] = useState(null);
 
     useEffect(() => {
+        setItinerariesLoading(true);
         getTripItineraries()
             .then((res) => setItineraries(res.data || []))
-            .catch((err) => console.log(err));
+            .catch((err) => console.log(err))
+            .finally(() => setItinerariesLoading(false));
     }, []);
 
     useEffect(() => {
@@ -164,11 +173,37 @@ export default function CompareGems() {
                 [gem.id]: { type: "success", message: `Added to "${trip.trip_name}".` },
             }));
             setItineraryOpenId(null);
+            setShowItineraryForm(false);
+            setNewItineraryName("");
         } catch (error) {
             setItineraryStatusById((prev) => ({
                 ...prev,
                 [gem.id]: { type: "error", message: error?.response?.data?.message || "Could not add this stop." },
             }));
+        }
+    }
+
+    async function handleCreateItineraryAndAdd(gem) {
+        const name = newItineraryName.trim();
+        if (!name || creatingItinerary) return;
+
+        setCreatingItinerary(true);
+        setItineraryStatusById((prev) => ({
+            ...prev,
+            [gem.id]: { type: "loading", message: `Creating "${name}"…` },
+        }));
+        try {
+            const res = await createTripItinerary({ trip_name: name });
+            const newTrip = res.data?.data;
+            setItineraries((prev) => [newTrip, ...prev]);
+            await handleAddToItinerary(newTrip, gem);
+        } catch (error) {
+            setItineraryStatusById((prev) => ({
+                ...prev,
+                [gem.id]: { type: "error", message: error?.response?.data?.message || "Could not create the itinerary." },
+            }));
+        } finally {
+            setCreatingItinerary(false);
         }
     }
 
@@ -367,6 +402,8 @@ export default function CompareGems() {
                                             : "Only gems that have passed AI review can be added to an itinerary"}
                                         onClick={() => {
                                             setItineraryStatusById((prev) => ({ ...prev, [gem.id]: null }));
+                                            setShowItineraryForm(false);
+                                            setNewItineraryName("");
                                             setItineraryOpenId((open) => (open === gem.id ? null : gem.id));
                                         }}
                                     >
@@ -376,11 +413,11 @@ export default function CompareGems() {
 
                                 {itineraryOpenId === gem.id && (
                                     <div className="side-panel-itinerary-picker compare-card-itinerary-picker">
-                                        {itineraries.length === 0 ? (
-                                            <p className="side-panel-nearby-status">
-                                                No itineraries yet — <Link to="/trip-itinerary">create one</Link> first.
-                                            </p>
-                                        ) : (
+                                        {itinerariesLoading && (
+                                            <Spinner size="sm" inline label="Loading itineraries…" />
+                                        )}
+
+                                        {!itinerariesLoading && itineraries.length > 0 && (
                                             <>
                                                 <h3>Add to which trip?</h3>
                                                 {itineraries.map((trip) => (
@@ -394,6 +431,57 @@ export default function CompareGems() {
                                                 ))}
                                             </>
                                         )}
+
+                                        {!itinerariesLoading && (showItineraryForm ? (
+                                            <form
+                                                className="side-panel-itinerary-create"
+                                                onSubmit={(event) => {
+                                                    event.preventDefault();
+                                                    handleCreateItineraryAndAdd(gem);
+                                                }}
+                                            >
+                                                <input
+                                                    type="text"
+                                                    className="side-panel-itinerary-create-input"
+                                                    placeholder="New trip name"
+                                                    maxLength={ITINERARY_NAME_MAX}
+                                                    value={newItineraryName}
+                                                    onChange={(event) => setNewItineraryName(event.target.value)}
+                                                    autoFocus
+                                                />
+                                                <div className="side-panel-itinerary-create-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="side-panel-itinerary-create-cancel"
+                                                        onClick={() => {
+                                                            setShowItineraryForm(false);
+                                                            setNewItineraryName("");
+                                                        }}
+                                                        disabled={creatingItinerary}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        className="side-panel-itinerary-create-submit"
+                                                        disabled={!newItineraryName.trim() || creatingItinerary}
+                                                    >
+                                                        Create &amp; add
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="side-panel-itinerary-option side-panel-itinerary-new"
+                                                onClick={() => {
+                                                    setItineraryStatusById((prev) => ({ ...prev, [gem.id]: null }));
+                                                    setShowItineraryForm(true);
+                                                }}
+                                            >
+                                                ＋ New itinerary
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
 

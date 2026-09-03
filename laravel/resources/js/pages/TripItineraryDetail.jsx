@@ -423,6 +423,15 @@ export default function TripItineraryDetail() {
         return () => clearTimeout(timer);
     }, [successMessage]);
 
+    // A notice handed over from another page (e.g. "created" from the itinerary
+    // list). Show it once, then wipe it from history so a refresh won't repeat it.
+    useEffect(() => {
+        if (!state?.notice) return;
+
+        setSuccessMessage(state.notice);
+        navigate(`/trip-itinerary/${id}`, { replace: true, state: { itinerary: state.itinerary } });
+    }, [state, navigate, id]);
+
     useEffect(() => {
         setIsLoadingItinerary(true);
 
@@ -435,6 +444,11 @@ export default function TripItineraryDetail() {
         refreshItinerary()
             .catch((error) => {
                 console.error("Failed to load itinerary locations.", error);
+                // This page is the owner's editor. A non-owner (e.g. following
+                // an old link) gets a 403 — send them to the read-only view.
+                if (error?.response?.status === 403) {
+                    navigate(`/trips/${id}`, { replace: true });
+                }
             })
             .finally(() => {
                 setIsLoadingItinerary(false);

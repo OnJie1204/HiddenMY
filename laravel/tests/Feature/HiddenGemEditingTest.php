@@ -75,16 +75,31 @@ class HiddenGemEditingTest extends TestCase
         }
     }
 
-    public function test_owner_cannot_edit_a_verified_hidden_gem(): void
+    public function test_verified_hidden_gem_owner_can_only_edit_contact_fields(): void
     {
+        Bus::fake([VerifyHiddenGemSubmission::class]);
+
         $owner = User::factory()->create();
-        $gem = Location::factory()->for($owner)->create(['status' => 'hidden_gem']);
+        $gem = Location::factory()->for($owner)->create([
+            'status' => 'hidden_gem',
+            'place_name' => 'Original Name',
+        ]);
 
         Sanctum::actingAs($owner);
 
-        $this->putJson("/api/hidden-gems/{$gem->id}", $this->updatePayload($gem))
-            ->assertForbidden()
-            ->assertJsonPath('message', 'Verified Hidden Gems can no longer be edited.');
+        // Full payload — only the contact fields take; identity is ignored.
+        $this->putJson("/api/hidden-gems/{$gem->id}", $this->updatePayload($gem, [
+            'place_name' => 'Renamed Somehow',
+            'phone' => '012-345 6789',
+        ]))
+            ->assertOk()
+            ->assertJsonPath('message', 'Contact information updated.');
+
+        $gem->refresh();
+        $this->assertSame('Original Name', $gem->place_name);
+        $this->assertSame('012-345 6789', $gem->phone);
+        $this->assertSame('hidden_gem', $gem->status);
+        Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
     }
 
     public function test_non_owner_cannot_edit_a_hidden_gem(): void

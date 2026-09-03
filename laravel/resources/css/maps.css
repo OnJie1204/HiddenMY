@@ -806,6 +806,60 @@
 .side-panel-itinerary-status.error { color: #b42318; }
 .side-panel-itinerary-status.loading { color: var(--color-text-muted, #64766f); }
 
+.side-panel-itinerary-new {
+    color: var(--color-primary-dark, #0f766e);
+}
+
+.side-panel-itinerary-create {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+}
+
+.side-panel-itinerary-create-input {
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--color-border, #d8ded9);
+    border-radius: 8px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #1c2b28);
+    font-size: 0.85rem;
+}
+
+.side-panel-itinerary-create-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.side-panel-itinerary-create-cancel,
+.side-panel-itinerary-create-submit {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--color-border, #d8ded9);
+}
+
+.side-panel-itinerary-create-cancel {
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #1c2b28);
+}
+
+.side-panel-itinerary-create-submit {
+    background: var(--color-primary, #14b8a6);
+    border-color: var(--color-primary, #14b8a6);
+    color: #fff;
+}
+
+.side-panel-itinerary-create-submit:disabled,
+.side-panel-itinerary-create-cancel:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .side-panel-icon-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;

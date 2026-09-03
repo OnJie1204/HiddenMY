@@ -6,6 +6,14 @@ export const getTripItineraries = () =>
 export const getTripItinerary = (id) =>
     api.get(`/trip-itineraries/${id}`);
 
+// Read-only view of an itinerary shared through a travel post.
+export const getSharedTripItinerary = (id) =>
+    api.get(`/trip-itineraries/${id}/shared`);
+
+// Clone a shared itinerary into the current user's own itineraries.
+export const copyTripItinerary = (id) =>
+    api.post(`/trip-itineraries/${id}/copy`);
+
 export const addTripLocation = (itineraryId, data) =>
     api.post(`/trip-itineraries/${itineraryId}/locations`, data);
 

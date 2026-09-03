@@ -501,7 +501,7 @@ export default function MyHiddenGems() {
 
                     {filteredGems.map((gem) => (
                         <div
-                            className="hidden-gems-card"
+                            className={`hidden-gems-card${gem.permanently_closed_at ? " gem-card-closed" : ""}`}
                             key={gem.id}
                             onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                         >
@@ -566,10 +566,12 @@ export default function MyHiddenGems() {
                                         <button
                                             className="my-hidden-gems-edit-btn"
                                             onClick={() =>
-                                                navigate(`/my-hidden-gems/edit/${gem.id}`)
+                                                navigate(gem.edit_mode === "contact_only"
+                                                    ? `/hidden-gems/${gem.id}`
+                                                    : `/my-hidden-gems/edit/${gem.id}`)
                                             }
                                         >
-                                            Edit
+                                            {gem.edit_mode === "contact_only" ? "Edit contact info" : "Edit"}
                                         </button>
                                     )}
 
