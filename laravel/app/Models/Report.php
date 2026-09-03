@@ -9,23 +9,11 @@ class Report extends Model
 {
     use HasFactory;
 
-    /**
-     * A Hidden Gem — verified, or still in community voting — can be reported
-     * for these two things. Both go through the same community confirm/dispute
-     * vote (see ReportController).
-     */
     public const REASONS = [
         'permanently_closed',
         'inappropriate_content',
     ];
 
-    /**
-     * Reasons that always need the reporter (and each verifier) to have
-     * physically checked in at the gem — you can only know a place has closed
-     * for good if you have been there. inappropriate_content is conditionally
-     * check-in-gated instead (see requiresCheckIn()): only when it proposes a
-     * corrected location.
-     */
     public const LOCATION_REQUIRED_REASONS = [
         'permanently_closed',
     ];
@@ -78,22 +66,17 @@ class Report extends Model
         return $this->status === 'pending';
     }
 
-    /**
-     * The reporter must have checked in at the gem to file this report (and
-     * so must each verifier). Always true for permanently_closed; true for an
-     * inappropriate_content report only when it proposes a new location — you
-     * have to have stood there to know the pin is wrong.
-     */
-    public function requiresCheckIn(): bool
+    public function requiresLocationVerification(): bool
     {
         if (in_array($this->reason, self::LOCATION_REQUIRED_REASONS, true)) {
             return true;
         }
 
-        return $this->reason === 'inappropriate_content' && $this->suggested_latitude !== null;
+        return $this->reason === 'inappropriate_content'
+            && $this->suggested_latitude !== null
+            && $this->suggested_longitude !== null;
     }
 
-    /** True when the reporter attached at least one corrected contact field. */
     public function hasSuggestedContact(): bool
     {
         return $this->suggested_opening_hours !== null
@@ -103,15 +86,16 @@ class Report extends Model
 
     public function hasSuggestedLocation(): bool
     {
-        return $this->suggested_latitude !== null && $this->suggested_longitude !== null;
+        return $this->suggested_latitude !== null
+            && $this->suggested_longitude !== null;
     }
 
     public function hasSuggestedDescription(): bool
     {
-        return $this->suggested_description !== null && $this->suggested_description !== '';
+        return $this->suggested_description !== null
+            && $this->suggested_description !== '';
     }
 
-    /** Any correction at all attached to this report. */
     public function hasSuggestedFix(): bool
     {
         return $this->hasSuggestedContact()

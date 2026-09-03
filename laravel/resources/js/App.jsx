@@ -15,7 +15,7 @@ import GoogleCallback from './pages/GoogleCallback';
 import TripItinerary from "./pages/TripItinerary";
 import TripItineraryDetail from "./pages/TripItineraryDetail";
 import SharedTripItinerary from "./pages/SharedTripItinerary";
-import HiddenGems from './pages/HiddenGems';  
+import HiddenGems from './pages/HiddenGems';
 import HiddenGemSubmission from './pages/HiddenGemSubmission';
 import MyHiddenGems from './pages/MyHiddenGems';
 import HiddenGemDetail from "./pages/HiddenGemDetail";
@@ -25,8 +25,6 @@ import TravelPosts from './pages/TravelPosts';
 import TravelPostDetail from './pages/TravelPostDetail';
 import CreateTravelPost from './pages/CreateTravelPost';
 import EditTravelPost from './pages/EditTravelPost';
-import CompareGems from './pages/CompareGems';
-import { CompareProvider } from './context/CompareContext';
 import { getMe } from './api/auth';
 import { getToken, clearToken } from './utils/tokenStorage';
 
@@ -36,6 +34,7 @@ function App() {
 
   useEffect(() => {
     const token = getToken();
+
     if (token) {
       getMe()
         .then(res => setUser(res.data))
@@ -46,58 +45,153 @@ function App() {
     }
   }, []);
 
-  if (checking) return <p>Loading...</p>;
+  if (checking) {
+    return <p>Loading...</p>;
+  }
 
   return (
     <BrowserRouter>
-      <CompareProvider>
       <Routes>
-        {/* 不需要 Navbar 的页面 */}
-        <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLoginSuccess={setUser} />} />
-        <Route path="/register" element={user ? <Navigate to="/" /> : <Register onRegisterSuccess={setUser} />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/email/verify/:id/:hash" element={<VerifyEmail />} />
-        <Route path="/verify-email" element={<VerifyNewEmail />} />
-        <Route path="/resend-verification" element={<ResendVerification />} />
-        <Route path="/google-callback" element={<GoogleCallback setUser={setUser} />} />
+        <Route
+          path="/login"
+          element={
+            user
+              ? <Navigate to="/" />
+              : <Login onLoginSuccess={setUser} />
+          }
+        />
 
-        {/* Browsable without an account — read-only, no data-changing action
-            goes through without a "sign in to continue" prompt. See the
-            individual pages/components (Navbar, SidePanel, ReportButton, ...)
-            for how each one degrades when `user` is null. */}
-        <Route path="/" element={
-          <Layout user={user} setUser={setUser}><Home user={user} /></Layout>
-        } />
-        <Route path="/map" element={
-          <Layout user={user} setUser={setUser}><Maps user={user} /></Layout>
-        } />
-        <Route path="/hidden-gems" element={
-          <Layout user={user} setUser={setUser}><HiddenGems user={user} /></Layout>
-        } />
-        <Route path="/hidden-gems/:id" element={
-          <Layout user={user} setUser={setUser}><HiddenGemDetail user={user} /></Layout>
-        } />
-        <Route path="/travel-posts" element={
-          <Layout user={user} setUser={setUser}><TravelPosts user={user} /></Layout>
-        } />
-        <Route path="/travel-posts/:id" element={
-          <Layout user={user} setUser={setUser}><TravelPostDetail user={user} /></Layout>
-        } />
+        <Route
+          path="/register"
+          element={
+            user
+              ? <Navigate to="/" />
+              : <Register onRegisterSuccess={setUser} />
+          }
+        />
 
-        {/* 需要 Navbar 的页面(登入后才能进) */}
-        <Route path="/profile" element={
-          user ? <Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout> : <Navigate to="/login" />
-        } />
-        <Route path="/users/:id" element={
-          user ? <Layout user={user} setUser={setUser}><Profile /></Layout> : <Navigate to="/login" />
-        } />
-        <Route path="/wishlist" element={
-          user ? <Layout user={user} setUser={setUser}><Wishlist user={user} /></Layout> : <Navigate to="/login" />
-        } />
-        <Route path="/compare" element={
-          user ? <Layout user={user} setUser={setUser}><CompareGems /></Layout> : <Navigate to="/login" />
-        } />
+        <Route
+          path="/forgot-password"
+          element={<ForgotPassword />}
+        />
+
+        <Route
+          path="/reset-password"
+          element={<ResetPassword />}
+        />
+
+        <Route
+          path="/email/verify/:id/:hash"
+          element={<VerifyEmail />}
+        />
+
+        <Route
+          path="/verify-email"
+          element={<VerifyNewEmail />}
+        />
+
+        <Route
+          path="/resend-verification"
+          element={<ResendVerification />}
+        />
+
+        <Route
+          path="/google-callback"
+          element={<GoogleCallback setUser={setUser} />}
+        />
+
+        <Route
+          path="/"
+          element={
+            <Layout user={user} setUser={setUser}>
+              <Home user={user} />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/map"
+          element={
+            <Layout user={user} setUser={setUser}>
+              <Maps user={user} />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/hidden-gems"
+          element={
+            <Layout user={user} setUser={setUser}>
+              <HiddenGems user={user} />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/hidden-gems/:id"
+          element={
+            <Layout user={user} setUser={setUser}>
+              <HiddenGemDetail user={user} />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/travel-posts"
+          element={
+            <Layout user={user} setUser={setUser}>
+              <TravelPosts user={user} />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/travel-posts/:id"
+          element={
+            <Layout user={user} setUser={setUser}>
+              <TravelPostDetail user={user} />
+            </Layout>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <Profile setAppUser={setUser} />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/users/:id"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <Profile />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/wishlist"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <Wishlist user={user} />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
 
         <Route
           path="/trip-itinerary"
@@ -152,30 +246,30 @@ function App() {
         />
 
         <Route
-            path="/my-hidden-gems"
-            element={
-                user ? (
-                    <Layout user={user} setUser={setUser}>
-                        <MyHiddenGems />
-                    </Layout>
-                ) : (
-                    <Navigate to="/login" />
-                )
-            }
+          path="/my-hidden-gems"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <MyHiddenGems />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
         />
 
         <Route
           path="/my-hidden-gems/edit/:id"
           element={
-              user ? (
-                  <Layout user={user} setUser={setUser}>
-                      <EditHiddenGem />
-                  </Layout>
-              ) : (
-                  <Navigate to="/login" />
-              )
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <EditHiddenGem />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
           }
-      />
+        />
 
         <Route
           path="/travel-posts/create"
@@ -202,9 +296,7 @@ function App() {
             )
           }
         />
-
       </Routes>
-      </CompareProvider>
     </BrowserRouter>
   );
 }

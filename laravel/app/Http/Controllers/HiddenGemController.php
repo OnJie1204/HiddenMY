@@ -212,7 +212,7 @@ class HiddenGemController extends Controller
             ])
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
-            ->withCount(['ratings', 'checkIns'])
+            ->withCount('ratings')
             ->publiclyVisible();
 
         // Filter by status (hidden_gem / pending_community_vote)
@@ -478,7 +478,7 @@ class HiddenGemController extends Controller
             'menuItems.addedBy:id,name',
         ])
                             ->withAvg('ratings', 'rating')
-                            ->withCount(['ratings', 'checkIns'])
+                            ->withCount('ratings')
                             ->findOrFail($id);
 
         $isPubliclyVisible = Location::isPubliclyVisible($location);
@@ -670,7 +670,7 @@ class HiddenGemController extends Controller
                 'firstImage' => fn ($q) => $q->select(['location_images.id', 'location_images.location_id', 'location_images.image_url']),
             ])
             ->withAvg('ratings', 'rating')
-            ->withCount(['ratings', 'checkIns'])
+            ->withCount('ratings')
             ->publiclyVisible()
             ->whereBetween('latitude', [$validated['south'], $validated['north']])
             ->whereBetween('longitude', [$validated['west'], $validated['east']]);
@@ -1196,7 +1196,7 @@ class HiddenGemController extends Controller
             ])
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
-            ->withCount(['ratings', 'checkIns'])
+            ->withCount('ratings')
             ->publiclyVisible()
             ->latest()
             ->take(6)
@@ -1218,7 +1218,7 @@ class HiddenGemController extends Controller
             ])
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
-            ->withCount(['ratings', 'checkIns'])
+            ->withCount('ratings')
             ->where('status', 'hidden_gem')
             ->orderByDesc('votes_count')
             ->take(6)

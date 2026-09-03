@@ -445,7 +445,6 @@ function Maps({ user }){
                 website: raw.website,
                 ratingAvg: raw.ratings_avg_rating != null ? Number(raw.ratings_avg_rating) : null,
                 ratingCount: raw.ratings_count ?? 0,
-                checkInsCount: raw.check_ins_count ?? 0,
                 distanceKm: userPosition
                     ? L.latLng(userPosition).distanceTo(L.latLng(Number(latitude), Number(longitude))) / 1000
                     : null,

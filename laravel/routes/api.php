@@ -82,9 +82,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ===== Vote Routes =====
     Route::get('/votes/check/{locationId}', [VoteController::class, 'checkEligibility']);
-    // Standalone GPS check-in — used by the reporting / verification flow (voting
-    // sends coordinates inline via the store route below).
-    Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
     Route::post('/votes/{locationId}', [VoteController::class, 'store']);
     Route::get('/my-votes', [VoteController::class, 'myVotes']);
 

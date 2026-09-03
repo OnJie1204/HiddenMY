@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CheckIn;
 use App\Models\Location;
 use App\Models\PostImage;
 use App\Models\TravelPost;
@@ -127,7 +126,7 @@ class TravelPostController extends Controller
             $post->update(['cover_image_url' => $coverUrl]);
         }
 
-        $this->attachLocations($post, $locations, $data['captions'] ?? [], $user->id);
+        $this->attachLocations($post, $locations, $data['captions'] ?? []);
         $this->storeGalleryImages($post, $request);
 
         return response()->json([
@@ -184,7 +183,7 @@ class TravelPostController extends Controller
 
         $locations = $this->resolveTaggableLocations($data['location_ids'] ?? []);
         $post->locations()->detach();
-        $this->attachLocations($post, $locations, $data['captions'] ?? [], $post->user_id);
+        $this->attachLocations($post, $locations, $data['captions'] ?? []);
 
         $this->storeGalleryImages($post, $request);
 
@@ -254,18 +253,12 @@ class TravelPostController extends Controller
             ->get();
     }
 
-    private function attachLocations(TravelPost $post, Collection $locations, array $captions, int $userId): void
+    private function attachLocations(TravelPost $post, Collection $locations, array $captions): void
     {
-        $visitedLocationIds = CheckIn::where('user_id', $userId)
-            ->whereIn('location_id', $locations->pluck('id'))
-            ->pluck('location_id')
-            ->all();
-
-        $locations->values()->each(function (Location $location, int $index) use ($post, $captions, $visitedLocationIds) {
+        $locations->values()->each(function (Location $location, int $index) use ($post, $captions) {
             $post->locations()->attach($location->id, [
                 'caption' => $captions[$index] ?? null,
                 'order_number' => $index,
-                'visited' => in_array($location->id, $visitedLocationIds, true),
             ]);
         });
     }

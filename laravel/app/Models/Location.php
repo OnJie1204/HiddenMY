@@ -109,11 +109,6 @@ class Location extends Model
         return $this->hasMany(Vote::class);
     }
 
-    public function checkIns()
-    {
-        return $this->hasMany(CheckIn::class);
-    }
-
     public function gemInteractions()
     {
         return $this->hasMany(GemInteraction::class);
@@ -145,7 +140,7 @@ class Location extends Model
     public function posts()
     {
         return $this->belongsToMany(TravelPost::class, 'post_locations')
-            ->withPivot(['caption', 'order_number', 'visited'])
+            ->withPivot(['caption', 'order_number'])
             ->withTimestamps()
             ->orderByDesc('post_locations.created_at');
     }
@@ -223,7 +218,7 @@ class Location extends Model
         return $this->contact_edit_unlocked_at !== null;
     }
 
-    /** A permanently-closed gem is frozen: no new check-ins, votes, ratings,
+    /** A permanently-closed gem is frozen: no new votes, ratings,
      *  comments, menu items or reports. Existing content stays readable, and
      *  the owner can still resubmit or delete it. */
     public function acceptsNewInteractions(): bool
@@ -231,7 +226,7 @@ class Location extends Model
         return $this->permanently_closed_at === null;
     }
 
-    public const FROZEN_MESSAGE = 'This place is marked permanently closed, so it can no longer be checked in, rated, commented on or added to.';
+    public const FROZEN_MESSAGE = 'This place is marked permanently closed, so it can no longer be voted on, rated, commented on or added to.';
 
     public function scopeHiddenGems(Builder $query)
     {
@@ -269,6 +264,7 @@ class Location extends Model
         if ($threshold <= 0) {
             return 100;
         }
+
         return min(100, round(($this->vote_count / $threshold) * 100));
     }
 

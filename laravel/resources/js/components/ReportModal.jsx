@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { checkReportEligibility, submitReport } from '../api/reports';
-import { checkIn as postCheckIn } from '../api/votes';
 
 // A Hidden Gem — verified, or still in community voting — can be reported for
 // two things (see Report::REASONS). The backend returns which reasons apply to
@@ -13,7 +12,7 @@ const REASONS = [
     { value: 'inappropriate_content', label: 'Information is wrong', requiresLocation: false },
 ];
 
-// checking -> reason -> [checkin -> manual_checkin] -> [corrections] -> form -> success/error.
+// checking -> reason -> [location] -> [corrections] -> form -> success/error.
 function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const navigate = useNavigate();
     const [step, setStep] = useState('checking');
@@ -25,17 +24,15 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const [suggestedWebsite, setSuggestedWebsite] = useState('');
     const [suggestedDescription, setSuggestedDescription] = useState('');
     const [wantLocationFix, setWantLocationFix] = useState(false);
-    // Captured during the check-in step — becomes the suggested correct pin.
+    // Captured from the user's current GPS position.
     const [suggestedCoords, setSuggestedCoords] = useState(null);
     const [description, setDescription] = useState('');
     const [photo, setPhoto] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState('error');
-    const [checkingIn, setCheckingIn] = useState(false);
+    const [checkingLocation, setCheckingLocation] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
-    const [manualLat, setManualLat] = useState('');
-    const [manualLng, setManualLng] = useState('');
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -86,8 +83,8 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
         }
         setMessage('');
         const meta = REASONS.find((r) => r.value === reason);
-        if (meta?.requiresLocation && !eligibility?.has_check_in) {
-            setStep('checkin');
+        if (meta?.requiresLocation) {
+            setStep('location');
         } else if (reason === 'inappropriate_content') {
             prefillFromGem();
             setStep('corrections');
@@ -109,10 +106,9 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     };
 
     const handleCorrectionsContinue = () => {
-        // The pin fix needs a check-in first.
         if (wantLocationFix && !suggestedCoords) {
             setMessage('');
-            setStep('checkin');
+            setStep('location');
             return;
         }
         if (!contactChanged() && !descriptionChanged() && !suggestedCoords) {
@@ -127,64 +123,46 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     };
 
     const getCurrentLocation = () => {
+        setCheckingLocation(true);
         setGpsStatus('Getting your location...');
+        setMessage('');
 
         if (!navigator.geolocation) {
             setGpsStatus('error: Geolocation is not supported by your browser');
+            setCheckingLocation(false);
             return;
         }
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
+
+                setSuggestedCoords({ latitude, longitude });
                 setGpsStatus('success: Location found!');
-                performCheckIn(latitude, longitude);
+                setMessageType('success');
+
+                if (reason === 'inappropriate_content') {
+                    setStep('corrections');
+                } else {
+                    setStep('form');
+                }
+
+                setCheckingLocation(false);
             },
             (error) => {
-                setGpsStatus('error: Unable to get your location. ' + (error.message || ''));
+                setGpsStatus(
+                    'error: Unable to get your location. ' +
+                    (error.message || '')
+                );
+                setMessageType('error');
+                setCheckingLocation(false);
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 0,
+            }
         );
-    };
-
-    const performCheckIn = async (latitude, longitude) => {
-        setCheckingIn(true);
-        setMessage('');
-        try {
-            const res = await postCheckIn(locationId, { latitude, longitude });
-            setEligibility((prev) => ({ ...prev, has_check_in: true }));
-            const distanceMsg = res.data.distance ? ` (${res.data.distance} km away)` : '';
-            setMessage('Check-in successful!' + distanceMsg);
-            setMessageType('success');
-            if (reason === 'inappropriate_content') {
-                // The check-in position is the reporter's proposed correct pin.
-                setSuggestedCoords({ latitude, longitude });
-                setStep('corrections');
-            } else {
-                setStep('form');
-            }
-        } catch (error) {
-            const data = error?.response?.data;
-            if (data?.distance && data?.max_distance) {
-                setMessage(`You are ${data.distance} km away. You must be within ${data.max_distance} km to check in.`);
-            } else {
-                setMessage(data?.message || 'Check-in failed');
-            }
-            setMessageType('error');
-        } finally {
-            setCheckingIn(false);
-        }
-    };
-
-    const confirmManualCheckIn = () => {
-        const lat = parseFloat(manualLat);
-        const lng = parseFloat(manualLng);
-        if (!manualLat || !manualLng || isNaN(lat) || isNaN(lng)) {
-            setMessage('Please enter valid coordinates.');
-            setMessageType('error');
-            return;
-        }
-        performCheckIn(lat, lng);
     };
 
     const handlePhotoChange = (e) => {
@@ -203,6 +181,12 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             formData.append('reason', reason);
             if (description) formData.append('description', description);
             if (photo) formData.append('photo', photo);
+
+            if (suggestedCoords) {
+                formData.append('reporter_latitude', suggestedCoords.latitude);
+                formData.append('reporter_longitude', suggestedCoords.longitude);
+            }
+
             if (reason === 'inappropriate_content') {
                 const gem = eligibility?.location || {};
                 if ((suggestedHours || '') !== (gem.opening_hours || '')) {
@@ -251,8 +235,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
         setMessage('');
         setEligibility(null);
         setGpsStatus('');
-        setManualLat('');
-        setManualLng('');
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -273,7 +255,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
         ? REASONS.filter((r) => eligibility.reasons.includes(r.value))
         : REASONS;
     const selectedReasonMeta = REASONS.find((r) => r.value === reason);
-    const backFromCheckin = reason === 'inappropriate_content' ? 'corrections' : 'reason';
+    const backFromLocation = reason === 'inappropriate_content' ? 'corrections' : 'reason';
 
     return createPortal((
         <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
@@ -313,7 +295,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 {selectedReasonMeta && (
                                     <p className="report-reason-hint">
                                         {selectedReasonMeta.requiresLocation
-                                            ? "You'll need to check in at this location — you have to have actually been there to know this."
+                                            ? "You'll need to share your current GPS location so the server can verify that you are nearby."
                                             : isVotingGem
                                                 ? "On the next step, suggest the correct location, description or contact details."
                                                 : "On the next step, enter the corrected contact details."}
@@ -332,13 +314,13 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                         </div>
                     )}
 
-                    {step === 'checkin' && (
+                    {step === 'location' && (
                         <div className="vote-checkin">
-                            <h3>Check-in Required</h3>
+                            <h3>Current Location Required</h3>
                             <p>
                                 {reason === 'inappropriate_content'
-                                    ? "We'll use your check-in position as the suggested correct location — the community votes on whether it looks right."
-                                    : 'This reason needs you to have actually been at the location — check in before you can report it.'}
+                                    ? "Use your current GPS position as the suggested correct location."
+                                    : 'Use your current GPS position so the server can verify that you are near this hidden gem.'}
                             </p>
 
                             {gemLocation && (
@@ -348,16 +330,22 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 </div>
                             )}
 
-                            <p className="vote-checkin-hint">You must be within 5 km to check in.</p>
+                            <p className="vote-checkin-hint">
+                                Your coordinates are submitted with the report for server-side verification. No check-in record is saved.
+                            </p>
 
                             <div className="vote-checkin-options">
-                                <button className="vote-checkin-option" onClick={getCurrentLocation} disabled={checkingIn}>
-                                    <span className="vote-checkin-option-label">Use My Current Location</span>
-                                    <span className="vote-checkin-option-desc">Auto-detect your GPS position</span>
-                                </button>
-                                <button className="vote-checkin-option" onClick={() => setStep('manual_checkin')} disabled={checkingIn}>
-                                    <span className="vote-checkin-option-label">Enter Current Location</span>
-                                    <span className="vote-checkin-option-desc">Manually enter your GPS coordinates</span>
+                                <button
+                                    className="vote-checkin-option"
+                                    onClick={getCurrentLocation}
+                                    disabled={checkingLocation}
+                                >
+                                    <span className="vote-checkin-option-label">
+                                        {checkingLocation ? 'Detecting Location...' : 'Use My Current Location'}
+                                    </span>
+                                    <span className="vote-checkin-option-desc">
+                                        Detect your current GPS position
+                                    </span>
                                 </button>
                             </div>
 
@@ -366,42 +354,15 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                     {gpsStatus.replace(/^(error:|success:)/, '')}
                                 </div>
                             )}
-                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
-
-                            <button className="vote-manual-back" onClick={() => setStep(backFromCheckin)}>← Back</button>
-                            <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
-                        </div>
-                    )}
-
-                    {step === 'manual_checkin' && (
-                        <div className="vote-manual-checkin">
-                            <button className="vote-manual-back" onClick={() => setStep('checkin')}>← Back</button>
-                            <h3>Enter Your Current Location</h3>
-                            {reason === 'inappropriate_content' && (
-                                <p className="vote-manual-hint">These coordinates will be suggested as the gem's correct location.</p>
-                            )}
-
-                            <div className="vote-manual-inputs">
-                                <div className="vote-manual-input-group">
-                                    <label>Latitude</label>
-                                    <input type="text" className="vote-manual-input" placeholder="e.g. 3.2143"
-                                        value={manualLat} onChange={(e) => setManualLat(e.target.value)} />
-                                </div>
-                                <div className="vote-manual-input-group">
-                                    <label>Longitude</label>
-                                    <input type="text" className="vote-manual-input" placeholder="e.g. 101.7281"
-                                        value={manualLng} onChange={(e) => setManualLng(e.target.value)} />
-                                </div>
-                            </div>
 
                             {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
-                            <div className="vote-actions">
-                                <button className="vote-btn-primary" onClick={confirmManualCheckIn} disabled={checkingIn}>
-                                    {checkingIn ? 'Checking in...' : 'Confirm Check-in'}
-                                </button>
-                                <button className="vote-btn-secondary" onClick={() => setStep('checkin')}>Cancel</button>
-                            </div>
+                            <button className="vote-manual-back" onClick={() => setStep(backFromLocation)}>
+                                ← Back
+                            </button>
+                            <button className="vote-btn-secondary" onClick={handleClose}>
+                                Cancel
+                            </button>
                         </div>
                     )}
 
@@ -424,7 +385,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                         <label className="report-contact-label">Location</label>
                                         {suggestedCoords ? (
                                             <p className="report-reason-hint" style={{ margin: '0 0 8px' }}>
-                                                ✓ Correct location captured from your check-in
+                                                ✓ Correct location captured from your current GPS position
                                                 ({suggestedCoords.latitude.toFixed(5)}, {suggestedCoords.longitude.toFixed(5)}).{' '}
                                                 <button type="button" className="vote-link-btn" onClick={() => { setSuggestedCoords(null); setWantLocationFix(false); }}>Undo</button>
                                             </p>
@@ -435,7 +396,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                                     checked={wantLocationFix}
                                                     onChange={(e) => setWantLocationFix(e.target.checked)}
                                                 />
-                                                <span>The pin is in the wrong place — I'll check in to set the right spot</span>
+                                                <span>The pin is in the wrong place — use my current GPS position</span>
                                             </label>
                                         )}
 
@@ -487,7 +448,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
 
                             <div className="vote-actions">
                                 <button className="vote-btn-primary" onClick={handleCorrectionsContinue}>
-                                    {wantLocationFix && !suggestedCoords ? 'Check in to set location' : 'Continue'}
+                                    {wantLocationFix && !suggestedCoords ? 'Detect current location' : 'Continue'}
                                 </button>
                                 <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
                             </div>

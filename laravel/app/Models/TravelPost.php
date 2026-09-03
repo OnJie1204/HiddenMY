@@ -27,7 +27,7 @@ class TravelPost extends Model
     public function locations()
     {
         return $this->belongsToMany(Location::class, 'post_locations')
-            ->withPivot(['caption', 'order_number', 'visited'])
+            ->withPivot(['caption', 'order_number'])
             ->withTimestamps()
             ->orderBy('post_locations.order_number');
     }
