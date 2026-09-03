@@ -4,15 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Location;
 use App\Models\Vote;
-use App\Models\CheckIn;
 use App\Support\Geo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class VoteController extends Controller
 {
-    // Maximum allowed distance for location verification in kilometres
-    private const MAX_CHECKIN_DISTANCE = 5.0;
+    private const MAX_VOTE_DISTANCE = 5.0;
 
     /**
      * Check whether the authenticated user is eligible to vote
@@ -22,151 +22,181 @@ class VoteController extends Controller
     {
         $user = Auth::user();
 
-        // User must be authenticated before voting
         if (!$user) {
             return response()->json([
                 'eligible' => false,
-                'message' => 'Please login first'
+                'message' => 'Please login first',
             ], 401);
         }
 
         $location = Location::findOrFail($locationId);
 
-        // Prevent users from voting for their own Hidden Gem
         if ($location->user_id === $user->id) {
             return response()->json([
                 'eligible' => false,
-                'message' => 'You cannot vote for your own hidden gem'
-            ]);
+                'message' => 'You cannot vote for your own hidden gem',
+            ], 403);
         }
 
-        // Voting is only available for Pending Hidden Gems
         if ($location->status !== 'pending_community_vote') {
             return response()->json([
                 'eligible' => false,
-                'message' => $this->notVotableMessage($location->status)
-            ]);
+                'message' => $this->notVotableMessage($location->status),
+            ], 400);
         }
 
-        // Prevent duplicate voting by the same user
         $existingVote = Vote::where('user_id', $user->id)
             ->where('location_id', $locationId)
-            ->first();
+            ->exists();
 
         if ($existingVote) {
             return response()->json([
                 'eligible' => false,
-                'message' => 'You have already voted for this location'
-            ]);
+                'message' => 'You have already voted for this location',
+            ], 409);
         }
-
-        // Check whether the user has previously verified this location
-        $hasCheckIn = CheckIn::where('user_id', $user->id)
-            ->where('location_id', $locationId)
-            ->exists();
 
         return response()->json([
             'eligible' => true,
             'user_id' => $user->id,
-            'has_check_in' => $hasCheckIn,
-            'message' => $hasCheckIn
-                ? 'You can vote!'
-                : 'Please check-in at this location first',
-            'location' => $location
+            'message' => 'You are eligible to vote.',
+            'location' => $location,
+            'max_distance' => self::MAX_VOTE_DISTANCE,
         ]);
     }
 
     /**
-     * Submit a vote for a Pending Hidden Gem.
+     * Verify the user's current GPS location and submit the vote.
      */
     public function store(Request $request, $locationId)
     {
         $user = Auth::user();
 
-        // User must be authenticated before submitting a vote
         if (!$user) {
             return response()->json([
-                'message' => 'Please login first'
+                'message' => 'Please login first',
             ], 401);
+        }
+
+        try {
+            $validated = $request->validate([
+                'latitude' => ['required', 'numeric', 'between:-90,90'],
+                'longitude' => ['required', 'numeric', 'between:-180,180'],
+            ]);
+        } catch (ValidationException $exception) {
+            return response()->json([
+                'message' => 'A valid current location is required to vote.',
+                'errors' => $exception->errors(),
+            ], 422);
         }
 
         $location = Location::findOrFail($locationId);
 
-        // Prevent users from voting for their own Hidden Gem
         if ($location->user_id === $user->id) {
             return response()->json([
-                'message' => 'You cannot vote for your own hidden gem'
+                'message' => 'You cannot vote for your own hidden gem',
             ], 403);
         }
 
-        // Only Pending Hidden Gems can receive community votes
         if ($location->status !== 'pending_community_vote') {
             return response()->json([
-                'message' => $this->notVotableMessage($location->status)
+                'message' => $this->notVotableMessage($location->status),
             ], 400);
         }
 
-        // Prevent duplicate votes
-        $existingVote = Vote::where('user_id', $user->id)
-            ->where('location_id', $locationId)
-            ->first();
-
-        if ($existingVote) {
+        if ($location->latitude === null || $location->longitude === null) {
             return response()->json([
-                'message' => 'You have already voted for this location'
-            ], 400);
+                'message' => 'This hidden gem does not have valid coordinates for location verification.',
+            ], 422);
         }
 
-        /*
-         * Require a recent successful location verification.
-         *
-         * The check-in must belong to the same user and Hidden Gem
-         * and must have been verified within the last five minutes.
-         */
-        $recentCheckIn = CheckIn::where('user_id', $user->id)
-            ->where('location_id', $locationId)
-            ->where('check_in_at', '>=', now()->subMinutes(5))
-            ->latest('check_in_at')
-            ->first();
+        $distance = $this->calculateDistance(
+            (float) $validated['latitude'],
+            (float) $validated['longitude'],
+            (float) $location->latitude,
+            (float) $location->longitude
+        );
 
-        if (!$recentCheckIn) {
+        if ($distance > self::MAX_VOTE_DISTANCE) {
             return response()->json([
-                'message' => 'Please verify your current location before voting.'
-            ], 403);
+                'message' => 'You must be within 5 km of this hidden gem to vote.',
+                'distance' => round($distance, 2),
+                'max_distance' => self::MAX_VOTE_DISTANCE,
+            ], 422);
         }
 
-        // Create the vote record
-        $vote = Vote::create([
-            'user_id' => $user->id,
-            'location_id' => $locationId,
-        ]);
+        $result = DB::transaction(function () use ($user, $locationId) {
+            $location = Location::query()
+                ->lockForUpdate()
+                ->findOrFail($locationId);
 
-        // Increase the community voting progress
-        $location->increment('vote_count');
+            if ($location->status !== 'pending_community_vote') {
+                return [
+                    'error' => true,
+                    'status' => 400,
+                    'message' => $this->notVotableMessage($location->status),
+                ];
+            }
 
-        /*
-         * Automatically verify the Hidden Gem when the required
-         * community voting threshold has been reached.
-         */
-        $threshold = $location->verification_threshold ?? 10;
+            if ($location->user_id === $user->id) {
+                return [
+                    'error' => true,
+                    'status' => 403,
+                    'message' => 'You cannot vote for your own hidden gem',
+                ];
+            }
 
-        if ($location->vote_count >= $threshold) {
-            $location->update([
-                'status' => 'hidden_gem'
+            $existingVote = Vote::where('user_id', $user->id)
+                ->where('location_id', $locationId)
+                ->exists();
+
+            if ($existingVote) {
+                return [
+                    'error' => true,
+                    'status' => 409,
+                    'message' => 'You have already voted for this location',
+                ];
+            }
+
+            $vote = Vote::create([
+                'user_id' => $user->id,
+                'location_id' => $locationId,
             ]);
+
+            $location->increment('vote_count');
+            $location->refresh();
+
+            $threshold = $location->verification_threshold ?? 10;
+
+            if ($location->vote_count >= $threshold) {
+                $location->update([
+                    'status' => 'hidden_gem',
+                ]);
+            }
+
+            return [
+                'error' => false,
+                'vote' => $vote,
+                'location' => $location->fresh(),
+            ];
+        });
+
+        if ($result['error']) {
+            return response()->json([
+                'message' => $result['message'],
+            ], $result['status']);
         }
 
         return response()->json([
             'message' => 'Vote submitted successfully!',
-            'vote' => $vote,
-            'location' => $location->fresh(),
-            'is_verified' => $location->status === 'hidden_gem'
+            'vote' => $result['vote'],
+            'location' => $result['location'],
+            'distance' => round($distance, 2),
+            'max_distance' => self::MAX_VOTE_DISTANCE,
+            'is_verified' => $result['location']->status === 'hidden_gem',
         ], 201);
     }
 
-    /**
-     * Return an appropriate message when a location cannot be voted on.
-     */
     private function notVotableMessage(string $status): string
     {
         return match ($status) {
@@ -192,7 +222,7 @@ class VoteController extends Controller
             ->get();
 
         return response()->json([
-            'data' => $votes
+            'data' => $votes,
         ]);
     }
 
@@ -205,7 +235,7 @@ class VoteController extends Controller
 
         if (!$user) {
             return response()->json([
-                'message' => 'Please login first'
+                'message' => 'Please login first',
             ], 401);
         }
 
@@ -242,114 +272,10 @@ class VoteController extends Controller
             ]);
 
         return response()->json([
-            'data' => $votes
+            'data' => $votes,
         ]);
     }
 
-    /**
-     * Verify the user's submitted GPS location before voting.
-     */
-    public function checkIn(Request $request, $locationId)
-    {
-        $user = Auth::user();
-
-        // User must be authenticated before location verification
-        if (!$user) {
-            return response()->json([
-                'message' => 'Please login first'
-            ], 401);
-        }
-
-        $location = Location::findOrFail($locationId);
-
-        /*
-         * Find an existing check-in for the same user and Hidden Gem.
-         * It will be updated after successful location verification.
-         */
-        $existingCheckIn = CheckIn::where('user_id', $user->id)
-            ->where('location_id', $locationId)
-            ->first();
-
-        $userLat = $request->input('latitude');
-        $userLng = $request->input('longitude');
-
-        // Latitude and longitude are required for verification
-        if (!$userLat || !$userLng) {
-            return response()->json([
-                'message' => 'Please provide your location to check in'
-            ], 400);
-        }
-
-        /*
-         * Calculate the distance between the submitted GPS coordinates
-         * and the coordinates of the selected Hidden Gem.
-         */
-        $distance = $this->calculateDistance(
-            (float) $userLat,
-            (float) $userLng,
-            (float) $location->latitude,
-            (float) $location->longitude
-        );
-
-        // Reject the location when it is outside the allowed 5 km radius
-        if ($distance > self::MAX_CHECKIN_DISTANCE) {
-            return response()->json([
-                'message' =>
-                    'You are '
-                    . round($distance, 2)
-                    . ' km away. You must be within '
-                    . self::MAX_CHECKIN_DISTANCE
-                    . ' km to check in.',
-
-                'distance' => round($distance, 2),
-                'max_distance' => self::MAX_CHECKIN_DISTANCE
-            ], 400);
-        }
-
-        /*
-         * Update an existing check-in or create a new one.
-         *
-         * check_in_at is refreshed every time the location is
-         * successfully verified so the voting process can enforce
-         * the recent five-minute verification requirement.
-         */
-        if ($existingCheckIn) {
-            $existingCheckIn->update([
-                'latitude' => $userLat,
-                'longitude' => $userLng,
-                'check_in_at' => now(),
-            ]);
-
-            $checkIn = $existingCheckIn->fresh();
-        } else {
-            $checkIn = CheckIn::create([
-                'user_id' => $user->id,
-                'location_id' => $locationId,
-                'latitude' => $userLat,
-                'longitude' => $userLng,
-                'check_in_at' => now(),
-            ]);
-        }
-
-        return response()->json([
-            'message' =>
-                'Check-in successful! You are '
-                . round($distance, 2)
-                . ' km away.',
-
-            'checked_in' => true,
-            'distance' => round($distance, 2),
-            'max_distance' => self::MAX_CHECKIN_DISTANCE,
-            'check_in' => $checkIn
-        ]);
-    }
-
-    /**
-     * Calculate the distance between two geographical coordinates.
-     *
-     * Geo::distanceMeters() returns metres, so the result
-     * is converted to kilometres for the voting requirement.
-     */
     private function calculateDistance($lat1, $lon1, $lat2, $lon2)
     {
         return Geo::distanceMeters(

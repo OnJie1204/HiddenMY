@@ -81,7 +81,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // ===== Vote Routes =====
     Route::get('/votes/check/{locationId}', [VoteController::class, 'checkEligibility']);
     Route::post('/votes/{locationId}', [VoteController::class, 'store']);
-    Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
     Route::get('/my-votes', [VoteController::class, 'myVotes']);
 
     // ===== Report Routes =====
