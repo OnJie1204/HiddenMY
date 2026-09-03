@@ -137,7 +137,10 @@ export default function CreateTravelPost() {
 
             const response = await createTravelPost(data);
 
-            navigate(`/travel-posts/${response.data.data.id}`);
+            // replace (not push) so the browser Back button from the new post
+            // returns to wherever the user came from — the linked itinerary,
+            // the posts list — rather than back into this now-stale form.
+            navigate(`/travel-posts/${response.data.data.id}`, { replace: true });
         } catch (error) {
             setMessage(error.response?.data?.message || "Failed to publish your post.");
         } finally {

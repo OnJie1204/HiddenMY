@@ -11,7 +11,10 @@ import { getReportForLocation, requestFixReview } from "../api/reports";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import PhotoCarousel from "../components/PhotoCarousel";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
-import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
+import { getTripItineraries, addTripLocation, createTripItinerary } from "../api/TripItinerary";
+
+// Backend caps trip_name at 10 characters (TripItineraryController::store).
+const ITINERARY_NAME_MAX = 10;
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import MenuItems from "../components/MenuItems";
 import api from "../api";
@@ -78,8 +81,12 @@ export default function HiddenGemDetail({ user }) {
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
     const [itineraries, setItineraries] = useState([]);
+    const [isLoadingItineraries, setIsLoadingItineraries] = useState(false);
     const [itineraryOpen, setItineraryOpen] = useState(false);
     const [itineraryStatus, setItineraryStatus] = useState(null);
+    const [showItineraryForm, setShowItineraryForm] = useState(false);
+    const [newItineraryName, setNewItineraryName] = useState("");
+    const [creatingItinerary, setCreatingItinerary] = useState(false);
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [activeReport, setActiveReport] = useState(null);
     const [loadingReport, setLoadingReport] = useState(false);
@@ -303,14 +310,18 @@ export default function HiddenGemDetail({ user }) {
             setItineraries([]);
             return;
         }
+        setIsLoadingItineraries(true);
         getTripItineraries()
             .then((res) => setItineraries(res.data || []))
-            .catch(() => setItineraries([]));
+            .catch(() => setItineraries([]))
+            .finally(() => setIsLoadingItineraries(false));
     }, [currentUser]);
 
     useEffect(() => {
         setItineraryOpen(false);
         setItineraryStatus(null);
+        setShowItineraryForm(false);
+        setNewItineraryName("");
     }, [id]);
 
     async function handleAddToItinerary(trip) {
@@ -319,11 +330,34 @@ export default function HiddenGemDetail({ user }) {
             await addTripLocation(trip.id, { source: "database", location_id: gem.id });
             setItineraryStatus({ type: "success", message: `Added to "${trip.trip_name}".` });
             setItineraryOpen(false);
+            setShowItineraryForm(false);
+            setNewItineraryName("");
         } catch (error) {
             setItineraryStatus({
                 type: "error",
                 message: error?.response?.data?.message || "Could not add this gem to the trip.",
             });
+        }
+    }
+
+    async function handleCreateItineraryAndAdd() {
+        const name = newItineraryName.trim();
+        if (!name || creatingItinerary) return;
+
+        setCreatingItinerary(true);
+        setItineraryStatus({ type: "loading", message: `Creating "${name}"…` });
+        try {
+            const res = await createTripItinerary({ trip_name: name });
+            const newTrip = res.data?.data;
+            setItineraries((prev) => [newTrip, ...prev]);
+            await handleAddToItinerary(newTrip);
+        } catch (error) {
+            setItineraryStatus({
+                type: "error",
+                message: error?.response?.data?.message || "Could not create the itinerary.",
+            });
+        } finally {
+            setCreatingItinerary(false);
         }
     }
 
@@ -633,6 +667,8 @@ export default function HiddenGemDetail({ user }) {
                                             return;
                                         }
                                         setItineraryStatus(null);
+                                        setShowItineraryForm(false);
+                                        setNewItineraryName("");
                                         setItineraryOpen((open) => !open);
                                     }}
                                 >
@@ -641,11 +677,11 @@ export default function HiddenGemDetail({ user }) {
 
                                 {itineraryOpen && currentUser && (
                                     <div className="gem-detail-itinerary-picker">
-                                        {itineraries.length === 0 ? (
-                                            <p className="gem-detail-itinerary-empty">
-                                                No itineraries yet — <Link to="/trip-itinerary">create one</Link> first.
-                                            </p>
-                                        ) : (
+                                        {isLoadingItineraries && (
+                                            <Spinner size="sm" inline label="Loading itineraries…" />
+                                        )}
+
+                                        {!isLoadingItineraries && itineraries.length > 0 && (
                                             <>
                                                 <h4>Add to which trip?</h4>
                                                 {itineraries.map((trip) => (
@@ -660,6 +696,57 @@ export default function HiddenGemDetail({ user }) {
                                                 ))}
                                             </>
                                         )}
+
+                                        {!isLoadingItineraries && (showItineraryForm ? (
+                                            <form
+                                                className="gem-detail-itinerary-create"
+                                                onSubmit={(event) => {
+                                                    event.preventDefault();
+                                                    handleCreateItineraryAndAdd();
+                                                }}
+                                            >
+                                                <input
+                                                    type="text"
+                                                    className="gem-detail-itinerary-create-input"
+                                                    placeholder="New trip name"
+                                                    maxLength={ITINERARY_NAME_MAX}
+                                                    value={newItineraryName}
+                                                    onChange={(event) => setNewItineraryName(event.target.value)}
+                                                    autoFocus
+                                                />
+                                                <div className="gem-detail-itinerary-create-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="gem-detail-itinerary-create-cancel"
+                                                        onClick={() => {
+                                                            setShowItineraryForm(false);
+                                                            setNewItineraryName("");
+                                                        }}
+                                                        disabled={creatingItinerary}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        className="gem-detail-itinerary-create-submit"
+                                                        disabled={!newItineraryName.trim() || creatingItinerary}
+                                                    >
+                                                        Create &amp; add
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="gem-detail-itinerary-option gem-detail-itinerary-new"
+                                                onClick={() => {
+                                                    setItineraryStatus(null);
+                                                    setShowItineraryForm(true);
+                                                }}
+                                            >
+                                                ＋ New itinerary
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
 

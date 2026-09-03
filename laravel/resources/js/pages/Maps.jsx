@@ -192,6 +192,7 @@ function Maps({ user }){
     const [clickedLoading, setClickedLoading] = useState(false);
     const [clickedError, setClickedError] = useState(false);
     const [itineraries, setItineraries] = useState([]);
+    const [itinerariesLoading, setItinerariesLoading] = useState(false);
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [gemReviews, setGemReviews] = useState([]);
     const [gemReviewsLoading, setGemReviewsLoading] = useState(false);
@@ -292,9 +293,11 @@ function Maps({ user }){
         loadedPanelExtrasRef.current = true;
 
         const id = setTimeout(() => {
+            setItinerariesLoading(true);
             getTripItineraries()
                 .then(res => setItineraries(res.data || []))
-                .catch(err => console.log(err));
+                .catch(err => console.log(err))
+                .finally(() => setItinerariesLoading(false));
         }, 300);
 
         return () => clearTimeout(id);
@@ -802,7 +805,11 @@ function Maps({ user }){
                         onSelectNearby={selectNearby}
                         onGemChange={handleActiveGemChange}
                         itineraries={itineraries}
+                        itinerariesLoading={itinerariesLoading}
                         onAddToItinerary={handleAddToItinerary}
+                        onItineraryCreated={(trip) => {
+                            if (trip) setItineraries((prev) => [trip, ...prev]);
+                        }}
                         wishlistIds={wishlistIds}
                         onToggleWishlist={handleToggleWishlist}
                         reviews={gemReviews}

@@ -423,6 +423,15 @@ export default function TripItineraryDetail() {
         return () => clearTimeout(timer);
     }, [successMessage]);
 
+    // A notice handed over from another page (e.g. "created" from the itinerary
+    // list). Show it once, then wipe it from history so a refresh won't repeat it.
+    useEffect(() => {
+        if (!state?.notice) return;
+
+        setSuccessMessage(state.notice);
+        navigate(`/trip-itinerary/${id}`, { replace: true, state: { itinerary: state.itinerary } });
+    }, [state, navigate, id]);
+
     useEffect(() => {
         setIsLoadingItinerary(true);
 

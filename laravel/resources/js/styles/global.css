@@ -4553,6 +4553,61 @@ img.avatar {
 .gem-detail-itinerary-status.success { color: #15803d; }
 .gem-detail-itinerary-status.error { color: var(--color-accent-dark); }
 
+.gem-detail-itinerary-new {
+    color: var(--color-primary-dark, var(--color-primary));
+    font-weight: 600;
+}
+
+.gem-detail-itinerary-create {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.gem-detail-itinerary-create-input {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 0.9rem;
+}
+
+.gem-detail-itinerary-create-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.gem-detail-itinerary-create-cancel,
+.gem-detail-itinerary-create-submit {
+    flex: 1;
+    padding: 0.45rem 0.7rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--color-border);
+}
+
+.gem-detail-itinerary-create-cancel {
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+.gem-detail-itinerary-create-submit {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+.gem-detail-itinerary-create-submit:disabled,
+.gem-detail-itinerary-create-cancel:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .gem-detail-title-row {
     display: flex;
     align-items: flex-start;
