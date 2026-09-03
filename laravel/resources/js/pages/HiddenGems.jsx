@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
+import { getHiddenGems, getWellKnownPlaces, getCategories, getStates } from "../api/hiddenGems";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import TruncatedText from "../components/TruncatedText";
 import PhotoCarousel from "../components/PhotoCarousel";
@@ -83,7 +83,11 @@ export default function HiddenGems({ user }) {
                 statusParam = "pending_community_vote";
             }
 
-            if (statusParam) {
+            // "well_known" is its own list (a separate endpoint) — the community
+            // has outgrown these, so they're kept out of the Hidden Gems browse.
+            const wantWellKnown = statusParam === "well_known";
+
+            if (statusParam && !wantWellKnown) {
                 params.status = statusParam;
             }
 
@@ -99,7 +103,9 @@ export default function HiddenGems({ user }) {
                 params.sort = filter.sort;
             }
 
-            const response = await getHiddenGems(params);
+            const response = wantWellKnown
+                ? await getWellKnownPlaces(params)
+                : await getHiddenGems(params);
 
             console.log("API Response:", response.data);
 
@@ -415,6 +421,7 @@ export default function HiddenGems({ user }) {
                     <option value="">All Status</option>
                     <option value="verified">Verified</option>
                     <option value="pending">Pending</option>
+                    <option value="well_known">Well-Known Places</option>
                 </select>
 
                 <select
@@ -590,6 +597,10 @@ export default function HiddenGems({ user }) {
                                         {gem.status === "hidden_gem" ? (
                                             <span className="hidden-gems-card-verified">
                                                 Verified
+                                            </span>
+                                        ) : gem.status === "well_known" ? (
+                                            <span className="hidden-gems-card-verified">
+                                                Well-Known Place
                                             </span>
                                         ) : gem.status ===
                                           "pending_community_vote" ? (

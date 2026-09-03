@@ -1,7 +1,12 @@
 import api from '../api';
 
-export const getHiddenGems = (params = {}) => 
+export const getHiddenGems = (params = {}) =>
     api.get('/hidden-gems', { params });
+
+// Well-known places — gems the community has outgrown. Same response shape as
+// getHiddenGems; deliberately a separate list from the Hidden Gems browse.
+export const getWellKnownPlaces = (params = {}) =>
+    api.get('/well-known-places', { params });
 
 export const getHiddenGemDetail = (id) => 
     api.get(`/hidden-gems/${id}`);
