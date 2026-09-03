@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
-import { useCompare } from "../context/CompareContext";
 import TruncatedText from "../components/TruncatedText";
 import PhotoCarousel from "../components/PhotoCarousel";
 import LoadingCards from "../components/LoadingCards";
@@ -52,13 +51,6 @@ export default function HiddenGems({ user }) {
 
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
-
-    const {
-        isComparing,
-        toggleCompare,
-        canAddMore,
-        maxCompare,
-    } = useCompare();
 
     const requireSignIn = (message) => {
         setSignInMessage(message);
@@ -335,6 +327,13 @@ export default function HiddenGems({ user }) {
         return pages;
     };
 
+    const hasActiveFilters =
+        Boolean(search) ||
+        Boolean(filter.status) ||
+        Boolean(filter.category) ||
+        Boolean(filter.state) ||
+        filter.sort !== "latest";
+
     return (
         <div className="hidden-gems-page">
             <div className="hidden-gems-header">
@@ -458,20 +457,15 @@ export default function HiddenGems({ user }) {
                     <option value="oldest">Oldest First</option>
                 </select>
 
-                <button
-                    className={`hidden-gems-filter-clear ${
-                        filter.status ||
-                        filter.category ||
-                        filter.state ||
-                        search ||
-                        filter.sort !== "latest"
-                            ? "hidden-gems-filter-clear-active"
-                            : ""
-                    }`}
-                    onClick={clearAllFilters}
-                >
-                    <span>✕</span> Clear All
-                </button>
+                {hasActiveFilters && (
+                    <button
+                        type="button"
+                        className="hidden-gems-filter-clear hidden-gems-filter-clear-active"
+                        onClick={clearAllFilters}
+                    >
+                        <span>✕</span> Clear All
+                    </button>
+                )}
             </div>
 
             {loading ? (
@@ -531,34 +525,6 @@ export default function HiddenGems({ user }) {
                                                 {wishlistIds.has(gem.id)
                                                     ? "♥"
                                                     : "♡"}
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                className={`compare-toggle-btn ${
-                                                    isComparing(gem.id)
-                                                        ? "compare-toggle-btn-active"
-                                                        : ""
-                                                }`}
-                                                disabled={
-                                                    !isComparing(gem.id) &&
-                                                    !canAddMore
-                                                }
-                                                title={
-                                                    isComparing(gem.id)
-                                                        ? "Remove from comparison"
-                                                        : canAddMore
-                                                          ? "Add to comparison"
-                                                          : `You can compare up to ${maxCompare} at a time`
-                                                }
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleCompare(gem);
-                                                }}
-                                            >
-                                                {isComparing(gem.id)
-                                                    ? "☑"
-                                                    : "☐"}
                                             </button>
 
                                             <ReportButton

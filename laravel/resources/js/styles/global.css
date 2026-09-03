@@ -11493,3 +11493,110 @@ pre {
     font-weight: 500;
     color: #FFFFFF;
 }
+
+.gem-detail-empty-card {
+    width: 100%;
+    min-height: 160px;
+    padding: 24px;
+    border: 1px solid #E5E7EB;
+    border-radius: 18px;
+    background: #FFFFFF;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Wishlist and Report icon buttons */
+.hidden-gems-card-icon-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.gem-detail-wishlist-btn,
+.gem-detail-report-btn-wrapper {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    border: 1px solid #E5E7EB !important;
+    border-radius: 50% !important;
+    background: #FFFFFF !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}
+
+/* Remove the ReportButton's own outer styling */
+.gem-detail-report-btn-wrapper > * {
+    margin: 0 !important;
+}
+
+/* Make the actual report button fill the circle */
+.gem-detail-report-btn-wrapper button {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 50% !important;
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: none !important;
+}
+
+/* Keep both icons visually balanced */
+.gem-detail-wishlist-btn {
+    font-size: 24px !important;
+    line-height: 1 !important;
+}
+
+.gem-detail-report-btn-wrapper button {
+    font-size: 20px !important;
+    line-height: 1 !important;
+}
+
+.gem-detail-wishlist-btn:hover,
+.gem-detail-report-btn-wrapper:hover {
+    background: #F9FAFB !important;
+}
+
+/* Hidden Gem Detail - Empty Tab Card */
+.gem-detail-empty-card {
+    width: 100%;
+    min-height: 150px;
+    padding: 24px 30px;
+    box-sizing: border-box;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Keep Votes and Community Stories the same size */
+.gem-detail-votes-list,
+.gem-detail-stories-list {
+    width: 100%;
+}
+
+/* Empty message */
+.gem-detail-empty-card .gem-detail-no-votes,
+.gem-detail-empty-card .gem-detail-no-comments {
+    margin: 0;
+    text-align: center;
+    color: #6b7280;
+    font-size: 17px;
+    line-height: 1.5;
+}
