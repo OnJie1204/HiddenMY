@@ -48,6 +48,14 @@ class VoteController extends Controller
             ]);
         }
 
+        // A gem confirmed permanently closed while still in voting is frozen.
+        if (! $location->acceptsNewInteractions()) {
+            return response()->json([
+                'eligible' => false,
+                'message' => Location::FROZEN_MESSAGE,
+            ]);
+        }
+
         // Prevent duplicate voting by the same user
         $existingVote = Vote::where('user_id', $user->id)
             ->where('location_id', $locationId)
@@ -104,6 +112,11 @@ class VoteController extends Controller
             return response()->json([
                 'message' => $this->notVotableMessage($location->status)
             ], 400);
+        }
+
+        // A gem confirmed permanently closed while still in voting is frozen.
+        if (! $location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 400);
         }
 
         // Prevent duplicate votes
@@ -261,6 +274,10 @@ class VoteController extends Controller
         }
 
         $location = Location::findOrFail($locationId);
+
+        if (!$location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
+        }
 
         /*
          * Find an existing check-in for the same user and Hidden Gem.

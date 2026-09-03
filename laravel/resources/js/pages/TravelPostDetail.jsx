@@ -123,7 +123,7 @@ export default function TravelPostDetail({ user }) {
                                             setShowSignIn(true);
                                             return;
                                         }
-                                        navigate(`/trip-itinerary/${post.trip_itinerary_id}`);
+                                        navigate(`/trips/${post.trip_itinerary_id}`);
                                     }}
                                 >
                                     View the trip

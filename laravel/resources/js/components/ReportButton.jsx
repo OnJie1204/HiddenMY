@@ -4,6 +4,9 @@ import VerifyReportModal from "./VerifyReportModal";
 import SignInPrompt from "./SignInPrompt";
 import { getReportForLocation } from "../api/reports";
 
+// permanently_closed can be reported on a gem still in community voting too;
+// inappropriate_content is verified-only. The backend enforces per-reason
+// (ReportController::REPORTABLE_STATUSES) and returns the allowed reasons.
 const REPORTABLE_STATUSES = ["hidden_gem", "pending_community_vote"];
 
 function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
@@ -18,9 +21,9 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     // Raw API responses use report_status; Maps.jsx's normalizeGem camelCases
     // it to reportStatus — accept either so this drops into any page's gem shape.
     const reportStatus = gem.reportStatus ?? gem.report_status;
-    const isDelistedAwaitingFix = gem.status === "delisted" && reportStatus === "upheld";
-    const isPending = reportStatus === "under_review" || isDelistedAwaitingFix;
-    const canAct = REPORTABLE_STATUSES.includes(gem.status) || isDelistedAwaitingFix;
+    const isPending = reportStatus === "under_review";
+    const isClosed = !!(gem.permanently_closed_at || gem.permanentlyClosedAt);
+    const canAct = REPORTABLE_STATUSES.includes(gem.status) && !isClosed;
 
     async function handleClick(e) {
         e.stopPropagation();

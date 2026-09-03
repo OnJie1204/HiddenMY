@@ -73,6 +73,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ===== Trip Itineraries =====
+    Route::get('trip-itineraries/{tripItinerary}/shared', [TripItineraryController::class, 'shared']);
+    Route::post('trip-itineraries/{tripItinerary}/copy', [TripItineraryController::class, 'copy']);
     Route::post('trip-itineraries/{tripItinerary}/locations', [TripItineraryController::class, 'storeLocation']);
     Route::put('trip-itineraries/{tripItinerary}/locations/order', [TripItineraryController::class, 'updateLocationOrder']);
     Route::delete('trip-itineraries/{tripItinerary}/locations/{location}', [TripItineraryController::class, 'destroyLocation']);
@@ -90,7 +92,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/location/{locationId}', [ReportController::class, 'show']);
     Route::get('/reports/{report}/check', [ReportController::class, 'checkVerifyEligibility']);
     Route::post('/reports/{report}/verify', [ReportController::class, 'verify']);
-    Route::post('/reports/{report}/request-fix-review', [ReportController::class, 'requestFixReview']);
 
     // ===== Wishlist =====
     Route::get('/wishlist', [WishlistController::class, 'index']);

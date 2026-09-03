@@ -42,6 +42,10 @@ class WishlistController extends Controller
             ], 422);
         }
 
+        if (! $location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 422);
+        }
+
         Wishlist::firstOrCreate([
             'user_id' => Auth::id(),
             'location_id' => $location->id,

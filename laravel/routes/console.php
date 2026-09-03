@@ -28,8 +28,3 @@ if (config('queue.default') !== 'sync') {
 // failed stays un-synced and gets retried on the next run, so gaps close over
 // a few days instead of needing someone to notice and re-run it by hand.
 Schedule::command('osm:sync-attractions --delay=2')->daily();
-
-// The 30-day amend-or-remove deadline on an upheld, amendable report
-// (currently just inappropriate_content) — checked daily is plenty since the
-// deadline itself is measured in days, not minutes.
-Schedule::command('reports:expire-unamended')->daily();

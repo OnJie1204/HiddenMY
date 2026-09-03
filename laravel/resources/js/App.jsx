@@ -14,6 +14,7 @@ import ResendVerification from './pages/ResendVerification';
 import GoogleCallback from './pages/GoogleCallback';
 import TripItinerary from "./pages/TripItinerary";
 import TripItineraryDetail from "./pages/TripItineraryDetail";
+import SharedTripItinerary from "./pages/SharedTripItinerary";
 import HiddenGems from './pages/HiddenGems';  
 import HiddenGemSubmission from './pages/HiddenGemSubmission';
 import MyHiddenGems from './pages/MyHiddenGems';
@@ -117,6 +118,19 @@ function App() {
             user ? (
               <Layout user={user} setUser={setUser}>
                 <TripItineraryDetail />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        <Route
+          path="/trips/:id"
+          element={
+            user ? (
+              <Layout user={user} setUser={setUser}>
+                <SharedTripItinerary />
               </Layout>
             ) : (
               <Navigate to="/login" />

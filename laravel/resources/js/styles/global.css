@@ -10436,6 +10436,235 @@ img.avatar {
     min-width: 70px;
 }
 
+/* Reporting redesign — suggested contact correction shown under the current
+   contact info while a report is under community review. */
+.gem-detail-contact-suggested {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-left: 3px solid #F59E0B;
+}
+
+/* Inline text button (e.g. "Undo") inside the report modal. */
+.vote-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #2563EB;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.gem-detail-contact-suggested-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #B45309;
+}
+
+/* Owner's inline "fix the contact info" form on the detail page. */
+.gem-detail-contact-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 10px 0;
+}
+
+.gem-detail-contact-edit label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-top: 6px;
+}
+
+.gem-detail-contact-edit input {
+    padding: 8px 10px;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* A gem the community confirmed as permanently closed — greyed out but still
+   listed for reference. */
+.gem-detail-page-closed .gem-detail-main-image,
+.gem-detail-page-closed .gem-detail-carousel,
+.gem-detail-page-closed .gem-detail-gallery,
+.gem-detail-page-closed .gem-detail-description-text,
+.gem-detail-page-closed .gem-detail-contact-list {
+    filter: grayscale(1);
+    opacity: 0.6;
+}
+
+/* ...and everywhere it's listed: cards, carousels, the side panel. The card
+   stays clickable — it just reads as inactive. A "Permanently closed" ribbon
+   is added via ::after so no per-page markup change is needed for it. */
+.gem-card-closed {
+    position: relative;
+}
+
+.gem-card-closed > * {
+    filter: grayscale(1);
+    opacity: 0.55;
+}
+
+.gem-card-closed::after {
+    content: "Permanently closed";
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #4B5563;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+}
+
+/* Map marker for a permanently-closed gem. */
+.gem-marker-closed {
+    filter: grayscale(1);
+    opacity: 0.5;
+}
+
+/* ---- Shared (read-only) trip itinerary view ---- */
+.shared-trip .trip-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.shared-trip-actions {
+    flex-shrink: 0;
+}
+
+.shared-trip-map {
+    margin: 16px 0;
+}
+
+.shared-trip-stops {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.shared-trip-stop {
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.shared-trip-stop-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    text-decoration: none;
+    color: inherit;
+}
+
+a.shared-trip-stop-link:hover {
+    background: #F9FAFB;
+}
+
+.shared-trip-stop-rank {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #2563EB;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.shared-trip-stop-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.shared-trip-stop-name {
+    font-weight: 600;
+}
+
+.shared-trip-stop-meta {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.shared-trip-stop-status {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #047857;
+}
+
+.shared-trip-stop-status.is-closed {
+    color: #B45309;
+}
+
+/* Current vs suggested contact, shown to voters in the verify modal. */
+.report-contact-diff {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.report-contact-diff-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.report-contact-diff-label {
+    font-weight: 700;
+    min-width: 60px;
+    color: #6B7280;
+}
+
+.report-contact-diff-old {
+    text-decoration: line-through;
+    color: #9CA3AF;
+}
+
+.report-contact-diff-new {
+    font-weight: 600;
+    color: #047857;
+}
+
+.report-contact-diff-arrow {
+    color: #9CA3AF;
+}
+
+/* Corrected-contact fields in the report modal. */
+.report-contact-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin: 10px 0 4px;
+}
+
 .menu-items-list {
     list-style: none;
     margin: 0 0 14px;

@@ -6,10 +6,7 @@ import { checkIn as postCheckIn } from '../api/votes';
 
 const REASON_LABELS = {
     permanently_closed: 'Permanently closed',
-    incorrect_location: 'Incorrect location',
-    not_actually_hidden: 'No longer hidden (gone viral / well known)',
-    duplicate: 'Duplicate of another gem',
-    inappropriate_content: 'Inappropriate content',
+    inappropriate_content: 'Contact info is wrong (hours / phone / website)',
 };
 
 function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
@@ -145,10 +142,23 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     if (!isOpen || !report) return null;
 
     const gemLocation = eligibility?.location;
-    const isFixReview = !!report.parent_report_id;
-    const flaggedImage = report.flagged_item && report.flagged_item !== 'description'
-        ? gemLocation?.images?.find((img) => String(img.id) === String(report.flagged_item))
-        : null;
+    const suggestedContact = report.reason === 'inappropriate_content'
+        ? [
+            report.suggested_latitude != null && {
+                label: 'Location',
+                current: gemLocation ? `${Number(gemLocation.latitude).toFixed(5)}, ${Number(gemLocation.longitude).toFixed(5)}` : '—',
+                suggested: `${Number(report.suggested_latitude).toFixed(5)}, ${Number(report.suggested_longitude).toFixed(5)}`,
+            },
+            report.suggested_description && {
+                label: 'Description',
+                current: gemLocation?.description,
+                suggested: report.suggested_description,
+            },
+            { label: 'Hours', current: gemLocation?.opening_hours, suggested: report.suggested_opening_hours },
+            { label: 'Phone', current: gemLocation?.phone, suggested: report.suggested_phone },
+            { label: 'Website', current: gemLocation?.website, suggested: report.suggested_website },
+        ].filter((row) => row && row.suggested)
+        : [];
 
     // Portaled to <body> — see ReportModal.jsx for why (a hovered ancestor
     // card's :hover transform would otherwise hijack this fixed-position
@@ -158,7 +168,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
             <div className="vote-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="vote-modal-header">
-                    <h2>{isFixReview ? 'Verify Fix' : 'Verify Report'}</h2>
+                    <h2>Verify Report</h2>
                     <button className="vote-modal-close" onClick={handleClose}>✕</button>
                 </div>
 
@@ -235,36 +245,34 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                             </div>
 
                             <div className="report-summary">
-                                <span className="report-summary-label">{isFixReview ? 'Owner requested a fix review for' : 'Reported for'}</span>
+                                <span className="report-summary-label">Reported for</span>
                                 <strong>{REASON_LABELS[report.reason] || report.reason}</strong>
                                 {report.description && <p className="report-summary-desc">"{report.description}"</p>}
 
-                                {report.reason === 'incorrect_location' && report.suggested_latitude != null && (
+                                {report.reason === 'permanently_closed' && (
                                     <p className="report-summary-desc">
-                                        Suggested location: {Number(report.suggested_latitude).toFixed(5)}, {Number(report.suggested_longitude).toFixed(5)}
-                                        {' — '}
-                                        <a
-                                            href={`https://www.google.com/maps/search/?api=1&query=${report.suggested_latitude},${report.suggested_longitude}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            view on map
-                                        </a>
+                                        Confirm only if you've seen it closed for good. If confirmed, the gem stays
+                                        listed but is greyed out and marked "Permanently closed".
                                     </p>
                                 )}
 
                                 {report.reason === 'inappropriate_content' && (
-                                    <div className="report-flagged-content">
-                                        {report.flagged_item === 'description' ? (
-                                            <p className="report-summary-desc">Flagged description: "{gemLocation?.description}"</p>
-                                        ) : flaggedImage ? (
-                                            <>
-                                                <p className="report-summary-desc">Flagged photo:</p>
-                                                <img src={flaggedImage.image_url} alt="Flagged" className="report-flagged-image" />
-                                            </>
-                                        ) : (
-                                            <p className="report-summary-desc">Flagged photo (no longer available).</p>
-                                        )}
+                                    <div className="report-contact-diff">
+                                        {suggestedContact.length === 0 ? (
+                                            <p className="report-summary-desc">The reporter flagged the contact info but suggested no replacement.</p>
+                                        ) : suggestedContact.map((row) => (
+                                            <div key={row.label} className="report-contact-diff-row">
+                                                <span className="report-contact-diff-label">{row.label}</span>
+                                                <span className="report-contact-diff-old">{row.current || '—'}</span>
+                                                <span className="report-contact-diff-arrow">→</span>
+                                                <span className="report-contact-diff-new">{row.suggested}</span>
+                                            </div>
+                                        ))}
+                                        <p className="report-summary-desc">
+                                            {gemLocation?.status === 'pending_community_vote'
+                                                ? 'If confirmed, the owner fixes it and the gem is re-submitted (fresh AI review + a new community vote). Nothing changes if disputed.'
+                                                : 'If confirmed, the owner can apply this correction. Nothing changes if disputed.'}
+                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -273,7 +281,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                 <label>Comment (optional)</label>
                                 <textarea
                                     className="vote-textarea"
-                                    placeholder={isFixReview ? 'Does the fix look right?' : 'What did you find when you visited?'}
+                                    placeholder='What did you find when you visited?'
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
                                     maxLength={1000}
@@ -284,11 +292,11 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                             {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <div className="report-verdict-actions">
-                                <button className={`report-verdict-btn ${isFixReview ? 'report-verdict-confirm' : 'report-verdict-dispute'}`} onClick={() => handleVerdict('dispute')} disabled={loading}>
-                                    {isFixReview ? "✗ Still not fixed" : '✓ This is fine — dispute report'}
+                                <button className="report-verdict-btn report-verdict-dispute" onClick={() => handleVerdict('dispute')} disabled={loading}>
+                                    ✓ This is fine — dispute report
                                 </button>
-                                <button className={`report-verdict-btn ${isFixReview ? 'report-verdict-dispute' : 'report-verdict-confirm'}`} onClick={() => handleVerdict('confirm')} disabled={loading}>
-                                    {isFixReview ? '✓ Fix looks good' : '⚠ Confirm — issue is real'}
+                                <button className="report-verdict-btn report-verdict-confirm" onClick={() => handleVerdict('confirm')} disabled={loading}>
+                                    ⚠ Confirm — issue is real
                                 </button>
                             </div>
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>

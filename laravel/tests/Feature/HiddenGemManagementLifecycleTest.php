@@ -37,15 +37,17 @@ class HiddenGemManagementLifecycleTest extends TestCase
         }
     }
 
-    public function test_delisted_owner_can_save_repair_without_changing_moderation_or_verification_state(): void
+    public function test_contact_edit_unlocked_owner_updates_contact_fields_only_without_touching_verification(): void
     {
         Bus::fake([VerifyHiddenGemSubmission::class]);
         $owner = User::factory()->create();
         $voter = User::factory()->create();
         $gem = Location::factory()->for($owner)->create([
-            'status' => 'delisted',
-            'report_status' => 'upheld',
-            'vote_count' => 7,
+            'status' => 'hidden_gem',
+            'contact_edit_unlocked_at' => now(),
+            'vote_count' => 12,
+            'phone' => '011-000 0000',
+            'description' => 'Original description.',
         ]);
         $vote = Vote::create(['user_id' => $voter->id, 'location_id' => $gem->id]);
         $report = Report::create([
@@ -53,7 +55,7 @@ class HiddenGemManagementLifecycleTest extends TestCase
             'location_id' => $gem->id,
             'reason' => 'inappropriate_content',
             'status' => 'upheld',
-            'flagged_item' => 'description',
+            'suggested_phone' => '012-345 6789',
             'resolved_at' => now(),
         ]);
 
@@ -63,50 +65,208 @@ class HiddenGemManagementLifecycleTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.can_edit', true)
             ->assertJsonPath('data.can_delete', false)
-            ->assertJsonPath('data.edit_mode', 'repair')
-            ->assertJsonPath('data.repair_context.reason', 'inappropriate_content')
-            ->assertJsonPath('data.repair_context.flagged_item', 'description');
+            ->assertJsonPath('data.edit_mode', 'contact_only')
+            ->assertJsonPath('data.contact_edit_context.suggested_phone', '012-345 6789');
 
-        $this->putJson("/api/hidden-gems/{$gem->id}", $this->updatePayload($gem, [
-            'description' => 'Repaired owner description.',
-        ]))
+        $this->putJson("/api/hidden-gems/{$gem->id}", [
+            'opening_hours' => '9am - 6pm daily',
+            'phone' => '012-345 6789',
+            'website' => 'https://example.com',
+            // These must be ignored in contact-only mode.
+            'description' => 'Attempted description hijack.',
+            'status' => 'pending',
+        ])
             ->assertOk()
-            ->assertJsonPath('message', 'Changes saved. You can now request a Fix Review.');
+            ->assertJsonPath('message', 'Contact information updated.');
 
         $gem->refresh();
-        $this->assertSame('delisted', $gem->status);
-        $this->assertSame('upheld', $gem->report_status);
-        $this->assertSame(7, $gem->vote_count);
-        $this->assertSame('Repaired owner description.', $gem->description);
+        $this->assertSame('hidden_gem', $gem->status);
+        $this->assertNull($gem->contact_edit_unlocked_at);
+        $this->assertSame(12, $gem->vote_count);
+        $this->assertSame('Original description.', $gem->description);
+        $this->assertSame('012-345 6789', $gem->phone);
+        $this->assertSame('9am - 6pm daily', $gem->opening_hours);
         $this->assertDatabaseHas('votes', ['id' => $vote->id, 'location_id' => $gem->id]);
         $this->assertDatabaseHas('reports', ['id' => $report->id, 'status' => 'upheld']);
         Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
     }
 
-    public function test_invalid_or_non_owner_delisted_repair_is_blocked(): void
+    public function test_permanently_closed_voting_gem_owner_can_resubmit_and_delete(): void
+    {
+        Bus::fake([VerifyHiddenGemSubmission::class]);
+        $owner = User::factory()->create();
+        $voter = User::factory()->create();
+        Sanctum::actingAs($owner);
+
+        $closed = Location::factory()->for($owner)->create([
+            'status' => 'pending_community_vote',
+            'permanently_closed_at' => now()->subDay(),
+            'vote_count' => 6,
+        ]);
+        Vote::create(['user_id' => $voter->id, 'location_id' => $closed->id]);
+
+        $this->getJson("/api/hidden-gems/{$closed->id}")
+            ->assertOk()
+            ->assertJsonPath('data.can_edit', true)
+            ->assertJsonPath('data.can_delete', true)
+            ->assertJsonPath('data.edit_mode', 'normal');
+
+        // Editing is a full resubmit, even though it has votes.
+        $this->putJson("/api/hidden-gems/{$closed->id}", $this->updatePayload($closed, [
+            'description' => 'It has reopened under new owners.',
+        ]))->assertOk();
+
+        $closed->refresh();
+        $this->assertSame('pending', $closed->status);
+        $this->assertNull($closed->permanently_closed_at);
+        $this->assertSame(0, $closed->vote_count);
+        Bus::assertDispatched(VerifyHiddenGemSubmission::class);
+
+        $another = Location::factory()->for($owner)->create([
+            'status' => 'pending_community_vote',
+            'permanently_closed_at' => now(),
+        ]);
+        $this->patchJson("/api/hidden-gems/{$another->id}/status", ['status' => 'deleted'])
+            ->assertOk();
+        $this->assertSame('deleted', $another->fresh()->status);
+    }
+
+    public function test_permanently_closed_verified_gem_is_frozen_for_the_owner(): void
     {
         $owner = User::factory()->create();
-        $other = User::factory()->create();
-        $gem = Location::factory()->for($owner)->create([
-            'status' => 'delisted',
-            'report_status' => 'upheld',
+        Sanctum::actingAs($owner);
+
+        $closed = Location::factory()->for($owner)->create([
+            'status' => 'hidden_gem',
+            'permanently_closed_at' => now(),
         ]);
 
-        Sanctum::actingAs($owner);
-        $this->putJson("/api/hidden-gems/{$gem->id}", $this->updatePayload($gem))
-            ->assertForbidden();
+        $this->getJson("/api/hidden-gems/{$closed->id}")
+            ->assertOk()
+            ->assertJsonPath('data.can_edit', false)
+            ->assertJsonPath('data.can_delete', false)
+            ->assertJsonPath('data.edit_mode', null);
 
+        $this->putJson("/api/hidden-gems/{$closed->id}", $this->updatePayload($closed, [
+            'description' => 'Trying to revive it.',
+        ]))->assertForbidden()
+            ->assertJsonPath('message', 'This gem is marked permanently closed and can no longer be edited or deleted.');
+
+        $this->patchJson("/api/hidden-gems/{$closed->id}/status", ['status' => 'deleted'])
+            ->assertForbidden();
+        $this->assertSame('hidden_gem', $closed->fresh()->status);
+    }
+
+    public function test_confirmed_content_report_lets_voting_gem_owner_resubmit(): void
+    {
+        Bus::fake([VerifyHiddenGemSubmission::class]);
+        $owner = User::factory()->create();
+        $voter = User::factory()->create();
+        Sanctum::actingAs($owner);
+
+        // A gem still in community voting, with a confirmed inappropriate_content
+        // report (contact_edit_unlocked_at set) and existing votes.
+        $gem = Location::factory()->for($owner)->create([
+            'status' => 'pending_community_vote',
+            'contact_edit_unlocked_at' => now(),
+            'vote_count' => 4,
+        ]);
+        Vote::create(['user_id' => $voter->id, 'location_id' => $gem->id]);
         Report::create([
-            'user_id' => $other->id,
+            'user_id' => $voter->id,
             'location_id' => $gem->id,
             'reason' => 'inappropriate_content',
             'status' => 'upheld',
+            'suggested_description' => 'The accurate description.',
+            'resolved_at' => now(),
         ]);
 
+        $this->getJson("/api/hidden-gems/{$gem->id}")
+            ->assertOk()
+            ->assertJsonPath('data.can_edit', true)
+            ->assertJsonPath('data.can_delete', true)
+            ->assertJsonPath('data.edit_mode', 'normal')
+            ->assertJsonPath('data.suggested_fix.state', 'confirmed')
+            ->assertJsonPath('data.suggested_fix.description', 'The accurate description.');
+
+        // The owner's fix is a full resubmit.
+        $this->putJson("/api/hidden-gems/{$gem->id}", $this->updatePayload($gem, [
+            'description' => 'The accurate description.',
+        ]))->assertOk();
+
+        $gem->refresh();
+        $this->assertSame('pending', $gem->status);
+        $this->assertSame(0, $gem->vote_count);
+        $this->assertNull($gem->contact_edit_unlocked_at);
+        $this->assertDatabaseMissing('votes', ['location_id' => $gem->id]);
+        Bus::assertDispatched(VerifyHiddenGemSubmission::class);
+    }
+
+    public function test_verified_gem_owner_can_always_edit_contact_info_without_re_verification(): void
+    {
+        Bus::fake([VerifyHiddenGemSubmission::class]);
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        $voter = User::factory()->create();
+        $gem = Location::factory()->for($owner)->create([
+            'status' => 'hidden_gem',
+            'vote_count' => 10,
+            'description' => 'Original description.',
+            'phone' => '011-000 0000',
+        ]);
+        Vote::create(['user_id' => $voter->id, 'location_id' => $gem->id]);
+
+        Sanctum::actingAs($owner);
+
+        $this->getJson("/api/hidden-gems/{$gem->id}")
+            ->assertOk()
+            ->assertJsonPath('data.can_edit', true)
+            ->assertJsonPath('data.can_delete', false)
+            ->assertJsonPath('data.edit_mode', 'contact_only');
+
+        $this->putJson("/api/hidden-gems/{$gem->id}", [
+            'opening_hours' => '10am - 8pm',
+            'phone' => '012-345 6789',
+            'website' => 'https://example.com',
+            'description' => 'Attempted hijack.',
+            'status' => 'pending',
+        ])
+            ->assertOk()
+            ->assertJsonPath('message', 'Contact information updated.');
+
+        $gem->refresh();
+        $this->assertSame('hidden_gem', $gem->status);
+        $this->assertSame(10, $gem->vote_count);
+        $this->assertSame('Original description.', $gem->description);
+        $this->assertSame('012-345 6789', $gem->phone);
+        $this->assertSame('10am - 8pm', $gem->opening_hours);
+        $this->assertDatabaseHas('votes', ['location_id' => $gem->id]);
+        Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
+
+        // Non-owner still can't touch it.
         Sanctum::actingAs($other);
-        $this->putJson("/api/hidden-gems/{$gem->id}", $this->updatePayload($gem))
+        $this->putJson("/api/hidden-gems/{$gem->id}", ['phone' => '019-999 9999'])
             ->assertForbidden()
             ->assertJsonPath('message', 'Unauthorized');
+    }
+
+    public function test_verified_gem_contact_edit_is_locked_while_a_report_is_under_review(): void
+    {
+        $owner = User::factory()->create();
+        $gem = Location::factory()->for($owner)->create([
+            'status' => 'hidden_gem',
+            'report_status' => 'under_review',
+        ]);
+
+        Sanctum::actingAs($owner);
+        $this->getJson("/api/hidden-gems/{$gem->id}")
+            ->assertOk()
+            ->assertJsonPath('data.can_edit', false)
+            ->assertJsonPath('data.edit_mode', null);
+
+        $this->putJson("/api/hidden-gems/{$gem->id}", ['phone' => '012-000 0000'])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Verified Hidden Gems can no longer be edited.');
     }
 
     public function test_my_hidden_gems_exposes_authoritative_eligibility_and_excludes_deleted(): void
@@ -119,13 +279,13 @@ class HiddenGemManagementLifecycleTest extends TestCase
             'vote_count' => 0,
         ]);
         Vote::create(['user_id' => $voter->id, 'location_id' => $voting->id]);
-        $delisted = Location::factory()->for($owner)->create([
-            'status' => 'delisted',
-            'report_status' => 'upheld',
+        $contactUnlocked = Location::factory()->for($owner)->create([
+            'status' => 'hidden_gem',
+            'contact_edit_unlocked_at' => now(),
         ]);
         Report::create([
             'user_id' => $voter->id,
-            'location_id' => $delisted->id,
+            'location_id' => $contactUnlocked->id,
             'reason' => 'inappropriate_content',
             'status' => 'upheld',
         ]);
@@ -140,9 +300,9 @@ class HiddenGemManagementLifecycleTest extends TestCase
         $this->assertSame('normal', $byId[$pending->id]['edit_mode']);
         $this->assertFalse($byId[$voting->id]['can_edit']);
         $this->assertFalse($byId[$voting->id]['can_delete']);
-        $this->assertTrue($byId[$delisted->id]['can_edit']);
-        $this->assertFalse($byId[$delisted->id]['can_delete']);
-        $this->assertSame('repair', $byId[$delisted->id]['edit_mode']);
+        $this->assertTrue($byId[$contactUnlocked->id]['can_edit']);
+        $this->assertFalse($byId[$contactUnlocked->id]['can_delete']);
+        $this->assertSame('contact_only', $byId[$contactUnlocked->id]['edit_mode']);
         $this->assertFalse($byId->has($deleted->id));
     }
 
