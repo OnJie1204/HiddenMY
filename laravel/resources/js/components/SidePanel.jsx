@@ -55,6 +55,7 @@ function SidePanel({
 
     const [localStatus, setLocalStatus] = useState(null);
     const bodyRef = useRef(null);
+    const panelRef = useRef(null);
     const navigate = useNavigate();
     const { isComparing, toggleCompare, canAddMore, maxCompare, clearCompare } = useCompare();
 
@@ -111,6 +112,51 @@ function SidePanel({
         document.addEventListener("keydown", handleEscape);
         return () => document.removeEventListener("keydown", handleEscape);
     }, [onClose]);
+
+    // Close the navigation panel when the user interacts outside it.
+    // Keep embedded gem-detail mode unchanged so map interactions do not
+    // unintentionally dismiss the currently selected gem.
+    useEffect(() => {
+        if (!isOpen || mode !== "nav") {
+            return;
+        }
+
+        function isOutsidePanel(target) {
+            return (
+                panelRef.current &&
+                target instanceof Node &&
+                !panelRef.current.contains(target)
+            );
+        }
+
+        function handlePointerDown(event) {
+            if (isOutsidePanel(event.target)) {
+                onClose();
+            }
+        }
+
+        function handleWheel(event) {
+            if (isOutsidePanel(event.target)) {
+                onClose();
+            }
+        }
+
+        function handleTouchMove(event) {
+            if (isOutsidePanel(event.target)) {
+                onClose();
+            }
+        }
+
+        document.addEventListener("mousedown", handlePointerDown);
+        document.addEventListener("wheel", handleWheel, { passive: true });
+        document.addEventListener("touchmove", handleTouchMove, { passive: true });
+
+        return () => {
+            document.removeEventListener("mousedown", handlePointerDown);
+            document.removeEventListener("wheel", handleWheel);
+            document.removeEventListener("touchmove", handleTouchMove);
+        };
+    }, [isOpen, mode, onClose]);
 
     if (!isOpen) return null;
 
@@ -249,6 +295,7 @@ function SidePanel({
 
     return (
         <div
+            ref={panelRef}
             className={`side-panel open ${embedded ? "side-panel-embedded" : ""} ${isFullscreen ? "fullscreen" : ""} ${isResizing ? "resizing" : ""}`}
             style={!isFullscreen ? { width: `${width}px` } : undefined}
         >
@@ -269,9 +316,6 @@ function SidePanel({
                         {isFullscreen ? "⤢" : "⛶"}
                     </button>
                 )}
-                <button className="side-panel-close" onClick={onClose} aria-label="Close">
-                    ✕
-                </button>
             </div>
 
             {headerExtra && (
