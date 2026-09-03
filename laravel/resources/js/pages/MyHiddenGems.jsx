@@ -565,12 +565,12 @@ export default function MyHiddenGems() {
                                         <button
                                             className="my-hidden-gems-edit-btn"
                                             onClick={() =>
-                                                navigate(gem.edit_mode === "contact_only"
+                                                navigate(gem.edit_mode === "verified"
                                                     ? `/hidden-gems/${gem.id}`
                                                     : `/my-hidden-gems/edit/${gem.id}`)
                                             }
                                         >
-                                            {gem.edit_mode === "contact_only" ? "Edit contact info" : "Edit"}
+                                            {gem.edit_mode === "verified" ? "Edit info" : "Edit"}
                                         </button>
                                     )}
 

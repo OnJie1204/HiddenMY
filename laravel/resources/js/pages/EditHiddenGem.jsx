@@ -46,7 +46,6 @@ export default function EditHiddenGem() {
     const [messageType, setMessageType] = useState("");
     const [editUnavailableMessage, setEditUnavailableMessage] = useState("");
     const [editMode, setEditMode] = useState(null);
-    const [repairContext, setRepairContext] = useState(null);
 
     const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
     const [existingImages, setExistingImages] = useState([]);
@@ -65,27 +64,25 @@ export default function EditHiddenGem() {
 
                 const gem = gemRes.data.data;
 
-                if (!gem.can_edit) {
+                if (!gem.can_edit && gem.edit_mode !== "verified") {
                     setEditUnavailableMessage(
-                        gem.status === "hidden_gem"
-                            ? "Verified Hidden Gems can no longer be edited."
-                            : ["pending", "ai_rejected", "pending_community_vote"].includes(gem.status)
-                                ? "This Hidden Gem can no longer be edited because voting has started."
+                        gem.edit_mode === "delete_only"
+                            ? "This place is marked permanently closed. It can no longer be edited — only deleted."
                             : "This Hidden Gem can no longer be edited."
                     );
                     return;
                 }
 
-                // A community-confirmed "contact info is wrong" report unlocks
-                // only a contact-fields edit — done inline on the detail page,
-                // not through this full editor.
-                if (gem.edit_mode === "contact_only") {
+                // Verified places (in voting / hidden gem / well-known) are edited
+                // inline on the detail page — contact fields instantly, description
+                // and photos through a quick AI review — not through this full
+                // resubmit editor.
+                if (gem.edit_mode === "verified") {
                     navigate(`/hidden-gems/${id}`, { replace: true });
                     return;
                 }
 
                 setEditMode(gem.edit_mode);
-                setRepairContext(gem.repair_context || null);
 
                 const loadedFormData = {
                     category_id: gem.category_id || "",
@@ -284,10 +281,7 @@ export default function EditHiddenGem() {
             setMessage(response.data.message);
 
             setTimeout(() => {
-                navigate(
-                    editMode === "repair" ? `/hidden-gems/${id}` : "/my-hidden-gems",
-                    editMode === "repair" ? { state: { repairSaved: true } } : undefined
-                );
+                navigate("/my-hidden-gems");
             }, 1200);
 
         } catch (error) {
@@ -326,7 +320,7 @@ export default function EditHiddenGem() {
             <div className="hidden-gem-form-card">
 
                 <div className="hidden-gem-submit-header">
-                    <h2>{editMode === "repair" ? "Repair Delisted Hidden Gem" : "Edit Hidden Gem"}</h2>
+                    <h2>Edit Hidden Gem</h2>
                 </div>
 
                 {editUnavailableMessage ? (
@@ -344,18 +338,12 @@ export default function EditHiddenGem() {
                 ) : (
                 <form className="edit-hidden-gem-form" onSubmit={handleSubmit}>
 
-                    {editMode === "repair" && (
-                        <div className="hidden-gems-empty">
-                            <h3>This Hidden Gem remains Delisted while you make repairs.</h3>
-                            <p>
-                                {repairContext?.flagged_item === "description"
-                                    ? "The report identified the description."
-                                    : repairContext?.flagged_item
-                                        ? "The report identified a photo."
-                                        : "Update the reported content, then request a Fix Review from the Hidden Gem detail page."}
-                            </p>
-                        </div>
-                    )}
+                    <div className="hidden-gems-empty">
+                        <p>
+                            Saving here is a full resubmit — the place goes back through AI
+                            verification and, if it passes, a fresh round of community votes.
+                        </p>
+                    </div>
 
                     <input
                         className="form-input"
@@ -659,9 +647,7 @@ export default function EditHiddenGem() {
                     </div>
 
                     <small className="edit-hidden-gem-warning">
-                        {editMode === "repair"
-                            ? "Saving repairs will not relist this Hidden Gem. Return to its detail page to request a Fix Review."
-                            : "Editing this hidden gem will reset it for re-verification by AI."}
+                        Editing this hidden gem will reset it for re-verification by AI.
                     </small>
 
                     <button

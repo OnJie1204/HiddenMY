@@ -437,8 +437,8 @@ function SidePanel({
                                 {gem.source === "database" && status === "ai_rejected" && (
                                     <span className="badge badge-pending">Not Accepted</span>
                                 )}
-                                {gem.source === "database" && status === "delisted" && (
-                                    <span className="badge badge-reported">Delisted</span>
+                                {gem.source === "database" && status === "well_known" && (
+                                    <span className="badge badge-success">Well-Known Place</span>
                                 )}
                                 {gem.source === "database" && (gem.permanently_closed_at || gem.permanentlyClosedAt) && (
                                     <span className="badge badge-reported">Permanently closed</span>

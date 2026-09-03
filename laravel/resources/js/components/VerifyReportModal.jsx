@@ -6,7 +6,7 @@ import { checkIn as postCheckIn } from '../api/votes';
 
 const REASON_LABELS = {
     permanently_closed: 'Permanently closed',
-    inappropriate_content: 'Contact info is wrong (hours / phone / website)',
+    incorrect_contact_info: 'Contact info is wrong (hours / phone / website)',
 };
 
 function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
@@ -142,23 +142,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     if (!isOpen || !report) return null;
 
     const gemLocation = eligibility?.location;
-    const suggestedContact = report.reason === 'inappropriate_content'
-        ? [
-            report.suggested_latitude != null && {
-                label: 'Location',
-                current: gemLocation ? `${Number(gemLocation.latitude).toFixed(5)}, ${Number(gemLocation.longitude).toFixed(5)}` : '—',
-                suggested: `${Number(report.suggested_latitude).toFixed(5)}, ${Number(report.suggested_longitude).toFixed(5)}`,
-            },
-            report.suggested_description && {
-                label: 'Description',
-                current: gemLocation?.description,
-                suggested: report.suggested_description,
-            },
-            { label: 'Hours', current: gemLocation?.opening_hours, suggested: report.suggested_opening_hours },
-            { label: 'Phone', current: gemLocation?.phone, suggested: report.suggested_phone },
-            { label: 'Website', current: gemLocation?.website, suggested: report.suggested_website },
-        ].filter((row) => row && row.suggested)
-        : [];
 
     // Portaled to <body> — see ReportModal.jsx for why (a hovered ancestor
     // card's :hover transform would otherwise hijack this fixed-position
@@ -256,22 +239,26 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                     </p>
                                 )}
 
-                                {report.reason === 'inappropriate_content' && (
+                                {report.reason === 'incorrect_contact_info' && (
                                     <div className="report-contact-diff">
-                                        {suggestedContact.length === 0 ? (
-                                            <p className="report-summary-desc">The reporter flagged the contact info but suggested no replacement.</p>
-                                        ) : suggestedContact.map((row) => (
-                                            <div key={row.label} className="report-contact-diff-row">
-                                                <span className="report-contact-diff-label">{row.label}</span>
-                                                <span className="report-contact-diff-old">{row.current || '—'}</span>
-                                                <span className="report-contact-diff-arrow">→</span>
-                                                <span className="report-contact-diff-new">{row.suggested}</span>
-                                            </div>
-                                        ))}
                                         <p className="report-summary-desc">
-                                            {gemLocation?.status === 'pending_community_vote'
-                                                ? 'If confirmed, the owner fixes it and the gem is re-submitted (fresh AI review + a new community vote). Nothing changes if disputed.'
-                                                : 'If confirmed, the owner can apply this correction. Nothing changes if disputed.'}
+                                            Current contact info:
+                                        </p>
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Hours</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.opening_hours || '—'}</span>
+                                        </div>
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Phone</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.phone || '—'}</span>
+                                        </div>
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Website</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.website || '—'}</span>
+                                        </div>
+                                        <p className="report-summary-desc">
+                                            If confirmed, a warning shows next to the contact info until the owner
+                                            corrects it. Nothing changes if disputed.
                                         </p>
                                     </div>
                                 )}
