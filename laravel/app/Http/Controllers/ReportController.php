@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\VerifyHiddenGemSubmission;
 use App\Models\CheckIn;
 use App\Models\Location;
 use App\Models\Report;
@@ -177,16 +178,10 @@ class ReportController extends Controller
             'suggested_latitude' => $validated['suggested_latitude'] ?? null,
             'suggested_longitude' => $validated['suggested_longitude'] ?? null,
             'flagged_item' => $validated['flagged_item'] ?? null,
-            'confirm_count' => in_array($reason, Report::TIER_B_REASONS, true) ? 1 : 0,
+            'confirm_count' => 0,
         ]);
 
         if (in_array($reason, Report::TIER_B_REASONS, true)) {
-            ReportVote::create([
-                'report_id' => $report->id,
-                'user_id' => $user->id,
-                'verdict' => 'confirm',
-            ]);
-
             $location->update(['report_status' => 'under_review']);
 
             return response()->json([
@@ -435,7 +430,7 @@ class ReportController extends Controller
             return;
         }
 
-        if ($report->reason === 'incorrect_location') {
+        if ($report->reason === 'incorrect_location' && $report->suggested_latitude !== null && $report->suggested_longitude !== null) {
             $location->update([
                 'latitude' => $report->suggested_latitude,
                 'longitude' => $report->suggested_longitude,
@@ -480,6 +475,13 @@ class ReportController extends Controller
             } else {
                 $pending->each->update(['status' => 'rejected', 'resolved_at' => now()]);
             }
+
+            return;
+        }
+
+        if ($reason === 'not_actually_hidden') {
+            $location->update(['status' => 'pending']);
+            VerifyHiddenGemSubmission::dispatch($location->id)->afterCommit();
 
             return;
         }

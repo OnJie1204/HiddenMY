@@ -157,9 +157,12 @@ function SidePanel({
     const canCompare = canWishlist;
     const comparing = gem && isComparing(gem.id);
 
+    // A delisted gem whose report is "upheld" has a fix pending review
+    const isDelistedAwaitingFix = gem && status === "delisted" && reportStatus === "upheld";
+
     const canReportOrVerify = gem
         && gem.source === "database"
-        && (status === "hidden_gem" || status === "pending_community_vote");
+        && (status === "hidden_gem" || status === "pending_community_vote" || isDelistedAwaitingFix);
 
     function requireSignIn(message) {
         setSignInMessage(message);
@@ -170,13 +173,14 @@ function SidePanel({
         // Guests can see the icon (it advertises the feature) but reporting
         // and verifying both require an account — skip the API round-trip
         // entirely and point them at sign-in.
+        const isPending = reportStatus === "under_review" || isDelistedAwaitingFix;
         if (!user) {
-            requireSignIn(reportStatus === "under_review"
+            requireSignIn(isPending
                 ? "Login to help verify this report."
                 : "Login to report a problem with this gem.");
             return;
         }
-        if (reportStatus !== "under_review") {
+        if (!isPending) {
             setReportModalOpen(true);
             return;
         }
@@ -400,13 +404,41 @@ function SidePanel({
                                         disabled={loadingReport}
                                         title={reportStatus === "under_review"
                                             ? "Help verify a reported problem with this gem"
-                                            : "Report a problem with this gem"}
+                                            : isDelistedAwaitingFix
+                                                ? "Help verify the owner's fix for this gem"
+                                                : "Report a problem with this gem"}
                                     >
                                         ⚠
                                     </button>
                                 )}
                             </div>
                         </div>
+                        {gem.source === "database" && (reportStatus === "under_review" || isDelistedAwaitingFix) && Number(gem.user_id) !== Number(user?.id) && (
+                            <div className="report-banner">
+                                <div className="report-banner-text">
+                                    {isDelistedAwaitingFix ? (
+                                        <>
+                                            <strong>This gem was delisted — a fix is pending review</strong>
+                                            <p>If you've visited recently, help the community verify whether the fix resolves the issue.</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <strong>This gem has a report under review</strong>
+                                            <p>If you've visited recently, help the community verify whether the issue is real.</p>
+                                        </>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    className="report-banner-verify-btn"
+                                    onClick={handleReportIconClick}
+                                    disabled={loadingReport}
+                                >
+                                    {loadingReport ? "Loading…" : "Help Verify"}
+                                </button>
+                            </div>
+                        )}
+
                         {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
                         {gem.source === "database" && (gem.ratingCount > 0 || gem.checkInsCount > 0 || gem.distanceKm != null) && (
                             <div className="side-panel-stats-row">

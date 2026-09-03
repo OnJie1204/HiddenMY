@@ -74,7 +74,10 @@ export default function CompareGems() {
                     ...prev,
                     [id]: { gem: toCompareGem(res.data.data), votes: res.data.data?.votes || [] },
                 })))
-                .catch(() => setMissing((prev) => Array.from(new Set([...prev, id]))));
+                .catch(() => {
+                    setMissing((prev) => Array.from(new Set([...prev, id])));
+                    removeCompare(Number(id));
+                });
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [urlIds, items]);

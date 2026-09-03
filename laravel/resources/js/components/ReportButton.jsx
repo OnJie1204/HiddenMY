@@ -18,8 +18,9 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     // Raw API responses use report_status; Maps.jsx's normalizeGem camelCases
     // it to reportStatus — accept either so this drops into any page's gem shape.
     const reportStatus = gem.reportStatus ?? gem.report_status;
-    const isPending = reportStatus === "under_review";
-    const canAct = REPORTABLE_STATUSES.includes(gem.status);
+    const isDelistedAwaitingFix = gem.status === "delisted" && reportStatus === "upheld";
+    const isPending = reportStatus === "under_review" || isDelistedAwaitingFix;
+    const canAct = REPORTABLE_STATUSES.includes(gem.status) || isDelistedAwaitingFix;
 
     async function handleClick(e) {
         e.stopPropagation();

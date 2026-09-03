@@ -583,28 +583,32 @@ export default function HiddenGemDetail({ user }) {
                 <div className="gem-detail-header">
                     <div className="gem-detail-title-row">
                         <h1 className="gem-detail-title">{gem.place_name}</h1>
-                        {(gem.status === "hidden_gem" || gem.status === "pending_community_vote") && (
+                        {(gem.status === "hidden_gem" || gem.status === "pending_community_vote" || (gem.status === "delisted" && gem.report_status === "upheld")) && (
                             <div className="hidden-gems-card-icon-actions">
-                                <button
-                                    type="button"
-                                    className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
-                                    onClick={handleToggleWishlist}
-                                    disabled={wishlistBusy}
-                                    title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
-                                >
-                                    {wishlistIds.has(gem.id) ? "♥" : "♡"}
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
-                                    onClick={() => toggleCompare(gem)}
-                                    disabled={!isComparing(gem.id) && !canAddMore}
-                                    title={isComparing(gem.id)
-                                        ? "Remove from comparison"
-                                        : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
-                                >
-                                    {isComparing(gem.id) ? "☑" : "☐"}
-                                </button>
+                                {(gem.status === "hidden_gem" || gem.status === "pending_community_vote") && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
+                                            onClick={handleToggleWishlist}
+                                            disabled={wishlistBusy}
+                                            title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                        >
+                                            {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
+                                            onClick={() => toggleCompare(gem)}
+                                            disabled={!isComparing(gem.id) && !canAddMore}
+                                            title={isComparing(gem.id)
+                                                ? "Remove from comparison"
+                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
+                                        >
+                                            {isComparing(gem.id) ? "☑" : "☐"}
+                                        </button>
+                                    </>
+                                )}
                                 <ReportButton gem={gem} user={currentUser} />
                             </div>
                         )}
@@ -716,6 +720,69 @@ export default function HiddenGemDetail({ user }) {
                 </div>
 
                 <div className="gem-detail-content">
+
+                {(gem.report_status === "under_review" || (gem.status === "delisted" && gem.report_status === "upheld")) && Number(gem.user_id) !== Number(currentUser?.id) && (
+                    <div className="report-banner">
+                        <div className="report-banner-text">
+                            {gem.status === "delisted" ? (
+                                <>
+                                    <strong>This gem was delisted — a fix is pending review</strong>
+                                    <p>If you've visited recently, help the community verify whether the fix resolves the issue.</p>
+                                </>
+                            ) : (
+                                <>
+                                    <strong>This gem has a report under review</strong>
+                                    <p>If you've visited recently, help the community verify whether the issue is real.</p>
+                                </>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            className="report-banner-verify-btn"
+                            onClick={handleHelpVerify}
+                            disabled={loadingReport}
+                        >
+                            {loadingReport ? "Loading…" : "Help Verify"}
+                        </button>
+                    </div>
+                )}
+
+                {gem.status === "delisted" && reportInfo?.root_report && Number(gem.user_id) === Number(currentUser?.id) && (
+                    <div className="report-owner-banner">
+                        <h3>⚠ This gem was delisted</h3>
+                        <p>
+                            The community confirmed a report: <strong>{REPORT_REASON_LABELS[reportInfo.root_report.reason] || reportInfo.root_report.reason}</strong>
+                            {reportInfo.root_report.flagged_item && (
+                                <> — flagged: {reportInfo.root_report.flagged_item === "description" ? "the description" : "a photo"}</>
+                            )}
+                            .
+                        </p>
+                        {reportInfo.data.id === reportInfo.root_report.id ? (
+                            <>
+                                {reportInfo.root_report.delete_at && (
+                                    <p className="report-owner-countdown">
+                                        Fix this by{" "}
+                                        <strong>
+                                            {new Date(reportInfo.root_report.delete_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                                        </strong>{" "}
+                                        or it will be permanently removed.
+                                    </p>
+                                )}
+                                <div className="report-owner-actions">
+                                    <Link to={`/my-hidden-gems/edit/${gem.id}`} className="vote-btn-secondary">Edit Gem</Link>
+                                    <button className="vote-btn-primary" onClick={handleRequestFixReview} disabled={fixReviewLoading}>
+                                        {fixReviewLoading ? "Submitting..." : "I've fixed it — request review"}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="report-owner-countdown">
+                                A fix is already under review: {reportInfo.data.confirm_count} confirm / {reportInfo.data.dispute_count} dispute.
+                            </p>
+                        )}
+                        {fixReviewMessage && <p className="vote-message success">{fixReviewMessage}</p>}
+                    </div>
+                )}
 
                 {activeTab === "details" && (
                     <div className="gem-detail-sections">
@@ -889,60 +956,6 @@ export default function HiddenGemDetail({ user }) {
                                 </button>
                             )}
                         </div>
-                    </div>
-                )}
-
-                {gem.report_status === "under_review" && Number(gem.user_id) !== Number(currentUser?.id) && (
-                    <div className="report-banner">
-                        <div className="report-banner-text">
-                            <strong>This gem has a report under review</strong>
-                            <p>If you've visited recently, help the community verify whether the issue is real.</p>
-                        </div>
-                        <button
-                            type="button"
-                            className="report-banner-verify-btn"
-                            onClick={handleHelpVerify}
-                            disabled={loadingReport}
-                        >
-                            {loadingReport ? "Loading…" : "Help Verify"}
-                        </button>
-                    </div>
-                )}
-
-                {gem.status === "delisted" && reportInfo?.root_report && Number(gem.user_id) === Number(currentUser?.id) && (
-                    <div className="report-owner-banner">
-                        <h3>⚠ This gem was delisted</h3>
-                        <p>
-                            The community confirmed a report: <strong>{REPORT_REASON_LABELS[reportInfo.root_report.reason] || reportInfo.root_report.reason}</strong>
-                            {reportInfo.root_report.flagged_item && (
-                                <> — flagged: {reportInfo.root_report.flagged_item === "description" ? "the description" : "a photo"}</>
-                            )}
-                            .
-                        </p>
-                        {reportInfo.data.id === reportInfo.root_report.id ? (
-                            <>
-                                {reportInfo.root_report.delete_at && (
-                                    <p className="report-owner-countdown">
-                                        Fix this by{" "}
-                                        <strong>
-                                            {new Date(reportInfo.root_report.delete_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                                        </strong>{" "}
-                                        or it will be permanently removed.
-                                    </p>
-                                )}
-                                <div className="report-owner-actions">
-                                    <Link to={`/my-hidden-gems/edit/${gem.id}`} className="vote-btn-secondary">Edit Gem</Link>
-                                    <button className="vote-btn-primary" onClick={handleRequestFixReview} disabled={fixReviewLoading}>
-                                        {fixReviewLoading ? "Submitting..." : "I've fixed it — request review"}
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <p className="report-owner-countdown">
-                                A fix is already under review: {reportInfo.data.confirm_count} confirm / {reportInfo.data.dispute_count} dispute.
-                            </p>
-                        )}
-                        {fixReviewMessage && <p className="vote-message success">{fixReviewMessage}</p>}
                     </div>
                 )}
 

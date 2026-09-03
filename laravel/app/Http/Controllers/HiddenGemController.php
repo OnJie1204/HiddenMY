@@ -444,7 +444,7 @@ class HiddenGemController extends Controller
                             ->withCount(['ratings', 'checkIns'])
                             ->findOrFail($id);
 
-        $isPubliclyVisible = in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true);
+        $isPubliclyVisible = Location::isPubliclyVisible($location);
         $viewer = Auth::guard('sanctum')->user();
         $isOwner = $viewer !== null && $location->user_id === $viewer->id;
 
@@ -492,7 +492,7 @@ class HiddenGemController extends Controller
     {
         $gem = Location::findOrFail($id);
 
-        if (!Auth::check() && !in_array($gem->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+        if (!Auth::check() && !Location::isPubliclyVisible($gem)) {
             abort(404);
         }
 
@@ -516,7 +516,7 @@ class HiddenGemController extends Controller
     {
         $gem = Location::findOrFail($id);
 
-        if (!Auth::check() && !in_array($gem->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+        if (!Auth::check() && !Location::isPubliclyVisible($gem)) {
             abort(404);
         }
 

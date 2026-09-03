@@ -19,6 +19,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     const [eligibility, setEligibility] = useState(null);
     const [comment, setComment] = useState('');
     const [message, setMessage] = useState('');
+    const [messageType, setMessageType] = useState('error');
     const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
     const [manualLat, setManualLat] = useState('');
@@ -43,10 +44,12 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
             } else {
                 setStep('error');
                 setMessage(data.message);
+                setMessageType('error');
             }
         } catch (error) {
             setStep('error');
             setMessage(error?.response?.data?.message || 'Unable to check eligibility');
+            setMessageType('error');
         } finally {
             setLoading(false);
         }
@@ -77,6 +80,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
             setStep('vote');
             const distanceMsg = res.data.distance ? ` (${res.data.distance} km away)` : '';
             setMessage('Check-in successful!' + distanceMsg);
+            setMessageType('success');
         } catch (error) {
             const data = error?.response?.data;
             if (data?.distance && data?.max_distance) {
@@ -84,6 +88,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
             } else {
                 setMessage(data?.message || 'Check-in failed');
             }
+            setMessageType('error');
         } finally {
             setCheckingIn(false);
         }
@@ -94,6 +99,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         const lng = parseFloat(manualLng);
         if (!manualLat || !manualLng || isNaN(lat) || isNaN(lng)) {
             setMessage('Please enter valid coordinates.');
+            setMessageType('error');
             return;
         }
         performCheckIn(lat, lng);
@@ -109,6 +115,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
             onVerifySuccess?.(res.data);
         } catch (error) {
             setMessage(error?.response?.data?.message || 'Failed to record vote');
+            setMessageType('error');
             setStep('error');
         } finally {
             setLoading(false);
@@ -189,7 +196,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                     {gpsStatus.replace(/^(error:|success:)/, '')}
                                 </div>
                             )}
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
                         </div>
                     )}
@@ -210,7 +217,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                         value={manualLng} onChange={(e) => setManualLng(e.target.value)} />
                                 </div>
                             </div>
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
                             <div className="vote-actions">
                                 <button className="vote-btn-primary" onClick={confirmManualCheckIn} disabled={checkingIn}>
                                     {checkingIn ? 'Checking in...' : 'Confirm Check-in'}
@@ -274,13 +281,13 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                 <span className="vote-char-count">{comment.length}/1000</span>
                             </div>
 
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <div className="report-verdict-actions">
-                                <button className="report-verdict-btn report-verdict-dispute" onClick={() => handleVerdict('dispute')} disabled={loading}>
+                                <button className={`report-verdict-btn ${isFixReview ? 'report-verdict-confirm' : 'report-verdict-dispute'}`} onClick={() => handleVerdict('dispute')} disabled={loading}>
                                     {isFixReview ? "✗ Still not fixed" : '✓ This is fine — dispute report'}
                                 </button>
-                                <button className="report-verdict-btn report-verdict-confirm" onClick={() => handleVerdict('confirm')} disabled={loading}>
+                                <button className={`report-verdict-btn ${isFixReview ? 'report-verdict-dispute' : 'report-verdict-confirm'}`} onClick={() => handleVerdict('confirm')} disabled={loading}>
                                     {isFixReview ? '✓ Fix looks good' : '⚠ Confirm — issue is real'}
                                 </button>
                             </div>

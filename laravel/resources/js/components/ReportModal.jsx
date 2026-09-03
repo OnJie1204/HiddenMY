@@ -34,6 +34,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const [photo, setPhoto] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
     const [message, setMessage] = useState('');
+    const [messageType, setMessageType] = useState('error');
     const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
     const [manualLat, setManualLat] = useState('');
@@ -65,10 +66,14 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             // no report already open) — which reasons need a check-in is
             // decided once the traveller actually picks one, below.
             setStep(data.eligible ? 'reason' : 'error');
-            if (!data.eligible) setMessage(data.message);
+            if (!data.eligible) {
+                setMessage(data.message);
+                setMessageType('error');
+            }
         } catch (error) {
             setStep('error');
             setMessage(error?.response?.data?.message || 'Unable to check eligibility');
+            setMessageType('error');
         } finally {
             setLoading(false);
         }
@@ -77,6 +82,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const handleReasonContinue = () => {
         if (!reason) {
             setMessage('Please choose a reason.');
+            setMessageType('error');
             return;
         }
         setMessage('');
@@ -93,6 +99,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const handleFlagItemContinue = () => {
         if (!flaggedItem) {
             setMessage('Please choose what needs fixing.');
+            setMessageType('error');
             return;
         }
         setMessage('');
@@ -130,6 +137,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             setStep(reason === 'inappropriate_content' ? 'flag-item' : 'form');
             const distanceMsg = res.data.distance ? ` (${res.data.distance} km away)` : '';
             setMessage('Check-in successful!' + distanceMsg);
+            setMessageType('success');
         } catch (error) {
             const data = error?.response?.data;
             if (data?.distance && data?.max_distance) {
@@ -137,6 +145,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             } else {
                 setMessage(data?.message || 'Check-in failed');
             }
+            setMessageType('error');
         } finally {
             setCheckingIn(false);
         }
@@ -147,6 +156,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
         const lng = parseFloat(manualLng);
         if (!manualLat || !manualLng || isNaN(lat) || isNaN(lng)) {
             setMessage('Please enter valid coordinates.');
+            setMessageType('error');
             return;
         }
         performCheckIn(lat, lng);
@@ -182,6 +192,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             onReportSuccess?.(res.data);
         } catch (error) {
             setMessage(error?.response?.data?.message || 'Failed to submit report');
+            setMessageType('error');
             setStep('error');
         } finally {
             setLoading(false);
@@ -272,7 +283,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 )}
                             </div>
 
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <div className="vote-actions">
                                 <button className="vote-btn-primary" onClick={handleReasonContinue} disabled={!reason}>
@@ -317,7 +328,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                     {gpsStatus.replace(/^(error:|success:)/, '')}
                                 </div>
                             )}
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <button className="vote-manual-back" onClick={() => setStep('reason')}>← Back to reason</button>
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
@@ -345,7 +356,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 </div>
                             </div>
 
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <div className="vote-actions">
                                 <button className="vote-btn-primary" onClick={confirmManualCheckIn} disabled={checkingIn}>
@@ -399,7 +410,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 </div>
                             </div>
 
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <button className="vote-manual-back" onClick={() => setStep('reason')}>← Back to reason</button>
 
@@ -466,7 +477,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 )}
                             </div>
 
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <button
                                 className="vote-manual-back"

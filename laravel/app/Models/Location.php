@@ -214,9 +214,23 @@ class Location extends Model
      */
     public const PUBLICLY_VISIBLE_STATUSES = ['pending_community_vote', 'hidden_gem'];
 
+    public static function isPubliclyVisible(self $location): bool
+    {
+        if (in_array($location->status, self::PUBLICLY_VISIBLE_STATUSES, true)) {
+            return true;
+        }
+
+        return $location->status === 'delisted' && $location->report_status === 'upheld';
+    }
+
     public function scopePubliclyVisible(Builder $query)
     {
-        return $query->whereIn('status', self::PUBLICLY_VISIBLE_STATUSES);
+        return $query->where(function (Builder $q) {
+            $q->whereIn('status', self::PUBLICLY_VISIBLE_STATUSES)
+                ->orWhere(function (Builder $q2) {
+                    $q2->where('status', 'delisted')->where('report_status', 'upheld');
+                });
+        });
     }
 
     public function getVoteProgressAttribute()

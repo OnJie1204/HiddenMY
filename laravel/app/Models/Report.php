@@ -39,6 +39,7 @@ class Report extends Model
 
     public const AMENDABLE_REASONS = [
         'inappropriate_content',
+        'incorrect_location',
     ];
 
     protected $fillable = [
