@@ -20,7 +20,7 @@ class TripItineraryController extends Controller
     {
         $itineraries = TripItinerary::where('user_id', $request->user()->id)
             ->withCount('locations')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('updated_at', 'desc')
             ->get();
 
         return response()->json($itineraries);

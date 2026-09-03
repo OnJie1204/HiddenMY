@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
@@ -137,19 +137,6 @@ function MapClickExplorer({ onMapClick }) {
 
 function Maps({ user }){
     const location = useLocation();
-    const navigate = useNavigate();
-
-    // Mirrors the shared <BackButton> (which is suppressed on /map because the
-    // full-bleed map hero has no room for it) — go back in history, or fall
-    // back to home when this is the first entry in the stack.
-    const handleBack = () => {
-        if (location.key === 'default') {
-            navigate('/');
-        } else {
-            navigate(-1);
-        }
-    };
-
 
     // ==================== URL Params (from HiddenGemDetail) ====================
     const queryParams = new URLSearchParams(location.search);
@@ -202,6 +189,12 @@ function Maps({ user }){
     const viewportTimer = useRef(null);
     const heroRef = useRef(null);
     const clickedMarkerRef = useRef(null);
+
+    // The app has no global scroll restoration, so navigating here from a
+    // scrolled page would land partway down this (tall) page — reset to top.
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     // Open the "X places found nearby" popup as soon as a click lands, rather
     // than making the user click the little dot a second time to see it.
@@ -697,6 +690,9 @@ function Maps({ user }){
 
     return (
         <div className="maps-page">
+            <div className="maps-page-header">
+                <h1>Interactive Map</h1>
+            </div>
             <div className={`maps-hero ${mapFullscreen ? "fullscreen" : ""}`} ref={heroRef}>
                 <MapContainer
                     ref={mapRef}
@@ -767,9 +763,9 @@ function Maps({ user }){
                     <button
                         type="button"
                         className="maps-back-btn"
-                        onClick={handleBack}
+                        onClick={() => setMapFullscreen(false)}
                     >
-                        ← Back
+                        ← Exit fullscreen
                     </button>
                     <div className="maps-search-float">
                         <SearchBar
@@ -821,7 +817,6 @@ function Maps({ user }){
 
                 {/* Right column: title, status, filters */}
                 <div className="maps-hero-topbar">
-                    <h1 className="maps-hero-title">HiddenMY Interactive Map</h1>
                     {boundsLoading && (
                         <div className="maps-updating-pill">
                             <Spinner size="sm" inline label="Updating gems…" />

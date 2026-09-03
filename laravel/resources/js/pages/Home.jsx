@@ -698,7 +698,7 @@ function Home({ user }) {
                         </Link>
                     ) : (
                         recentTrips
-                            .slice(0, 2)
+                            .slice(0, 3)
                             .map((trip, index) => (
                                 <Link
                                     key={trip.id}
@@ -720,7 +720,7 @@ function Home({ user }) {
                                                 0}{' '}
                                             stops ·{' '}
                                             {new Date(
-                                                trip.created_at
+                                                trip.updated_at ?? trip.created_at
                                             ).toLocaleDateString(
                                                 'en-GB',
                                                 {
