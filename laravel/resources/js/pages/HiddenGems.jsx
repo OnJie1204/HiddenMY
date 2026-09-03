@@ -365,7 +365,7 @@ export default function HiddenGems({ user }) {
                     <div className="hidden-gems-search-wrapper">
                         <input
                             type="text"
-                            placeholder="Search hidden gems by place name..."
+                            placeholder="Search by place name, location, or state..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="hidden-gems-search-input"

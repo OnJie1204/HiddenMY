@@ -229,9 +229,16 @@ class HiddenGemController extends Controller
             $query->where('state', $request->state);
         }
 
-        // Search by place name
-        if ($request->has('search') && $request->search) {
-            $query->where('place_name', 'like', '%' . $request->search . '%');
+        // Search by place name, address, or state
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery
+                    ->where('place_name', 'ILIKE', '%' . $search . '%')
+                    ->orWhere('address', 'ILIKE', '%' . $search . '%')
+                    ->orWhere('state', 'ILIKE', '%' . $search . '%');
+            });
         }
 
         // Sorting

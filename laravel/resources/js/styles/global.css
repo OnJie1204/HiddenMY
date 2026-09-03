@@ -11352,3 +11352,91 @@ pre {
     text-decoration: none !important;
     transform: scale(1.12);
 }
+
+.home-trending-carousel {
+    position: relative;
+}
+
+.home-trending-scroll {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    padding: 4px 2px 16px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+
+.home-trending-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+.home-trending-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 999px;
+}
+
+.home-trending-scroll::-webkit-scrollbar-thumb {
+    background: #b8b8b8;
+    border-radius: 999px;
+}
+
+.home-trending-card {
+    flex: 0 0 calc((100% - 40px) / 3);
+    min-width: 280px;
+    max-width: calc((100% - 40px) / 3);
+    scroll-snap-align: start;
+}
+
+.home-trending-scroll-btn {
+    position: absolute;
+    top: 50%;
+    z-index: 20;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #e5e7eb;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #111827;
+    font-size: 30px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transform: translateY(-50%);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.home-trending-scroll-btn:hover {
+    background: #f9fafb;
+}
+
+.home-trending-scroll-btn-left {
+    left: -22px;
+}
+
+.home-trending-scroll-btn-right {
+    right: -22px;
+}
+
+@media (max-width: 1000px) {
+    .home-trending-card {
+        flex-basis: calc((100% - 20px) / 2);
+        max-width: calc((100% - 20px) / 2);
+    }
+}
+
+@media (max-width: 650px) {
+    .home-trending-card {
+        flex-basis: 85%;
+        max-width: 85%;
+        min-width: 260px;
+    }
+
+    .home-trending-scroll-btn {
+        display: none;
+    }
+}
