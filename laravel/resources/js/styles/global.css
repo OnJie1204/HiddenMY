@@ -9836,11 +9836,27 @@ img.avatar {
     color: var(--color-accent);
 }
 
-.travel-post-toolbar {
+/* Centered reading column — the Layout <main> already supplies the outer
+   page padding, so this just narrows and stacks the post's cards. */
+.travel-post-detail-page {
+    max-width: 760px;
+    margin: 0 auto;
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    margin-bottom: 16px;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* The post itself: one self-contained card, cover image flush to its edges. */
+.travel-post-article {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.travel-post-article-body {
+    padding: 30px 34px 34px;
 }
 
 .travel-post-owner-actions {
@@ -9850,33 +9866,80 @@ img.avatar {
 }
 
 .travel-post-cover-wrap {
-    border-radius: var(--radius-md);
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 24px;
 }
 
 .travel-post-cover {
     width: 100%;
-    max-height: 380px;
+    max-height: 400px;
     object-fit: cover;
     display: block;
 }
 
+.travel-post-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
 .travel-post-title {
     margin: 0;
-    font-size: 26px;
+    font-size: 27px;
     line-height: 1.3;
     color: var(--color-text);
+    flex: 1;
+    min-width: 0;
 }
 
 .travel-post-byline {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 18px 0 24px;
+    margin: 16px 0 22px;
     padding-bottom: 20px;
     border-bottom: 1px solid var(--color-border);
+}
+
+/* Author name + date; grows so the trip button is pushed to the right edge. */
+.travel-post-byline-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.travel-post-trip-link {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.travel-post-trip-link:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+@media (max-width: 600px) {
+    .travel-post-byline {
+        flex-wrap: wrap;
+    }
+
+    .travel-post-trip-link {
+        width: 100%;
+        justify-content: center;
+        margin-top: 4px;
+    }
 }
 
 .travel-post-byline-name {
@@ -9892,21 +9955,16 @@ img.avatar {
     margin: 2px 0 0;
 }
 
-.travel-post-byline-meta .wishlist-link {
-    color: var(--color-text);
-    font-weight: 500;
-}
-
 .travel-post-body {
     white-space: pre-wrap;
     line-height: 1.8;
     font-size: 16px;
     color: var(--color-text);
-    margin: 0 0 28px;
+    margin: 0;
 }
 
 .travel-post-gallery {
-    margin: 0 0 32px;
+    margin: 26px 0 0;
 }
 
 .travel-post-carousel {
@@ -9931,6 +9989,31 @@ img.avatar {
     .travel-post-carousel {
         --photo-carousel-height: 260px;
     }
+
+    .travel-post-article-body {
+        padding: 22px 18px 24px;
+    }
+
+    .travel-post-tagged-gems {
+        padding: 20px 18px 22px;
+    }
+
+    .travel-post-title {
+        font-size: 22px;
+    }
+
+    .travel-post-cover {
+        max-height: 260px;
+    }
+}
+
+/* Tagged gems: a matching card sitting below the article. */
+.travel-post-tagged-gems {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 24px 28px 28px;
 }
 
 .travel-post-section-title {
@@ -9939,7 +10022,7 @@ img.avatar {
     color: var(--color-text-muted);
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    margin: 0 0 14px;
+    margin: 0 0 16px;
 }
 
 .travel-post-map-btn {

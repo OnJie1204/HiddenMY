@@ -64,88 +64,92 @@ export default function TravelPostDetail({ user }) {
     const isOwner = currentUserId === post.user_id;
 
     return (
-        <div className="gem-detail-page travel-post-detail-page">
-            <div className="travel-post-toolbar">
-                {isOwner && (
-                    <div className="travel-post-owner-actions">
-                        <button
-                            type="button"
-                            className="travel-post-icon-btn"
-                            onClick={() => navigate(`/travel-posts/${post.id}/edit`)}
-                            title="Edit post"
-                            aria-label="Edit post"
-                        >
-                            ✏️
-                        </button>
-                        <button
-                            type="button"
-                            className="travel-post-icon-btn travel-post-icon-btn-danger"
-                            onClick={() => setConfirmingDelete(true)}
-                            title="Delete post"
-                            aria-label="Delete post"
-                        >
-                            🗑️
-                        </button>
+        <div className="travel-post-detail-page">
+            <article className="travel-post-article">
+                {post.cover_image_url && (
+                    <div className="travel-post-cover-wrap">
+                        <img src={post.cover_image_url} alt={post.title} className="travel-post-cover" />
                     </div>
                 )}
-            </div>
 
-            {post.cover_image_url && (
-                <div className="travel-post-cover-wrap">
-                    <img src={post.cover_image_url} alt={post.title} className="travel-post-cover" />
-                </div>
-            )}
+                <div className="travel-post-article-body">
+                    <header className="travel-post-header">
+                        <h1 className="travel-post-title">{post.title}</h1>
 
-            <h1 className="travel-post-title">{post.title}</h1>
-
-            <div className="travel-post-byline">
-                <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
-                <div>
-                    <div className="travel-post-author-identity">
-                        <p className="travel-post-byline-name">{post.user?.name || "Traveler"}</p>
-                        <FavouriteAchievementBadges
-                            favourites={post.user?.favourite_achievements}
-                        />
-                    </div>
-                    <p className="travel-post-byline-meta">
-                        {new Date(post.created_at).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                        })}
-                        {post.trip_itinerary_id && (
-                            <>
-                                {" · "}
-                                <span
-                                    className="wishlist-link"
-                                    onClick={() => {
-                                        if (!user) {
-                                            setShowSignIn(true);
-                                            return;
-                                        }
-                                        navigate(`/trips/${post.trip_itinerary_id}`);
-                                    }}
+                        {isOwner && (
+                            <div className="travel-post-owner-actions">
+                                <button
+                                    type="button"
+                                    className="travel-post-icon-btn"
+                                    onClick={() => navigate(`/travel-posts/${post.id}/edit`)}
+                                    title="Edit post"
+                                    aria-label="Edit post"
                                 >
-                                    View the trip
-                                </span>
-                            </>
+                                    ✏️
+                                </button>
+                                <button
+                                    type="button"
+                                    className="travel-post-icon-btn travel-post-icon-btn-danger"
+                                    onClick={() => setConfirmingDelete(true)}
+                                    title="Delete post"
+                                    aria-label="Delete post"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
                         )}
-                    </p>
-                </div>
-            </div>
+                    </header>
 
-            <p className="travel-post-body">{post.body}</p>
+                    <div className="travel-post-byline">
+                        <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
+                        <div className="travel-post-byline-info">
+                            <div className="travel-post-author-identity">
+                                <p className="travel-post-byline-name">{post.user?.name || "Traveler"}</p>
+                                <FavouriteAchievementBadges
+                                    favourites={post.user?.favourite_achievements}
+                                />
+                            </div>
+                            <p className="travel-post-byline-meta">
+                                {new Date(post.created_at).toLocaleDateString("en-GB", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                })}
+                            </p>
+                        </div>
 
-            {post.images?.length > 0 && (
-                <div className="travel-post-gallery">
-                    <PhotoCarousel
-                        images={post.images}
-                        alt={post.title}
-                        className="travel-post-carousel"
-                        onImageClick={(url) => setLightboxUrl(url)}
-                    />
+                        {post.trip_itinerary_id && (
+                            <button
+                                type="button"
+                                className="travel-post-trip-link"
+                                onClick={() => {
+                                    if (!user) {
+                                        setShowSignIn(true);
+                                        return;
+                                    }
+                                    navigate(`/trips/${post.trip_itinerary_id}`);
+                                }}
+                            >
+                                <span aria-hidden="true">🧭</span>
+                                View the trip
+                            </button>
+                        )}
+                    </div>
+
+                    <p className="travel-post-body">{post.body}</p>
+
+                    {post.images?.length > 0 && (
+                        <div className="travel-post-gallery">
+                            <PhotoCarousel
+                                images={post.images}
+                                alt={post.title}
+                                className="travel-post-carousel"
+                                onImageClick={(url) => setLightboxUrl(url)}
+                            />
+                        </div>
+                    )}
                 </div>
-            )}
+            </article>
 
             {lightboxUrl && (
                 <div className="photo-modal-overlay" onClick={() => setLightboxUrl(null)}>

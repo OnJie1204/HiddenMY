@@ -286,7 +286,11 @@ function Profile({ setAppUser }) {
                 )}
               </div>
 
-              {recentGems.length === 0 ? (
+              {isOwnProfile && statsLoading ? (
+                <div className="page-loading-bar" role="progressbar" aria-label="Loading hidden gems">
+                  <div className="page-loading-bar-indicator" />
+                </div>
+              ) : recentGems.length === 0 ? (
                 <div className="hidden-gems-empty">
                   <p>{isOwnProfile ? "You haven't submitted any hidden gems yet." : "No hidden gems yet."}</p>
                   {isOwnProfile && (
@@ -348,7 +352,11 @@ function Profile({ setAppUser }) {
                   )}
                 </div>
 
-                {recentPosts.length === 0 ? (
+                {statsLoading ? (
+                  <div className="page-loading-bar" role="progressbar" aria-label="Loading your stories">
+                    <div className="page-loading-bar-indicator" />
+                  </div>
+                ) : recentPosts.length === 0 ? (
                   <div className="hidden-gems-empty">
                     <p>You haven't written any travel posts yet.</p>
                     <Link to="/travel-posts/create" className="hidden-gems-submit-btn">
