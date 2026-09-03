@@ -445,9 +445,9 @@ export default function TripItineraryDetail() {
             .catch((error) => {
                 console.error("Failed to load itinerary locations.", error);
                 // This page is the owner's editor. A non-owner (e.g. following
-                // an old link) gets a 403 — send them to the read-only view.
+                // an old link) gets a 403 — send them back to their trips.
                 if (error?.response?.status === 403) {
-                    navigate(`/trips/${id}`, { replace: true });
+                    navigate("/trip-itinerary", { replace: true });
                 }
             })
             .finally(() => {

@@ -27,7 +27,7 @@ class TravelPostController extends Controller
      */
     private const TAGGABLE_STATUSES = ['hidden_gem', 'well_known', 'pending_community_vote'];
 
-    private const RELATIONS = ['user', 'images', 'stops.location.category', 'stops.location.images', 'stops.sourceItinerary:id,trip_name'];
+    private const RELATIONS = ['user', 'images', 'locations', 'stops.location.category', 'stops.location.images', 'stops.sourceItinerary:id,trip_name'];
 
     /** Columns exposed for a tagged gem in the post_locations mirror. */
     private const PUBLIC_LOCATION_COLUMNS = [

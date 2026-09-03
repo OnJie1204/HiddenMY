@@ -20,14 +20,19 @@ const gemIconPending = new L.Icon({ ...ICON_BASE, className: "gem-marker gem-mar
 // Greyed-out variant for gems the community confirmed as permanently closed.
 const gemIconClosed = new L.Icon({ ...ICON_BASE, className: "gem-marker gem-marker-closed" });
 
+// Gold-cast variant for well-known places — no longer "hidden", its own marker.
+const gemIconWellKnown = new L.Icon({ ...ICON_BASE, className: "gem-marker gem-marker-well-known" });
+
 export function getHiddenGemMarkerIcon(status, closed = false) {
     if (closed) return gemIconClosed;
+    if (status === "well_known") return gemIconWellKnown;
     return status === "pending_community_vote" ? gemIconPending : gemIcon;
 }
 
 function HiddenGemMarker({ gem, onClick, markerRefs }) {
     const isClosed = !!(gem.permanentlyClosedAt || gem.permanently_closed_at);
     const isPending = gem.status === "pending_community_vote";
+    const isWellKnown = gem.status === "well_known";
 
     // One clean meta line, same shape as the stopping-point map's popup:
     // category first, then distance / status when they apply.
@@ -38,7 +43,7 @@ function HiddenGemMarker({ gem, onClick, markerRefs }) {
                 ? `${Math.round(gem.distanceKm * 1000)}m away`
                 : `${gem.distanceKm.toFixed(1)}km away`
             : null,
-        isClosed ? "Permanently closed" : isPending ? "Awaiting votes" : null,
+        isClosed ? "Permanently closed" : isPending ? "Awaiting votes" : isWellKnown ? "Well-known place" : null,
     ]
         .filter(Boolean)
         .join(" · ");

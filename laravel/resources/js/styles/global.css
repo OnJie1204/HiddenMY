@@ -10125,6 +10125,141 @@ img.avatar {
     font-weight: 600;
 }
 
+/* -- Frozen trip snapshot (post_stops) on the detail page -- */
+.travel-post-stop-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.travel-post-stop {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 10px;
+    border-radius: var(--radius-md, 8px);
+}
+
+.travel-post-stop + .travel-post-stop {
+    border-top: 1px solid var(--color-border);
+}
+
+.travel-post-stop.is-closed,
+.travel-post-stop.is-removed {
+    opacity: 0.6;
+}
+
+.travel-post-stop-rank {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.travel-post-stop-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.travel-post-stop-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.travel-post-stop-name-link,
+.travel-post-stop-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text);
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+}
+
+.travel-post-stop-name-link {
+    cursor: pointer;
+}
+
+.travel-post-stop-name-link:hover {
+    color: var(--color-primary, #b45309);
+    text-decoration: underline;
+}
+
+.travel-post-stop-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}
+
+.travel-post-stop-tag.is-closed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.travel-post-stop-meta {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.travel-post-stop-caption {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--color-text);
+}
+
+.travel-post-copy-result {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md, 8px);
+    font-size: 13px;
+}
+
+.travel-post-copy-result.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.travel-post-copy-result.error {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.travel-post-copy-result button {
+    border: 1px solid currentColor;
+    background: none;
+    color: inherit;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+}
+
 /* -- Create/Edit form page -- */
 .travel-post-form-page {
     max-width: 640px;
@@ -10239,6 +10374,132 @@ img.avatar {
     text-transform: uppercase;
     letter-spacing: 0.4px;
     margin: 22px 0 8px;
+}
+
+.travel-post-form-hint {
+    font-size: 12.5px;
+    color: var(--color-text-muted);
+    margin: 0 0 12px;
+    line-height: 1.5;
+}
+
+/* -- Trip stops editor (Create/Edit travel post) -- */
+.trip-stops-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.trip-stops-editor-row .form-input {
+    margin: 0;
+}
+
+.trip-stops-editor-note {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.trip-stops-editor-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.trip-stops-editor-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 10px 10px 12px;
+}
+
+.trip-stops-editor-rank {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-top: 3px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.trip-stops-editor-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.trip-stops-editor-body .form-input {
+    margin: 0;
+}
+
+.trip-stops-editor-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.trip-stops-editor-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-text);
+}
+
+.trip-stops-editor-kind {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+}
+
+.trip-stops-editor-actions {
+    flex: none;
+    display: flex;
+    gap: 4px;
+}
+
+.trip-stops-editor-actions button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.trip-stops-editor-actions button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.trip-stops-editor-remove {
+    color: #b91c1c !important;
+    font-size: 16px !important;
+    font-weight: 700;
 }
 
 .travel-post-tag-list {
@@ -10740,6 +11001,13 @@ img.avatar {
 .gem-marker-closed {
     filter: grayscale(1);
     opacity: 0.5;
+}
+
+/* Map marker for a well-known place — the community has outgrown it, so it
+   reads as established rather than "hidden": a warm gold cast + subtle ring. */
+.gem-marker-well-known {
+    filter: sepia(0.7) saturate(2.2) hue-rotate(5deg) brightness(1.05)
+        drop-shadow(0 0 4px rgba(202, 138, 4, 0.9));
 }
 
 /* ---- Shared (read-only) trip itinerary view ---- */

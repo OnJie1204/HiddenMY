@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createTravelPost } from "../api/travelPosts";
 import { getTripItineraries, getTripItinerary } from "../api/TripItinerary";
-import SearchBar from "../components/SearchBar";
+import TripStopsEditor, { appendStopsToFormData } from "../components/TripStopsEditor";
 import Spinner from "../components/Spinner";
+
+let seedSeq = 0;
 
 export default function CreateTravelPost() {
     const navigate = useNavigate();
@@ -15,10 +17,8 @@ export default function CreateTravelPost() {
 
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
-    const [tripItineraryId, setTripItineraryId] = useState(preselectedTripId);
     const [itineraries, setItineraries] = useState([]);
-
-    const [taggedLocations, setTaggedLocations] = useState([]); // [{ id, place_name, caption }]
+    const [stops, setStops] = useState([]);
 
     const [coverImage, setCoverImage] = useState(null);
     const [coverPreview, setCoverPreview] = useState("");
@@ -34,25 +34,36 @@ export default function CreateTravelPost() {
             .catch((err) => console.error("Error fetching itineraries:", err));
     }, []);
 
-    // Turning a trip into a post pre-fills the tag list with that trip's
-    // actual hidden gem stops (OSM-only stops have no Location to tag).
+    // "Turn this trip into a post" — pre-fill the stop list from that trip.
     useEffect(() => {
         if (!preselectedTripId) return;
 
         getTripItinerary(preselectedTripId)
             .then((res) => {
-                const gemStops = (res.data.data.locations || [])
-                    .filter((stop) => stop.location)
-                    .map((stop) => ({
-                        id: stop.location.id,
-                        place_name: stop.location.place_name,
-                        caption: "",
-                    }));
-
-                setTaggedLocations((prev) => {
-                    const existingIds = new Set(prev.map((l) => l.id));
-                    return [...prev, ...gemStops.filter((l) => !existingIds.has(l.id))];
-                });
+                const rows = res.data?.data?.locations || [];
+                const seeded = rows.map((row) =>
+                    row.isHidden && row.location
+                        ? {
+                              key: `seed${seedSeq++}`,
+                              kind: "gem",
+                              location_id: row.location.id,
+                              name: row.location.place_name,
+                              caption: "",
+                              source_itinerary_id: Number(preselectedTripId),
+                          }
+                        : {
+                              key: `seed${seedSeq++}`,
+                              kind: "osm",
+                              osm_id: row.osm_id ?? null,
+                              osm_name: row.osm_name || "Place",
+                              name: row.osm_name || "Place",
+                              latitude: row.latitude,
+                              longitude: row.longitude,
+                              caption: "",
+                              source_itinerary_id: Number(preselectedTripId),
+                          }
+                );
+                setStops((prev) => (prev.length ? prev : seeded));
             })
             .catch((err) => console.error("Error fetching itinerary:", err));
     }, [preselectedTripId]);
@@ -63,29 +74,6 @@ export default function CreateTravelPost() {
             return () => clearTimeout(timer);
         }
     }, [message]);
-
-    function handleSelectLocation(item) {
-        if (item.source !== "database") {
-            setMessage("Only saved hidden gems can be tagged in a post.");
-            return;
-        }
-
-        setTaggedLocations((prev) =>
-            prev.some((l) => l.id === item.id)
-                ? prev
-                : [...prev, { id: item.id, place_name: item.name, caption: "" }]
-        );
-    }
-
-    function removeTaggedLocation(id) {
-        setTaggedLocations((prev) => prev.filter((l) => l.id !== id));
-    }
-
-    function updateCaption(id, caption) {
-        setTaggedLocations((prev) =>
-            prev.map((l) => (l.id === id ? { ...l, caption } : l))
-        );
-    }
 
     function handleCoverChange(e) {
         const file = e.target.files[0];
@@ -119,15 +107,7 @@ export default function CreateTravelPost() {
             const data = new FormData();
             data.append("title", title);
             data.append("body", body);
-
-            if (tripItineraryId) {
-                data.append("trip_itinerary_id", tripItineraryId);
-            }
-
-            taggedLocations.forEach((location) => {
-                data.append("location_ids[]", location.id);
-                data.append("captions[]", location.caption || "");
-            });
+            appendStopsToFormData(data, stops);
 
             if (coverImage) {
                 data.append("cover_image", coverImage);
@@ -136,10 +116,6 @@ export default function CreateTravelPost() {
             galleryImages.forEach((image) => data.append("images[]", image));
 
             const response = await createTravelPost(data);
-
-            // replace (not push) so the browser Back button from the new post
-            // returns to wherever the user came from — the linked itinerary,
-            // the posts list — rather than back into this now-stale form.
             navigate(`/travel-posts/${response.data.data.id}`, { replace: true });
         } catch (error) {
             setMessage(error.response?.data?.message || "Failed to publish your post.");
@@ -175,46 +151,13 @@ export default function CreateTravelPost() {
                         onChange={(e) => setBody(e.target.value)}
                     />
 
-                    <label className="travel-post-form-label">Link to a Trip (optional)</label>
-                    <select
-                        className="form-input"
-                        value={tripItineraryId}
-                        onChange={(e) => setTripItineraryId(e.target.value)}
-                    >
-                        <option value="">Not linked to a trip</option>
-                        {itineraries.map((trip) => (
-                            <option key={trip.id} value={trip.id}>
-                                {trip.trip_name}
-                            </option>
-                        ))}
-                    </select>
-
-                    <label className="travel-post-form-label">Tag Hidden Gems</label>
-                    <SearchBar onSelect={handleSelectLocation} />
-
-                    {taggedLocations.length > 0 && (
-                        <div className="travel-post-tag-list">
-                            {taggedLocations.map((location) => (
-                                <div key={location.id} className="travel-post-tag-item">
-                                    <span className="travel-post-tag-name">{location.place_name}</span>
-                                    <input
-                                        className="form-input"
-                                        placeholder="Caption (optional)"
-                                        value={location.caption}
-                                        onChange={(e) => updateCaption(location.id, e.target.value)}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="travel-post-tag-remove-btn"
-                                        title="Remove"
-                                        onClick={() => removeTaggedLocation(location.id)}
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    <label className="travel-post-form-label">The Trip (optional)</label>
+                    <p className="travel-post-form-hint">
+                        Build the trip readers can copy. Pull in stops from your own itineraries,
+                        add hidden gems or places by search, then reorder or caption them. This is
+                        a snapshot — later edits to your itineraries won't change it.
+                    </p>
+                    <TripStopsEditor stops={stops} setStops={setStops} itineraries={itineraries} />
 
                     <label className="travel-post-form-label">Cover Image</label>
                     <div className="hidden-gem-upload-row">
