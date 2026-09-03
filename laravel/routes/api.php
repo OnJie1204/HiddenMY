@@ -73,8 +73,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ===== Trip Itineraries =====
-    Route::get('trip-itineraries/{tripItinerary}/shared', [TripItineraryController::class, 'shared']);
-    Route::post('trip-itineraries/{tripItinerary}/copy', [TripItineraryController::class, 'copy']);
     Route::post('trip-itineraries/{tripItinerary}/locations', [TripItineraryController::class, 'storeLocation']);
     Route::put('trip-itineraries/{tripItinerary}/locations/order', [TripItineraryController::class, 'updateLocationOrder']);
     Route::delete('trip-itineraries/{tripItinerary}/locations/{location}', [TripItineraryController::class, 'destroyLocation']);
@@ -113,6 +111,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ===== Travel Posts (write / account-specific) =====
     Route::get('my-travel-posts', [TravelPostController::class, 'myPosts']);
     Route::post('travel-posts', [TravelPostController::class, 'store']);
+    Route::post('travel-posts/{id}/copy-trip', [TravelPostController::class, 'copyTrip']);
     Route::put('travel-posts/{id}', [TravelPostController::class, 'update']);
     Route::delete('travel-posts/{id}', [TravelPostController::class, 'destroy']);
 
