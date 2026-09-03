@@ -284,6 +284,9 @@ export default function TripItineraryDetail() {
     const [userLocation, setUserLocation] = useState(null);
     const [isRequestingLocation, setIsRequestingLocation] = useState(false);
     const [locationPromptError, setLocationPromptError] = useState("");
+    // null = not asked yet this itinerary visit, "skip" / "share" = the choice
+    // to reuse (and skip the prompt) on subsequent "Add Stopping Point" clicks.
+    const [locationChoice, setLocationChoice] = useState(null);
     const [isIdentifyingClickedLocation, setIsIdentifyingClickedLocation] = useState(false);
     const [mapClickError, setMapClickError] = useState("");
     const [wishlistItems, setWishlistItems] = useState([]);
@@ -301,30 +304,12 @@ export default function TripItineraryDetail() {
         setSearchResults({ database: [], openStreetMap: [] });
         setMapTarget(null);
         setAddLocationError("");
-        setUserLocation(null);
         setMapClickError("");
+        // userLocation / locationChoice are kept for the rest of this itinerary
+        // visit so the "share or skip" prompt is only shown once.
     };
 
-    const openAddStoppingPointFlow = () => {
-        setLocationPromptError("");
-
-        if (typeof navigator === "undefined" || !navigator.geolocation) {
-            setUserLocation(null);
-            setIsStoppingPointDialogOpen(true);
-            return;
-        }
-
-        setIsLocationPromptOpen(true);
-    };
-
-    const skipLocationAndOpenDialog = () => {
-        setUserLocation(null);
-        setIsRequestingLocation(false);
-        setIsLocationPromptOpen(false);
-        setIsStoppingPointDialogOpen(true);
-    };
-
-    const shareLocationAndOpenDialog = () => {
+    const requestLocation = ({ fromPrompt }) => {
         setIsRequestingLocation(true);
         setLocationPromptError("");
 
@@ -336,6 +321,7 @@ export default function TripItineraryDetail() {
                 };
                 setUserLocation(location);
                 setMapTarget({ ...location, zoom: 13 });
+                setLocationChoice("share");
                 setIsRequestingLocation(false);
                 setIsLocationPromptOpen(false);
                 setIsStoppingPointDialogOpen(true);
@@ -343,10 +329,62 @@ export default function TripItineraryDetail() {
             (error) => {
                 console.error("Failed to get user location.", error);
                 setIsRequestingLocation(false);
-                setLocationPromptError("Unable to access your location. You can skip and search without it.");
+
+                if (fromPrompt) {
+                    setLocationPromptError("Unable to access your location. You can skip and search without it.");
+                } else {
+                    // A repeat open shouldn't strand the user when geolocation
+                    // fails — fall back to a no-location search this time.
+                    setUserLocation(null);
+                    setIsStoppingPointDialogOpen(true);
+                }
             },
             { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
         );
+    };
+
+    const openAddStoppingPointFlow = () => {
+        setLocationPromptError("");
+
+        // The location question is asked only once per itinerary visit. Once
+        // the user has answered, reuse that choice and skip straight to the
+        // search dialog.
+        if (locationChoice === "skip") {
+            setUserLocation(null);
+            setIsStoppingPointDialogOpen(true);
+            return;
+        }
+
+        if (locationChoice === "share") {
+            if (userLocation) {
+                setMapTarget({ ...userLocation, zoom: 13 });
+                setIsStoppingPointDialogOpen(true);
+            } else {
+                requestLocation({ fromPrompt: false });
+            }
+            return;
+        }
+
+        if (typeof navigator === "undefined" || !navigator.geolocation) {
+            setLocationChoice("skip");
+            setUserLocation(null);
+            setIsStoppingPointDialogOpen(true);
+            return;
+        }
+
+        setIsLocationPromptOpen(true);
+    };
+
+    const skipLocationAndOpenDialog = () => {
+        setLocationChoice("skip");
+        setUserLocation(null);
+        setIsRequestingLocation(false);
+        setIsLocationPromptOpen(false);
+        setIsStoppingPointDialogOpen(true);
+    };
+
+    const shareLocationAndOpenDialog = () => {
+        requestLocation({ fromPrompt: true });
     };
 
     const refreshItinerary = async () => {
@@ -387,6 +425,13 @@ export default function TripItineraryDetail() {
 
     useEffect(() => {
         setIsLoadingItinerary(true);
+
+        // Leaving this itinerary (unmount) resets everything on its own; this
+        // also covers navigating straight from one itinerary to another, where
+        // the component is reused. Either way the location choice starts fresh.
+        setLocationChoice(null);
+        setUserLocation(null);
+
         refreshItinerary()
             .catch((error) => {
                 console.error("Failed to load itinerary locations.", error);
