@@ -47,8 +47,14 @@ class DuplicateDetectionService
             self::POSSIBLE_DISTANCE_METERS,
         );
 
+        // Only live places count as duplicates: a submission still pending, one
+        // in community voting, a confirmed Hidden Gem, or a well-known place. An
+        // ai_rejected or deleted row never blocks a resubmission, and neither
+        // does a permanently-closed place — a closed spot can be resubmitted
+        // (an accepted design consequence: two rows for one physical place).
         $candidates = Location::where('id', '!=', $location->id)
-            ->where('status', '!=', 'deleted')
+            ->whereIn('status', ['pending', 'pending_community_vote', 'hidden_gem', 'well_known'])
+            ->whereNull('permanently_closed_at')
             ->where('state', $location->state)
             ->whereBetween('latitude', [$minLat, $maxLat])
             ->whereBetween('longitude', [$minLon, $maxLon])

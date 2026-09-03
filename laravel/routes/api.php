@@ -137,6 +137,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);
 Route::get('popular-hidden-gems', [HiddenGemController::class, 'popular']);
 Route::get('hidden-gems', [HiddenGemController::class, 'index']);
+Route::get('well-known-places', [HiddenGemController::class, 'wellKnown']);
 Route::get('hidden-gems/search', [HiddenGemController::class, 'search']);
 Route::get('hidden-gems/categories', [HiddenGemController::class, 'getCategories']);
 Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);

@@ -189,11 +189,13 @@ class TripItineraryController extends Controller
         if ($validated['source'] === 'database') {
             $request->validate(['location_id' => ['required', 'integer']]);
 
-            // Allow anything publicly visible on the map — confirmed Hidden
-            // Gems and gems still in community voting — not just fully
-            // confirmed ones, matching what the map itself shows.
+            // Allow anything publicly visible — gems in community voting,
+            // confirmed Hidden Gems and well-known places — but never a
+            // permanently-closed one (a stop whose gem is closed *later* stays
+            // on the itinerary with a badge; it just can't be freshly added).
             $location = Location::query()
                 ->publiclyVisible()
+                ->whereNull('permanently_closed_at')
                 ->find($validated['location_id']);
 
             if (! $location) {

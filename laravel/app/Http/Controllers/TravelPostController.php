@@ -21,7 +21,7 @@ class TravelPostController extends Controller
      * mirrors Wishlist's WISHLISTABLE_STATUSES so a post can't publicise a
      * still-pending or AI-rejected submission before it's ready to be seen.
      */
-    private const TAGGABLE_STATUSES = ['hidden_gem', 'pending_community_vote'];
+    private const TAGGABLE_STATUSES = ['hidden_gem', 'well_known', 'pending_community_vote'];
 
     private const RELATIONS = ['user', 'tripItinerary', 'images', 'locations.category', 'locations.images'];
 

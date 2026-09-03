@@ -138,7 +138,7 @@ class SpecialAchievementService
 
             $regions = Location::query()
                 ->where('user_id', $user->id)
-                ->where('status', 'hidden_gem')
+                ->whereIn('status', Location::ACHIEVEMENT_STATUSES)
                 ->pluck('state')
                 ->map(fn ($state) => $this->canonicalRegion((string) $state))
                 ->filter(fn ($state) => in_array($state, self::ALL_REGIONS, true))
@@ -179,7 +179,7 @@ class SpecialAchievementService
 
         $locationsByUser = Location::query()
             ->whereIn('user_id', $ids)
-            ->where('status', 'hidden_gem')
+            ->whereIn('status', Location::ACHIEVEMENT_STATUSES)
             ->get(['user_id', 'state', 'category_id'])
             ->groupBy('user_id');
 

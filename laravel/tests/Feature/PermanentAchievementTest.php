@@ -45,7 +45,7 @@ class PermanentAchievementTest extends TestCase
         );
     }
 
-    public function test_persisted_awards_remain_after_source_gem_is_delisted(): void
+    public function test_persisted_awards_remain_after_source_gem_is_deleted(): void
     {
         $user = User::factory()->create();
         $gem = Location::factory()->for($user)->create([
@@ -59,7 +59,7 @@ class PermanentAchievementTest extends TestCase
             ->where('achievement_key', 'first-footprint')
             ->value('earned_at');
 
-        $gem->update(['status' => 'delisted']);
+        $gem->update(['status' => 'deleted']);
         $service->sync($user->fresh());
 
         $this->assertTrue($service->earnedStates($user->fresh())['first-footprint']);

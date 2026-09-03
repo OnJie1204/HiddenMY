@@ -23,6 +23,10 @@ if (config('queue.default') !== 'sync') {
         ->withoutOverlapping();
 }
 
+// Promote Hidden Gems that have outgrown "hidden" — enough travel-post tags
+// plus ratings — to the well-known status. One-way; runs hourly.
+Schedule::command('well-known:promote')->hourly();
+
 // Re-run daily rather than once: Overpass is unreliable enough that a single
 // pass reliably leaves some cells failed (timeouts, 5xx) — each cell that
 // failed stays un-synced and gets retried on the next run, so gaps close over
