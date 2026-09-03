@@ -26,6 +26,15 @@ export const GEM_STATUS_COPY = {
         badgeClass: "hidden-gems-card-verified",
         message: "This place has been recognized as a HiddenMY Hidden Gem!",
     },
+    permanently_closed: {
+        status: "permanently_closed",
+        label: "Permanently closed",
+        badgeClass: "hidden-gems-card-reported",
+        message: "The community confirmed this place has closed for good. It stays listed for reference.",
+    },
+    // Legacy — no gem is delisted any more (the delist/repair flow was
+    // replaced by the permanently_closed / contact-edit flags). Kept only in
+    // case an old row surfaces.
     delisted: {
         status: "delisted",
         label: "Delisted",
@@ -35,6 +44,10 @@ export const GEM_STATUS_COPY = {
 };
 
 export function getGemStatusDisplay(gem) {
+    // A permanently-closed gem keeps status 'hidden_gem' — the flag decides.
+    if (gem?.permanently_closed_at || gem?.permanentlyClosedAt) {
+        return GEM_STATUS_COPY.permanently_closed;
+    }
     return GEM_STATUS_COPY[gem?.status] ?? GEM_STATUS_COPY.pending;
 }
 
