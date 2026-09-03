@@ -884,6 +884,14 @@
     flex-shrink: 0;
 }
 
+.side-panel-review-stars {
+    display: block;
+    margin-top: 0.15rem;
+    color: #f2a93b;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+
 .side-panel-review-photo {
     width: 100%;
     max-height: 120px;
