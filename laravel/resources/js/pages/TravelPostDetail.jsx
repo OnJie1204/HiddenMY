@@ -197,6 +197,24 @@ export default function TravelPostDetail({ user }) {
                             const gem = stop.gem;
                             const closed = !!gem?.permanently_closed_at;
                             const clickable = gem && !stop.removed;
+
+                            // What kind of place this stop is.
+                            let kindLabel = "Place";
+                            let kindClosed = false;
+                            if (stop.removed) {
+                                kindLabel = "No longer listed";
+                                kindClosed = true;
+                            } else if (closed) {
+                                kindLabel = "Permanently closed";
+                                kindClosed = true;
+                            } else if (gem?.status === "hidden_gem") {
+                                kindLabel = "Hidden gem";
+                            } else if (gem?.status === "well_known") {
+                                kindLabel = "Well-known place";
+                            } else if (gem?.status === "pending_community_vote") {
+                                kindLabel = "Hidden gem · awaiting votes";
+                            }
+
                             return (
                                 <li
                                     key={stop.id}
@@ -216,12 +234,9 @@ export default function TravelPostDetail({ user }) {
                                             ) : (
                                                 <span className="travel-post-stop-name">{stop.name}</span>
                                             )}
-                                            {stop.kind === "osm" && <span className="travel-post-stop-tag">Place</span>}
-                                            {gem?.status === "well_known" && (
-                                                <span className="travel-post-stop-tag">Well-known</span>
-                                            )}
-                                            {closed && <span className="travel-post-stop-tag is-closed">Permanently closed</span>}
-                                            {stop.removed && <span className="travel-post-stop-tag is-closed">No longer listed</span>}
+                                            <span className={`travel-post-stop-tag${kindClosed ? " is-closed" : ""}`}>
+                                                {kindLabel}
+                                            </span>
                                         </div>
                                         <span className="travel-post-stop-meta">
                                             {[gem?.category, gem?.state].filter(Boolean).join(" · ")}
@@ -229,19 +244,6 @@ export default function TravelPostDetail({ user }) {
                                         </span>
                                         {stop.caption && <p className="travel-post-stop-caption">{stop.caption}</p>}
                                     </div>
-                                    {stop.latitude != null && (
-                                        <button
-                                            type="button"
-                                            className="travel-post-map-btn"
-                                            onClick={() => navigate("/map", {
-                                                state: gem
-                                                    ? { highlightGem: gem, highlightId: gem.id }
-                                                    : { flyTo: { lat: stop.latitude, lng: stop.longitude } },
-                                            })}
-                                        >
-                                            📍 Map
-                                        </button>
-                                    )}
                                 </li>
                             );
                         })}
