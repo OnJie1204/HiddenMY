@@ -230,7 +230,13 @@ function Profile({ setAppUser }) {
             <button
               type="button"
               className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('settings')}
+              onClick={() => {
+                setActiveTab('settings');
+                if (user) {
+                  setName(user.name);
+                  setEmail(user.email);
+                }
+              }}
             >
               Settings
             </button>
