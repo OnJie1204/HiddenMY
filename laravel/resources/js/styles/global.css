@@ -3913,6 +3913,8 @@ img.avatar {
     font-size:14px;
     font-weight:500;
     cursor:pointer;
+    text-decoration:none;
+    display:inline-block;
     transition:background .2s ease;
 }
 
