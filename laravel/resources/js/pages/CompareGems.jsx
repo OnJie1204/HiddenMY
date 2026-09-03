@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import L from "leaflet";
 import { useCompare } from "../context/CompareContext";
@@ -51,6 +51,15 @@ export default function CompareGems() {
     const [creatingItinerary, setCreatingItinerary] = useState(false);
     const [menuItemsByGemId, setMenuItemsByGemId] = useState({});
     const [userPosition, setUserPosition] = useState(null);
+
+    // Sticky horizontal scrollbar: the real scroll container is .compare-grid,
+    // but its native scrollbar sits at the bottom of very tall cards. This
+    // proxy bar is pinned to the viewport bottom and kept in sync both ways so
+    // the user can scroll between gems without first scrolling the page down.
+    const gridRef = useRef(null);
+    const scrollbarRef = useRef(null);
+    const [scrollContentWidth, setScrollContentWidth] = useState(0);
+    const [needsScrollbar, setNeedsScrollbar] = useState(false);
 
     useEffect(() => {
         setItinerariesLoading(true);
@@ -130,6 +139,44 @@ export default function CompareGems() {
             navigate(`/compare?ids=${items.map((g) => g.id).join(",")}`, { replace: true });
         }
     }, [urlIds, items, navigate]);
+
+    // Track the grid's content width vs. its visible width so the proxy
+    // scrollbar matches it and only shows when the row actually overflows.
+    useEffect(() => {
+        const grid = gridRef.current;
+        if (!grid) return;
+
+        // Card width is fixed, so only gem count / viewport width move these
+        // numbers — bail out when nothing changed so async image loads (which
+        // only change card height) don't churn re-renders during scrolling.
+        const measure = () => {
+            const width = grid.scrollWidth;
+            setScrollContentWidth((prev) => (prev === width ? prev : width));
+            setNeedsScrollbar(width - grid.clientWidth > 1);
+        };
+
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(grid);
+        window.addEventListener("resize", measure);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", measure);
+        };
+    }, [gems.length]);
+
+    // Mirror scrollLeft between the grid and the proxy bar. No lock/flag: the
+    // echoed scroll event finds the two already within 1px and does nothing,
+    // so there's no feedback loop and no dropped frames.
+    const syncScroll = (source, target) => {
+        if (!source || !target) return;
+        if (Math.abs(target.scrollLeft - source.scrollLeft) <= 1) return;
+        target.scrollLeft = source.scrollLeft;
+    };
+
+    const handleGridScroll = () => syncScroll(gridRef.current, scrollbarRef.current);
+    const handleScrollbarScroll = () => syncScroll(scrollbarRef.current, gridRef.current);
 
     function openGoogleMaps(g) {
         window.open(`https://www.google.com/maps/dir/?api=1&destination=${g.latitude},${g.longitude}`, "_blank");
@@ -220,7 +267,7 @@ export default function CompareGems() {
             )}
 
             {gems.length > 0 && (
-                <div className="compare-grid">
+                <div className="compare-grid" ref={gridRef} onScroll={handleGridScroll}>
                     {gems.map((gem) => {
                         const statusDisplay = gem.source === "database" ? getGemStatusDisplay(gem) : null;
                         return (
@@ -493,6 +540,20 @@ export default function CompareGems() {
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {gems.length > 0 && needsScrollbar && (
+                <div
+                    className="compare-hscroll"
+                    ref={scrollbarRef}
+                    onScroll={handleScrollbarScroll}
+                    aria-hidden="true"
+                >
+                    <div
+                        className="compare-hscroll-track"
+                        style={{ width: scrollContentWidth }}
+                    />
                 </div>
             )}
 

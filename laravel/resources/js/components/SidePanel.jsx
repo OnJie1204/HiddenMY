@@ -339,18 +339,20 @@ function SidePanel({
             {/* Header: Logo + Close */}
             <div className="side-panel-header" style={showNavChrome ? undefined : { justifyContent: "flex-end" }}>
                 {showNavChrome && (
-                    <div className="side-panel-logo">
+                    <Link to="/" className="side-panel-logo" onClick={onClose}>
                         <span className="side-panel-logo-icon">✦</span>
                         <span className="side-panel-logo-text">HiddenMY</span>
-                    </div>
+                    </Link>
                 )}
                 {!showNavChrome && (
                     <button
-                        className="side-panel-fullscreen-btn"
-                        onClick={() => setIsFullscreen(f => !f)}
-                        aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        type="button"
+                        className="side-panel-close"
+                        onClick={onClose}
+                        aria-label="Close location details"
+                        title="Close location details"
                     >
-                        {isFullscreen ? "⤢" : "⛶"}
+                        ✕
                     </button>
                 )}
             </div>

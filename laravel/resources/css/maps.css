@@ -1,29 +1,42 @@
 /* Main Map Page */
 
 .maps-page {
-    min-height: 100vh;
-    background-color: var(--color-bg, #f7f6f2);
-    color: var(--color-text, #1c2b28);
+    color: var(--color-text);
     padding-bottom: 1rem;
 }
 
+/* Standard page header, matching .hidden-gems-header / .trip-header. */
+.maps-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 20px;
+}
+
+.maps-page-header h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--color-text);
+}
+
 /* ============================================================
-   Map hero — full-bleed, edge-to-edge, flush against the navbar.
-   Busts out of the site's centered `.layout-main` container
-   (max-width: 1080px + 2.5rem/2rem padding) using the negative-
-   margin 100vw trick, so this file never has to touch global.css.
+   Map hero — a contained card inside the site's centered
+   `.layout-main` column, like every other page. The fullscreen
+   button switches it to a fixed, edge-to-edge overlay.
    ============================================================ */
 .maps-hero {
     position: relative;
-    width: 100vw;
-    margin-left: calc(-50vw + 50%);
-    margin-right: calc(-50vw + 50%);
-    margin-top: -2.5rem; /* cancels .layout-main's top padding so the map touches the navbar */
-    height: 70vh;
-    min-height: 420px;
-    max-height: 780px;
+    width: 100%;
+    height: 64vh;
+    min-height: 440px;
+    max-height: 720px;
     overflow: hidden;
-    box-shadow: 0 12px 24px rgba(15, 42, 38, 0.12);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
 }
 
 .maps-hero.fullscreen {
@@ -36,6 +49,7 @@
     height: auto;
     margin: 0;
     z-index: 90;
+    border: none;
     border-radius: 0;
     box-shadow: none;
 }
@@ -59,26 +73,15 @@
     pointer-events: none;
 }
 
-.maps-hero-title {
-    margin: 0;
-    padding: 10px 18px;
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--color-text, #1c2b28);
-    background: rgba(255, 255, 255, 0.92);
-    border-radius: 999px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
-    pointer-events: auto;
-}
-
 .maps-hero-status {
     margin: 0;
     padding: 8px 16px;
     font-size: 12px;
-    color: #b45309;
-    background: rgba(255, 251, 235, 0.95);
-    border-radius: 999px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    color: var(--color-gem-accent-dark);
+    background: var(--color-gem-accent-soft);
+    border: 1px solid var(--color-gem-accent-soft);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-md);
     pointer-events: auto;
 }
 
@@ -95,23 +98,25 @@
     pointer-events: auto;
     white-space: nowrap;
     padding: 8px 16px;
-    border-radius: 999px;
-    border: none;
-    background: rgba(255, 255, 255, 0.92);
-    color: var(--color-text, #1c2b28);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-    transition: background 0.15s, color 0.15s;
+    box-shadow: var(--shadow-md);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .maps-category-pill:hover {
-    background: var(--color-primary-soft, #e6f6f3);
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
 }
 
 .maps-category-pill.active {
-    background: var(--color-primary-dark, #0f766e);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
     color: #fff;
 }
 
@@ -119,9 +124,11 @@
     margin: 0;
     padding: 6px 14px;
     font-size: 11px;
-    color: var(--color-text-muted, #64766f);
-    background: rgba(255, 255, 255, 0.88);
-    border-radius: 999px;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-sm);
     pointer-events: auto;
 }
 
@@ -134,23 +141,25 @@
     gap: 6px;
     white-space: nowrap;
     padding: 8px 16px;
-    border-radius: 999px;
-    border: none;
-    background: rgba(255, 255, 255, 0.92);
-    color: var(--color-text, #1c2b28);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-    transition: background 0.15s, color 0.15s;
+    box-shadow: var(--shadow-md);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .maps-filters-toggle:hover {
-    background: var(--color-primary-soft, #e6f6f3);
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
 }
 
 .maps-filters-toggle.active {
-    background: var(--color-primary-dark, #0f766e);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
     color: #fff;
 }
 
@@ -161,8 +170,8 @@
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    border-radius: 999px;
-    background: #f97316;
+    border-radius: var(--radius-full);
+    background: var(--color-gem-accent);
     color: #fff;
     font-size: 11px;
     font-weight: 700;
@@ -178,19 +187,20 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
     max-width: min(360px, 100%);
-    padding: 14px;
-    background: rgba(255, 255, 255, 0.97);
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    padding: 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
 }
 
 .maps-filters-clear {
     padding: 0;
     background: none;
     border: none;
-    color: var(--color-primary-dark, #0f766e);
+    color: var(--color-primary);
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -229,15 +239,18 @@
 
 .maps-filters-panel .maps-category-pill {
     box-shadow: none;
-    background: var(--color-surface-muted, #f3f4f6);
+    background: var(--color-surface-muted);
+    border-color: var(--color-border);
 }
 
 .maps-filters-panel .maps-category-pill:hover {
-    background: var(--color-primary-soft, #e6f6f3);
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
 }
 
 .maps-filters-panel .maps-category-pill.active {
-    background: var(--color-primary-dark, #0f766e);
+    background: var(--color-primary);
+    border-color: var(--color-primary);
     color: #fff;
 }
 
@@ -296,19 +309,20 @@
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    border: none;
-    background: var(--color-surface, #fff);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
     font-size: 18px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.15s;
+    transition: transform 0.15s, border-color 0.15s;
 }
 
 .maps-locate-btn:hover {
     transform: scale(1.08);
+    border-color: var(--color-primary);
 }
 
 /* Floating fullscreen toggle — stacked above the locate button */
@@ -320,19 +334,20 @@
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    border: none;
-    background: var(--color-surface, #fff);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
     font-size: 16px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.15s;
+    transition: transform 0.15s, border-color 0.15s;
 }
 
 .maps-fullscreen-btn:hover {
     transform: scale(1.08);
+    border-color: var(--color-primary);
 }
 
 .maps-left-stack {
@@ -354,28 +369,32 @@
     flex-shrink: 0;
 }
 
-/* Floating back control — pill so it stays legible over the map, but the
-   same "← Back" affordance the rest of the app uses via <BackButton>. */
+/* Floating back control — only shown in fullscreen mode, where the page's
+   own <BackButton> is scrolled out of reach; the normal view uses that one. */
 .maps-back-btn {
+    display: none;
+}
+
+.maps-hero.fullscreen .maps-back-btn {
     pointer-events: auto;
     align-self: flex-start;
     display: inline-flex;
     align-items: center;
     padding: 7px 14px;
-    border: none;
-    border-radius: 999px;
-    background: var(--color-surface, #fff);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    color: var(--color-text, #1c2b28);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
+    color: var(--color-text);
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.15s ease, color 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.maps-back-btn:hover {
-    transform: scale(1.04);
-    color: var(--color-gem-accent, #c2410c);
+.maps-hero.fullscreen .maps-back-btn:hover {
+    background: var(--color-primary-soft);
+    border-color: var(--color-primary);
 }
 
 /* Search bar */
@@ -387,31 +406,173 @@
 
 .search-input {
     width: 100%;
-    padding: 13px 18px;
-    border-radius: var(--radius-full, 999px);
-    border: none;
+    padding: 13px 46px 13px 18px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
     font-size: 14px;
-    background: var(--color-surface, #fff);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
 }
 
 .search-input:focus {
-    outline: 3px solid var(--color-primary-light, #14b8a6);
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md), 0 0 0 3px var(--color-primary-soft);
 }
 
-/* Dropdown — must clear the gem panel docked directly below the search box */
+.search-btn {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.search-btn:hover {
+    background: var(--color-primary-soft);
+}
+
+.search-btn:disabled {
+    cursor: default;
+    background: transparent;
+}
+
+.search-btn .app-spinner-wrap {
+    padding: 0;
+}
+
+/* Dropdown — sits where the docked gem panel is; while it's open that panel
+   is hidden (see the :has rule below) so the two never overlap. */
 .search-dropdown {
     position: absolute;
     top: 52px;
-    width: 100%;
-    background: white;
-    color: #1c2b28;
-    border-radius: 14px;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: min(56vh, 380px);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
     overflow: hidden;
     z-index: 2000;
-    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3);
-    max-height: 360px;
+    box-shadow: var(--shadow-lg);
+}
+
+/* Fullscreen has the whole viewport to work with — let the results run almost
+   to the bottom of the screen instead of the compact contained-view cap. */
+.maps-hero.fullscreen .search-dropdown {
+    max-height: calc(100vh - var(--navbar-height, 64px) - 130px);
+}
+
+.search-dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 8px 10px 14px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted);
+    background: var(--color-surface-muted);
+}
+
+.search-dropdown-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.search-dropdown-close:hover {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+}
+
+.search-dropdown-list {
     overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.search-dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 14px;
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.search-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.search-dropdown-item:hover {
+    background: var(--color-primary-soft);
+}
+
+.search-dropdown-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-dropdown-item-tag {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.search-dropdown-item-tag.is-gem {
+    background: var(--color-gem-accent-soft);
+    color: var(--color-gem-accent-dark);
+}
+
+.search-dropdown-item-tag.is-osm {
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}
+
+/* Searching from a selected gem: hide the docked detail panel while results
+   are on screen so the dropdown isn't layered over a second card. */
+.maps-left-stack:has(.search-dropdown) .side-panel.side-panel-embedded {
+    visibility: hidden;
 }
 
 .search-load-more-btn {
@@ -419,8 +580,9 @@
     width: 100%;
     padding: 12px;
     border: none;
-    background: var(--color-surface-muted, #f1f4f2);
-    color: var(--color-primary-dark, #0f766e);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface-muted);
+    color: var(--color-primary);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -428,7 +590,7 @@
 }
 
 .search-load-more-btn:hover {
-    background: var(--color-primary-soft, #e6f6f3);
+    background: var(--color-primary-soft);
 }
 
 .search-load-more-btn:disabled {
@@ -447,7 +609,8 @@
     max-width: 100%;
     pointer-events: auto;
     border: 1px solid var(--color-border);
-    border-radius: 14px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
     overflow: hidden;
     transition: none;
 }
@@ -1004,14 +1167,11 @@
 }
 
 /* Discover section below the map: horizontally-scrollable rows of gem cards.
-   Same full-viewport-width trick as .maps-hero, so "Recent / My Hidden Gems /
-   Popular" also fill left-to-right instead of sitting inside the site's
-   centered 1080px content column. */
+   Sits in the same centered content column as the map hero above it. */
 .maps-discover {
-    width: 100vw;
-    margin-left: calc(-50vw + 50%);
-    margin-right: calc(-50vw + 50%);
-    padding: 24px clamp(20px, 4vw, 56px) 20px;
+    width: 100%;
+    margin: 0;
+    padding: 28px 0 8px;
     display: flex;
     flex-direction: column;
     gap: 28px;
@@ -1027,13 +1187,13 @@
 .gem-carousel-header h2 {
     margin: 0;
     font-size: 20px;
-    color: var(--color-text, #1c2b28);
+    color: var(--color-text);
 }
 
 .gem-carousel-see-more {
     font-size: 13px;
     font-weight: 600;
-    color: var(--color-primary-dark, #0f766e);
+    color: var(--color-primary);
     text-decoration: none;
     white-space: nowrap;
 }
@@ -1045,11 +1205,12 @@
 .gem-carousel-empty {
     margin: 0 10px;
     padding: 20px;
-    color: var(--color-text-muted, #64766f);
+    color: var(--color-text-muted);
     font-size: 14px;
     text-align: center;
-    background: var(--color-surface-muted, #f1f4f2);
-    border-radius: 14px;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
 }
 
 .gem-carousel-wrap {
@@ -1195,9 +1356,74 @@
     z-index: 1000 !important;
 }
 
-/* Dimmed gem marker for hidden gems still pending community verification */
+/* Gem markers sit dimmed by default so a full map doesn't read as a wall of
+   pins; the one the user selects comes to full strength with a glow.
+   Dimming is done with `filter: opacity()` rather than the `opacity` property
+   because MarkerClusterGroup sets an inline `opacity` on every marker (for its
+   spiderfy / fade animations) which would otherwise win. Scoped to the main
+   map so the Home preview / journey maps keep their pins solid.
+   Order matters: the `.hidden-gem-marker-selected` rule must come last so a
+   selected pending/closed gem still gets the glow. */
+.maps-hero .gem-marker {
+    filter: opacity(0.8);
+    transition: filter 0.15s ease;
+}
+
+.maps-hero .gem-marker:hover {
+    filter: opacity(1);
+}
+
+.maps-hero .gem-marker.gem-marker-pending {
+    filter: grayscale(55%) opacity(0.8);
+}
+
+.maps-hero .gem-marker.gem-marker-closed {
+    filter: grayscale(1) opacity(0.55);
+}
+
+.maps-hero .gem-marker.hidden-gem-marker-selected {
+    filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.95)) drop-shadow(0 2px 6px rgba(15, 23, 42, 0.45));
+    z-index: 1000 !important;
+}
+
+/* Cluster diamond dimmed to match the individual pins; the count badge
+   (.gem-cluster span) stays fully opaque so it's still readable. */
+.maps-hero .gem-cluster img {
+    filter: opacity(0.8) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.35));
+}
+
+/* Dimmed gem marker for hidden gems still pending community verification
+   (also used by the stopping-point map, which isn't scoped by .maps-hero). */
 .gem-marker-pending {
-    filter: grayscale(55%) opacity(0.75);
+    filter: grayscale(55%);
+}
+
+/* Hover label for a gem marker — same clean name + meta line as the
+   stopping-point map's popup, shown on hover via Leaflet's Tooltip. */
+.gem-marker-tooltip.leaflet-tooltip {
+    padding: 8px 11px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    color: var(--color-text);
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.gem-marker-tooltip .hidden-gem-marker-popup strong {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.gem-marker-tooltip .hidden-gem-marker-popup span {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.gem-marker-tooltip.leaflet-tooltip-top::before {
+    border-top-color: var(--color-border);
 }
 
 /* Cluster marker */
@@ -1258,10 +1484,6 @@
         height: 60vh;
         min-height: 360px;
     }
-    .maps-hero-title {
-        font-size: 15px;
-        padding: 8px 14px;
-    }
     .maps-locate-btn {
         bottom: 84px;
     }
@@ -1297,11 +1519,6 @@
         padding: 12px;
     }
 
-    .maps-hero-title {
-        font-size: 13px;
-        padding: 7px 12px;
-    }
-
     .maps-locate-btn,
     .maps-fullscreen-btn {
         width: 38px;
@@ -1312,10 +1529,11 @@
 /* "Updating gems…" pill shown while the map refetches markers for the viewport */
 .maps-updating-pill {
     align-self: flex-end;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 999px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
     padding: 4px 12px 4px 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow-md);
     pointer-events: none;
 }
 
