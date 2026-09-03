@@ -6,7 +6,7 @@ function RecentHiddenGemCard({
     onClick
 }){
     return (
-        <div className="recent-card" onClick={onClick}>
+        <div className={`recent-card${post.permanently_closed_at ? " gem-card-closed" : ""}`} onClick={onClick}>
             <div className="recent-image">
                 <PhotoCarousel
                     images={post.images || []}

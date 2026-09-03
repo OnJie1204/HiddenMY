@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Location;
 use App\Models\TripItinerary;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +65,106 @@ class TripItineraryController extends Controller
         return response()->json([
             'data' => $tripItinerary->load('locations.location'),
         ]);
+    }
+
+    /**
+     * Read-only view of someone else's itinerary — allowed only when it's
+     * attached to a published travel post. Stops are a live reference: the
+     * gem data (name, status, coords) is whatever it is right now.
+     */
+    public function shared(Request $request, TripItinerary $tripItinerary): JsonResponse
+    {
+        if (! $tripItinerary->posts()->exists()) {
+            return response()->json(['message' => 'This trip is not shared.'], 403);
+        }
+
+        $tripItinerary->load([
+            'user:id,name',
+            'locations.location:id,place_name,state,category_id,status,report_status,permanently_closed_at,latitude,longitude',
+            'locations.location.category:id,name',
+            'locations.location.firstImage',
+        ]);
+
+        $isOwner = $tripItinerary->user_id === $request->user()->id;
+
+        return response()->json([
+            'data' => [
+                'id' => $tripItinerary->id,
+                'trip_name' => $tripItinerary->trip_name,
+                'is_owner' => $isOwner,
+                'can_copy' => ! $isOwner,
+                'owner_name' => $tripItinerary->user?->name,
+                'stops' => $tripItinerary->locations->map(fn ($stop) => $this->sharedStop($stop))->values(),
+            ],
+        ]);
+    }
+
+    private function sharedStop($stop): array
+    {
+        $gem = $stop->isHidden ? $stop->location : null;
+        $lat = $stop->isHidden ? $gem?->latitude : $stop->latitude;
+        $lng = $stop->isHidden ? $gem?->longitude : $stop->longitude;
+
+        return [
+            'id' => $stop->id,
+            'order_number' => $stop->order_number,
+            'is_hidden' => (bool) $stop->isHidden,
+            'name' => $gem?->place_name
+                ?? $stop->osm_name
+                ?? 'OpenStreetMap location',
+            'latitude' => $lat !== null ? (float) $lat : null,
+            'longitude' => $lng !== null ? (float) $lng : null,
+            'gem' => $gem ? [
+                'id' => $gem->id,
+                'place_name' => $gem->place_name,
+                'state' => $gem->state,
+                'category' => $gem->category?->name,
+                'status' => $gem->status,
+                'permanently_closed_at' => $gem->permanently_closed_at,
+                'image_url' => $gem->firstImage?->image_url,
+                'is_visible' => Location::isPubliclyVisible($gem),
+            ] : null,
+        ];
+    }
+
+    /**
+     * Clone a shared itinerary into the current user's own itineraries. Live
+     * reference: whatever the source has right now is what gets copied.
+     */
+    public function copy(Request $request, TripItinerary $tripItinerary): JsonResponse
+    {
+        if (! $tripItinerary->posts()->exists()) {
+            return response()->json(['message' => 'This trip is not shared.'], 403);
+        }
+
+        $user = $request->user();
+
+        $copy = DB::transaction(function () use ($tripItinerary, $user) {
+            $new = TripItinerary::create([
+                'user_id' => $user->id,
+                'trip_name' => $tripItinerary->trip_name,
+            ]);
+
+            $tripItinerary->locations()->orderBy('order_number')->get()
+                ->each(function ($stop, $index) use ($new) {
+                    $new->locations()->create([
+                        'location_id' => $stop->location_id,
+                        'osm_id' => $stop->osm_id,
+                        'osm_name' => $stop->osm_name,
+                        'latitude' => $stop->latitude,
+                        'longitude' => $stop->longitude,
+                        'isHidden' => $stop->isHidden,
+                        'order_number' => $index + 1,
+                    ]);
+                });
+
+            return $new;
+        });
+
+        return response()->json([
+            'message' => 'Trip copied to your itineraries.',
+            'data' => $copy->load('locations.location'),
+        ], 201);
     }
 
     /**

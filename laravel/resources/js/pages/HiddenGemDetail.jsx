@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
-import { getHiddenGemDetail } from "../api/hiddenGems";
+import { getHiddenGemDetail, updateHiddenGem } from "../api/hiddenGems";
 import { getMe } from "../api/auth";
 import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
 import VerifyReportModal from "../components/VerifyReportModal";
 import Spinner from "../components/Spinner";
 import SignInPrompt from "../components/SignInPrompt";
-import { getReportForLocation, requestFixReview } from "../api/reports";
+import { getReportForLocation } from "../api/reports";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import PhotoCarousel from "../components/PhotoCarousel";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
@@ -36,14 +36,6 @@ function getVotePhotoUrl(photoPath) {
 }
 
 const COMMENT_EDIT_WINDOW_MS = 72 * 60 * 60 * 1000;
-
-const REPORT_REASON_LABELS = {
-    permanently_closed: "Permanently closed",
-    incorrect_location: "Incorrect location",
-    not_actually_hidden: "No longer hidden (gone viral / well known)",
-    duplicate: "Duplicate of another gem",
-    inappropriate_content: "Inappropriate content",
-};
 
 function canEditWithinCommentWindow(createdAt) {
     const createdAtMs = new Date(createdAt).getTime();
@@ -75,9 +67,9 @@ export default function HiddenGemDetail({ user }) {
     const [storiesLoading, setStoriesLoading] = useState(false);
     const [storiesLoaded, setStoriesLoaded] = useState(false);
     const [storiesError, setStoriesError] = useState("");
-    const [reportInfo, setReportInfo] = useState(null);
-    const [fixReviewLoading, setFixReviewLoading] = useState(false);
-    const [fixReviewMessage, setFixReviewMessage] = useState("");
+    const [contactEdit, setContactEdit] = useState(null);
+    const [contactEditSaving, setContactEditSaving] = useState(false);
+    const [contactEditMessage, setContactEditMessage] = useState("");
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
     const [itineraries, setItineraries] = useState([]);
@@ -93,8 +85,15 @@ export default function HiddenGemDetail({ user }) {
 
     const galleryImages = gem?.images ?? [];
 
+    // A permanently-closed gem is frozen: no new check-ins, votes, ratings,
+    // comments, menu items, itinerary adds or reports (see
+    // Location::acceptsNewInteractions on the backend). Existing content stays
+    // readable; the owner can still resubmit or delete it.
+    const isClosed = !!(gem && gem.permanently_closed_at);
+
     // Same rule the backend enforces (TripItineraryController::publiclyVisible()).
     const canAddToItinerary = gem
+        && !isClosed
         && (gem.status === "hidden_gem" || gem.status === "pending_community_vote");
 
     const requireSignIn = (message) => {
@@ -295,14 +294,21 @@ export default function HiddenGemDetail({ user }) {
             .catch(err => console.error("Error fetching wishlist:", err));
     }, [currentUser]);
 
+    // Seed the inline contact-edit form once the community has unlocked it
+    // for the owner (edit_mode === 'contact_only').
     useEffect(() => {
-        if (!gem || gem.status !== "delisted" || !currentUser || Number(gem.user_id) !== Number(currentUser.id)) {
-            setReportInfo(null);
+        const isOwner = gem && currentUser && Number(gem.user_id) === Number(currentUser.id);
+        if (!isOwner || gem.edit_mode !== "contact_only") {
+            setContactEdit(null);
             return;
         }
-        getReportForLocation(gem.id)
-            .then((res) => setReportInfo(res.data))
-            .catch(() => setReportInfo(null));
+        const ctx = gem.contact_edit_context || {};
+        setContactEdit({
+            opening_hours: ctx.suggested_opening_hours ?? gem.opening_hours ?? "",
+            phone: ctx.suggested_phone ?? gem.phone ?? "",
+            website: ctx.suggested_website ?? gem.website ?? "",
+        });
+        setContactEditMessage("");
     }, [gem, currentUser]);
 
     useEffect(() => {
@@ -418,19 +424,22 @@ export default function HiddenGemDetail({ user }) {
         }
     };
 
-    const handleRequestFixReview = async () => {
-        if (!reportInfo?.root_report) return;
-        setFixReviewLoading(true);
-        setFixReviewMessage("");
+    const handleSaveContactEdit = async () => {
+        if (!contactEdit) return;
+        setContactEditSaving(true);
+        setContactEditMessage("");
         try {
-            await requestFixReview(reportInfo.root_report.id);
-            const res = await getReportForLocation(gem.id);
-            setReportInfo(res.data);
-            setFixReviewMessage("Fix submitted — the community will now vote on whether it resolves the report.");
+            await updateHiddenGem(gem.id, {
+                opening_hours: contactEdit.opening_hours || "",
+                phone: contactEdit.phone || "",
+                website: contactEdit.website || "",
+            });
+            await fetchDetail();
+            setContactEditMessage("Contact information updated.");
         } catch (err) {
-            setFixReviewMessage(err.response?.data?.message || "Could not request a fix review.");
+            setContactEditMessage(err.response?.data?.message || "Could not update the contact info.");
         } finally {
-            setFixReviewLoading(false);
+            setContactEditSaving(false);
         }
     };
 
@@ -581,7 +590,7 @@ export default function HiddenGemDetail({ user }) {
     }
 
     return (
-        <div className="gem-detail-page">
+        <div className={`gem-detail-page${gem.permanently_closed_at ? " gem-detail-page-closed" : ""}`}>
 
             {voteSuccess && (
                 <div className="gem-detail-vote-success">
@@ -609,7 +618,7 @@ export default function HiddenGemDetail({ user }) {
                 <div className="gem-detail-header">
                     <div className="gem-detail-title-row">
                         <h1 className="gem-detail-title">{gem.place_name}</h1>
-                        {(gem.status === "hidden_gem" || gem.status === "pending_community_vote" || (gem.status === "delisted" && gem.report_status === "upheld")) && (
+                        {!isClosed && (gem.status === "hidden_gem" || gem.status === "pending_community_vote" || (gem.status === "delisted" && gem.report_status === "upheld")) && (
                             <div className="hidden-gems-card-icon-actions">
                                 {(gem.status === "hidden_gem" || gem.status === "pending_community_vote") && (
                                         <button
@@ -654,6 +663,11 @@ export default function HiddenGemDetail({ user }) {
                                     Delisted
                                 </span>
                             ) : null}
+                            {gem.permanently_closed_at && (
+                                <span className="gem-detail-status-rejected" title="The community confirmed this place has closed for good">
+                                    Permanently closed
+                                </span>
+                            )}
                         </div>
 
                         {canAddToItinerary && (
@@ -789,20 +803,11 @@ export default function HiddenGemDetail({ user }) {
 
                 <div className="gem-detail-content">
 
-                {(gem.report_status === "under_review" || (gem.status === "delisted" && gem.report_status === "upheld")) && Number(gem.user_id) !== Number(currentUser?.id) && (
+                {gem.report_status === "under_review" && Number(gem.user_id) !== Number(currentUser?.id) && (
                     <div className="report-banner">
                         <div className="report-banner-text">
-                            {gem.status === "delisted" ? (
-                                <>
-                                    <strong>This gem was delisted — a fix is pending review</strong>
-                                    <p>If you've visited recently, help the community verify whether the fix resolves the issue.</p>
-                                </>
-                            ) : (
-                                <>
-                                    <strong>This gem has a report under review</strong>
-                                    <p>If you've visited recently, help the community verify whether the issue is real.</p>
-                                </>
-                            )}
+                            <strong>This gem has a report under review</strong>
+                            <p>Help the community confirm or dispute it — 5 votes either way settles it.</p>
                         </div>
                         <button
                             type="button"
@@ -815,40 +820,91 @@ export default function HiddenGemDetail({ user }) {
                     </div>
                 )}
 
-                {gem.status === "delisted" && reportInfo?.root_report && Number(gem.user_id) === Number(currentUser?.id) && (
+                {gem.report_status === "under_review" && Number(gem.user_id) === Number(currentUser?.id) && (
                     <div className="report-owner-banner">
-                        <h3>⚠ This gem was delisted</h3>
+                        <h3>⚠ Your gem has been reported</h3>
+                        <p>The community is voting to confirm or dispute it. You'll be able to act once it's resolved.</p>
+                    </div>
+                )}
+
+                {isClosed && (
+                    <div className="report-owner-banner">
+                        <h3>⚠ Marked permanently closed</h3>
                         <p>
-                            The community confirmed a report: <strong>{REPORT_REASON_LABELS[reportInfo.root_report.reason] || reportInfo.root_report.reason}</strong>
-                            {reportInfo.root_report.flagged_item && (
-                                <> — flagged: {reportInfo.root_report.flagged_item === "description" ? "the description" : "a photo"}</>
-                            )}
-                            .
+                            The community confirmed this place has closed for good. It stays listed for
+                            reference but is greyed out, and check-ins, votes, ratings, comments and menu
+                            items are frozen.
                         </p>
-                        {reportInfo.data.id === reportInfo.root_report.id ? (
-                            <>
-                                {reportInfo.root_report.delete_at && (
-                                    <p className="report-owner-countdown">
-                                        Fix this by{" "}
-                                        <strong>
-                                            {new Date(reportInfo.root_report.delete_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                                        </strong>{" "}
-                                        or it will be permanently removed.
-                                    </p>
-                                )}
-                                <div className="report-owner-actions">
-                                    <Link to={`/my-hidden-gems/edit/${gem.id}`} className="vote-btn-secondary">Edit Gem</Link>
-                                    <button className="vote-btn-primary" onClick={handleRequestFixReview} disabled={fixReviewLoading}>
-                                        {fixReviewLoading ? "Submitting..." : "I've fixed it — request review"}
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <p className="report-owner-countdown">
-                                A fix is already under review: {reportInfo.data.confirm_count} confirm / {reportInfo.data.dispute_count} dispute.
-                            </p>
+                        {Number(gem.user_id) === Number(currentUser?.id) && (
+                            gem.status === "pending_community_vote" ? (
+                                <p className="report-owner-countdown">
+                                    If it has reopened, edit it from <Link to="/my-hidden-gems">My Hidden Gems</Link> —
+                                    that counts as a fresh submission and goes through AI review and community
+                                    voting again. You can also delete it there.
+                                </p>
+                            ) : (
+                                <p className="report-owner-countdown">
+                                    This gem was already verified, so it can no longer be edited or deleted —
+                                    the closed listing stays as a permanent record.
+                                </p>
+                            )
                         )}
-                        {fixReviewMessage && <p className="vote-message success">{fixReviewMessage}</p>}
+                    </div>
+                )}
+
+                {gem.status === "pending_community_vote" && gem.contact_edit_unlocked_at && !isClosed
+                    && Number(gem.user_id) === Number(currentUser?.id) && (
+                    <div className="report-owner-banner">
+                        <h3>✎ The community confirmed a correction</h3>
+                        <p>
+                            Edit this gem from <Link to="/my-hidden-gems">My Hidden Gems</Link> to apply the
+                            fix. Because it isn't verified yet, saving re-submits it — fresh AI review and a
+                            new community vote. The proposed correction is shown above.
+                        </p>
+                    </div>
+                )}
+
+                {gem.edit_mode === "contact_only" && contactEdit && Number(gem.user_id) === Number(currentUser?.id) && (
+                    <div className="report-owner-banner">
+                        <h3>✎ Update your contact info</h3>
+                        <p>
+                            {gem.contact_edit_unlocked_at
+                                ? "The community confirmed a report that the contact details are wrong. Correct the hours, phone and website below."
+                                : "Keep your gem's hours, phone and website current. Changes here don't affect its verified status, votes or ratings."}
+                        </p>
+                        {gem.contact_edit_context?.description && (
+                            <p className="report-owner-countdown">Reporter's note: "{gem.contact_edit_context.description}"</p>
+                        )}
+                        <div className="gem-detail-contact-edit">
+                            <label>Opening hours</label>
+                            <input
+                                type="text"
+                                value={contactEdit.opening_hours}
+                                onChange={(e) => setContactEdit((c) => ({ ...c, opening_hours: e.target.value }))}
+                                maxLength={255}
+                            />
+                            <label>Phone</label>
+                            <input
+                                type="text"
+                                value={contactEdit.phone}
+                                onChange={(e) => setContactEdit((c) => ({ ...c, phone: e.target.value }))}
+                                maxLength={30}
+                            />
+                            <label>Website</label>
+                            <input
+                                type="url"
+                                value={contactEdit.website}
+                                onChange={(e) => setContactEdit((c) => ({ ...c, website: e.target.value }))}
+                                maxLength={255}
+                                placeholder="https://…"
+                            />
+                        </div>
+                        <div className="report-owner-actions">
+                            <button className="vote-btn-primary" onClick={handleSaveContactEdit} disabled={contactEditSaving}>
+                                {contactEditSaving ? "Saving…" : "Save contact info"}
+                            </button>
+                        </div>
+                        {contactEditMessage && <p className="vote-message success">{contactEditMessage}</p>}
                     </div>
                 )}
 
@@ -910,6 +966,53 @@ export default function HiddenGemDetail({ user }) {
                             </div>
                         )}
 
+                        {gem.suggested_fix && (
+                            <div className="gem-detail-section-card gem-detail-contact-suggested">
+                                <p className="gem-detail-contact-suggested-title">
+                                    {gem.suggested_fix.state === "confirmed"
+                                        ? "Correction confirmed by the community"
+                                        : "Proposed correction — under community review"}
+                                </p>
+                                <div className="gem-detail-contact-list">
+                                    {gem.suggested_fix.latitude != null && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Location</span>
+                                            <a
+                                                href={`https://www.google.com/maps/search/?api=1&query=${gem.suggested_fix.latitude},${gem.suggested_fix.longitude}`}
+                                                target="_blank" rel="noopener noreferrer"
+                                            >
+                                                {Number(gem.suggested_fix.latitude).toFixed(5)}, {Number(gem.suggested_fix.longitude).toFixed(5)}
+                                            </a>
+                                        </div>
+                                    )}
+                                    {gem.suggested_fix.description && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Description</span>
+                                            <span>{gem.suggested_fix.description}</span>
+                                        </div>
+                                    )}
+                                    {gem.suggested_fix.opening_hours && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Hours</span>
+                                            <span>{gem.suggested_fix.opening_hours}</span>
+                                        </div>
+                                    )}
+                                    {gem.suggested_fix.phone && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Phone</span>
+                                            <span>{gem.suggested_fix.phone}</span>
+                                        </div>
+                                    )}
+                                    {gem.suggested_fix.website && (
+                                        <div className="gem-detail-contact-row">
+                                            <span className="gem-detail-contact-label">Website</span>
+                                            <span>{gem.suggested_fix.website}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {gem.category?.name === "Food & Beverage" && (
                             <div className="gem-detail-section-card">
                                 <div className="gem-detail-section-header">
@@ -920,6 +1023,7 @@ export default function HiddenGemDetail({ user }) {
                                     locationId={gem.id}
                                     currentUser={currentUser}
                                     onRequireSignIn={requireSignIn}
+                                    frozen={isClosed}
                                 />
                             </div>
                         )}
@@ -997,8 +1101,12 @@ export default function HiddenGemDetail({ user }) {
                         </div>
 
                         {/* Vote Button */}
-                        {gem.status === "pending_community_vote" && (
-                            <div className="gem-detail-vote-section">
+                        <div className="gem-detail-vote-section">
+                            {isClosed ? (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ⚠ Permanently closed
+                                </button>
+                            ) : gem.status === "pending_community_vote" ? (
                                 <button
                                     className="gem-detail-vote-btn"
                                     onClick={() => {
@@ -1011,8 +1119,20 @@ export default function HiddenGemDetail({ user }) {
                                 >
                                     🗳️ Vote Now
                                 </button>
-                            </div>
-                        )}
+                            ) : gem.status === "hidden_gem" ? (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ✓ Already a Hidden Gem
+                                </button>
+                            ) : gem.status === "ai_rejected" ? null : gem.status === "delisted" ? (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ⚠ Delisted after a confirmed report
+                                </button>
+                            ) : (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ⏳ Being Verified
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -1161,7 +1281,11 @@ export default function HiddenGemDetail({ user }) {
                             )}
 
                             {/* Rating + Comment Form */}
-                            {isGemOwner ? (
+                            {isClosed ? (
+                                <div className="gem-detail-already-commented">
+                                    <p>This place is marked permanently closed — new ratings and comments are frozen.</p>
+                                </div>
+                            ) : isGemOwner ? (
                                 <div className="gem-detail-already-commented">
                                     <p>You cannot rate or comment on your own Hidden Gem.</p>
                                 </div>

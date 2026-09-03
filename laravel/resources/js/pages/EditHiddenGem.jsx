@@ -76,6 +76,14 @@ export default function EditHiddenGem() {
                     return;
                 }
 
+                // A community-confirmed "contact info is wrong" report unlocks
+                // only a contact-fields edit — done inline on the detail page,
+                // not through this full editor.
+                if (gem.edit_mode === "contact_only") {
+                    navigate(`/hidden-gems/${id}`, { replace: true });
+                    return;
+                }
+
                 setEditMode(gem.edit_mode);
                 setRepairContext(gem.repair_context || null);
 

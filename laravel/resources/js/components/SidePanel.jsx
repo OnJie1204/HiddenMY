@@ -203,21 +203,26 @@ function SidePanel({
     const canAddToItinerary = gem
         && (gem.source === "attraction" || status === "hidden_gem" || status === "pending_community_vote");
 
+    // A permanently-closed gem is frozen — no new wishlisting, comparing or
+    // reporting (see Location::acceptsNewInteractions on the backend).
+    const isClosed = !!(gem && (gem.permanently_closed_at || gem.permanentlyClosedAt));
+
     // OSM attractions aren't Location records, so there's nothing to wishlist
     // or compare — only our own database gems that have passed AI review qualify.
     const canWishlist = gem
         && gem.source === "database"
+        && !isClosed
         && (status === "hidden_gem" || status === "pending_community_vote");
     const isWishlisted = gem && wishlistIds.has(gem.id);
     const canCompare = canWishlist;
     const comparing = gem && isComparing(gem.id);
 
-    // A delisted gem whose report is "upheld" has a fix pending review
-    const isDelistedAwaitingFix = gem && status === "delisted" && reportStatus === "upheld";
-
+    // A verified Hidden Gem, or one still in community voting (permanently_closed
+    // only) — the backend enforces per-reason and returns the allowed reasons.
     const canReportOrVerify = gem
         && gem.source === "database"
-        && (status === "hidden_gem" || status === "pending_community_vote" || isDelistedAwaitingFix);
+        && !isClosed
+        && (status === "hidden_gem" || status === "pending_community_vote");
 
     function requireSignIn(message) {
         setSignInMessage(message);
@@ -228,7 +233,7 @@ function SidePanel({
         // Guests can see the icon (it advertises the feature) but reporting
         // and verifying both require an account — skip the API round-trip
         // entirely and point them at sign-in.
-        const isPending = reportStatus === "under_review" || isDelistedAwaitingFix;
+        const isPending = reportStatus === "under_review";
         if (!user) {
             requireSignIn(isPending
                 ? "Login to help verify this report."
@@ -405,7 +410,7 @@ function SidePanel({
 
                 {gem && (
                     <>
-                        <div className="side-panel-gem-header">
+                        <div className={`side-panel-gem-header${isClosed ? " gem-card-closed" : ""}`}>
                             {images && images.length > 0 ? (
                                 <PhotoCarousel
                                     images={images}
@@ -432,6 +437,9 @@ function SidePanel({
                                 )}
                                 {gem.source === "database" && status === "delisted" && (
                                     <span className="badge badge-reported">Delisted</span>
+                                )}
+                                {gem.source === "database" && (gem.permanently_closed_at || gem.permanentlyClosedAt) && (
+                                    <span className="badge badge-reported">Permanently closed</span>
                                 )}
                             </div>
                         </div>
@@ -477,29 +485,18 @@ function SidePanel({
                                         disabled={loadingReport}
                                         title={reportStatus === "under_review"
                                             ? "Help verify a reported problem with this gem"
-                                            : isDelistedAwaitingFix
-                                                ? "Help verify the owner's fix for this gem"
-                                                : "Report a problem with this gem"}
+                                            : "Report a problem with this gem"}
                                     >
                                         ⚠
                                     </button>
                                 )}
                             </div>
                         </div>
-                        {gem.source === "database" && (reportStatus === "under_review" || isDelistedAwaitingFix) && Number(gem.user_id) !== Number(user?.id) && (
+                        {gem.source === "database" && reportStatus === "under_review" && Number(gem.user_id) !== Number(user?.id) && (
                             <div className="report-banner">
                                 <div className="report-banner-text">
-                                    {isDelistedAwaitingFix ? (
-                                        <>
-                                            <strong>This gem was delisted — a fix is pending review</strong>
-                                            <p>If you've visited recently, help the community verify whether the fix resolves the issue.</p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <strong>This gem has a report under review</strong>
-                                            <p>If you've visited recently, help the community verify whether the issue is real.</p>
-                                        </>
-                                    )}
+                                    <strong>This gem has a report under review</strong>
+                                    <p>Help the community confirm or dispute it — 5 votes either way settles it.</p>
                                 </div>
                                 <button
                                     type="button"

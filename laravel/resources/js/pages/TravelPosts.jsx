@@ -26,7 +26,7 @@ export default function TravelPosts({ user }) {
     const [error, setError] = useState("");
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
-    const [mineOnly, setMineOnly] = useState(false);
+    const [mineOnly, setMineOnly] = useState(searchParams.get("mine") === "1");
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
 
@@ -104,7 +104,11 @@ export default function TravelPosts({ user }) {
                 <button
                     type="button"
                     className={!mineOnly ? "active" : ""}
-                    onClick={() => setMineOnly(false)}
+                    onClick={() => {
+                        setMineOnly(false);
+                        searchParams.delete("mine");
+                        setSearchParams(searchParams, { replace: true });
+                    }}
                 >
                     All Posts
                 </button>
@@ -117,6 +121,8 @@ export default function TravelPosts({ user }) {
                             return;
                         }
                         setMineOnly(true);
+                        searchParams.set("mine", "1");
+                        setSearchParams(searchParams, { replace: true });
                     }}
                 >
                     My Posts

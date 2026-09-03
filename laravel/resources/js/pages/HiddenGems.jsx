@@ -479,7 +479,7 @@ export default function HiddenGems({ user }) {
                     <div className="hidden-gems-list">
                         {gems.map((gem) => (
                             <div
-                                className="hidden-gems-card"
+                                className={`hidden-gems-card${gem.permanently_closed_at ? " gem-card-closed" : ""}`}
                                 key={gem.id}
                                 onClick={() =>
                                     navigate(

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CheckIn;
 use App\Models\Location;
 use App\Models\Vote;
 use App\Support\Geo;
@@ -12,7 +13,17 @@ use Illuminate\Validation\ValidationException;
 
 class VoteController extends Controller
 {
+    /**
+     * Two location models coexist here:
+     *  - Voting: coordinates are submitted with the vote and checked inline
+     *    (store()), no record kept.
+     *  - checkIn(): a persistent check_ins row (GPS-verified presence) that
+     *    the reporting flow, the "verified visitor" story badge and the
+     *    established-account gate all read.
+     * Both use the same 5 km radius.
+     */
     private const MAX_VOTE_DISTANCE = 5.0;
+    private const MAX_CHECKIN_DISTANCE = 5.0;
 
     /**
      * Check whether the authenticated user is eligible to vote
@@ -45,6 +56,15 @@ class VoteController extends Controller
             ], 400);
         }
 
+        // A gem confirmed permanently closed while still in voting is frozen.
+        if (! $location->acceptsNewInteractions()) {
+            return response()->json([
+                'eligible' => false,
+                'message' => Location::FROZEN_MESSAGE,
+            ]);
+        }
+
+        // Prevent duplicate voting by the same user
         $existingVote = Vote::where('user_id', $user->id)
             ->where('location_id', $locationId)
             ->exists();
@@ -102,6 +122,11 @@ class VoteController extends Controller
             return response()->json([
                 'message' => $this->notVotableMessage($location->status),
             ], 400);
+        }
+
+        // A gem confirmed permanently closed while still in voting is frozen.
+        if (! $location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 400);
         }
 
         if ($location->latitude === null || $location->longitude === null) {
@@ -276,6 +301,115 @@ class VoteController extends Controller
         ]);
     }
 
+    /**
+     * Record a GPS-verified check-in at a hidden gem. Separate from voting
+     * (which sends coordinates inline): a check_ins row is persistent proof
+     * of physical presence, read by the reporting flow, the "verified
+     * visitor" story badge and the established-account gate.
+     */
+    public function checkIn(Request $request, $locationId)
+    {
+        $user = Auth::user();
+
+        // User must be authenticated before location verification
+        if (!$user) {
+            return response()->json([
+                'message' => 'Please login first'
+            ], 401);
+        }
+
+        $location = Location::findOrFail($locationId);
+
+        if (!$location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
+        }
+
+        /*
+         * Find an existing check-in for the same user and Hidden Gem.
+         * It will be updated after successful location verification.
+         */
+        $existingCheckIn = CheckIn::where('user_id', $user->id)
+            ->where('location_id', $locationId)
+            ->first();
+
+        $userLat = $request->input('latitude');
+        $userLng = $request->input('longitude');
+
+        // Latitude and longitude are required for verification
+        if (!$userLat || !$userLng) {
+            return response()->json([
+                'message' => 'Please provide your location to check in'
+            ], 400);
+        }
+
+        /*
+         * Calculate the distance between the submitted GPS coordinates
+         * and the coordinates of the selected Hidden Gem.
+         */
+        $distance = $this->calculateDistance(
+            (float) $userLat,
+            (float) $userLng,
+            (float) $location->latitude,
+            (float) $location->longitude
+        );
+
+        // Reject the location when it is outside the allowed 5 km radius
+        if ($distance > self::MAX_CHECKIN_DISTANCE) {
+            return response()->json([
+                'message' =>
+                    'You are '
+                    . round($distance, 2)
+                    . ' km away. You must be within '
+                    . self::MAX_CHECKIN_DISTANCE
+                    . ' km to check in.',
+
+                'distance' => round($distance, 2),
+                'max_distance' => self::MAX_CHECKIN_DISTANCE
+            ], 400);
+        }
+
+        /*
+         * Update an existing check-in or create a new one. check_in_at is
+         * refreshed on every successful verification so callers that care
+         * about recency can look at it.
+         */
+        if ($existingCheckIn) {
+            $existingCheckIn->update([
+                'latitude' => $userLat,
+                'longitude' => $userLng,
+                'check_in_at' => now(),
+            ]);
+
+            $checkIn = $existingCheckIn->fresh();
+        } else {
+            $checkIn = CheckIn::create([
+                'user_id' => $user->id,
+                'location_id' => $locationId,
+                'latitude' => $userLat,
+                'longitude' => $userLng,
+                'check_in_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'message' =>
+                'Check-in successful! You are '
+                . round($distance, 2)
+                . ' km away.',
+
+            'checked_in' => true,
+            'distance' => round($distance, 2),
+            'max_distance' => self::MAX_CHECKIN_DISTANCE,
+            'check_in' => $checkIn
+        ]);
+    }
+
+    /**
+     * Calculate the distance between two geographical coordinates.
+     *
+     * Geo::distanceMeters() returns metres, so the result
+     * is converted to kilometres for the 5 km radius checks.
+     */
     private function calculateDistance($lat1, $lon1, $lat2, $lon2)
     {
         return Geo::distanceMeters(

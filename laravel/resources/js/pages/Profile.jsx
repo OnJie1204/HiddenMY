@@ -4,6 +4,7 @@ import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { getMe, getUserProfile, updateProfile, changePassword, uploadAvatar } from '../api/auth';
 import { getMyHiddenGems } from '../api/hiddenGems';
 import { getTripItineraries } from '../api/TripItinerary';
+import { getMyTravelPosts } from '../api/travelPosts';
 import PhotoCarousel from '../components/PhotoCarousel';
 import { getFavouriteAchievements } from '../api/achievements';
 import { getPasswordStrength } from '../utils/password';
@@ -36,9 +37,10 @@ function Profile({ setAppUser }) {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState('');
 
-  const [stats, setStats] = useState({ totalGems: 0, verifiedGems: 0, pendingGems: 0, totalTrips: 0 });
+  const [stats, setStats] = useState({ totalGems: 0, verifiedGems: 0, pendingGems: 0, totalTrips: 0, totalPosts: 0 });
   const [statsLoading, setStatsLoading] = useState(false);
   const [recentGems, setRecentGems] = useState([]);
+  const [recentPosts, setRecentPosts] = useState([]);
   const [favouriteAchievements, setFavouriteAchievements] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -75,10 +77,11 @@ function Profile({ setAppUser }) {
     }
 
     setStatsLoading(true);
-    Promise.all([getMyHiddenGems(), getTripItineraries()])
-      .then(([gemsRes, tripsRes]) => {
+    Promise.all([getMyHiddenGems(), getTripItineraries(), getMyTravelPosts()])
+      .then(([gemsRes, tripsRes, postsRes]) => {
         const gems = gemsRes.data.data || [];
         const trips = tripsRes.data || [];
+        const posts = postsRes.data.data || [];
         const verifiedGems = gems.filter((gem) => gem.status === 'hidden_gem').length;
         const pendingGems = gems.filter((gem) => gem.status === 'pending' || gem.status === 'pending_community_vote').length;
 
@@ -87,8 +90,10 @@ function Profile({ setAppUser }) {
           verifiedGems,
           pendingGems,
           totalTrips: trips.length,
+          totalPosts: posts.length,
         });
         setRecentGems(gems.slice(0, 3));
+        setRecentPosts(posts.slice(0, 3));
       })
       .catch(() => {})
       .finally(() => setStatsLoading(false));
@@ -265,6 +270,12 @@ function Profile({ setAppUser }) {
                   <span className="stat-card-label">Trip Itineraries</span>
                 </div>
               )}
+              {isOwnProfile && (
+                <div className="stat-card">
+                  <span className="stat-card-value">{stats.totalPosts}</span>
+                  <span className="stat-card-label">Stories</span>
+                </div>
+              )}
             </div>
 
             <div className="profile-recent-section">
@@ -289,7 +300,7 @@ function Profile({ setAppUser }) {
                   {recentGems.map((gem) => (
                     <div
                       key={gem.id}
-                      className="hidden-gems-card"
+                      className={`hidden-gems-card${gem.permanently_closed_at ? " gem-card-closed" : ""}`}
                       onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                       style={{ cursor: 'pointer' }}
                     >
@@ -327,6 +338,65 @@ function Profile({ setAppUser }) {
                 </div>
               )}
             </div>
+
+            {isOwnProfile && (
+              <div className="profile-recent-section">
+                <div className="trip-detail-section-header">
+                  <h2>Your Stories</h2>
+                  {stats.totalPosts > 0 && (
+                    <Link to="/travel-posts?mine=1" className="home-trending-seeall">View all →</Link>
+                  )}
+                </div>
+
+                {recentPosts.length === 0 ? (
+                  <div className="hidden-gems-empty">
+                    <p>You haven't written any travel posts yet.</p>
+                    <Link to="/travel-posts/create" className="hidden-gems-submit-btn">
+                      + Write a Post
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="hidden-gems-list profile-recent-list">
+                    {recentPosts.map((post) => (
+                      <div
+                        key={post.id}
+                        className="hidden-gems-card"
+                        onClick={() => navigate(`/travel-posts/${post.id}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="hidden-gems-card-image">
+                          {post.cover_image_url || post.images?.[0]?.image_url ? (
+                            <img
+                              src={post.cover_image_url || post.images[0].image_url}
+                              alt={post.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div className="hidden-gems-card-no-image">No Image</div>
+                          )}
+                        </div>
+                        <div className="hidden-gems-card-content">
+                          <h2>{post.title}</h2>
+                          <p className="hidden-gems-card-description">
+                            {post.body?.length > 120 ? `${post.body.slice(0, 120)}…` : post.body}
+                          </p>
+                          <div className="hidden-gems-card-tags">
+                            <span className="hidden-gems-card-state">
+                              {new Date(post.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                            {post.locations?.length > 0 && (
+                              <span className="hidden-gems-card-category">
+                                {post.locations.length} gem{post.locations.length > 1 ? 's' : ''} tagged
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 

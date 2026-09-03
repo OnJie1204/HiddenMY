@@ -17,7 +17,16 @@ const gemIconPending = new L.Icon({
     className: "gem-marker-pending",
 });
 
-export function getHiddenGemMarkerIcon(status) {
+// Greyed-out variant for gems the community confirmed as permanently closed.
+const gemIconClosed = new L.Icon({
+    iconUrl: "/images/gem_marker.png",
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    className: "gem-marker-closed",
+});
+
+export function getHiddenGemMarkerIcon(status, closed = false) {
+    if (closed) return gemIconClosed;
     return status === "pending_community_vote" ? gemIconPending : gemIcon;
 }
 
@@ -26,6 +35,7 @@ function HiddenGemMarker({
     onClick
 }){
     const markerRef = useRef(null);
+    const isClosed = !!(gem.permanentlyClosedAt || gem.permanently_closed_at);
     const isPending = gem.status === "pending_community_vote";
 
     return (
@@ -36,7 +46,7 @@ function HiddenGemMarker({
             Number(gem.longitude)
         ]}
 
-        icon={getHiddenGemMarkerIcon(gem.status)}
+        icon={getHiddenGemMarkerIcon(gem.status, isClosed)}
         riseOnHover={true}
 
         eventHandlers={{
@@ -62,7 +72,7 @@ function HiddenGemMarker({
                     {gem.distanceKm != null && <> · {gem.distanceKm < 1
                         ? `${Math.round(gem.distanceKm * 1000)}m away`
                         : `${gem.distanceKm.toFixed(1)}km away`}</>}
-                    {isPending && <> · Awaiting community votes</>}
+                    {isClosed ? <> · Permanently closed</> : isPending && <> · Awaiting community votes</>}
                 </small>
             </Popup>
         </Marker>

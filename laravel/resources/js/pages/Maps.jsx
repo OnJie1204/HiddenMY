@@ -439,6 +439,7 @@ function Maps({ user }){
                 category: raw.category?.name,
                 status: raw.status,
                 reportStatus: raw.report_status,
+                permanentlyClosedAt: raw.permanently_closed_at ?? null,
                 openingHours: raw.opening_hours,
                 phone: raw.phone,
                 website: raw.website,

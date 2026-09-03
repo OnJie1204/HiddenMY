@@ -68,7 +68,7 @@ export default function Wishlist({ user }) {
             ) : (
                 <div className="hidden-gems-list">
                     {gems.map((gem) => (
-                        <div className="hidden-gems-card wishlist-card" key={gem.id}>
+                        <div className={`hidden-gems-card wishlist-card${gem.permanently_closed_at ? " gem-card-closed" : ""}`} key={gem.id}>
                             <div
                                 className="hidden-gems-card-image"
                                 onClick={() => navigate(`/hidden-gems/${gem.id}`)}

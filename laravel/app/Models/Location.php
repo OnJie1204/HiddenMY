@@ -50,6 +50,8 @@ class Location extends Model
         'longitude',
         'status',
         'report_status',
+        'permanently_closed_at',
+        'contact_edit_unlocked_at',
         'vote_count',
         'verification_threshold',
         'ai_review_reason',
@@ -74,6 +76,8 @@ class Location extends Model
     protected $casts = [
         'verification_result_json' => 'array',
         'ai_reviewed_at' => 'datetime',
+        'permanently_closed_at' => 'datetime',
+        'contact_edit_unlocked_at' => 'datetime',
     ];
 
     public function user()
@@ -202,6 +206,32 @@ class Location extends Model
     {
         return $this->report_status === 'under_review';
     }
+
+    /** Community-confirmed "permanently closed" report. The gem stays a
+     *  verified Hidden Gem and stays publicly visible — the UI just greys it
+     *  out and shows a "Permanently closed" badge. */
+    public function isPermanentlyClosed(): bool
+    {
+        return $this->permanently_closed_at !== null;
+    }
+
+    /** A community-confirmed "contact info is wrong" report has unlocked a
+     *  one-off, contact-fields-only edit for the owner (see
+     *  HiddenGemController::update). Cleared once the owner saves. */
+    public function contactEditUnlocked(): bool
+    {
+        return $this->contact_edit_unlocked_at !== null;
+    }
+
+    /** A permanently-closed gem is frozen: no new check-ins, votes, ratings,
+     *  comments, menu items or reports. Existing content stays readable, and
+     *  the owner can still resubmit or delete it. */
+    public function acceptsNewInteractions(): bool
+    {
+        return $this->permanently_closed_at === null;
+    }
+
+    public const FROZEN_MESSAGE = 'This place is marked permanently closed, so it can no longer be checked in, rated, commented on or added to.';
 
     public function scopeHiddenGems(Builder $query)
     {
