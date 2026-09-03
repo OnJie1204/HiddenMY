@@ -17,6 +17,7 @@ import { getTripItineraries, addTripLocation, createTripItinerary } from "../api
 const ITINERARY_NAME_MAX = 10;
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import MenuItems from "../components/MenuItems";
+import { useCompare } from "../context/CompareContext";
 import api from "../api";
 
 import "../styles/global.css";
@@ -63,6 +64,7 @@ export default function HiddenGemDetail({ user }) {
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const [wishlistError, setWishlistError] = useState("");
+    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
     const [storyPosts, setStoryPosts] = useState([]);
     const [storiesLoading, setStoriesLoading] = useState(false);
     const [storiesLoaded, setStoriesLoaded] = useState(false);
@@ -621,6 +623,7 @@ export default function HiddenGemDetail({ user }) {
                         {!isClosed && (gem.status === "hidden_gem" || gem.status === "pending_community_vote" || (gem.status === "delisted" && gem.report_status === "upheld")) && (
                             <div className="hidden-gems-card-icon-actions">
                                 {(gem.status === "hidden_gem" || gem.status === "pending_community_vote") && (
+                                    <>
                                         <button
                                             type="button"
                                             className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
@@ -630,6 +633,18 @@ export default function HiddenGemDetail({ user }) {
                                         >
                                             {wishlistIds.has(gem.id) ? "♥" : "♡"}
                                         </button>
+                                        <button
+                                            type="button"
+                                            className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
+                                            onClick={() => toggleCompare(gem)}
+                                            disabled={!isComparing(gem.id) && !canAddMore}
+                                            title={isComparing(gem.id)
+                                                ? "Remove from comparison"
+                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
+                                        >
+                                            {isComparing(gem.id) ? "☑" : "☐"}
+                                        </button>
+                                    </>
                                 )}
                                 <div className="gem-detail-report-btn-wrapper">
                                     <ReportButton gem={gem} user={currentUser} />
