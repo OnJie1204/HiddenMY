@@ -11323,3 +11323,32 @@ pre {
         font-size: 13px;
     }
 }
+
+.navbar-wishlist {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 26px;
+    line-height: 1;
+
+    color: #1F2937;
+    text-decoration: none !important;
+
+    cursor: pointer;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.navbar-wishlist:link,
+.navbar-wishlist:visited,
+.navbar-wishlist:focus,
+.navbar-wishlist:active {
+    color: #1F2937;
+    text-decoration: none !important;
+}
+
+.navbar-wishlist:hover {
+    color: #F97316;
+    text-decoration: none !important;
+    transform: scale(1.12);
+}

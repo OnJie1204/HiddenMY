@@ -240,14 +240,11 @@ function SidePanel({
     };
 
     const menuItems = [
-        { to: '/', label: 'Home' },
-        { to: '/map', label: 'Map' },
-        { to: '/hidden-gems', label: 'Hidden Gems' },
         { to: '/my-hidden-gems', label: 'My Hidden Gems', signInMessage: 'Login to manage your hidden gems and contributions.' },
-        { to: '/wishlist', label: 'Wishlist', signInMessage: 'Login to view your wishlist.' },
+        { to: '/hidden-gems', label: 'Hidden Gems' },
         { to: '/trip-itinerary', label: 'Trip Itinerary', signInMessage: 'Login to view and plan your trips.' },
         { to: '/travel-posts', label: 'Travel Posts' },
-        { to: '/profile', label: 'Profile', signInMessage: 'Login to view your profile.' },
+        { to: '/map', label: 'Map' },
     ];
 
     return (
