@@ -74,17 +74,76 @@ function FlyToUser({ position }) {
     return null;
 }
 
-function FlyToGem({ gem }) {
+// Brings the selected gem into view — without ever handing the cluster group
+// a new marker list, so a cluster that's expanded/spiderfied stays exactly
+// as the user left it.
+//   - marker already has its own element on the map (you clicked it, or it's
+//     spiderfied): do nothing.
+//   - gem still inside a cluster (picked from search): let the cluster group
+//     zoom / spiderfy until the pin shows.
+//   - OSM attraction / marker not loaded: plain flyTo.
+function RevealSelectedGem({ gem, clusterRef, markerRefs }) {
     const map = useMap();
     useEffect(() => {
-        if (gem) {
-            map.flyTo(
-                [Number(gem.latitude), Number(gem.longitude)],
-                Math.max(map.getZoom(), GEM_FOCUS_ZOOM),
-                FLY_TO_OPTIONS
-            );
+        if (!gem) return;
+
+        const marker = gem.source === "database" ? markerRefs.current[gem.id] : null;
+
+        if (marker?.getElement?.()) return;
+
+        if (marker && clusterRef.current) {
+            clusterRef.current.zoomToShowLayer(marker, () => {});
+            return;
         }
-    }, [gem, map]);
+
+        map.flyTo(
+            [Number(gem.latitude), Number(gem.longitude)],
+            Math.max(map.getZoom(), GEM_FOCUS_ZOOM),
+            FLY_TO_OPTIONS
+        );
+    }, [gem, map, clusterRef, markerRefs]);
+    return null;
+}
+
+// Glows the selected gem's marker by toggling a class on its DOM element
+// (never via the `icon` prop or the marker list, which would re-cluster).
+// Re-applied on zoom/pan since a marker that was clustered has no element
+// until the cluster group reveals it.
+function SelectedGemHighlight({ selectedId, markerRefs, clusterRef }) {
+    const target = selectedId == null ? null : String(selectedId);
+    const targetRef = useRef(target);
+    targetRef.current = target;
+
+    const applyHighlight = () => {
+        const want = targetRef.current;
+        Object.entries(markerRefs.current).forEach(([id, marker]) => {
+            const element = marker?.getElement?.();
+            if (!element) return;
+            element.classList.toggle("hidden-gem-marker-selected", id === want);
+        });
+    };
+
+    // The selected marker may only get a DOM element once the cluster group
+    // finishes zooming / spiderfying — which isn't a plain map event — so
+    // re-apply on the cluster's own animation events and a short retry window.
+    useEffect(() => {
+        applyHighlight();
+        const timers = [80, 250, 500, 900].map((t) => setTimeout(applyHighlight, t));
+        return () => timers.forEach(clearTimeout);
+    }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useMapEvents({
+        zoomend: applyHighlight,
+        moveend: applyHighlight,
+    });
+
+    useEffect(() => {
+        const cluster = clusterRef.current;
+        if (!cluster) return;
+        cluster.on("spiderfied unspiderfied animationend", applyHighlight);
+        return () => cluster.off("spiderfied unspiderfied animationend", applyHighlight);
+    }, [clusterRef]); // eslint-disable-line react-hooks/exhaustive-deps
+
     return null;
 }
 
@@ -189,6 +248,14 @@ function Maps({ user }){
     const viewportTimer = useRef(null);
     const heroRef = useRef(null);
     const clickedMarkerRef = useRef(null);
+    // Leaflet marker instances keyed by gem id (for the imperative glow) and
+    // the underlying L.MarkerClusterGroup (for zoomToShowLayer on select).
+    const gemMarkerRefs = useRef({});
+    const gemClusterRef = useRef(null);
+    // The padded bounds + status filter of the last successful gem fetch.
+    // Panning / zooming inside this area reuses what's already loaded instead
+    // of hitting the API again on every moveend.
+    const loadedGemsRef = useRef(null);
 
     // The app has no global scroll restoration, so navigating here from a
     // scrolled page would land partway down this (tall) page — reset to top.
@@ -210,6 +277,8 @@ function Maps({ user }){
             setClickedPlaces([]);
         }
     }, [clickExploreOn]);
+
+
 
     useEffect(() => {
         if (!mapFullscreen) return;
@@ -370,18 +439,40 @@ function Maps({ user }){
 
     useEffect(() => () => clearTimeout(viewportTimer.current), []);
 
-    // Query hidden gems for whatever is currently on screen
+    // Query hidden gems for whatever is currently on screen — but only when
+    // the view has actually left the area we already loaded (or the status
+    // filter changed), so small pans/zooms don't keep re-hitting the API.
     useEffect(() => {
         if (!viewport) return;
 
+        const loaded = loadedGemsRef.current;
+        const stillCovered =
+            loaded &&
+            loaded.statusFilter === statusFilter &&
+            viewport.north <= loaded.bounds.north &&
+            viewport.south >= loaded.bounds.south &&
+            viewport.east <= loaded.bounds.east &&
+            viewport.west >= loaded.bounds.west;
+
+        if (stillCovered) return;
+
+        // Fetch a margin beyond the screen so a nudge in any direction stays
+        // within the loaded area.
+        const latPad = (viewport.north - viewport.south) * 0.5;
+        const lngPad = (viewport.east - viewport.west) * 0.5;
+        const bounds = {
+            north: viewport.north + latPad,
+            south: viewport.south - latPad,
+            east: viewport.east + lngPad,
+            west: viewport.west - lngPad,
+        };
+
         setBoundsLoading(true);
-        getHiddenGemsInBounds({
-            north: viewport.north,
-            south: viewport.south,
-            east: viewport.east,
-            west: viewport.west,
-        }, statusFilter)
-            .then(res => setHiddenGems(res.data.data || []))
+        getHiddenGemsInBounds(bounds, statusFilter)
+            .then(res => {
+                setHiddenGems(res.data.data || []);
+                loadedGemsRef.current = { bounds, statusFilter };
+            })
             .catch(err => console.log(err))
             .finally(() => setBoundsLoading(false));
     }, [viewport, statusFilter]);
@@ -460,11 +551,13 @@ function Maps({ user }){
         };
     }
 
-    // Shows a group of gems in the side panel (reopening it if it was closed)
-    function openGroup(group) {
+    // Shows a group of gems in the side panel (reopening it if it was closed).
+    // Stable so the memoized marker list below never changes just because a
+    // gem was selected.
+    const openGroup = useCallback((group) => {
         setSelectedGroup(group);
         setPanelOpen(true);
-    }
+    }, []);
 
     function selectGem(raw) {
         openGroup([normalizeGem(raw, "database")]);
@@ -626,6 +719,23 @@ function Maps({ user }){
         });
     }, [hiddenGems, userPosition, categoryFilter, wishlistOnly, wishlistIds]);
 
+    // The marker elements handed to <MarkerClusterGroup>. Memoized so they
+    // only change when the gems themselves change — selecting a gem must not
+    // produce a new array, or the cluster group re-clusters everything and
+    // collapses any expanded/spiderfied cluster.
+    const gemMarkers = useMemo(
+        () =>
+            normalizedGems.map((gem) => (
+                <HiddenGemMarker
+                    key={gem.id}
+                    gem={gem}
+                    markerRefs={gemMarkerRefs}
+                    onClick={() => openGroup([gem])}
+                />
+            )),
+        [normalizedGems, openGroup],
+    );
+
     // OSM markers to draw: the selected gem's neighbours, the zoom-in discovery
     // results, a map-click explore, and any search hits — de-duplicated by id.
     const osmMarkers = useMemo(() => {
@@ -688,6 +798,8 @@ function Maps({ user }){
         setClickExploreOn(false);
     }
 
+    const selectedGemId = selectedGroup && selectedGroup[0] ? selectedGroup[0].id : null;
+
     return (
         <div className="maps-page">
             <div className="maps-page-header">
@@ -723,15 +835,15 @@ function Maps({ user }){
                     <FlyToUser position={userPosition}/>
                     </>
                 }
-                <MarkerClusterGroup iconCreateFunction={createGemClusterIcon} zoomToBoundsOnClick={true} spiderfyOnMaxZoom={true}>
-                {normalizedGems.map((gem) => (
-                    <HiddenGemMarker
-                        key={gem.id}
-                        gem={gem}
-                        onClick={() => openGroup([gem])}
-                    />
-                ))}
-            </MarkerClusterGroup>
+                <MarkerClusterGroup
+                    ref={gemClusterRef}
+                    iconCreateFunction={createGemClusterIcon}
+                    zoomToBoundsOnClick={true}
+                    spiderfyOnMaxZoom={true}
+                    showCoverageOnHover={false}
+                >
+                    {gemMarkers}
+                </MarkerClusterGroup>
                 {osmMarkers.map((place) => (
                     <AttractionMarker
                         key={place.id}
@@ -755,7 +867,16 @@ function Maps({ user }){
                         </Popup>
                     </CircleMarker>
                 )}
-                <FlyToGem gem={selectedGroup ? selectedGroup[0] : null}/>
+                <RevealSelectedGem
+                    gem={selectedGroup ? selectedGroup[0] : null}
+                    clusterRef={gemClusterRef}
+                    markerRefs={gemMarkerRefs}
+                />
+                <SelectedGemHighlight
+                    selectedId={selectedGemId}
+                    markerRefs={gemMarkerRefs}
+                    clusterRef={gemClusterRef}
+                />
                 </MapContainer>
 
                 {/* Left column: search box always visible, gem panel docked beneath it */}

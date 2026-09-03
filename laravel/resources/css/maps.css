@@ -1356,9 +1356,74 @@
     z-index: 1000 !important;
 }
 
-/* Dimmed gem marker for hidden gems still pending community verification */
+/* Gem markers sit dimmed by default so a full map doesn't read as a wall of
+   pins; the one the user selects comes to full strength with a glow.
+   Dimming is done with `filter: opacity()` rather than the `opacity` property
+   because MarkerClusterGroup sets an inline `opacity` on every marker (for its
+   spiderfy / fade animations) which would otherwise win. Scoped to the main
+   map so the Home preview / journey maps keep their pins solid.
+   Order matters: the `.hidden-gem-marker-selected` rule must come last so a
+   selected pending/closed gem still gets the glow. */
+.maps-hero .gem-marker {
+    filter: opacity(0.8);
+    transition: filter 0.15s ease;
+}
+
+.maps-hero .gem-marker:hover {
+    filter: opacity(1);
+}
+
+.maps-hero .gem-marker.gem-marker-pending {
+    filter: grayscale(55%) opacity(0.8);
+}
+
+.maps-hero .gem-marker.gem-marker-closed {
+    filter: grayscale(1) opacity(0.55);
+}
+
+.maps-hero .gem-marker.hidden-gem-marker-selected {
+    filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.95)) drop-shadow(0 2px 6px rgba(15, 23, 42, 0.45));
+    z-index: 1000 !important;
+}
+
+/* Cluster diamond dimmed to match the individual pins; the count badge
+   (.gem-cluster span) stays fully opaque so it's still readable. */
+.maps-hero .gem-cluster img {
+    filter: opacity(0.8) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.35));
+}
+
+/* Dimmed gem marker for hidden gems still pending community verification
+   (also used by the stopping-point map, which isn't scoped by .maps-hero). */
 .gem-marker-pending {
-    filter: grayscale(55%) opacity(0.75);
+    filter: grayscale(55%);
+}
+
+/* Hover label for a gem marker — same clean name + meta line as the
+   stopping-point map's popup, shown on hover via Leaflet's Tooltip. */
+.gem-marker-tooltip.leaflet-tooltip {
+    padding: 8px 11px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    color: var(--color-text);
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.gem-marker-tooltip .hidden-gem-marker-popup strong {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.gem-marker-tooltip .hidden-gem-marker-popup span {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.gem-marker-tooltip.leaflet-tooltip-top::before {
+    border-top-color: var(--color-border);
 }
 
 /* Cluster marker */

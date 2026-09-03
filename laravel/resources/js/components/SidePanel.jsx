@@ -346,11 +346,13 @@ function SidePanel({
                 )}
                 {!showNavChrome && (
                     <button
-                        className="side-panel-fullscreen-btn"
-                        onClick={() => setIsFullscreen(f => !f)}
-                        aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        type="button"
+                        className="side-panel-close"
+                        onClick={onClose}
+                        aria-label="Close location details"
+                        title="Close location details"
                     >
-                        {isFullscreen ? "⤢" : "⛶"}
+                        ✕
                     </button>
                 )}
             </div>
