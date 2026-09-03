@@ -409,7 +409,6 @@ export default function MyHiddenGems() {
                         <option value="ai_rejected">Not Accepted</option>
                         <option value="pending_community_vote">Awaiting Community Votes</option>
                         <option value="hidden_gem">Hidden Gem</option>
-                        <option value="delisted">Delisted</option>
                     </select>
 
                     <select
