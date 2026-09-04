@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { checkReportEligibility, submitReport } from '../api/reports';
+import { loginNavOptions } from '../utils/authRedirect';
 import { checkIn as postCheckIn } from '../api/votes';
 
 // A verified place (pending_community_vote / hidden_gem / well_known) can be
@@ -18,6 +19,7 @@ const REASONS = [
 // checking -> reason -> [checkin] -> form -> success/error.
 function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const [step, setStep] = useState('checking');
     const [loading, setLoading] = useState(false);
     const [eligibility, setEligibility] = useState(null);
@@ -165,7 +167,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
 
     const goToLogin = () => {
         handleClose();
-        navigate('/login');
+        navigate('/login', loginNavOptions(location));
     };
 
     if (!isOpen) return null;

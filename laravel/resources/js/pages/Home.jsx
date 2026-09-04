@@ -11,6 +11,7 @@ import PhotoCarousel from '../components/PhotoCarousel';
 import Spinner from '../components/Spinner';
 import ReportButton from '../components/ReportButton';
 import SignInPrompt from '../components/SignInPrompt';
+import { useResumeIntent } from '../utils/useResumeIntent';
 import { cartoTileUrl } from '../utils/cartoTiles';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -41,15 +42,19 @@ function Home({ user }) {
 
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
+    const [wishlistLoaded, setWishlistLoaded] = useState(false);
+    const [wishlistToast, setWishlistToast] = useState('');
 
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState('');
+    const [signInIntent, setSignInIntent] = useState(null);
 
     const mapRef = useRef(null);
     const trendingRef = useRef(null);
 
-    const requireSignIn = (message) => {
+    const requireSignIn = (message, intent = null) => {
         setSignInMessage(message);
+        setSignInIntent(intent);
         setShowSignIn(true);
     };
 
@@ -76,8 +81,30 @@ function Home({ user }) {
             })
             .catch((error) => {
                 console.error('Error fetching wishlist:', error);
-            });
+            })
+            .finally(() => setWishlistLoaded(true));
     }, [user]);
+
+    // Resume a "save to wishlist" a guest started before logging in — the only
+    // action that auto-runs (private, one tap to undo), and only for a gem
+    // that's actually on the page.
+    useResumeIntent({
+        wishlist: (intent) => {
+            const target = popularGems.find((g) => Number(g.id) === Number(intent.gemId));
+            if (target && !wishlistIds.has(target.id)) {
+                handleToggleWishlist({ stopPropagation() {} }, target);
+            }
+        },
+    }, !!user && wishlistLoaded && popularGems.length > 0);
+
+    // Auto-dismiss the wishlist toast after a few seconds.
+    useEffect(() => {
+        if (!wishlistToast) return;
+
+        const timer = setTimeout(() => setWishlistToast(''), 3000);
+
+        return () => clearTimeout(timer);
+    }, [wishlistToast]);
 
     const handleToggleWishlist = async (event, gem) => {
         event.stopPropagation();
@@ -87,7 +114,7 @@ function Home({ user }) {
         }
 
         if (!user) {
-            requireSignIn('Login to save gems to your wishlist.');
+            requireSignIn('Login to save gems to your wishlist.', { action: 'wishlist', gemId: gem.id });
             return;
         }
 
@@ -103,6 +130,7 @@ function Home({ user }) {
                     next.delete(gem.id);
                     return next;
                 });
+                setWishlistToast('Removed from wishlist');
             } else {
                 await addToWishlist(gem.id);
 
@@ -111,6 +139,7 @@ function Home({ user }) {
                     next.add(gem.id);
                     return next;
                 });
+                setWishlistToast('Added to wishlist');
             }
         } catch (error) {
             console.error('Error updating wishlist:', error);
@@ -291,6 +320,12 @@ function Home({ user }) {
 
     return (
         <div className="home-page">
+            {wishlistToast && (
+                <div className="hidden-gem-snackbar hidden-gem-snackbar-success" role="status">
+                    {wishlistToast}
+                </div>
+            )}
+
             <div className="home-hero-fun">
                 <div className="home-hero-fun-content">
                     <h1>
@@ -746,6 +781,7 @@ function Home({ user }) {
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
                 message={signInMessage}
+                intent={signInIntent}
             />
         </div>
     );

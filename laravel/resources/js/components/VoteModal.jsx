@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getToken } from '../utils/tokenStorage';
+import { loginNavOptions } from '../utils/authRedirect';
 
 function VoteModal({
     locationId,
@@ -10,6 +11,7 @@ function VoteModal({
     onVoteSuccess,
 }) {
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [step, setStep] = useState('checking');
     const [loading, setLoading] = useState(false);
@@ -258,7 +260,7 @@ function VoteModal({
 
     const goToLogin = () => {
         handleClose();
-        navigate('/login');
+        navigate('/login', loginNavOptions(location));
     };
 
     if (!isOpen) {

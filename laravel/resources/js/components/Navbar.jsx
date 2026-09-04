@@ -1,11 +1,13 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../api/auth';
 import { clearToken } from '../utils/tokenStorage';
 import { useCompare } from '../context/CompareContext';
+import { loginNavOptions } from '../utils/authRedirect';
 import Avatar from './Avatar';
 
 function Navbar({ user, setUser, onMenuClick }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const { clearCompare } = useCompare();
 
     const handleLogout = async () => {
@@ -69,6 +71,8 @@ function Navbar({ user, setUser, onMenuClick }) {
                     <div className="navbar-guest-actions">
                         <Link
                             to="/login"
+                            replace
+                            state={loginNavOptions(location).state}
                             className="navbar-login-link"
                         >
                             Login
@@ -76,6 +80,8 @@ function Navbar({ user, setUser, onMenuClick }) {
 
                         <Link
                             to="/register"
+                            replace
+                            state={loginNavOptions(location).state}
                             className="navbar-register-link"
                         >
                             Sign Up

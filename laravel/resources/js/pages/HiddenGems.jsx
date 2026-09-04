@@ -7,6 +7,7 @@ import PhotoCarousel from "../components/PhotoCarousel";
 import LoadingCards from "../components/LoadingCards";
 import ReportButton from "../components/ReportButton";
 import SignInPrompt from "../components/SignInPrompt";
+import { useResumeIntent } from "../utils/useResumeIntent";
 import { useCompare } from "../context/CompareContext";
 
 import "../styles/global.css";
@@ -49,14 +50,17 @@ export default function HiddenGems({ user }) {
 
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
+    const [wishlistLoaded, setWishlistLoaded] = useState(false);
 
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
+    const [signInIntent, setSignInIntent] = useState(null);
 
-    const requireSignIn = (message) => {
+    const requireSignIn = (message, intent = null) => {
         setSignInMessage(message);
+        setSignInIntent(intent);
         setShowSignIn(true);
     };
 
@@ -204,8 +208,21 @@ export default function HiddenGems({ user }) {
             })
             .catch((err) => {
                 console.error("Error fetching wishlist:", err);
-            });
+            })
+            .finally(() => setWishlistLoaded(true));
     }, [user]);
+
+    // Resume a "save to wishlist" a guest started before logging in. Only
+    // wishlist auto-runs (private, one tap to undo); it targets the exact gem
+    // from the intent, and only if that gem is on the current results page.
+    useResumeIntent({
+        wishlist: (intent) => {
+            const target = gems.find((g) => Number(g.id) === Number(intent.gemId));
+            if (target && !wishlistIds.has(target.id)) {
+                handleToggleWishlist({ stopPropagation() {} }, target);
+            }
+        },
+    }, !!user && wishlistLoaded && gems.length > 0);
 
     const handleToggleWishlist = async (e, gem) => {
         e.stopPropagation();
@@ -215,7 +232,7 @@ export default function HiddenGems({ user }) {
         }
 
         if (!user) {
-            requireSignIn("Login to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.", { action: "wishlist", gemId: gem.id });
             return;
         }
 
@@ -560,9 +577,14 @@ export default function HiddenGems({ user }) {
                                                     toggleCompare(gem);
                                                 }}
                                             >
-                                                {isComparing(gem.id)
-                                                    ? "☑"
-                                                    : "☐"}
+                                                <span
+                                                    className={`compare-checkbox ${
+                                                        isComparing(gem.id)
+                                                            ? "compare-checkbox-checked"
+                                                            : ""
+                                                    }`}
+                                                    aria-hidden="true"
+                                                />
                                             </button>
 
                                             <ReportButton
@@ -654,6 +676,7 @@ export default function HiddenGems({ user }) {
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
                 message={signInMessage}
+                intent={signInIntent}
             />
         </div>
     );

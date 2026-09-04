@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { checkVerifyEligibility, verifyReport } from '../api/reports';
+import { loginNavOptions } from '../utils/authRedirect';
 import { checkIn as postCheckIn } from '../api/votes';
 
 const REASON_LABELS = {
@@ -11,6 +12,7 @@ const REASON_LABELS = {
 
 function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const [step, setStep] = useState('checking');
     const [loading, setLoading] = useState(false);
     const [eligibility, setEligibility] = useState(null);
@@ -124,7 +126,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
 
     const goToLogin = () => {
         handleClose();
-        navigate('/login');
+        navigate('/login', loginNavOptions(location));
     };
 
     if (!isOpen || !report) return null;

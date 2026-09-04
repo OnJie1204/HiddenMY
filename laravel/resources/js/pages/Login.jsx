@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { login } from '../api/auth';
 import { setToken } from '../utils/tokenStorage';
+import { guestReturnPath, sanitizeIntent } from '../utils/authRedirect';
 
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -20,6 +21,8 @@ function Login({ onLoginSuccess }) {
     && !requestedReturnPath.startsWith('//')
       ? requestedReturnPath
       : '/';
+  // The action the guest was mid-way through when the login wall appeared.
+  const resumeIntent = sanitizeIntent(location.state?.intent);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +32,10 @@ function Login({ onLoginSuccess }) {
       const res = await login(email, password);
       setToken(res.data.token, rememberMe);
       onLoginSuccess(res.data.user);
-      navigate(returnPath, { replace: true });
+      navigate(returnPath, {
+        replace: true,
+        state: resumeIntent ? { resumeIntent } : undefined,
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {
@@ -104,18 +110,40 @@ function Login({ onLoginSuccess }) {
           <button type="submit" className="btn btn-primary" disabled={submitting}>
             {submitting ? 'Logging in…' : 'Login'}
           </button>
-          <a href={`http://127.0.0.1:8000/api/auth/google/redirect?remember=${rememberMe}`} className="btn" style={{ background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', marginTop: '0.75rem', display: 'block', textAlign: 'center' }}>
+          <button
+            type="button"
+            className="btn"
+            style={{ background: '#fff', color: '#1e293b', border: '1px solid #cbd5e1', marginTop: '0.75rem', display: 'block', width: '100%', textAlign: 'center' }}
+            onClick={() => {
+              // Google auth leaves the SPA, so router state is lost — stash the
+              // return path where GoogleCallback can pick it back up.
+              try {
+                sessionStorage.setItem('postLoginRedirect', returnPath);
+                if (resumeIntent) {
+                  sessionStorage.setItem('postLoginIntent', JSON.stringify(resumeIntent));
+                } else {
+                  sessionStorage.removeItem('postLoginIntent');
+                }
+              } catch {
+                /* private mode / storage disabled — fall back to "/" */
+              }
+              // replace(), not an <a> navigation: this drops /login from history
+              // so that Back — after the OAuth round trip — skips the login page
+              // (which bfcache would otherwise restore in its signed-out state).
+              window.location.replace(`http://127.0.0.1:8000/api/auth/google/redirect?remember=${rememberMe}`);
+            }}
+          >
             Continue with Google
-          </a>
+          </button>
           <button
             type="button"
             className="btn btn-secondary"
             style={{ marginTop: '0.75rem' }}
-            onClick={() => navigate(returnPath)}
+            onClick={() => navigate(guestReturnPath(location))}
           >
             Continue as Guest
           </button>
-          <p className="auth-link-row">Don't have an account? <Link to="/register" state={{ from: returnPath }}>Sign Up</Link></p>
+          <p className="auth-link-row">Don't have an account? <Link to="/register" state={{ from: returnPath, intent: resumeIntent }}>Sign Up</Link></p>
           <p className="auth-link-row"><Link to="/resend-verification">Resend verification email</Link></p>
         </form>
       </div>

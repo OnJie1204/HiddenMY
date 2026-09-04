@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { register } from '../api/auth';
 import { getPasswordStrength } from '../utils/password';
+import { sanitizeIntent } from '../utils/authRedirect';
 
 function Register({ onRegisterSuccess }) {
   const [form, setForm] = useState({
@@ -20,6 +21,7 @@ function Register({ onRegisterSuccess }) {
     && !requestedReturnPath.startsWith('//')
       ? requestedReturnPath
       : '/';
+  const resumeIntent = sanitizeIntent(location.state?.intent);
   const passwordStrength = getPasswordStrength(form.password);
 
   const handleChange = (e) => {
@@ -32,7 +34,7 @@ function Register({ onRegisterSuccess }) {
     setSubmitting(true);
     try {
       const res = await register(form);
-      navigate('/login', { state: { message: res.data.message, from: returnPath } });
+      navigate('/login', { state: { message: res.data.message, from: returnPath, intent: resumeIntent } });
     } catch (err) {
       const errors = err.response?.data?.errors;
       setError(errors ? Object.values(errors).flat().join(', ') : 'Registration failed');
@@ -127,7 +129,7 @@ function Register({ onRegisterSuccess }) {
           <button type="submit" className="btn btn-primary" disabled={submitting}>
             {submitting ? 'Signing up…' : 'Sign Up'}
           </button>
-          <p className="auth-link-row">Already have an account? <Link to="/login" state={{ from: returnPath }}>Login</Link></p>
+          <p className="auth-link-row">Already have an account? <Link to="/login" state={{ from: returnPath, intent: resumeIntent }}>Login</Link></p>
         </form>
       </div>
     </div>

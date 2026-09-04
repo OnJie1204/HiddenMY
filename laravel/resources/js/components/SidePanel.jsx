@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { loginNavOptions } from "../utils/authRedirect";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
@@ -41,6 +42,7 @@ function SidePanel({
     wishlistIds = new Set(), onToggleWishlist,
     reviews = [], reviewsLoading = false,
     images = [],
+    resumeIntent = null, onResumeConsumed,
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [width, setWidth] = useState(340);
@@ -59,11 +61,13 @@ function SidePanel({
     const [localReportStatus, setLocalReportStatus] = useState(null);
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
+    const [signInAction, setSignInAction] = useState(null);
 
     const [localStatus, setLocalStatus] = useState(null);
     const bodyRef = useRef(null);
     const panelRef = useRef(null);
     const navigate = useNavigate();
+    const location = useLocation();
     const { isComparing, toggleCompare, canAddMore, maxCompare, clearCompare } = useCompare();
 
     // A new selection always lands on the first post's detail view, and resets
@@ -89,6 +93,52 @@ function SidePanel({
     useEffect(() => {
         onGemChange?.(gem);
     }, [gem, onGemChange]);
+
+    // Resume a gem action the guest started before the login wall. Login
+    // returns to /map?gemId=<id>, Maps reselects that gem, and this fires once
+    // it matches. Wishlist runs outright (reversible, private); the rest just
+    // re-open their UI so the user still confirms. Kept self-contained (props
+    // + gem only) so it's safe to run before the `!isOpen` early return below.
+    const resumeFiredRef = useRef(false);
+    useEffect(() => {
+        if (resumeFiredRef.current || !isOpen || !resumeIntent || !user || !gem) return;
+        if (resumeIntent.gemId != null && Number(resumeIntent.gemId) !== Number(gem.id)) return;
+
+        resumeFiredRef.current = true;
+        onResumeConsumed?.();
+
+        switch (resumeIntent.action) {
+            case "wishlist":
+                if (onToggleWishlist && !wishlistIds.has(gem.id)) {
+                    Promise.resolve(onToggleWishlist(gem, false)).catch(() => {});
+                }
+                break;
+            case "itinerary":
+                setItineraryStatus(null);
+                setShowItineraryForm(false);
+                setNewItineraryName("");
+                setItineraryOpen(true);
+                break;
+            case "report":
+                setReportModalOpen(true);
+                break;
+            case "verify":
+                handleReportIconClick();
+                break;
+            default:
+                break;
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resumeIntent, user, gem, isOpen]);
+
+    // A closed panel keeps rendering (it just returns null), so its transient
+    // UI state survives. Clear the sign-in prompt on close, otherwise a guest
+    // who dismissed it once sees it again the next time they open the panel.
+    useEffect(() => {
+        if (!isOpen) {
+            setShowSignIn(false);
+        }
+    }, [isOpen]);
 
     // Drag-to-resize
     useEffect(() => {
@@ -126,7 +176,10 @@ function SidePanel({
     // Keep embedded gem-detail mode unchanged so map interactions do not
     // unintentionally dismiss the currently selected gem.
     useEffect(() => {
-        if (!isOpen || mode !== "nav") {
+        // A modal (sign-in prompt, report, verify) sits on top of the panel and
+        // is portaled outside panelRef — a click on it must not read as "outside"
+        // and close the panel out from under the modal.
+        if (!isOpen || mode !== "nav" || showSignIn || reportModalOpen || verifyModalOpen) {
             return;
         }
 
@@ -165,7 +218,7 @@ function SidePanel({
             document.removeEventListener("wheel", handleWheel);
             document.removeEventListener("touchmove", handleTouchMove);
         };
-    }, [isOpen, mode, onClose]);
+    }, [isOpen, mode, onClose, showSignIn, reportModalOpen, verifyModalOpen]);
 
     if (!isOpen) return null;
 
@@ -224,8 +277,9 @@ function SidePanel({
         && !isClosed
         && (status === "hidden_gem" || status === "pending_community_vote");
 
-    function requireSignIn(message) {
+    function requireSignIn(message, action = null) {
         setSignInMessage(message);
+        setSignInAction(action);
         setShowSignIn(true);
     }
 
@@ -237,7 +291,8 @@ function SidePanel({
         if (!user) {
             requireSignIn(isPending
                 ? "Login to help verify this report."
-                : "Login to report a problem with this gem.");
+                : "Login to report a problem with this gem.",
+                isPending ? "verify" : "report");
             return;
         }
         if (!isPending) {
@@ -296,7 +351,7 @@ function SidePanel({
     async function handleToggleWishlist() {
         if (!gem || wishlistBusy) return;
         if (!user) {
-            requireSignIn("Login to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.", "wishlist");
             return;
         }
         setWishlistBusy(true);
@@ -373,8 +428,8 @@ function SidePanel({
                 </div>
             ) : (
                 <div className="side-panel-guest">
-                    <Link to="/login" className="side-panel-guest-login" onClick={onClose}>Login</Link>
-                    <Link to="/register" className="side-panel-guest-register" onClick={onClose}>Sign Up</Link>
+                    <Link to="/login" replace state={loginNavOptions(location).state} className="side-panel-guest-login" onClick={onClose}>Login</Link>
+                    <Link to="/register" replace state={loginNavOptions(location).state} className="side-panel-guest-register" onClick={onClose}>Sign Up</Link>
                 </div>
             ))}
 
@@ -476,7 +531,10 @@ function SidePanel({
                                                 ? "Remove from comparison"
                                                 : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
                                     >
-                                        {comparing ? "☑" : "☐"}
+                                        <span
+                                            className={`compare-checkbox ${comparing ? "compare-checkbox-checked" : ""}`}
+                                            aria-hidden="true"
+                                        />
                                     </button>
                                 )}
                                 {canReportOrVerify && (
@@ -549,7 +607,7 @@ function SidePanel({
                                 className="side-panel-icon-btn"
                                 onClick={() => {
                                     if (!user) {
-                                        requireSignIn("Login to add gems to a trip itinerary.");
+                                        requireSignIn("Login to add gems to a trip itinerary.", "itinerary");
                                         return;
                                     }
                                     setItineraryStatus(null);
@@ -826,6 +884,8 @@ function SidePanel({
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
                 message={signInMessage}
+                intent={signInAction ? { action: signInAction, gemId: gem?.id } : null}
+                returnTo={signInAction && gem ? `/map?gemId=${gem.id}` : undefined}
             />
         </div>
     );

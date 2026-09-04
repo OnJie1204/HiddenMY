@@ -13,6 +13,7 @@ import { getGemStatusDisplay } from "../utils/gemStatus";
 import GemImage from "../components/GemImage";
 import TruncatedText from "../components/TruncatedText";
 import Spinner from "../components/Spinner";
+import SignInPrompt from "../components/SignInPrompt";
 
 import "../styles/global.css";
 
@@ -30,7 +31,7 @@ function getVotePhotoUrl(photoPath) {
         : `/storage/${relativePath}`;
 }
 
-export default function CompareGems() {
+export default function CompareGems({ user }) {
     const { items, removeCompare } = useCompare();
     const location = useLocation();
     const navigate = useNavigate();
@@ -51,6 +52,7 @@ export default function CompareGems() {
     const [creatingItinerary, setCreatingItinerary] = useState(false);
     const [menuItemsByGemId, setMenuItemsByGemId] = useState({});
     const [userPosition, setUserPosition] = useState(null);
+    const [showSignIn, setShowSignIn] = useState(false);
 
     // Sticky horizontal scrollbar: the real scroll container is .compare-grid,
     // but its native scrollbar sits at the bottom of very tall cards. This
@@ -62,12 +64,19 @@ export default function CompareGems() {
     const [needsScrollbar, setNeedsScrollbar] = useState(false);
 
     useEffect(() => {
+        // Comparison itself is open to guests; only "add to itinerary" needs an
+        // account, so skip the (401-ing) itineraries fetch until they sign in.
+        if (!user) {
+            setItineraries([]);
+            setItinerariesLoading(false);
+            return;
+        }
         setItinerariesLoading(true);
         getTripItineraries()
             .then((res) => setItineraries(res.data || []))
             .catch((err) => console.log(err))
             .finally(() => setItinerariesLoading(false));
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         if (!navigator.geolocation) return;
@@ -448,6 +457,10 @@ export default function CompareGems() {
                                             ? "Add to a trip itinerary"
                                             : "Only gems that have passed AI review can be added to an itinerary"}
                                         onClick={() => {
+                                            if (!user) {
+                                                setShowSignIn(true);
+                                                return;
+                                            }
                                             setItineraryStatusById((prev) => ({ ...prev, [gem.id]: null }));
                                             setShowItineraryForm(false);
                                             setNewItineraryName("");
@@ -563,6 +576,12 @@ export default function CompareGems() {
                     have been an OpenStreetMap place from someone else's session, or no longer exists.
                 </p>
             )}
+
+            <SignInPrompt
+                isOpen={showSignIn}
+                onClose={() => setShowSignIn(false)}
+                message="Login to add a gem to a trip itinerary."
+            />
         </div>
     );
 }

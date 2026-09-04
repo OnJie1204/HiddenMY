@@ -15,6 +15,7 @@ import { getTripItineraries, addTripLocation, createTripItinerary } from "../api
 
 // Backend caps trip_name at 10 characters (TripItineraryController::store).
 const ITINERARY_NAME_MAX = 10;
+import { useResumeIntent } from "../utils/useResumeIntent";
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import MenuItems from "../components/MenuItems";
 import { useCompare } from "../context/CompareContext";
@@ -64,6 +65,7 @@ export default function HiddenGemDetail({ user }) {
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const [wishlistError, setWishlistError] = useState("");
+    const [wishlistToast, setWishlistToast] = useState("");
     const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
     const [storyPosts, setStoryPosts] = useState([]);
     const [storiesLoading, setStoriesLoading] = useState(false);
@@ -75,6 +77,7 @@ export default function HiddenGemDetail({ user }) {
     const [confirmingContactSave, setConfirmingContactSave] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
+    const [signInAction, setSignInAction] = useState(null);
     const [itineraries, setItineraries] = useState([]);
     const [isLoadingItineraries, setIsLoadingItineraries] = useState(false);
     const [itineraryOpen, setItineraryOpen] = useState(false);
@@ -99,8 +102,9 @@ export default function HiddenGemDetail({ user }) {
         && !isClosed
         && (gem.status === "hidden_gem" || gem.status === "well_known" || gem.status === "pending_community_vote");
 
-    const requireSignIn = (message) => {
+    const requireSignIn = (message, action = null) => {
         setSignInMessage(message);
+        setSignInAction(action);
         setShowSignIn(true);
     };
 
@@ -173,7 +177,7 @@ export default function HiddenGemDetail({ user }) {
         e.preventDefault();
 
         if (!currentUser) {
-            requireSignIn("Login to rate or comment on this hidden gem.");
+            requireSignIn("Login to rate or comment on this hidden gem.", "comment");
             return;
         }
 
@@ -294,11 +298,13 @@ export default function HiddenGemDetail({ user }) {
             });
     }, []);
 
+    const [wishlistLoaded, setWishlistLoaded] = useState(false);
     useEffect(() => {
         if (!currentUser) return;
         getWishlist()
             .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
-            .catch(err => console.error("Error fetching wishlist:", err));
+            .catch(err => console.error("Error fetching wishlist:", err))
+            .finally(() => setWishlistLoaded(true));
     }, [currentUser]);
 
     // Seed the inline contact-edit form for the owner of a verified place
@@ -403,10 +409,19 @@ export default function HiddenGemDetail({ user }) {
         }
     }, [activeTab, interactions.comments, routeLocation.state]);
 
+    // Auto-dismiss the wishlist toast after a few seconds.
+    useEffect(() => {
+        if (!wishlistToast) return;
+
+        const timer = setTimeout(() => setWishlistToast(""), 3000);
+
+        return () => clearTimeout(timer);
+    }, [wishlistToast]);
+
     const handleToggleWishlist = async () => {
         if (!gem || wishlistBusy) return;
         if (!currentUser) {
-            requireSignIn("Login to save gems to your wishlist.");
+            requireSignIn("Login to save gems to your wishlist.", "wishlist");
             return;
         }
 
@@ -421,9 +436,11 @@ export default function HiddenGemDetail({ user }) {
                     next.delete(gem.id);
                     return next;
                 });
+                setWishlistToast("Removed from wishlist");
             } else {
                 await addToWishlist(gem.id);
                 setWishlistIds(prev => new Set(prev).add(gem.id));
+                setWishlistToast("Added to wishlist");
             }
         } catch (err) {
             setWishlistError(err.response?.data?.message || "Could not update your wishlist.");
@@ -458,7 +475,7 @@ export default function HiddenGemDetail({ user }) {
     // mistake for "report a new problem" instead of "verify the existing one".
     async function handleHelpVerify() {
         if (!currentUser) {
-            requireSignIn("Login to help verify this report.");
+            requireSignIn("Login to help verify this report.", "verify");
             return;
         }
         setLoadingReport(true);
@@ -472,6 +489,31 @@ export default function HiddenGemDetail({ user }) {
             setLoadingReport(false);
         }
     }
+
+    // Resume whatever the guest was doing before the login wall. Wishlist runs
+    // outright (reversible, private); everything else just re-opens its UI so
+    // the user still confirms. Gated on the gem + user being loaded so the
+    // handlers have something to act on.
+    useResumeIntent({
+        wishlist: () => {
+            if (!wishlistIds.has(gem.id)) handleToggleWishlist();
+        },
+        itinerary: () => {
+            setItineraryStatus(null);
+            setShowItineraryForm(false);
+            setNewItineraryName("");
+            setItineraryOpen(true);
+        },
+        vote: () => setShowVoteModal(true),
+        verify: () => handleHelpVerify(),
+        comment: () => {
+            setActiveTab("comments");
+            setTimeout(() => {
+                document.getElementById("gem-detail-comment-form")
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 200);
+        },
+    }, !!gem && !!currentUser && wishlistLoaded);
 
     const fetchStories = async () => {
         setStoriesLoading(true);
@@ -608,6 +650,12 @@ export default function HiddenGemDetail({ user }) {
                 </div>
             )}
 
+            {wishlistToast && (
+                <div className="hidden-gem-snackbar hidden-gem-snackbar-success" role="status">
+                    {wishlistToast}
+                </div>
+            )}
+
             <div className="gem-detail-container">
 
                 <div className="gem-detail-gallery">
@@ -650,7 +698,10 @@ export default function HiddenGemDetail({ user }) {
                                                 ? "Remove from comparison"
                                                 : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
                                         >
-                                            {isComparing(gem.id) ? "☑" : "☐"}
+                                            <span
+                                                className={`compare-checkbox ${isComparing(gem.id) ? "compare-checkbox-checked" : ""}`}
+                                                aria-hidden="true"
+                                            />
                                         </button>
                                     </>
                                 )}
@@ -698,7 +749,7 @@ export default function HiddenGemDetail({ user }) {
                                     className="gem-detail-itinerary-btn"
                                     onClick={() => {
                                         if (!currentUser) {
-                                            requireSignIn("Login to add this gem to a trip itinerary.");
+                                            requireSignIn("Login to add this gem to a trip itinerary.", "itinerary");
                                             return;
                                         }
                                         setItineraryStatus(null);
@@ -1126,7 +1177,7 @@ export default function HiddenGemDetail({ user }) {
                                     className="gem-detail-vote-btn"
                                     onClick={() => {
                                         if (!currentUser) {
-                                            requireSignIn("Login to vote on this hidden gem.");
+                                            requireSignIn("Login to vote on this hidden gem.", "vote");
                                             return;
                                         }
                                         setShowVoteModal(true);
@@ -1310,7 +1361,7 @@ export default function HiddenGemDetail({ user }) {
                                     <p>You can edit your comment below.</p>
                                 </div>
                             ) : (
-                                <form className="gem-detail-comment-form" onSubmit={handleCommentSubmit}>
+                                <form id="gem-detail-comment-form" className="gem-detail-comment-form" onSubmit={handleCommentSubmit}>
                                     <div className="gem-detail-comment-rating-input">
                                         <label>Your Rating:</label>
                                         <StarRating value={newRating} onChange={setNewRating} size="medium" />
@@ -1552,6 +1603,7 @@ export default function HiddenGemDetail({ user }) {
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
                 message={signInMessage}
+                intent={signInAction ? { action: signInAction, gemId: id } : null}
             />
 
             <VerifyReportModal

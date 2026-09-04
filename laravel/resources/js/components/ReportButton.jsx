@@ -3,6 +3,7 @@ import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
 import SignInPrompt from "./SignInPrompt";
 import { getReportForLocation } from "../api/reports";
+import { useResumeIntent } from "../utils/useResumeIntent";
 
 // Any publicly-visible place can be reported (permanently_closed /
 // incorrect_contact_info). The backend enforces the rest and returns the
@@ -15,6 +16,15 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     const [activeReport, setActiveReport] = useState(null);
     const [loadingReport, setLoadingReport] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
+
+    // "report" resumes here (re-open the modal — never auto-file); "verify" is
+    // left for the detail page's own handler, which does the report lookup.
+    useResumeIntent({
+        report: (intent) => {
+            if (intent.gemId != null && Number(intent.gemId) !== Number(gem?.id)) return false;
+            setReportModalOpen(true);
+        },
+    }, !!gem && !!user);
 
     if (!gem) return null;
 
@@ -83,6 +93,7 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
                 message={isPending
                     ? "Login to help verify this report."
                     : "Login to report a problem with this gem."}
+                intent={{ action: isPending ? "verify" : "report", gemId: gem.id }}
             />
         </>
     );

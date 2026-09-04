@@ -3570,6 +3570,36 @@ img.avatar {
     transform: none;
 }
 
+/* CSS-drawn compare checkbox — the ☑/☐ glyphs render inconsistently across
+   platform fonts (the checked box often shows blank), so draw it ourselves. */
+.compare-checkbox {
+    box-sizing: border-box;
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid currentColor;
+    border-radius: 3px;
+    position: relative;
+    vertical-align: -3px;
+}
+
+.compare-checkbox-checked {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.compare-checkbox-checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
 /* ===== Compare: pull-out tray (every page, via Layout.jsx) ===== */
 .compare-tray {
     position: fixed;
@@ -12330,6 +12360,17 @@ pre {
 
 .gem-detail-wishlist-btn:hover,
 .gem-detail-report-btn-wrapper:hover {
+    background: #F9FAFB !important;
+}
+
+/* Wishlisted state - filled heart needs a visible background/color */
+.gem-detail-wishlist-btn.active {
+    background: #FFFFFF !important;
+    border-color: #E5E7EB !important;
+    color: #000000 !important;
+}
+
+.gem-detail-wishlist-btn.active:hover {
     background: #F9FAFB !important;
 }
 

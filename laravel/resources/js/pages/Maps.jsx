@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
@@ -27,6 +27,7 @@ import SearchBar from "../components/SearchBar";
 import SidePanel from "../components/SidePanel";
 import AttractionMarker from "../components/AttractionMarker";
 import GemCarousel from "../components/GemCarousel";
+import { sanitizeIntent } from "../utils/authRedirect";
 
 import api from "../api";
 
@@ -196,6 +197,17 @@ function MapClickExplorer({ onMapClick }) {
 
 function Maps({ user }){
     const location = useLocation();
+    const navigate = useNavigate();
+
+    // A gem action a guest started before logging in (the login flow returns
+    // them to `/map?gemId=<id>`). Captured on first render — the effects below
+    // sync map params to the URL and would wipe location.state first. Handed to
+    // SidePanel, which resumes it once that gem is loaded, then calls
+    // onResumeConsumed to clear it from history.
+    const [resumeIntent] = useState(() => sanitizeIntent(location.state?.resumeIntent));
+    const clearResumeIntent = useCallback(() => {
+        navigate(`${window.location.pathname}${window.location.search}`, { replace: true, state: null });
+    }, [navigate]);
 
     // ==================== URL Params (from HiddenGemDetail) ====================
     const queryParams = new URLSearchParams(location.search);
@@ -240,6 +252,7 @@ function Maps({ user }){
     const [itineraries, setItineraries] = useState([]);
     const [itinerariesLoading, setItinerariesLoading] = useState(false);
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
+    const [wishlistToast, setWishlistToast] = useState("");
     const [gemReviews, setGemReviews] = useState([]);
     const [gemReviewsLoading, setGemReviewsLoading] = useState(false);
     const [activeGemImages, setActiveGemImages] = useState([]);
@@ -684,11 +697,22 @@ function Maps({ user }){
                 next.delete(gem.id);
                 return next;
             });
+            setWishlistToast("Removed from wishlist");
         } else {
             await addToWishlist(gem.id);
             setWishlistIds(prev => new Set(prev).add(gem.id));
+            setWishlistToast("Added to wishlist");
         }
     }, []);
+
+    // Auto-dismiss the wishlist toast after a few seconds.
+    useEffect(() => {
+        if (!wishlistToast) return;
+
+        const timer = setTimeout(() => setWishlistToast(""), 3000);
+
+        return () => clearTimeout(timer);
+    }, [wishlistToast]);
 
     const normalizedGems = useMemo(() => {
         let gems = hiddenGems.map(raw => normalizeGem(raw, "database"));
@@ -802,6 +826,12 @@ function Maps({ user }){
 
     return (
         <div className="maps-page">
+            {wishlistToast && (
+                <div className="hidden-gem-snackbar hidden-gem-snackbar-success" role="status">
+                    {wishlistToast}
+                </div>
+            )}
+
             <div className="maps-page-header">
                 <h1>Interactive Map</h1>
             </div>
@@ -933,6 +963,8 @@ function Maps({ user }){
                         reviews={gemReviews}
                         reviewsLoading={gemReviewsLoading}
                         images={activeGemImages}
+                        resumeIntent={resumeIntent}
+                        onResumeConsumed={clearResumeIntent}
                     />
                 </div>
 
