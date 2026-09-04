@@ -54,6 +54,16 @@ const hiddenGemMarkerIconPending = new L.Icon({
     className: "hidden-gem-marker-pending",
 });
 
+// Gold-cast variant for well-known places — the community has outgrown these,
+// so they read as established rather than "hidden".
+const hiddenGemMarkerIconWellKnown = new L.Icon({
+    iconUrl: "/images/gem_marker.png",
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+    popupAnchor: [0, -20],
+    className: "gem-marker-well-known",
+});
+
 const openStreetMapMarkerIcon = L.divIcon({
     className: "open-street-map-marker-icon",
     html: '<span class="open-street-map-marker" aria-hidden="true"></span>',
@@ -492,7 +502,7 @@ export default function TripItineraryDetail() {
             setHiddenGemsError("");
 
             try {
-                const response = await getHiddenGems({ per_page: 500 });
+                const response = await getHiddenGems({ per_page: 500, include_well_known: 1 });
                 const gems = Array.isArray(response.data?.data) ? response.data.data : [];
 
                 if (isCurrent) {
@@ -569,7 +579,11 @@ export default function TripItineraryDetail() {
                     longitude: userLocation?.longitude,
                 });
                 setSearchResults({
-                    database: Array.isArray(response.data?.database) ? response.data.database : [],
+                    // Permanently-closed gems can't be added as a stop, so they
+                    // are kept out of the results here.
+                    database: Array.isArray(response.data?.database)
+                        ? response.data.database.filter((result) => !result.permanently_closed_at)
+                        : [],
                     openStreetMap: Array.isArray(response.data?.openStreetMap) ? response.data.openStreetMap : [],
                 });
             } catch (error) {
@@ -921,6 +935,9 @@ export default function TripItineraryDetail() {
     const hiddenGemMarkers = useMemo(() => (
         hiddenGems
             .filter(hasValidCoordinates)
+            // Permanently-closed gems keep their status (hidden_gem / well_known /
+            // pending vote) but are not shown on the stopping-point map.
+            .filter((hiddenGem) => !hiddenGem.permanently_closed_at)
             .map((hiddenGem) => (
                 <Marker
                     key={hiddenGem.id}
@@ -932,9 +949,11 @@ export default function TripItineraryDetail() {
                         }
                     }}
                     position={[Number(hiddenGem.latitude), Number(hiddenGem.longitude)]}
-                    icon={hiddenGem.status === "pending_community_vote"
-                        ? hiddenGemMarkerIconPending
-                        : hiddenGemMarkerIcon}
+                    icon={hiddenGem.status === "well_known"
+                        ? hiddenGemMarkerIconWellKnown
+                        : hiddenGem.status === "pending_community_vote"
+                            ? hiddenGemMarkerIconPending
+                            : hiddenGemMarkerIcon}
                     eventHandlers={{
                         click: () => selectHiddenGemOnMap(hiddenGem),
                     }}
@@ -944,7 +963,7 @@ export default function TripItineraryDetail() {
                             <strong>{hiddenGem.place_name}</strong>
                             <span>
                                 {hiddenGem.category?.name || "Uncategorized"}
-                                {hiddenGem.status === "pending_community_vote" && " · Awaiting votes"}
+                                {` · ${getGemStatusDisplay(hiddenGem).label}`}
                             </span>
                         </div>
                     </Popup>

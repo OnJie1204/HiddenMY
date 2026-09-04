@@ -10096,6 +10096,14 @@ img.avatar {
     margin: 0;
 }
 
+.travel-post-byline-name-link {
+    text-decoration: none;
+}
+
+.travel-post-byline-name-link:hover {
+    text-decoration: underline;
+}
+
 .travel-post-byline-meta {
     color: var(--color-text-muted);
     font-size: 13px;

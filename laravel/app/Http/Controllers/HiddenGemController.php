@@ -216,8 +216,16 @@ class HiddenGemController extends Controller
             ])
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
-            ->withCount(['ratings', 'checkIns'])
-            ->discoverable();
+            ->withCount(['ratings', 'checkIns']);
+
+        // The itinerary "add stopping point" map widens the discoverable
+        // (Hidden Gems list) subset to also include well-known places, but still
+        // hides gems the community confirmed as permanently closed.
+        if ($request->boolean('include_well_known')) {
+            $query->publiclyVisible()->whereNull('permanently_closed_at');
+        } else {
+            $query->discoverable();
+        }
 
         // Filter by status (hidden_gem / pending_community_vote)
         if ($request->has('status') && in_array($request->status, ['hidden_gem', 'pending_community_vote'])) {

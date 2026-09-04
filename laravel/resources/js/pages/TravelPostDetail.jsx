@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { getTravelPostDetail, deleteTravelPost, copyPostTrip } from "../api/travelPosts";
 import { getMe } from "../api/auth";
 import Avatar from "../components/Avatar";
@@ -21,6 +21,7 @@ export default function TravelPostDetail({ user }) {
     const [deleting, setDeleting] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
+    const [signInMessage, setSignInMessage] = useState("Login to view this trip itinerary.");
     const [lightboxUrl, setLightboxUrl] = useState(null);
     const [copying, setCopying] = useState(false);
     const [copyResult, setCopyResult] = useState(null);
@@ -44,8 +45,19 @@ export default function TravelPostDetail({ user }) {
             .finally(() => setLoading(false));
     }, [id]);
 
+    function handleAuthorClick(event) {
+        // The /users/:id route is auth-gated, so prompt to sign in rather than
+        // bouncing a guest straight to the login page.
+        if (!user) {
+            event.preventDefault();
+            setSignInMessage("Login to view this traveler's profile.");
+            setShowSignIn(true);
+        }
+    }
+
     async function handleCopyTrip() {
         if (!user) {
+            setSignInMessage("Login to copy this trip into your itineraries.");
             setShowSignIn(true);
             return;
         }
@@ -127,10 +139,26 @@ export default function TravelPostDetail({ user }) {
                     </header>
 
                     <div className="travel-post-byline">
-                        <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
+                        {post.user?.id ? (
+                            <Link to={`/users/${post.user.id}`} onClick={handleAuthorClick} aria-label={`View ${post.user?.name || "this traveler"}'s profile`}>
+                                <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
+                            </Link>
+                        ) : (
+                            <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
+                        )}
                         <div className="travel-post-byline-info">
                             <div className="travel-post-author-identity">
-                                <p className="travel-post-byline-name">{post.user?.name || "Traveler"}</p>
+                                {post.user?.id ? (
+                                    <Link
+                                        to={`/users/${post.user.id}`}
+                                        className="travel-post-byline-name travel-post-byline-name-link"
+                                        onClick={handleAuthorClick}
+                                    >
+                                        {post.user?.name || "Traveler"}
+                                    </Link>
+                                ) : (
+                                    <p className="travel-post-byline-name">{post.user?.name || "Traveler"}</p>
+                                )}
                                 <FavouriteAchievementBadges
                                     favourites={post.user?.favourite_achievements}
                                 />
@@ -149,8 +177,8 @@ export default function TravelPostDetail({ user }) {
                                 type="button"
                                 className="travel-post-trip-link"
                                 onClick={handleCopyTrip}
-                                disabled={copying || isOwner}
-                                title={isOwner ? "This is your own trip" : "Copy this trip into your itineraries"}
+                                disabled={copying}
+                                title="Copy this trip into your itineraries"
                             >
                                 <span aria-hidden="true">🧭</span>
                                 {copying ? "Copying…" : "Copy this trip"}
@@ -278,7 +306,7 @@ export default function TravelPostDetail({ user }) {
             <SignInPrompt
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
-                message="Login to view this trip itinerary."
+                message={signInMessage}
             />
         </div>
     );

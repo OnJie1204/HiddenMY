@@ -1103,7 +1103,7 @@ export default function HiddenGemDetail({ user }) {
                                     onClick={(event) => {
                                         if (user) return;
                                         event.preventDefault();
-                                        requireSignIn("Login to view this user's profile.");
+                                        requireSignIn("Login to view this traveler's profile.");
                                     }}
                                 >
                                     {gem.user?.name || "Unknown User"}
