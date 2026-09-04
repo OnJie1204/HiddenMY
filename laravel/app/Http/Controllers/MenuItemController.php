@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Location;
 use App\Models\MenuItem;
 use App\Models\MenuItemLike;
+use App\Services\ProfanityFilter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\Auth;
 class MenuItemController extends Controller
 {
     private const MAX_NAME_LENGTH = 80;
+
+    public function __construct(private ProfanityFilter $profanity)
+    {
+    }
 
     public function index($locationId): JsonResponse
     {
@@ -51,10 +56,20 @@ class MenuItemController extends Controller
 
         $location = Location::findOrFail($locationId);
 
+        if (!$location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:'.self::MAX_NAME_LENGTH],
             'price' => ['nullable', 'numeric', 'min:0', 'max:99999.99'],
         ]);
+
+        if (! $this->profanity->isClean($validated['name'])) {
+            return response()->json([
+                'message' => 'Please reword the item name — it looks like it contains inappropriate language.',
+            ], 422);
+        }
 
         $existing = MenuItem::where('location_id', $location->id)
             ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim($validated['name']))])
@@ -88,7 +103,11 @@ class MenuItemController extends Controller
             return response()->json(['message' => 'Please login first'], 401);
         }
 
-        $item = MenuItem::findOrFail($menuItemId);
+        $item = MenuItem::with('location:id,permanently_closed_at')->findOrFail($menuItemId);
+
+        if ($item->location && !$item->location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
+        }
 
         $like = MenuItemLike::where('menu_item_id', $item->id)
             ->where('user_id', $user->id)

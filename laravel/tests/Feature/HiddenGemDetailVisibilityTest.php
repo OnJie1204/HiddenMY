@@ -113,19 +113,16 @@ class HiddenGemDetailVisibilityTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_delisted_gem_remains_visible_to_owner_but_not_another_authenticated_user(): void
+    public function test_deleted_gem_is_invisible_to_everyone_including_its_owner(): void
     {
         $owner = User::factory()->create();
         $viewer = User::factory()->create();
-        $gem = Location::factory()->for($owner)->create(['status' => 'delisted']);
+        $gem = Location::factory()->for($owner)->create(['status' => 'deleted']);
 
         Sanctum::actingAs($owner);
-        $this->getJson("/api/hidden-gems/{$gem->id}")
-            ->assertOk()
-            ->assertJsonPath('data.id', $gem->id);
+        $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
 
         Sanctum::actingAs($viewer);
-        $this->getJson("/api/hidden-gems/{$gem->id}")
-            ->assertNotFound();
+        $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
     }
 }

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { getTravelPosts, getMyTravelPosts } from "../api/travelPosts";
 import { getCategories, getStates } from "../api/hiddenGems";
 import Avatar from "../components/Avatar";
+import LoadingCards from "../components/LoadingCards";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import SignInPrompt from "../components/SignInPrompt";
 
@@ -25,7 +26,7 @@ export default function TravelPosts({ user }) {
     const [error, setError] = useState("");
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
-    const [mineOnly, setMineOnly] = useState(false);
+    const [mineOnly, setMineOnly] = useState(searchParams.get("mine") === "1");
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
 
@@ -103,7 +104,11 @@ export default function TravelPosts({ user }) {
                 <button
                     type="button"
                     className={!mineOnly ? "active" : ""}
-                    onClick={() => setMineOnly(false)}
+                    onClick={() => {
+                        setMineOnly(false);
+                        searchParams.delete("mine");
+                        setSearchParams(searchParams, { replace: true });
+                    }}
                 >
                     All Posts
                 </button>
@@ -116,6 +121,8 @@ export default function TravelPosts({ user }) {
                             return;
                         }
                         setMineOnly(true);
+                        searchParams.set("mine", "1");
+                        setSearchParams(searchParams, { replace: true });
                     }}
                 >
                     My Posts
@@ -153,9 +160,7 @@ export default function TravelPosts({ user }) {
             )}
 
             {loading ? (
-                <div className="hidden-gems-loading">
-                    <p>Loading travel posts...</p>
-                </div>
+                <LoadingCards count={6} />
             ) : error ? (
                 <div className="hidden-gems-empty">
                     <p>{error}</p>

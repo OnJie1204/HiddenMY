@@ -5,26 +5,31 @@ namespace App\Http\Controllers;
 use App\Models\CheckIn;
 use App\Models\Location;
 use App\Models\PostImage;
+use App\Models\PostStop;
 use App\Models\TravelPost;
 use App\Models\TripItinerary;
+use App\Models\TripLocation;
 use App\Services\SpecialAchievementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class TravelPostController extends Controller
 {
     /**
-     * Only gems that have cleared AI review are safe to let people tag —
-     * mirrors Wishlist's WISHLISTABLE_STATUSES so a post can't publicise a
-     * still-pending or AI-rejected submission before it's ready to be seen.
+     * Statuses a gem stop may have when it is added to a post's snapshot.
+     * A stop whose gem is later closed or deleted stays in the snapshot with a
+     * badge — this only gates what can be freshly tagged.
      */
-    private const TAGGABLE_STATUSES = ['hidden_gem', 'pending_community_vote'];
+    private const TAGGABLE_STATUSES = ['hidden_gem', 'well_known', 'pending_community_vote'];
 
-    private const RELATIONS = ['user', 'tripItinerary', 'images', 'locations.category', 'locations.images'];
+    private const RELATIONS = ['user', 'images', 'locations', 'stops.location.category', 'stops.location.images', 'stops.sourceItinerary:id,trip_name'];
 
+    /** Columns exposed for a tagged gem in the post_locations mirror. */
     private const PUBLIC_LOCATION_COLUMNS = [
         'locations.id',
         'locations.category_id',
@@ -36,6 +41,7 @@ class TravelPostController extends Controller
         'locations.longitude',
         'locations.status',
         'locations.report_status',
+        'locations.permanently_closed_at',
         'locations.vote_count',
         'locations.verification_threshold',
     ];
@@ -56,14 +62,14 @@ class TravelPostController extends Controller
             $query->whereHas('locations', fn ($q) => $q->where('category_id', $request->category));
         }
 
-        return response()->json(['data' => $this->includeAuthorFavourites($query->get())]);
+        return response()->json(['data' => $this->present($this->includeAuthorFavourites($query->get()))]);
     }
 
     public function show($id): JsonResponse
     {
         $post = TravelPost::with($this->publicRelations())->findOrFail($id);
 
-        return response()->json(['data' => $this->includeAuthorFavourites($post)]);
+        return response()->json(['data' => $this->present($this->includeAuthorFavourites($post))]);
     }
 
     public function myPosts(): JsonResponse
@@ -73,7 +79,7 @@ class TravelPostController extends Controller
             ->latest()
             ->get();
 
-        return response()->json(['data' => $this->includeAuthorFavourites($posts)]);
+        return response()->json(['data' => $this->present($this->includeAuthorFavourites($posts))]);
     }
 
     public function forLocation($locationId): JsonResponse
@@ -90,27 +96,10 @@ class TravelPostController extends Controller
     {
         $user = Auth::user();
 
-        $data = $request->validate([
-            'title' => 'required|string|max:150',
-            'body' => 'required|string',
-            'trip_itinerary_id' => 'nullable|exists:trip_itineraries,id',
-            'location_ids' => 'array',
-            'location_ids.*' => 'exists:locations,id',
-            'captions' => 'array',
-            'captions.*' => 'nullable|string|max:255',
-            'cover_image' => 'nullable|image|max:5120',
-            'images.*' => 'image|max:5120',
-        ]);
-
-        if (! empty($data['trip_itinerary_id'])) {
-            $this->assertOwnsItinerary($data['trip_itinerary_id'], $user->id);
-        }
-
-        $locations = $this->resolveTaggableLocations($data['location_ids'] ?? []);
+        $data = $this->validatePayload($request);
 
         $post = TravelPost::create([
             'user_id' => $user->id,
-            'trip_itinerary_id' => $data['trip_itinerary_id'] ?? null,
             'title' => $data['title'],
             'body' => $data['body'],
         ]);
@@ -127,12 +116,12 @@ class TravelPostController extends Controller
             $post->update(['cover_image_url' => $coverUrl]);
         }
 
-        $this->attachLocations($post, $locations, $data['captions'] ?? [], $user->id);
+        $this->syncSnapshot($post, $data, $user->id);
         $this->storeGalleryImages($post, $request);
 
         return response()->json([
             'message' => 'Travel post published.',
-            'data' => $this->includeAuthorFavourites($post->load(self::RELATIONS)),
+            'data' => $this->present($this->includeAuthorFavourites($post->load(self::RELATIONS))),
         ], 201);
     }
 
@@ -144,28 +133,14 @@ class TravelPostController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $data = $request->validate([
-            'title' => 'required|string|max:150',
-            'body' => 'required|string',
-            'trip_itinerary_id' => 'nullable|exists:trip_itineraries,id',
-            'location_ids' => 'array',
-            'location_ids.*' => 'exists:locations,id',
-            'captions' => 'array',
-            'captions.*' => 'nullable|string|max:255',
-            'cover_image' => 'nullable|image|max:5120',
-            'images.*' => 'image|max:5120',
+        $data = $this->validatePayload($request, [
             'remove_image_ids' => 'array',
             'remove_image_ids.*' => 'integer|exists:post_images,id',
         ]);
 
-        if (! empty($data['trip_itinerary_id'])) {
-            $this->assertOwnsItinerary($data['trip_itinerary_id'], $post->user_id);
-        }
-
         $post->update([
             'title' => $data['title'],
             'body' => $data['body'],
-            'trip_itinerary_id' => $data['trip_itinerary_id'] ?? null,
         ]);
 
         if ($request->hasFile('cover_image')) {
@@ -182,15 +157,12 @@ class TravelPostController extends Controller
             $post->images()->whereIn('id', $data['remove_image_ids'])->delete();
         }
 
-        $locations = $this->resolveTaggableLocations($data['location_ids'] ?? []);
-        $post->locations()->detach();
-        $this->attachLocations($post, $locations, $data['captions'] ?? [], $post->user_id);
-
+        $this->syncSnapshot($post, $data, $post->user_id);
         $this->storeGalleryImages($post, $request);
 
         return response()->json([
             'message' => 'Travel post updated.',
-            'data' => $this->includeAuthorFavourites($post->load(self::RELATIONS)),
+            'data' => $this->present($this->includeAuthorFavourites($post->load(self::RELATIONS))),
         ]);
     }
 
@@ -207,11 +179,275 @@ class TravelPostController extends Controller
         return response()->json(['message' => 'Travel post deleted.']);
     }
 
-    private function assertOwnsItinerary(int $itineraryId, int $userId): void
+    /**
+     * Reader action: clone this post's trip snapshot into a new itinerary of
+     * the current user's. Stops whose gem has since been deleted or marked
+     * permanently closed are skipped and named in the response.
+     */
+    public function copyTrip($id): JsonResponse
     {
-        $owned = TripItinerary::where('id', $itineraryId)->where('user_id', $userId)->exists();
+        $post = TravelPost::with('stops.location:id,place_name,status,permanently_closed_at')->findOrFail($id);
+        $user = Auth::user();
 
-        abort_unless($owned, 403, 'That trip does not belong to you.');
+        if ($post->stops->isEmpty()) {
+            return response()->json(['message' => 'This travel post has no trip to copy.'], 422);
+        }
+
+        $skipped = [];
+
+        $itinerary = DB::transaction(function () use ($post, $user, &$skipped) {
+            $trip = TripItinerary::create([
+                'user_id' => $user->id,
+                'trip_name' => Str::limit($post->title, 60, ''),
+            ]);
+
+            $order = 1;
+
+            foreach ($post->stops as $stop) {
+                if ($stop->isGemStop()) {
+                    $gem = $stop->location;
+
+                    if (! $gem || $gem->status === 'deleted') {
+                        $skipped[] = ($gem->place_name ?? $stop->osm_name) ?: 'a removed hidden gem';
+                        continue;
+                    }
+
+                    if ($gem->permanently_closed_at !== null) {
+                        $skipped[] = $gem->place_name . ' (permanently closed)';
+                        continue;
+                    }
+
+                    $trip->locations()->create([
+                        'location_id' => $gem->id,
+                        'isHidden' => true,
+                        'order_number' => $order++,
+                    ]);
+
+                    continue;
+                }
+
+                $trip->locations()->create([
+                    'osm_id' => $stop->osm_id,
+                    'osm_name' => $stop->osm_name,
+                    'latitude' => $stop->latitude,
+                    'longitude' => $stop->longitude,
+                    'isHidden' => false,
+                    'order_number' => $order++,
+                ]);
+            }
+
+            return $trip;
+        });
+
+        $message = 'Trip copied to your itineraries.';
+        if (! empty($skipped)) {
+            $message .= ' Skipped ' . count($skipped) . ' stop' . (count($skipped) === 1 ? '' : 's')
+                . ' no longer available: ' . implode(', ', $skipped) . '.';
+        }
+
+        return response()->json([
+            'message' => $message,
+            'skipped' => $skipped,
+            'data' => $itinerary->load('locations.location'),
+        ], 201);
+    }
+
+    // ---------------------------------------------------------------------
+
+    private function validatePayload(Request $request, array $extra = []): array
+    {
+        return $request->validate(array_merge([
+            'title' => 'required|string|max:150',
+            'body' => 'required|string',
+            'itinerary_ids' => 'array',
+            'itinerary_ids.*' => 'integer',
+            'stops' => 'array',
+            'stops.*.location_id' => 'nullable|integer',
+            'stops.*.osm_id' => 'nullable|integer',
+            'stops.*.osm_name' => 'nullable|string|max:255',
+            'stops.*.latitude' => 'nullable|numeric|between:-90,90',
+            'stops.*.longitude' => 'nullable|numeric|between:-180,180',
+            'stops.*.caption' => 'nullable|string|max:255',
+            'stops.*.source_itinerary_id' => 'nullable|integer',
+            'cover_image' => 'nullable|image|max:5120',
+            'images.*' => 'image|max:5120',
+        ], $extra));
+    }
+
+    /**
+     * Rebuild the post's frozen stop snapshot from the request, then mirror the
+     * gem stops into post_locations.
+     */
+    private function syncSnapshot(TravelPost $post, array $data, int $userId): void
+    {
+        $ownedItineraryIds = empty($data['itinerary_ids'])
+            ? []
+            : TripItinerary::whereIn('id', $data['itinerary_ids'])
+                ->where('user_id', $userId)
+                ->pluck('id')
+                ->all();
+
+        $snapshot = $this->buildSnapshot($ownedItineraryIds, $data['stops'] ?? []);
+
+        DB::transaction(function () use ($post, $snapshot, $userId) {
+            $post->stops()->delete();
+
+            $order = 0;
+            $gemStops = [];
+
+            foreach ($snapshot as $stop) {
+                $stop['order_number'] = $order++;
+                $post->stops()->create($stop);
+
+                if ($stop['location_id'] !== null) {
+                    $gemStops[] = $stop;
+                }
+            }
+
+            $this->syncPostLocations($post, $gemStops, $userId);
+        });
+    }
+
+    /**
+     * @param  array<int>  $itineraryIds  already filtered to ones the author owns
+     * @param  array<int, array<string, mixed>>  $stopInput  the author's edited list, authoritative when present
+     * @return array<int, array<string, mixed>>  ordered stop attribute rows
+     */
+    private function buildSnapshot(array $itineraryIds, array $stopInput): array
+    {
+        $rawStops = ! empty($stopInput)
+            ? collect($stopInput)
+            : $this->stopsFromItineraries($itineraryIds);
+
+        // Resolve every gem id referenced, in one query.
+        $gemIds = $rawStops
+            ->map(fn ($s) => $s['location_id'] ?? null)
+            ->filter()
+            ->unique()
+            ->values();
+
+        $gems = $gemIds->isEmpty()
+            ? collect()
+            : Location::whereIn('id', $gemIds)
+                ->whereIn('status', self::TAGGABLE_STATUSES)
+                ->whereNull('permanently_closed_at')
+                ->get()
+                ->keyBy('id');
+
+        $seen = [];
+        $out = [];
+
+        foreach ($rawStops as $stop) {
+            $locationId = $stop['location_id'] ?? null;
+
+            if ($locationId) {
+                $gem = $gems->get($locationId);
+                if (! $gem) {
+                    continue; // not taggable (pending/rejected/closed/deleted) — drop it
+                }
+
+                $key = 'g:' . $gem->id;
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+
+                $out[] = [
+                    'location_id' => $gem->id,
+                    'osm_id' => null,
+                    'osm_name' => $gem->place_name,
+                    'latitude' => $gem->latitude,
+                    'longitude' => $gem->longitude,
+                    'caption' => $this->trimCaption($stop['caption'] ?? null),
+                    'source_itinerary_id' => $stop['source_itinerary_id'] ?? null,
+                ];
+
+                continue;
+            }
+
+            // OSM stop — needs a name and a coordinate to be worth keeping.
+            $osmName = trim((string) ($stop['osm_name'] ?? ''));
+            $lat = $stop['latitude'] ?? null;
+            $lng = $stop['longitude'] ?? null;
+
+            if ($osmName === '' || $lat === null || $lng === null) {
+                continue;
+            }
+
+            $osmId = $stop['osm_id'] ?? null;
+            $key = $osmId ? 'o:' . $osmId : 'c:' . round((float) $lat, 5) . ',' . round((float) $lng, 5);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
+            $out[] = [
+                'location_id' => null,
+                'osm_id' => $osmId,
+                'osm_name' => $osmName,
+                'latitude' => (float) $lat,
+                'longitude' => (float) $lng,
+                'caption' => $this->trimCaption($stop['caption'] ?? null),
+                'source_itinerary_id' => $stop['source_itinerary_id'] ?? null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Merge several itineraries' stops into one ordered list (itinerary order, then stop order). */
+    private function stopsFromItineraries(array $itineraryIds): Collection
+    {
+        if (empty($itineraryIds)) {
+            return collect();
+        }
+
+        return TripItinerary::whereIn('id', $itineraryIds)
+            ->with(['locations' => fn ($q) => $q->orderBy('order_number')])
+            ->get()
+            ->sortBy(fn ($trip) => array_search($trip->id, $itineraryIds, true))
+            ->flatMap(function (TripItinerary $trip) {
+                return $trip->locations->map(fn (TripLocation $stop) => [
+                    'location_id' => $stop->isHidden ? $stop->location_id : null,
+                    'osm_id' => $stop->isHidden ? null : $stop->osm_id,
+                    'osm_name' => $stop->osm_name,
+                    'latitude' => $stop->latitude,
+                    'longitude' => $stop->longitude,
+                    'caption' => null,
+                    'source_itinerary_id' => $trip->id,
+                ]);
+            })
+            ->values();
+    }
+
+    private function syncPostLocations(TravelPost $post, array $gemStops, int $userId): void
+    {
+        $post->locations()->detach();
+
+        if (empty($gemStops)) {
+            return;
+        }
+
+        $ids = array_map(fn ($s) => $s['location_id'], $gemStops);
+        $visited = CheckIn::where('user_id', $userId)
+            ->whereIn('location_id', $ids)
+            ->pluck('location_id')
+            ->all();
+
+        foreach ($gemStops as $stop) {
+            $post->locations()->attach($stop['location_id'], [
+                'caption' => $stop['caption'],
+                'order_number' => $stop['order_number'],
+                'visited' => in_array($stop['location_id'], $visited, true),
+            ]);
+        }
+    }
+
+    private function trimCaption(?string $caption): ?string
+    {
+        $caption = trim((string) $caption);
+
+        return $caption === '' ? null : Str::limit($caption, 255, '');
     }
 
     private function includeAuthorFavourites(TravelPost|Collection $posts): TravelPost|Collection
@@ -234,40 +470,69 @@ class TravelPostController extends Controller
     {
         return [
             'user:id,name,avatar_url',
-            'tripItinerary',
             'images',
+            'stops.location:id,place_name,state,category_id,description,latitude,longitude,status,report_status,permanently_closed_at',
+            'stops.location.category:id,name',
+            'stops.location.images:id,location_id,image_url',
+            'stops.sourceItinerary:id,trip_name',
+            // The post_locations mirror — kept for the gem-detail "Community
+            // Stories" list and older clients that read `locations`.
             'locations' => fn ($query) => $query->select(self::PUBLIC_LOCATION_COLUMNS),
             'locations.category:id,name',
             'locations.images:id,location_id,image_url',
         ];
     }
 
-    /** Silently drops any tagged location that isn't publicly visible rather than failing the whole post. */
-    private function resolveTaggableLocations(array $locationIds): Collection
+    /**
+     * Flatten each post's stop snapshot into a display-ready `stops` array and
+     * keep `locations` populated for older clients.
+     */
+    private function present(TravelPost|Collection $posts): TravelPost|Collection
     {
-        if (empty($locationIds)) {
-            return collect();
-        }
+        $collection = $posts instanceof TravelPost ? collect([$posts]) : $posts;
 
-        return Location::whereIn('id', $locationIds)
-            ->whereIn('status', self::TAGGABLE_STATUSES)
-            ->get();
-    }
+        $collection->each(function (TravelPost $post) {
+            if (! $post->relationLoaded('stops')) {
+                return;
+            }
 
-    private function attachLocations(TravelPost $post, Collection $locations, array $captions, int $userId): void
-    {
-        $visitedLocationIds = CheckIn::where('user_id', $userId)
-            ->whereIn('location_id', $locations->pluck('id'))
-            ->pluck('location_id')
-            ->all();
+            $stops = $post->stops->map(function (PostStop $stop) {
+                $isGem = $stop->isGemStop();
+                // A gem stop is "removed" if the row is gone (hard delete) or
+                // its status is now 'deleted' (the normal soft delete).
+                $live = ($isGem && $stop->location && $stop->location->status !== 'deleted')
+                    ? $stop->location
+                    : null;
+                $lat = $live?->latitude ?? $stop->latitude;
+                $lng = $live?->longitude ?? $stop->longitude;
 
-        $locations->values()->each(function (Location $location, int $index) use ($post, $captions, $visitedLocationIds) {
-            $post->locations()->attach($location->id, [
-                'caption' => $captions[$index] ?? null,
-                'order_number' => $index,
-                'visited' => in_array($location->id, $visitedLocationIds, true),
-            ]);
+                return [
+                    'id' => $stop->id,
+                    'order_number' => $stop->order_number,
+                    'kind' => $isGem ? 'gem' : 'osm',
+                    'name' => $live?->place_name ?? $stop->osm_name ?? 'Stop',
+                    'caption' => $stop->caption,
+                    'latitude' => $lat !== null ? (float) $lat : null,
+                    'longitude' => $lng !== null ? (float) $lng : null,
+                    'source_trip' => $stop->sourceItinerary?->trip_name,
+                    'removed' => $isGem && ! $live,
+                    'gem' => $live ? [
+                        'id' => $live->id,
+                        'place_name' => $live->place_name,
+                        'state' => $live->state,
+                        'category' => $live->category?->name,
+                        'status' => $live->status,
+                        'permanently_closed_at' => $live->permanently_closed_at,
+                        'image_url' => $live->images->first()?->image_url,
+                    ] : null,
+                ];
+            })->values();
+
+            $post->unsetRelation('stops');
+            $post->setAttribute('stops', $stops);
         });
+
+        return $posts;
     }
 
     private function storeGalleryImages(TravelPost $post, Request $request): void

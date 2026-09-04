@@ -1,4 +1,6 @@
 import LocationPickerMap from "../components/LocationPickerMap";
+import AddressAutocomplete from "../components/AddressAutocomplete";
+import Spinner from "../components/Spinner";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -43,9 +45,11 @@ export default function EditHiddenGem() {
     const [message, setMessage] = useState("");
     const [messageType, setMessageType] = useState("");
     const [editUnavailableMessage, setEditUnavailableMessage] = useState("");
+    const [editMode, setEditMode] = useState(null);
 
     const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
     const [existingImages, setExistingImages] = useState([]);
+    const [removedImageIds, setRemovedImageIds] = useState([]);
     const [newImages, setNewImages] = useState([]);
 
     const coordinateLocationRef = useRef(null);
@@ -61,23 +65,25 @@ export default function EditHiddenGem() {
 
                 const gem = gemRes.data.data;
 
-                // Extra frontend protection
-                const editableStatuses = ["pending", "ai_rejected", "pending_community_vote"];
-                if (Number(gem.vote_count) > 0) {
+                if (!gem.can_edit && gem.edit_mode !== "verified") {
                     setEditUnavailableMessage(
-                        "This Hidden Gem can no longer be edited because voting has started."
-                    );
-                    return;
-                }
-
-                if (!editableStatuses.includes(gem.status)) {
-                    setEditUnavailableMessage(
-                        gem.status === "hidden_gem"
-                            ? "Verified Hidden Gems can no longer be edited."
+                        gem.edit_mode === "delete_only"
+                            ? "This place is marked permanently closed. It can no longer be edited — only deleted."
                             : "This Hidden Gem can no longer be edited."
                     );
                     return;
                 }
+
+                // Verified places (in voting / hidden gem / well-known) are edited
+                // inline on the detail page — contact fields instantly, description
+                // and photos through a quick AI review — not through this full
+                // resubmit editor.
+                if (gem.edit_mode === "verified") {
+                    navigate(`/hidden-gems/${id}`, { replace: true });
+                    return;
+                }
+
+                setEditMode(gem.edit_mode);
 
                 const loadedFormData = {
                     category_id: gem.category_id || "",
@@ -258,7 +264,7 @@ export default function EditHiddenGem() {
 
             let updateData = dataToSave;
 
-            if (newImages.length > 0) {
+            if (newImages.length > 0 || removedImageIds.length > 0) {
                 updateData = new FormData();
 
                 Object.entries(dataToSave).forEach(([key, value]) => {
@@ -267,6 +273,10 @@ export default function EditHiddenGem() {
 
                 newImages.forEach(({ file }) => {
                     updateData.append("images[]", file);
+                });
+
+                removedImageIds.forEach((imageId) => {
+                    updateData.append("remove_image_ids[]", imageId);
                 });
             }
 
@@ -294,11 +304,7 @@ export default function EditHiddenGem() {
     };
 
     if (loading) {
-        return (
-            <div className="hidden-gems-loading">
-                <p>Loading hidden gem...</p>
-            </div>
-        );
+        return <Spinner size="lg" label="Loading hidden gem…" />;
     }
 
     return (
@@ -337,6 +343,13 @@ export default function EditHiddenGem() {
                 ) : (
                 <form className="edit-hidden-gem-form" onSubmit={handleSubmit}>
 
+                    <div className="hidden-gems-empty">
+                        <p>
+                            Saving here is a full resubmit — the place goes back through AI
+                            verification and, if it passes, a fresh round of community votes.
+                        </p>
+                    </div>
+
                     <input
                         className="form-input"
                         name="place_name"
@@ -346,13 +359,51 @@ export default function EditHiddenGem() {
                         required
                     />
 
-                    <input
+                    <AddressAutocomplete
                         className="form-input"
                         name="address"
                         placeholder="Address"
                         value={formData.address}
-                        onChange={handleChange}
+                        latitude={formData.latitude}
+                        longitude={formData.longitude}
                         required
+                        onChange={(text) =>
+                            setFormData((prev) => ({ ...prev, address: text }))
+                        }
+                        onSelect={(suggestion) => {
+                            setFormData((prev) => {
+                                const updated = {
+                                    ...prev,
+                                    address: suggestion.address || prev.address,
+                                    state: suggestion.state || prev.state,
+                                    postcode: suggestion.postcode || prev.postcode,
+                                    latitude:
+                                        suggestion.latitude != null
+                                            ? String(suggestion.latitude)
+                                            : prev.latitude,
+                                    longitude:
+                                        suggestion.longitude != null
+                                            ? String(suggestion.longitude)
+                                            : prev.longitude,
+                                };
+
+                                coordinateLocationRef.current = {
+                                    source: "loaded",
+                                    fields: locationFields(updated),
+                                    missing: {
+                                        address: false,
+                                        state: false,
+                                        postcode: false,
+                                    },
+                                    latitude: updated.latitude,
+                                    longitude: updated.longitude,
+                                };
+
+                                return updated;
+                            });
+
+                            setPostcodeDetectionFailed(false);
+                        }}
                     />
 
                     <select
@@ -508,7 +559,7 @@ export default function EditHiddenGem() {
                     <div className="edit-hidden-gem-images-section">
                         <h4>Existing Images</h4>
                         <p className="edit-hidden-gem-images-note">
-                            Existing images cannot be edited or removed.
+                            Remove any you no longer want. Keep at least one photo (or add a new one).
                         </p>
 
                         {existingImages.length > 0 ? (
@@ -519,6 +570,18 @@ export default function EditHiddenGem() {
                                             src={image.image_url}
                                             alt={`${formData.place_name} existing`}
                                         />
+                                        <button
+                                            type="button"
+                                            className="hidden-gem-remove-image-btn"
+                                            onClick={() => {
+                                                setRemovedImageIds((prev) => [...prev, image.id]);
+                                                setExistingImages((prev) =>
+                                                    prev.filter((img) => img.id !== image.id)
+                                                );
+                                            }}
+                                        >
+                                            Remove
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -601,8 +664,7 @@ export default function EditHiddenGem() {
                     </div>
 
                     <small className="edit-hidden-gem-warning">
-                        Editing this hidden gem will reset it for
-                        re-verification by AI.
+                        Editing this hidden gem will reset it for re-verification by AI.
                     </small>
 
                     <button
@@ -610,7 +672,11 @@ export default function EditHiddenGem() {
                         className="hidden-gem-submit-btn"
                         disabled={saving}
                     >
-                        {saving ? "Saving..." : "Save Changes"}
+                        {saving ? (
+                            <Spinner size="sm" inline label="Saving…" className="btn-spinner" />
+                        ) : (
+                            "Save Changes"
+                        )}
                     </button>
 
                 </form>

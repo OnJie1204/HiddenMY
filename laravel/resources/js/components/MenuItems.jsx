@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { getMenuItems, addMenuItem, toggleMenuItemLike, deleteMenuItem } from "../api/menuItems";
+import Spinner from "./Spinner";
 
 // Community suggested menu items
-function MenuItems({ locationId, currentUser, onRequireSignIn }) {
+function MenuItems({ locationId, currentUser, onRequireSignIn, frozen = false }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [name, setName] = useState("");
@@ -80,7 +81,7 @@ function MenuItems({ locationId, currentUser, onRequireSignIn }) {
 
     return (
         <div className="menu-items">
-            {loading && <p className="side-panel-nearby-status">Loading menu items…</p>}
+            {loading && <Spinner size="sm" inline label="Loading menu items…" />}
 
             {!loading && items.length === 0 && (
                 <p className="side-panel-nearby-status">No items suggested yet — be the first to add one you tried.</p>
@@ -104,7 +105,7 @@ function MenuItems({ locationId, currentUser, onRequireSignIn }) {
                                     type="button"
                                     className={`menu-items-like-btn ${item.liked_by_me ? "active" : ""}`}
                                     onClick={() => handleLike(item)}
-                                    disabled={busyId === item.id}
+                                    disabled={busyId === item.id || frozen}
                                     title={item.liked_by_me ? "Unlike" : "Like this item"}
                                 >
                                     👍 {item.like_count}
@@ -126,28 +127,32 @@ function MenuItems({ locationId, currentUser, onRequireSignIn }) {
                 </ul>
             )}
 
-            <form className="menu-items-add-form" onSubmit={handleAdd}>
-                <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Item you tried (e.g. Kuih Lapis)"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    maxLength={80}
-                />
-                <input
-                    type="number"
-                    className="form-input menu-items-price-input"
-                    placeholder="RM (optional)"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    min="0"
-                    step="0.01"
-                />
-                <button type="submit" className="menu-items-add-btn" disabled={adding || !name.trim()}>
-                    {adding ? "Adding…" : "Add"}
-                </button>
-            </form>
+            {frozen ? (
+                <p className="side-panel-nearby-status">This place is marked permanently closed — the menu is frozen.</p>
+            ) : (
+                <form className="menu-items-add-form" onSubmit={handleAdd}>
+                    <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Item you tried (e.g. Kuih Lapis)"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        maxLength={80}
+                    />
+                    <input
+                        type="number"
+                        className="form-input menu-items-price-input"
+                        placeholder="RM (optional)"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        min="0"
+                        step="0.01"
+                    />
+                    <button type="submit" className="menu-items-add-btn" disabled={adding || !name.trim()}>
+                        {adding ? "Adding…" : "Add"}
+                    </button>
+                </form>
+            )}
             {message && <p className="side-panel-itinerary-status error">{message}</p>}
         </div>
     );

@@ -4,12 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Location;
 use App\Models\GemInteraction;
+use App\Services\ProfanityFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 
 class GemInteractionController extends Controller
 {
+    public function __construct(private ProfanityFilter $profanity)
+    {
+    }
+
     public function toggle(Request $request, $locationId)
     {
         $user = Auth::user();
@@ -29,14 +34,30 @@ class GemInteractionController extends Controller
 
         $location = Location::findOrFail($locationId);
 
+        if (!$location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
+        }
+
         // ============================
         // COMMENT / RATING
         // ============================
         if ($request->type === 'comment') {
 
+            if ((int) $location->user_id === (int) $user->id) {
+                return response()->json([
+                    'message' => 'You cannot rate or comment on your own Hidden Gem.'
+                ], 403);
+            }
+
             if (!$request->rating) {
                 return response()->json([
                     'message' => 'Rating is required.'
+                ], 422);
+            }
+
+            if (!$this->profanity->isClean($request->comment)) {
+                return response()->json([
+                    'message' => 'Please reword your comment — it looks like it contains inappropriate language.'
                 ], 422);
             }
 
@@ -199,6 +220,49 @@ class GemInteractionController extends Controller
     }
 
 
+    public function myRatings()
+    {
+        $ratings = GemInteraction::query()
+            ->where('user_id', Auth::id())
+            ->where('type', 'comment')
+            ->with([
+                'location:id,place_name,status',
+                'location.firstImage' => fn ($query) => $query->select([
+                    'location_images.id',
+                    'location_images.location_id',
+                    'location_images.image_url',
+                ]),
+            ])
+            ->orderByDesc('created_at')
+            ->get([
+                'id',
+                'user_id',
+                'location_id',
+                'rating',
+                'comment',
+                'created_at',
+                'updated_at',
+            ])
+            ->map(fn (GemInteraction $rating) => [
+                'id' => $rating->id,
+                'rating' => $rating->rating,
+                'comment' => $rating->comment,
+                'created_at' => $rating->created_at,
+                'updated_at' => $rating->updated_at,
+                'location' => $rating->location ? [
+                    'id' => $rating->location->id,
+                    'place_name' => $rating->location->place_name,
+                    'status' => $rating->location->status,
+                    'first_image' => $rating->location->firstImage ? [
+                        'image_url' => $rating->location->firstImage->image_url,
+                    ] : null,
+                ] : null,
+            ]);
+
+        return response()->json(['data' => $ratings]);
+    }
+
+
     // =====================================================
     // UPDATE COMMENT
     // =====================================================
@@ -228,6 +292,14 @@ class GemInteractionController extends Controller
             ], 403);
         }
 
+        $location = Location::find($comment->location_id);
+
+        if ($location && (int) $location->user_id === (int) $user->id) {
+            return response()->json([
+                'message' => 'You cannot rate or comment on your own Hidden Gem.'
+            ], 403);
+        }
+
         if (!$comment->isCommentEditable()) {
             return response()->json([
                 'message' => 'Comments can only be edited within 72 hours of posting.',
@@ -240,6 +312,12 @@ class GemInteractionController extends Controller
             'photo' => 'nullable|image|max:5120',
             'remove_photo' => 'nullable|boolean',
         ]);
+
+        if (!$this->profanity->isClean($request->comment)) {
+            return response()->json([
+                'message' => 'Please reword your comment — it looks like it contains inappropriate language.'
+            ], 422);
+        }
 
         $photoPath = $comment->photo_path;
 
@@ -373,12 +451,6 @@ class GemInteractionController extends Controller
         if ($comment->user_id !== $user->id) {
             return response()->json([
                 'message' => 'You are not authorized to delete this comment'
-            ], 403);
-        }
-
-        if (!$comment->isCommentEditable()) {
-            return response()->json([
-                'message' => 'Comments can only be deleted within 72 hours of posting.',
             ], 403);
         }
 

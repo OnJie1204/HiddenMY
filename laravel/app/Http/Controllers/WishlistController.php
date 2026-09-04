@@ -13,7 +13,7 @@ class WishlistController extends Controller
      * Only these two statuses are ever shown to users browsing gems (see
      * Location::scopePubliclyVisible), so they're the only ones worth saving.
      */
-    private const WISHLISTABLE_STATUSES = ['hidden_gem', 'pending_community_vote'];
+    private const WISHLISTABLE_STATUSES = ['hidden_gem', 'well_known', 'pending_community_vote'];
 
     public function index(): JsonResponse
     {
@@ -40,6 +40,10 @@ class WishlistController extends Controller
             return response()->json([
                 'message' => 'Only hidden gems that have passed AI review can be added to your wishlist.',
             ], 422);
+        }
+
+        if (! $location->acceptsNewInteractions()) {
+            return response()->json(['message' => Location::FROZEN_MESSAGE], 422);
         }
 
         Wishlist::firstOrCreate([

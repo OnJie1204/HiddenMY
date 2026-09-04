@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getTravelPostDetail, deleteTravelPost } from "../api/travelPosts";
+import { getTravelPostDetail, deleteTravelPost, copyPostTrip } from "../api/travelPosts";
 import { getMe } from "../api/auth";
 import Avatar from "../components/Avatar";
+import PhotoCarousel from "../components/PhotoCarousel";
+import Spinner from "../components/Spinner";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import SignInPrompt from "../components/SignInPrompt";
 
@@ -15,13 +17,20 @@ export default function TravelPostDetail({ user }) {
     const [post, setPost] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [currentUserId, setCurrentUserId] = useState(null);
+    const [currentUserId, setCurrentUserId] = useState(user?.id ?? null);
     const [deleting, setDeleting] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
+    const [lightboxUrl, setLightboxUrl] = useState(null);
+    const [copying, setCopying] = useState(false);
+    const [copyResult, setCopyResult] = useState(null);
 
     useEffect(() => {
-        getMe().then((res) => setCurrentUserId(res.data.id)).catch(() => {});
+        getMe()
+            .then((res) => setCurrentUserId(res.data.id))
+            .catch((err) => {
+                if (err?.response?.status === 401) setCurrentUserId(null);
+            });
     }, []);
 
     useEffect(() => {
@@ -35,6 +44,26 @@ export default function TravelPostDetail({ user }) {
             .finally(() => setLoading(false));
     }, [id]);
 
+    async function handleCopyTrip() {
+        if (!user) {
+            setShowSignIn(true);
+            return;
+        }
+        setCopying(true);
+        setCopyResult(null);
+        try {
+            const res = await copyPostTrip(id);
+            setCopyResult({ type: "success", message: res.data.message, tripId: res.data.data?.id });
+        } catch (err) {
+            setCopyResult({
+                type: "error",
+                message: err.response?.data?.message || "Could not copy this trip.",
+            });
+        } finally {
+            setCopying(false);
+        }
+    }
+
     async function handleDelete() {
         setDeleting(true);
         try {
@@ -47,11 +76,7 @@ export default function TravelPostDetail({ user }) {
     }
 
     if (loading) {
-        return (
-            <div className="hidden-gems-loading">
-                <p>Loading travel post...</p>
-            </div>
-        );
+        return <Spinner size="lg" label="Loading travel post…" />;
     }
 
     if (error || !post) {
@@ -65,139 +90,168 @@ export default function TravelPostDetail({ user }) {
     const isOwner = currentUserId === post.user_id;
 
     return (
-        <div className="gem-detail-page travel-post-detail-page">
-            <div className="travel-post-toolbar">
-                {isOwner && (
-                    <div className="travel-post-owner-actions">
-                        <button
-                            type="button"
-                            className="travel-post-icon-btn"
-                            onClick={() => navigate(`/travel-posts/${post.id}/edit`)}
-                            title="Edit post"
-                            aria-label="Edit post"
-                        >
-                            ✏️
-                        </button>
-                        <button
-                            type="button"
-                            className="travel-post-icon-btn travel-post-icon-btn-danger"
-                            onClick={() => setConfirmingDelete(true)}
-                            title="Delete post"
-                            aria-label="Delete post"
-                        >
-                            🗑️
-                        </button>
+        <div className="travel-post-detail-page">
+            <article className="travel-post-article">
+                {post.cover_image_url && (
+                    <div className="travel-post-cover-wrap">
+                        <img src={post.cover_image_url} alt={post.title} className="travel-post-cover" />
                     </div>
                 )}
-            </div>
 
-            {post.cover_image_url && (
-                <div className="travel-post-cover-wrap">
-                    <img src={post.cover_image_url} alt={post.title} className="travel-post-cover" />
-                </div>
-            )}
+                <div className="travel-post-article-body">
+                    <header className="travel-post-header">
+                        <h1 className="travel-post-title">{post.title}</h1>
 
-            <h1 className="travel-post-title">{post.title}</h1>
-
-            <div className="travel-post-byline">
-                <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
-                <div>
-                    <div className="travel-post-author-identity">
-                        <p className="travel-post-byline-name">{post.user?.name || "Traveler"}</p>
-                        <FavouriteAchievementBadges
-                            favourites={post.user?.favourite_achievements}
-                        />
-                    </div>
-                    <p className="travel-post-byline-meta">
-                        {new Date(post.created_at).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                        })}
-                        {post.trip_itinerary_id && (
-                            <>
-                                {" · "}
-                                <span
-                                    className="wishlist-link"
-                                    onClick={() => {
-                                        if (!user) {
-                                            setShowSignIn(true);
-                                            return;
-                                        }
-                                        navigate(`/trip-itinerary/${post.trip_itinerary_id}`);
-                                    }}
+                        {isOwner && (
+                            <div className="travel-post-owner-actions">
+                                <button
+                                    type="button"
+                                    className="travel-post-icon-btn"
+                                    onClick={() => navigate(`/travel-posts/${post.id}/edit`)}
+                                    title="Edit post"
+                                    aria-label="Edit post"
                                 >
-                                    View the trip
-                                </span>
-                            </>
+                                    ✏️
+                                </button>
+                                <button
+                                    type="button"
+                                    className="travel-post-icon-btn travel-post-icon-btn-danger"
+                                    onClick={() => setConfirmingDelete(true)}
+                                    title="Delete post"
+                                    aria-label="Delete post"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
                         )}
-                    </p>
+                    </header>
+
+                    <div className="travel-post-byline">
+                        <Avatar name={post.user?.name} avatarUrl={post.user?.avatar_url} size="sm" />
+                        <div className="travel-post-byline-info">
+                            <div className="travel-post-author-identity">
+                                <p className="travel-post-byline-name">{post.user?.name || "Traveler"}</p>
+                                <FavouriteAchievementBadges
+                                    favourites={post.user?.favourite_achievements}
+                                />
+                            </div>
+                            <p className="travel-post-byline-meta">
+                                {new Date(post.created_at).toLocaleDateString("en-GB", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                })}
+                            </p>
+                        </div>
+
+                        {post.stops?.length > 0 && (
+                            <button
+                                type="button"
+                                className="travel-post-trip-link"
+                                onClick={handleCopyTrip}
+                                disabled={copying || isOwner}
+                                title={isOwner ? "This is your own trip" : "Copy this trip into your itineraries"}
+                            >
+                                <span aria-hidden="true">🧭</span>
+                                {copying ? "Copying…" : "Copy this trip"}
+                            </button>
+                        )}
+                    </div>
+
+                    {copyResult && (
+                        <div className={`travel-post-copy-result ${copyResult.type}`}>
+                            <span>{copyResult.message}</span>
+                            {copyResult.tripId && (
+                                <button type="button" onClick={() => navigate(`/trip-itinerary/${copyResult.tripId}`)}>
+                                    Open it
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    <p className="travel-post-body">{post.body}</p>
+
+                    {post.images?.length > 0 && (
+                        <div className="travel-post-gallery">
+                            <PhotoCarousel
+                                images={post.images}
+                                alt={post.title}
+                                className="travel-post-carousel"
+                                onImageClick={(url) => setLightboxUrl(url)}
+                            />
+                        </div>
+                    )}
                 </div>
-            </div>
+            </article>
 
-            <p className="travel-post-body">{post.body}</p>
-
-            {post.images?.length > 0 && (
-                <div className="travel-post-gallery">
-                    {post.images.map((image) => (
-                        <img key={image.id} src={image.image_url} alt="" className="travel-post-gallery-image" />
-                    ))}
+            {lightboxUrl && (
+                <div className="photo-modal-overlay" onClick={() => setLightboxUrl(null)}>
+                    <div className="photo-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <button className="photo-modal-close" onClick={() => setLightboxUrl(null)}>✕</button>
+                        <img src={lightboxUrl} alt="" className="photo-modal-image" />
+                    </div>
                 </div>
             )}
 
-            {post.locations?.length > 0 && (
+            {post.stops?.length > 0 && (
                 <div className="travel-post-tagged-gems">
-                    <h2 className="travel-post-section-title">Hidden Gems in this Story</h2>
-                    <div className="hidden-gems-list">
-                        {post.locations.map((location) => (
-                            <div
-                                key={location.id}
-                                className="hidden-gems-card"
-                                onClick={() => navigate(`/hidden-gems/${location.id}`)}
-                            >
-                                <div className="hidden-gems-card-image">
-                                    {location.images?.[0]?.image_url ? (
-                                        <img
-                                            src={location.images[0].image_url}
-                                            alt={location.place_name}
-                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                        />
-                                    ) : (
-                                        <div className="hidden-gems-card-no-image">No Image</div>
-                                    )}
-                                </div>
-                                <div className="hidden-gems-card-content">
-                                    <h2>{location.place_name}</h2>
-                                    <div className="hidden-gems-card-tags">
-                                        <span className="hidden-gems-card-category">
-                                            {location.category?.name || "Uncategorized"}
+                    <h2 className="travel-post-section-title">The Trip</h2>
+                    <ol className="travel-post-stop-list">
+                        {post.stops.map((stop) => {
+                            const gem = stop.gem;
+                            const closed = !!gem?.permanently_closed_at;
+                            const clickable = gem && !stop.removed;
+
+                            // What kind of place this stop is.
+                            let kindLabel = "Place";
+                            let kindClosed = false;
+                            if (stop.removed) {
+                                kindLabel = "No longer listed";
+                                kindClosed = true;
+                            } else if (closed) {
+                                kindLabel = "Permanently closed";
+                                kindClosed = true;
+                            } else if (gem?.status === "hidden_gem") {
+                                kindLabel = "Hidden gem";
+                            } else if (gem?.status === "well_known") {
+                                kindLabel = "Well-known place";
+                            } else if (gem?.status === "pending_community_vote") {
+                                kindLabel = "In community voting";
+                            }
+
+                            return (
+                                <li
+                                    key={stop.id}
+                                    className={`travel-post-stop${closed ? " is-closed" : ""}${stop.removed ? " is-removed" : ""}`}
+                                >
+                                    <span className="travel-post-stop-rank">{stop.order_number + 1}</span>
+                                    <div className="travel-post-stop-body">
+                                        <div className="travel-post-stop-head">
+                                            {clickable ? (
+                                                <button
+                                                    type="button"
+                                                    className="travel-post-stop-name-link"
+                                                    onClick={() => navigate(`/hidden-gems/${gem.id}`)}
+                                                >
+                                                    {stop.name}
+                                                </button>
+                                            ) : (
+                                                <span className="travel-post-stop-name">{stop.name}</span>
+                                            )}
+                                            <span className={`travel-post-stop-tag${kindClosed ? " is-closed" : ""}`}>
+                                                {kindLabel}
+                                            </span>
+                                        </div>
+                                        <span className="travel-post-stop-meta">
+                                            {[gem?.category, gem?.state].filter(Boolean).join(" · ")}
+                                            {stop.source_trip ? ` · from "${stop.source_trip}"` : ""}
                                         </span>
-                                        {location.pivot?.visited && (
-                                            <span className="travel-post-visited-badge">Verified Visitor</span>
-                                        )}
+                                        {stop.caption && <p className="travel-post-stop-caption">{stop.caption}</p>}
                                     </div>
-                                    {location.pivot?.caption && (
-                                        <p className="hidden-gems-card-description">{location.pivot.caption}</p>
-                                    )}
-                                    <button
-                                        type="button"
-                                        className="travel-post-map-btn"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                            navigate("/map", {
-                                                state: {
-                                                    highlightGem: location,
-                                                    highlightId: location.id,
-                                                },
-                                            });
-                                        }}
-                                    >
-                                        📍 View on Map
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                                </li>
+                            );
+                        })}
+                    </ol>
                 </div>
             )}
 

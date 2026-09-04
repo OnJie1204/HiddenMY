@@ -6,10 +6,7 @@ import { checkIn as postCheckIn } from '../api/votes';
 
 const REASON_LABELS = {
     permanently_closed: 'Permanently closed',
-    incorrect_location: 'Incorrect location',
-    not_actually_hidden: 'No longer hidden (gone viral / well known)',
-    duplicate: 'Duplicate of another gem',
-    inappropriate_content: 'Inappropriate content',
+    incorrect_contact_info: 'Contact info is wrong (hours / phone / website)',
 };
 
 function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
@@ -19,10 +16,9 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     const [eligibility, setEligibility] = useState(null);
     const [comment, setComment] = useState('');
     const [message, setMessage] = useState('');
+    const [messageType, setMessageType] = useState('error');
     const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
-    const [manualLat, setManualLat] = useState('');
-    const [manualLng, setManualLng] = useState('');
 
     useEffect(() => {
         if (isOpen && report) {
@@ -43,27 +39,32 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
             } else {
                 setStep('error');
                 setMessage(data.message);
+                setMessageType('error');
             }
         } catch (error) {
             setStep('error');
             setMessage(error?.response?.data?.message || 'Unable to check eligibility');
+            setMessageType('error');
         } finally {
             setLoading(false);
         }
     };
 
     const getCurrentLocation = () => {
-        setGpsStatus('Getting your location...');
+        setGpsStatus('Getting your location…');
+        setMessage('');
         if (!navigator.geolocation) {
-            setGpsStatus('error: Geolocation is not supported by your browser');
+            setGpsStatus('error: Your browser can\'t share your location, so this report can\'t be verified from here.');
             return;
         }
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                setGpsStatus('success: Location found!');
+                setGpsStatus('success: Location found — checking you in…');
                 performCheckIn(position.coords.latitude, position.coords.longitude);
             },
-            (error) => setGpsStatus('error: Unable to get your location. ' + (error.message || '')),
+            (error) => setGpsStatus('error: ' + (error.code === 1
+                ? 'Location permission denied. Allow location access to verify this report.'
+                : ('Couldn\'t get your location. ' + (error.message || '')))),
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
         );
     };
@@ -77,6 +78,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
             setStep('vote');
             const distanceMsg = res.data.distance ? ` (${res.data.distance} km away)` : '';
             setMessage('Check-in successful!' + distanceMsg);
+            setMessageType('success');
         } catch (error) {
             const data = error?.response?.data;
             if (data?.distance && data?.max_distance) {
@@ -84,19 +86,10 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
             } else {
                 setMessage(data?.message || 'Check-in failed');
             }
+            setMessageType('error');
         } finally {
             setCheckingIn(false);
         }
-    };
-
-    const confirmManualCheckIn = () => {
-        const lat = parseFloat(manualLat);
-        const lng = parseFloat(manualLng);
-        if (!manualLat || !manualLng || isNaN(lat) || isNaN(lng)) {
-            setMessage('Please enter valid coordinates.');
-            return;
-        }
-        performCheckIn(lat, lng);
     };
 
     const handleVerdict = async (verdict) => {
@@ -109,6 +102,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
             onVerifySuccess?.(res.data);
         } catch (error) {
             setMessage(error?.response?.data?.message || 'Failed to record vote');
+            setMessageType('error');
             setStep('error');
         } finally {
             setLoading(false);
@@ -121,8 +115,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         setMessage('');
         setEligibility(null);
         setGpsStatus('');
-        setManualLat('');
-        setManualLng('');
     };
 
     const handleClose = () => {
@@ -138,10 +130,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     if (!isOpen || !report) return null;
 
     const gemLocation = eligibility?.location;
-    const isFixReview = !!report.parent_report_id;
-    const flaggedImage = report.flagged_item && report.flagged_item !== 'description'
-        ? gemLocation?.images?.find((img) => String(img.id) === String(report.flagged_item))
-        : null;
 
     // Portaled to <body> — see ReportModal.jsx for why (a hovered ancestor
     // card's :hover transform would otherwise hijack this fixed-position
@@ -151,7 +139,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
             <div className="vote-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="vote-modal-header">
-                    <h2>{isFixReview ? 'Verify Fix' : 'Verify Report'}</h2>
+                    <h2>Verify Report</h2>
                     <button className="vote-modal-close" onClick={handleClose}>✕</button>
                 </div>
 
@@ -176,12 +164,10 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                             <p className="vote-checkin-hint">You must be within 5 km to check in.</p>
                             <div className="vote-checkin-options">
                                 <button className="vote-checkin-option" onClick={getCurrentLocation} disabled={checkingIn}>
-                                    <span className="vote-checkin-option-label">Use My Current Location</span>
-                                    <span className="vote-checkin-option-desc">Auto-detect your GPS position</span>
-                                </button>
-                                <button className="vote-checkin-option" onClick={() => setStep('manual_checkin')} disabled={checkingIn}>
-                                    <span className="vote-checkin-option-label">Enter Current Location</span>
-                                    <span className="vote-checkin-option-desc">Manually enter your GPS coordinates</span>
+                                    <span className="vote-checkin-option-label">
+                                        {checkingIn ? 'Checking in…' : 'Use My Current Location'}
+                                    </span>
+                                    <span className="vote-checkin-option-desc">Share your location to check in here</span>
                                 </button>
                             </div>
                             {gpsStatus && (
@@ -189,34 +175,8 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                     {gpsStatus.replace(/^(error:|success:)/, '')}
                                 </div>
                             )}
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
-                        </div>
-                    )}
-
-                    {step === 'manual_checkin' && (
-                        <div className="vote-manual-checkin">
-                            <button className="vote-manual-back" onClick={() => setStep('checkin')}>← Back</button>
-                            <h3>Enter Your Current Location</h3>
-                            <div className="vote-manual-inputs">
-                                <div className="vote-manual-input-group">
-                                    <label>Latitude</label>
-                                    <input type="text" className="vote-manual-input" placeholder="e.g. 3.2143"
-                                        value={manualLat} onChange={(e) => setManualLat(e.target.value)} />
-                                </div>
-                                <div className="vote-manual-input-group">
-                                    <label>Longitude</label>
-                                    <input type="text" className="vote-manual-input" placeholder="e.g. 101.7281"
-                                        value={manualLng} onChange={(e) => setManualLng(e.target.value)} />
-                                </div>
-                            </div>
-                            {message && <div className="vote-message error">{message}</div>}
-                            <div className="vote-actions">
-                                <button className="vote-btn-primary" onClick={confirmManualCheckIn} disabled={checkingIn}>
-                                    {checkingIn ? 'Checking in...' : 'Confirm Check-in'}
-                                </button>
-                                <button className="vote-btn-secondary" onClick={() => setStep('checkin')}>Cancel</button>
-                            </div>
                         </div>
                     )}
 
@@ -228,36 +188,50 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                             </div>
 
                             <div className="report-summary">
-                                <span className="report-summary-label">{isFixReview ? 'Owner requested a fix review for' : 'Reported for'}</span>
+                                <span className="report-summary-label">Reported for</span>
                                 <strong>{REASON_LABELS[report.reason] || report.reason}</strong>
                                 {report.description && <p className="report-summary-desc">"{report.description}"</p>}
 
-                                {report.reason === 'incorrect_location' && report.suggested_latitude != null && (
+                                {report.photo_path && (
+                                    <a
+                                        href={report.photo_path}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="report-evidence-photo"
+                                    >
+                                        <img src={report.photo_path} alt="Evidence from the reporter" />
+                                        <span>Reporter's evidence — tap to view full size</span>
+                                    </a>
+                                )}
+
+                                {report.reason === 'permanently_closed' && (
                                     <p className="report-summary-desc">
-                                        Suggested location: {Number(report.suggested_latitude).toFixed(5)}, {Number(report.suggested_longitude).toFixed(5)}
-                                        {' — '}
-                                        <a
-                                            href={`https://www.google.com/maps/search/?api=1&query=${report.suggested_latitude},${report.suggested_longitude}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            view on map
-                                        </a>
+                                        Confirm only if you've seen it closed for good. If confirmed, the gem stays
+                                        listed but is greyed out and marked "Permanently closed".
                                     </p>
                                 )}
 
-                                {report.reason === 'inappropriate_content' && (
-                                    <div className="report-flagged-content">
-                                        {report.flagged_item === 'description' ? (
-                                            <p className="report-summary-desc">Flagged description: "{gemLocation?.description}"</p>
-                                        ) : flaggedImage ? (
-                                            <>
-                                                <p className="report-summary-desc">Flagged photo:</p>
-                                                <img src={flaggedImage.image_url} alt="Flagged" className="report-flagged-image" />
-                                            </>
-                                        ) : (
-                                            <p className="report-summary-desc">Flagged photo (no longer available).</p>
-                                        )}
+                                {report.reason === 'incorrect_contact_info' && (
+                                    <div className="report-contact-diff">
+                                        <p className="report-summary-desc">
+                                            Current contact info:
+                                        </p>
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Hours</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.opening_hours || '—'}</span>
+                                        </div>
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Phone</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.phone || '—'}</span>
+                                        </div>
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Website</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.website || '—'}</span>
+                                        </div>
+                                        <p className="report-summary-desc">
+                                            If confirmed, a warning shows next to the contact info until the owner
+                                            corrects it. Nothing changes if disputed.
+                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -266,7 +240,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                 <label>Comment (optional)</label>
                                 <textarea
                                     className="vote-textarea"
-                                    placeholder={isFixReview ? 'Does the fix look right?' : 'What did you find when you visited?'}
+                                    placeholder='What did you find when you visited?'
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
                                     maxLength={1000}
@@ -274,14 +248,14 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                 <span className="vote-char-count">{comment.length}/1000</span>
                             </div>
 
-                            {message && <div className="vote-message error">{message}</div>}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <div className="report-verdict-actions">
                                 <button className="report-verdict-btn report-verdict-dispute" onClick={() => handleVerdict('dispute')} disabled={loading}>
-                                    {isFixReview ? "✗ Still not fixed" : '✓ This is fine — dispute report'}
+                                    ✓ This is fine — dispute report
                                 </button>
                                 <button className="report-verdict-btn report-verdict-confirm" onClick={() => handleVerdict('confirm')} disabled={loading}>
-                                    {isFixReview ? '✓ Fix looks good' : '⚠ Confirm — issue is real'}
+                                    ⚠ Confirm — issue is real
                                 </button>
                             </div>
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>

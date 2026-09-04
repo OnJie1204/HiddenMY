@@ -1,4 +1,4 @@
-import GemImage from "./GemImage";
+import PhotoCarousel from "./PhotoCarousel";
 import TruncatedText from "./TruncatedText";
 
 function RecentHiddenGemCard({
@@ -6,8 +6,16 @@ function RecentHiddenGemCard({
     onClick
 }){
     return (
-        <div className="recent-card" onClick={onClick}>
-            <GemImage src={post.images?.[0]?.image_url} alt={post.place_name} className="recent-image" />
+        <div className={`recent-card${post.permanently_closed_at ? " gem-card-closed" : ""}`} onClick={onClick}>
+            <div className="recent-image">
+                <PhotoCarousel
+                    images={post.images || []}
+                    alt={post.place_name}
+                    compact
+                    fill
+                    showThumbs={false}
+                />
+            </div>
             <div className="recent-content">
                 <h3>{post.place_name}</h3>
                 <p className="recent-state">

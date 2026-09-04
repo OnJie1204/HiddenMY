@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\FavouriteAchievementController;
+use App\Http\Controllers\AchievementController;
 use App\Http\Controllers\HiddenGemController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\VoteController;
@@ -32,10 +33,11 @@ Route::get('/users/{id}', [UserController::class, 'show']);
 
 // ===== Public Auth Routes =====
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login'])->name('login');  
+Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/resend-verification', [AuthController::class, 'resendVerification']);
+Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']);
 
 // Email verification
 Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
@@ -62,9 +64,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile', [AuthController::class, 'updateProfile']);
     Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
-    Route::post('/verify-email', [AuthController::class, 'verifyNewEmail']);
     Route::get('/me/favourite-achievements', [FavouriteAchievementController::class, 'index']);
     Route::put('/me/favourite-achievements', [FavouriteAchievementController::class, 'update']);
+    Route::post('/me/achievements/sync', [AchievementController::class, 'sync']);
     Route::post('/email/resend', function (Request $request) {
         $request->user()->sendEmailVerificationNotification();
         return response()->json(['message' => 'Verification link sent']);
@@ -77,15 +79,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('trip-itineraries', TripItineraryController::class);
 
     // ===== Vote Routes =====
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/votes/check/{locationId}', [VoteController::class, 'checkEligibility']);
-        Route::post('/votes/{locationId}', [VoteController::class, 'store']);
-        Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
-        Route::get('/my-votes', [VoteController::class, 'myVotes']);
-        Route::patch('/votes/{vote}/comment', [VoteController::class, 'updateComment']);
-        Route::delete('/votes/{vote}/comment', [VoteController::class, 'deleteComment']);
-        Route::delete('/votes/{vote}/photo', [VoteController::class, 'deletePhoto']);
-    });
+    Route::get('/votes/check/{locationId}', [VoteController::class, 'checkEligibility']);
+    // Standalone GPS check-in — used by the reporting / verification flow (voting
+    // sends coordinates inline via the store route below).
+    Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
+    Route::post('/votes/{locationId}', [VoteController::class, 'store']);
+    Route::get('/my-votes', [VoteController::class, 'myVotes']);
 
     // ===== Report Routes =====
     Route::get('/reports/check/{locationId}', [ReportController::class, 'checkEligibility']);
@@ -93,7 +92,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/location/{locationId}', [ReportController::class, 'show']);
     Route::get('/reports/{report}/check', [ReportController::class, 'checkVerifyEligibility']);
     Route::post('/reports/{report}/verify', [ReportController::class, 'verify']);
-    Route::post('/reports/{report}/request-fix-review', [ReportController::class, 'requestFixReview']);
 
     // ===== Wishlist =====
     Route::get('/wishlist', [WishlistController::class, 'index']);
@@ -101,6 +99,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/wishlist/{locationId}', [WishlistController::class, 'destroy']);
 
     // ===== Hidden Gems (write / account-specific) =====
+    Route::get('hidden-gems/address-autocomplete', [HiddenGemController::class, 'addressAutocomplete']);
     Route::get('hidden-gems/geocode', [HiddenGemController::class, 'geocode']);
     Route::get('hidden-gems/reverse-geocode', [HiddenGemController::class, 'reverseGeocode']);
     Route::get('hidden-gems/reverse-geocode-address', [HiddenGemController::class, 'reverseGeocodeAddress']);
@@ -112,6 +111,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ===== Travel Posts (write / account-specific) =====
     Route::get('my-travel-posts', [TravelPostController::class, 'myPosts']);
     Route::post('travel-posts', [TravelPostController::class, 'store']);
+    Route::post('travel-posts/{id}/copy-trip', [TravelPostController::class, 'copyTrip']);
     Route::put('travel-posts/{id}', [TravelPostController::class, 'update']);
     Route::delete('travel-posts/{id}', [TravelPostController::class, 'destroy']);
 
@@ -136,12 +136,14 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);
 Route::get('popular-hidden-gems', [HiddenGemController::class, 'popular']);
 Route::get('hidden-gems', [HiddenGemController::class, 'index']);
+Route::get('well-known-places', [HiddenGemController::class, 'wellKnown']);
 Route::get('hidden-gems/search', [HiddenGemController::class, 'search']);
 Route::get('hidden-gems/categories', [HiddenGemController::class, 'getCategories']);
 Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);
 Route::get('hidden-gems-in-bounds', [HiddenGemController::class, 'inBounds']);
 Route::get('nearby-attractions', [HiddenGemController::class, 'nearbyAttractions']);
 Route::get('hidden-gems/{id}/nearby', [HiddenGemController::class, 'nearby']);
+Route::get('hidden-gems/{id}/nearby-gems', [HiddenGemController::class, 'nearbyGems']);
 Route::get('hidden-gems/{id}', [HiddenGemController::class, 'show']);
 Route::get('/votes/{locationId}', [VoteController::class, 'getVotes']);
 Route::get('/gem-interactions/{locationId}', [GemInteractionController::class, 'getInteractions']);

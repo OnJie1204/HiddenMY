@@ -4,6 +4,8 @@ import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
 import { getMe, getUserProfile, updateProfile, changePassword, uploadAvatar } from '../api/auth';
 import { getMyHiddenGems } from '../api/hiddenGems';
 import { getTripItineraries } from '../api/TripItinerary';
+import { getMyTravelPosts } from '../api/travelPosts';
+import PhotoCarousel from '../components/PhotoCarousel';
 import { getFavouriteAchievements } from '../api/achievements';
 import { getPasswordStrength } from '../utils/password';
 import Avatar from '../components/Avatar';
@@ -35,9 +37,10 @@ function Profile({ setAppUser }) {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState('');
 
-  const [stats, setStats] = useState({ totalGems: 0, verifiedGems: 0, pendingGems: 0, totalTrips: 0 });
+  const [stats, setStats] = useState({ totalGems: 0, verifiedGems: 0, pendingGems: 0, totalTrips: 0, totalPosts: 0 });
   const [statsLoading, setStatsLoading] = useState(false);
   const [recentGems, setRecentGems] = useState([]);
+  const [recentPosts, setRecentPosts] = useState([]);
   const [favouriteAchievements, setFavouriteAchievements] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -53,6 +56,12 @@ function Profile({ setAppUser }) {
         setEmail(userRes.data.email);
         setHasPassword(userRes.data.has_password);
         setFavouriteAchievements(favouritesRes.data.data || []);
+      }).catch((err) => {
+        // A transient failure shouldn't blank the page; only a 401 is a real
+        // sign-out (handled by the api 401 interceptor + App).
+        if (err?.response?.status !== 401) {
+          setError('Could not load your profile right now — please refresh.');
+        }
       }).finally(() => setLoading(false));
     } else {
       setLoading(true);
@@ -74,10 +83,11 @@ function Profile({ setAppUser }) {
     }
 
     setStatsLoading(true);
-    Promise.all([getMyHiddenGems(), getTripItineraries()])
-      .then(([gemsRes, tripsRes]) => {
+    Promise.all([getMyHiddenGems(), getTripItineraries(), getMyTravelPosts()])
+      .then(([gemsRes, tripsRes, postsRes]) => {
         const gems = gemsRes.data.data || [];
         const trips = tripsRes.data || [];
+        const posts = postsRes.data.data || [];
         const verifiedGems = gems.filter((gem) => gem.status === 'hidden_gem').length;
         const pendingGems = gems.filter((gem) => gem.status === 'pending' || gem.status === 'pending_community_vote').length;
 
@@ -86,8 +96,10 @@ function Profile({ setAppUser }) {
           verifiedGems,
           pendingGems,
           totalTrips: trips.length,
+          totalPosts: posts.length,
         });
         setRecentGems(gems.slice(0, 3));
+        setRecentPosts(posts.slice(0, 3));
       })
       .catch(() => {})
       .finally(() => setStatsLoading(false));
@@ -229,7 +241,13 @@ function Profile({ setAppUser }) {
             <button
               type="button"
               className={`profile-tab ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('settings')}
+              onClick={() => {
+                setActiveTab('settings');
+                if (user) {
+                  setName(user.name);
+                  setEmail(user.email);
+                }
+              }}
             >
               Settings
             </button>
@@ -258,6 +276,12 @@ function Profile({ setAppUser }) {
                   <span className="stat-card-label">Trip Itineraries</span>
                 </div>
               )}
+              {isOwnProfile && (
+                <div className="stat-card">
+                  <span className="stat-card-value">{stats.totalPosts}</span>
+                  <span className="stat-card-label">Stories</span>
+                </div>
+              )}
             </div>
 
             <div className="profile-recent-section">
@@ -268,7 +292,11 @@ function Profile({ setAppUser }) {
                 )}
               </div>
 
-              {recentGems.length === 0 ? (
+              {isOwnProfile && statsLoading ? (
+                <div className="page-loading-bar" role="progressbar" aria-label="Loading hidden gems">
+                  <div className="page-loading-bar-indicator" />
+                </div>
+              ) : recentGems.length === 0 ? (
                 <div className="hidden-gems-empty">
                   <p>{isOwnProfile ? "You haven't submitted any hidden gems yet." : "No hidden gems yet."}</p>
                   {isOwnProfile && (
@@ -282,16 +310,18 @@ function Profile({ setAppUser }) {
                   {recentGems.map((gem) => (
                     <div
                       key={gem.id}
-                      className="hidden-gems-card"
+                      className={`hidden-gems-card${gem.permanently_closed_at ? " gem-card-closed" : ""}`}
                       onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                       style={{ cursor: 'pointer' }}
                     >
                       <div className="hidden-gems-card-image">
-                        {gem.images && gem.images.length > 0 ? (
-                          <img src={gem.images[0].image_url} alt={gem.place_name} />
-                        ) : (
-                          <div className="hidden-gems-card-no-image">No Image</div>
-                        )}
+                        <PhotoCarousel
+                          images={gem.images || []}
+                          alt={gem.place_name}
+                          compact
+                          fill
+                          showThumbs={false}
+                        />
                       </div>
                       <div className="hidden-gems-card-content">
                         <h2>{gem.place_name}</h2>
@@ -318,6 +348,69 @@ function Profile({ setAppUser }) {
                 </div>
               )}
             </div>
+
+            {isOwnProfile && (
+              <div className="profile-recent-section">
+                <div className="trip-detail-section-header">
+                  <h2>Your Stories</h2>
+                  {stats.totalPosts > 0 && (
+                    <Link to="/travel-posts?mine=1" className="home-trending-seeall">View all →</Link>
+                  )}
+                </div>
+
+                {statsLoading ? (
+                  <div className="page-loading-bar" role="progressbar" aria-label="Loading your stories">
+                    <div className="page-loading-bar-indicator" />
+                  </div>
+                ) : recentPosts.length === 0 ? (
+                  <div className="hidden-gems-empty">
+                    <p>You haven't written any travel posts yet.</p>
+                    <Link to="/travel-posts/create" className="hidden-gems-submit-btn">
+                      + Write a Post
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="hidden-gems-list profile-recent-list">
+                    {recentPosts.map((post) => (
+                      <div
+                        key={post.id}
+                        className="hidden-gems-card"
+                        onClick={() => navigate(`/travel-posts/${post.id}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="hidden-gems-card-image">
+                          {post.cover_image_url || post.images?.[0]?.image_url ? (
+                            <img
+                              src={post.cover_image_url || post.images[0].image_url}
+                              alt={post.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div className="hidden-gems-card-no-image">No Image</div>
+                          )}
+                        </div>
+                        <div className="hidden-gems-card-content">
+                          <h2>{post.title}</h2>
+                          <p className="hidden-gems-card-description">
+                            {post.body?.length > 120 ? `${post.body.slice(0, 120)}…` : post.body}
+                          </p>
+                          <div className="hidden-gems-card-tags">
+                            <span className="hidden-gems-card-state">
+                              {new Date(post.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                            {post.locations?.length > 0 && (
+                              <span className="hidden-gems-card-category">
+                                {post.locations.length} gem{post.locations.length > 1 ? 's' : ''} tagged
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -369,7 +462,7 @@ function Profile({ setAppUser }) {
                       onClick={() => setShowCurrentPassword((prev) => !prev)}
                       aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showCurrentPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                      {showCurrentPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                     </button>
                   </div>
                 )}
@@ -389,7 +482,7 @@ function Profile({ setAppUser }) {
                     onClick={() => setShowNewPassword((prev) => !prev)}
                     aria-label={showNewPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showNewPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                    {showNewPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                   </button>
                 </div>
 
@@ -424,7 +517,7 @@ function Profile({ setAppUser }) {
                     onClick={() => setShowConfirmPassword((prev) => !prev)}
                     aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showConfirmPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+                    {showConfirmPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
                   </button>
                 </div>
                 {newPasswordConfirmation && (

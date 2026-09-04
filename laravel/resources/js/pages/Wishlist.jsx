@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getWishlist, removeFromWishlist } from "../api/wishlist";
 import ReportButton from "../components/ReportButton";
+import PhotoCarousel from "../components/PhotoCarousel";
+import LoadingCards from "../components/LoadingCards";
 
 import "../styles/global.css";
 
@@ -51,9 +53,7 @@ export default function Wishlist({ user }) {
             </div>
 
             {loading ? (
-                <div className="hidden-gems-loading">
-                    <p>Loading your wishlist...</p>
-                </div>
+                <LoadingCards count={6} />
             ) : error ? (
                 <div className="hidden-gems-empty">
                     <p>{error}</p>
@@ -68,24 +68,18 @@ export default function Wishlist({ user }) {
             ) : (
                 <div className="hidden-gems-list">
                     {gems.map((gem) => (
-                        <div className="hidden-gems-card wishlist-card" key={gem.id}>
+                        <div className={`hidden-gems-card wishlist-card${gem.permanently_closed_at ? " gem-card-closed" : ""}`} key={gem.id}>
                             <div
                                 className="hidden-gems-card-image"
                                 onClick={() => navigate(`/hidden-gems/${gem.id}`)}
                             >
-                                {gem.images && gem.images.length > 0 ? (
-                                    <img
-                                        src={gem.images[0].image_url}
-                                        alt={gem.place_name}
-                                        onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            e.target.parentElement.innerHTML = `<div class="hidden-gems-card-no-image">No Image</div>`;
-                                        }}
-                                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                    />
-                                ) : (
-                                    <div className="hidden-gems-card-no-image">No Image</div>
-                                )}
+                                <PhotoCarousel
+                                    images={gem.images || []}
+                                    alt={gem.place_name}
+                                    compact
+                                    fill
+                                    showThumbs={false}
+                                />
                             </div>
 
                             <div className="hidden-gems-card-content">

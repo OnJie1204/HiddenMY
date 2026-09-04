@@ -5,64 +5,62 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * A verified gem (pending_community_vote / hidden_gem / well_known) can be
+ * reported for two things. Both resolve through the same community vote —
+ * 5 confirms upholds it, 5 disputes rejects it.
+ *
+ *   permanently_closed     - the place has shut for good. Needs a check-in.
+ *                            Upheld -> locations.permanently_closed_at set;
+ *                            greyed everywhere, frozen, owner can only delete.
+ *   incorrect_contact_info - the hours / phone / website are wrong. Needs a
+ *                            check-in, same as permanently_closed. Upheld ->
+ *                            locations.contact_flagged_at set; a warning icon
+ *                            shows and clears on the owner's next contact edit.
+ *                            No freeze.
+ *
+ * One report per reason may be open on a gem at a time.
+ */
 class Report extends Model
 {
     use HasFactory;
 
+    public const REASON_PERMANENTLY_CLOSED = 'permanently_closed';
+    public const REASON_INCORRECT_CONTACT = 'incorrect_contact_info';
+
     public const REASONS = [
-        'permanently_closed',
-        'incorrect_location',
-        'not_actually_hidden',
-        'duplicate',
-        'inappropriate_content',
+        self::REASON_PERMANENTLY_CLOSED,
+        self::REASON_INCORRECT_CONTACT,
     ];
 
+    /**
+     * Every reason needs the reporter (and each verifier) to have checked in at
+     * the place first — you have to have actually been there to report either a
+     * closure or wrong contact details.
+     */
     public const LOCATION_REQUIRED_REASONS = [
-        'permanently_closed',
-        'incorrect_location',
+        self::REASON_PERMANENTLY_CLOSED,
+        self::REASON_INCORRECT_CONTACT,
     ];
 
-    public const TIER_A_REASONS = [
-        'duplicate',
-        'not_actually_hidden',
-    ];
-
-    public const TIER_B_REASONS = [
-        'permanently_closed',
-        'incorrect_location',
-        'inappropriate_content',
-    ];
-
-    public const IMMEDIATE_DELETE_REASONS = [
-        'permanently_closed',
-    ];
-
-    public const AMENDABLE_REASONS = [
-        'inappropriate_content',
-    ];
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_UPHELD = 'upheld';
+    public const STATUS_REJECTED = 'rejected';
 
     protected $fillable = [
         'user_id',
         'location_id',
-        'parent_report_id',
         'reason',
         'description',
         'photo_path',
-        'suggested_latitude',
-        'suggested_longitude',
-        'flagged_item',
         'status',
         'confirm_count',
         'dispute_count',
         'resolved_at',
-        'delete_at',
     ];
 
     protected $casts = [
         'resolved_at' => 'datetime',
-        'delete_at' => 'datetime',
-        'suggested_latitude' => 'float',
-        'suggested_longitude' => 'float',
     ];
 
     public function user()
@@ -80,29 +78,14 @@ class Report extends Model
         return $this->hasMany(ReportVote::class);
     }
 
-    public function parent()
-    {
-        return $this->belongsTo(Report::class, 'parent_report_id');
-    }
-
-    /** Fix-review cycles filed against this (upheld) report. */
-    public function children()
-    {
-        return $this->hasMany(Report::class, 'parent_report_id');
-    }
-
     public function isPending(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === self::STATUS_PENDING;
     }
 
-    public function isTierA(): bool
+    /** Both reasons need a check-in at the place. */
+    public function requiresCheckIn(): bool
     {
-        return in_array($this->reason, self::TIER_A_REASONS, true);
-    }
-
-    public function isTierB(): bool
-    {
-        return in_array($this->reason, self::TIER_B_REASONS, true);
+        return in_array($this->reason, self::LOCATION_REQUIRED_REASONS, true);
     }
 }

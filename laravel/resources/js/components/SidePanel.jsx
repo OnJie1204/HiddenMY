@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import googleMapsIcon from "../assets/google_maps.png";
 import wazeIcon from "../assets/waze.png";
 import GemImage from "./GemImage";
+import PhotoCarousel from "./PhotoCarousel";
+import Spinner from "./Spinner";
 import Avatar from "./Avatar";
 import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
@@ -10,6 +12,10 @@ import VerifyReportModal from "./VerifyReportModal";
 import SignInPrompt from "./SignInPrompt";
 import { useCompare } from "../context/CompareContext";
 import { getReportForLocation } from "../api/reports";
+import { createTripItinerary } from "../api/TripItinerary";
+
+// Backend caps trip_name at 10 characters (TripItineraryController::store).
+const ITINERARY_NAME_MAX = 10;
 
 function getVotePhotoUrl(photoPath) {
     if (!photoPath) return "";
@@ -31,9 +37,10 @@ const MAX_WIDTH = 420;
 function SidePanel({
     group, isOpen, onClose, user, setUser, mode = "nav", headerExtra = null,
     nearby = [], nearbyLoading = false, onSelectNearby, onGemChange,
-    itineraries = [], onAddToItinerary,
+    itineraries = [], itinerariesLoading = false, onAddToItinerary, onItineraryCreated,
     wishlistIds = new Set(), onToggleWishlist,
     reviews = [], reviewsLoading = false,
+    images = [],
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [width, setWidth] = useState(340);
@@ -41,6 +48,9 @@ function SidePanel({
     const [isResizing, setIsResizing] = useState(false);
     const [itineraryOpen, setItineraryOpen] = useState(false);
     const [itineraryStatus, setItineraryStatus] = useState(null);
+    const [showItineraryForm, setShowItineraryForm] = useState(false);
+    const [newItineraryName, setNewItineraryName] = useState("");
+    const [creatingItinerary, setCreatingItinerary] = useState(false);
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
@@ -52,8 +62,9 @@ function SidePanel({
 
     const [localStatus, setLocalStatus] = useState(null);
     const bodyRef = useRef(null);
+    const panelRef = useRef(null);
     const navigate = useNavigate();
-    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
+    const { isComparing, toggleCompare, canAddMore, maxCompare, clearCompare } = useCompare();
 
     // A new selection always lands on the first post's detail view, and resets
     // any scroll from the previously-shown gem.
@@ -62,6 +73,8 @@ function SidePanel({
         setIsFullscreen(false);
         setItineraryOpen(false);
         setItineraryStatus(null);
+        setShowItineraryForm(false);
+        setNewItineraryName("");
         setLocalReportStatus(null);
         setLocalStatus(null);
         bodyRef.current?.scrollTo({ top: 0 });
@@ -109,6 +122,51 @@ function SidePanel({
         return () => document.removeEventListener("keydown", handleEscape);
     }, [onClose]);
 
+    // Close the navigation panel when the user interacts outside it.
+    // Keep embedded gem-detail mode unchanged so map interactions do not
+    // unintentionally dismiss the currently selected gem.
+    useEffect(() => {
+        if (!isOpen || mode !== "nav") {
+            return;
+        }
+
+        function isOutsidePanel(target) {
+            return (
+                panelRef.current &&
+                target instanceof Node &&
+                !panelRef.current.contains(target)
+            );
+        }
+
+        function handlePointerDown(event) {
+            if (isOutsidePanel(event.target)) {
+                onClose();
+            }
+        }
+
+        function handleWheel(event) {
+            if (isOutsidePanel(event.target)) {
+                onClose();
+            }
+        }
+
+        function handleTouchMove(event) {
+            if (isOutsidePanel(event.target)) {
+                onClose();
+            }
+        }
+
+        document.addEventListener("mousedown", handlePointerDown);
+        document.addEventListener("wheel", handleWheel, { passive: true });
+        document.addEventListener("touchmove", handleTouchMove, { passive: true });
+
+        return () => {
+            document.removeEventListener("mousedown", handlePointerDown);
+            document.removeEventListener("wheel", handleWheel);
+            document.removeEventListener("touchmove", handleTouchMove);
+        };
+    }, [isOpen, mode, onClose]);
+
     if (!isOpen) return null;
 
     const showNavChrome = mode === "nav";
@@ -145,17 +203,25 @@ function SidePanel({
     const canAddToItinerary = gem
         && (gem.source === "attraction" || status === "hidden_gem" || status === "pending_community_vote");
 
+    // A permanently-closed gem is frozen — no new wishlisting, comparing or
+    // reporting (see Location::acceptsNewInteractions on the backend).
+    const isClosed = !!(gem && (gem.permanently_closed_at || gem.permanentlyClosedAt));
+
     // OSM attractions aren't Location records, so there's nothing to wishlist
     // or compare — only our own database gems that have passed AI review qualify.
     const canWishlist = gem
         && gem.source === "database"
+        && !isClosed
         && (status === "hidden_gem" || status === "pending_community_vote");
     const isWishlisted = gem && wishlistIds.has(gem.id);
     const canCompare = canWishlist;
     const comparing = gem && isComparing(gem.id);
 
+    // A verified Hidden Gem, or one still in community voting (permanently_closed
+    // only) — the backend enforces per-reason and returns the allowed reasons.
     const canReportOrVerify = gem
         && gem.source === "database"
+        && !isClosed
         && (status === "hidden_gem" || status === "pending_community_vote");
 
     function requireSignIn(message) {
@@ -167,13 +233,14 @@ function SidePanel({
         // Guests can see the icon (it advertises the feature) but reporting
         // and verifying both require an account — skip the API round-trip
         // entirely and point them at sign-in.
+        const isPending = reportStatus === "under_review";
         if (!user) {
-            requireSignIn(reportStatus === "under_review"
+            requireSignIn(isPending
                 ? "Login to help verify this report."
                 : "Login to report a problem with this gem.");
             return;
         }
-        if (reportStatus !== "under_review") {
+        if (!isPending) {
             setReportModalOpen(true);
             return;
         }
@@ -195,11 +262,34 @@ function SidePanel({
             await onAddToItinerary(itinerary, gem);
             setItineraryStatus({ type: "success", message: `Added to "${itinerary.trip_name}".` });
             setItineraryOpen(false);
+            setShowItineraryForm(false);
+            setNewItineraryName("");
         } catch (error) {
             setItineraryStatus({
                 type: "error",
                 message: error?.response?.data?.message || "Could not add this stop.",
             });
+        }
+    }
+
+    async function handleCreateItineraryAndAdd() {
+        const name = newItineraryName.trim();
+        if (!name || creatingItinerary) return;
+
+        setCreatingItinerary(true);
+        setItineraryStatus({ type: "loading", message: `Creating "${name}"…` });
+        try {
+            const res = await createTripItinerary({ trip_name: name });
+            const newTrip = res.data?.data;
+            onItineraryCreated?.(newTrip);
+            await handleAddToItinerary(newTrip);
+        } catch (error) {
+            setItineraryStatus({
+                type: "error",
+                message: error?.response?.data?.message || "Could not create the itinerary.",
+            });
+        } finally {
+            setCreatingItinerary(false);
         }
     }
 
@@ -227,46 +317,44 @@ function SidePanel({
     const handleLogout = async () => {
         localStorage.removeItem('token');
         setUser(null);
+        clearCompare();
         onClose();
         navigate('/login');
     };
 
     const menuItems = [
-        { to: '/', label: 'Home' },
-        { to: '/map', label: 'Map' },
-        { to: '/hidden-gems', label: 'Hidden Gems' },
         { to: '/my-hidden-gems', label: 'My Hidden Gems', signInMessage: 'Login to manage your hidden gems and contributions.' },
-        { to: '/wishlist', label: 'Wishlist', signInMessage: 'Login to view your wishlist.' },
+        { to: '/hidden-gems', label: 'Hidden Gems' },
         { to: '/trip-itinerary', label: 'Trip Itinerary', signInMessage: 'Login to view and plan your trips.' },
         { to: '/travel-posts', label: 'Travel Posts' },
-        { to: '/profile', label: 'Profile', signInMessage: 'Login to view your profile.' },
+        { to: '/map', label: 'Map' },
     ];
 
     return (
         <div
+            ref={panelRef}
             className={`side-panel open ${embedded ? "side-panel-embedded" : ""} ${isFullscreen ? "fullscreen" : ""} ${isResizing ? "resizing" : ""}`}
             style={!isFullscreen ? { width: `${width}px` } : undefined}
         >
             {/* Header: Logo + Close */}
             <div className="side-panel-header" style={showNavChrome ? undefined : { justifyContent: "flex-end" }}>
                 {showNavChrome && (
-                    <div className="side-panel-logo">
+                    <Link to="/" className="side-panel-logo" onClick={onClose}>
                         <span className="side-panel-logo-icon">✦</span>
                         <span className="side-panel-logo-text">HiddenMY</span>
-                    </div>
+                    </Link>
                 )}
                 {!showNavChrome && (
                     <button
-                        className="side-panel-fullscreen-btn"
-                        onClick={() => setIsFullscreen(f => !f)}
-                        aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        type="button"
+                        className="side-panel-close"
+                        onClick={onClose}
+                        aria-label="Close location details"
+                        title="Close location details"
                     >
-                        {isFullscreen ? "⤢" : "⛶"}
+                        ✕
                     </button>
                 )}
-                <button className="side-panel-close" onClick={onClose} aria-label="Close">
-                    ✕
-                </button>
             </div>
 
             {headerExtra && (
@@ -324,8 +412,17 @@ function SidePanel({
 
                 {gem && (
                     <>
-                        <div className="side-panel-gem-header">
-                            <GemImage src={gem.image} alt={gem.title} className="side-panel-gem-image" />
+                        <div className={`side-panel-gem-header${isClosed ? " gem-card-closed" : ""}`}>
+                            {images && images.length > 0 ? (
+                                <PhotoCarousel
+                                    images={images}
+                                    alt={gem.title}
+                                    showThumbs={false}
+                                    className="side-panel-carousel"
+                                />
+                            ) : (
+                                <GemImage src={gem.image} alt={gem.title} className="side-panel-gem-image" />
+                            )}
                             <div className="side-panel-badges">
                                 {gem.category && <span className="badge badge-neutral">{gem.category}</span>}
                                 {gem.attractionType && (
@@ -340,8 +437,11 @@ function SidePanel({
                                 {gem.source === "database" && status === "ai_rejected" && (
                                     <span className="badge badge-pending">Not Accepted</span>
                                 )}
-                                {gem.source === "database" && status === "delisted" && (
-                                    <span className="badge badge-reported">Delisted</span>
+                                {gem.source === "database" && status === "well_known" && (
+                                    <span className="badge badge-success">Well-Known Place</span>
+                                )}
+                                {gem.source === "database" && (gem.permanently_closed_at || gem.permanentlyClosedAt) && (
+                                    <span className="badge badge-reported">Permanently closed</span>
                                 )}
                             </div>
                         </div>
@@ -368,13 +468,7 @@ function SidePanel({
                                     <button
                                         type="button"
                                         className={`compare-toggle-btn ${comparing ? "compare-toggle-btn-active" : ""}`}
-                                        onClick={() => {
-                                            if (!user) {
-                                                requireSignIn("Login to compare hidden gems.");
-                                                return;
-                                            }
-                                            toggleCompare(gem);
-                                        }}
+                                        onClick={() => toggleCompare(gem)}
                                         disabled={!canCompare || (!comparing && !canAddMore)}
                                         title={!canCompare
                                             ? "Only gems that have passed AI review can be compared"
@@ -400,6 +494,23 @@ function SidePanel({
                                 )}
                             </div>
                         </div>
+                        {gem.source === "database" && reportStatus === "under_review" && Number(gem.user_id) !== Number(user?.id) && (
+                            <div className="report-banner">
+                                <div className="report-banner-text">
+                                    <strong>This gem has a report under review</strong>
+                                    <p>Help the community confirm or dispute it — 5 votes either way settles it.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="report-banner-verify-btn"
+                                    onClick={handleReportIconClick}
+                                    disabled={loadingReport}
+                                >
+                                    {loadingReport ? "Loading…" : "Help Verify"}
+                                </button>
+                            </div>
+                        )}
+
                         {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
                         {gem.source === "database" && (gem.ratingCount > 0 || gem.checkInsCount > 0 || gem.distanceKm != null) && (
                             <div className="side-panel-stats-row">
@@ -442,6 +553,8 @@ function SidePanel({
                                         return;
                                     }
                                     setItineraryStatus(null);
+                                    setShowItineraryForm(false);
+                                    setNewItineraryName("");
                                     setItineraryOpen(o => !o);
                                 }}
                                 disabled={!canAddToItinerary}
@@ -468,11 +581,11 @@ function SidePanel({
 
                         {itineraryOpen && (
                             <div className="side-panel-itinerary-picker">
-                                {itineraries.length === 0 ? (
-                                    <p className="side-panel-nearby-status">
-                                        No itineraries yet — <Link to="/trip-itinerary">create one</Link> first.
-                                    </p>
-                                ) : (
+                                {itinerariesLoading && (
+                                    <Spinner size="sm" inline label="Loading itineraries…" />
+                                )}
+
+                                {!itinerariesLoading && itineraries.length > 0 && (
                                     <>
                                         <h3>Add to which trip?</h3>
                                         {itineraries.map((trip) => (
@@ -486,6 +599,57 @@ function SidePanel({
                                         ))}
                                     </>
                                 )}
+
+                                {!itinerariesLoading && (showItineraryForm ? (
+                                    <form
+                                        className="side-panel-itinerary-create"
+                                        onSubmit={(event) => {
+                                            event.preventDefault();
+                                            handleCreateItineraryAndAdd();
+                                        }}
+                                    >
+                                        <input
+                                            type="text"
+                                            className="side-panel-itinerary-create-input"
+                                            placeholder="New trip name"
+                                            maxLength={ITINERARY_NAME_MAX}
+                                            value={newItineraryName}
+                                            onChange={(event) => setNewItineraryName(event.target.value)}
+                                            autoFocus
+                                        />
+                                        <div className="side-panel-itinerary-create-actions">
+                                            <button
+                                                type="button"
+                                                className="side-panel-itinerary-create-cancel"
+                                                onClick={() => {
+                                                    setShowItineraryForm(false);
+                                                    setNewItineraryName("");
+                                                }}
+                                                disabled={creatingItinerary}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="side-panel-itinerary-create-submit"
+                                                disabled={!newItineraryName.trim() || creatingItinerary}
+                                            >
+                                                Create &amp; add
+                                            </button>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="side-panel-itinerary-option side-panel-itinerary-new"
+                                        onClick={() => {
+                                            setItineraryStatus(null);
+                                            setShowItineraryForm(true);
+                                        }}
+                                    >
+                                        ＋ New itinerary
+                                    </button>
+                                ))}
                             </div>
                         )}
 
@@ -555,7 +719,7 @@ function SidePanel({
                                         See all
                                     </button>
                                 </div>
-                                {reviewsLoading && <p className="side-panel-nearby-status">Loading reviews…</p>}
+                                {reviewsLoading && <Spinner size="sm" inline label="Loading reviews…" />}
                                 {!reviewsLoading && reviews.length === 0 && (
                                     <p className="side-panel-nearby-status">No reviews yet.</p>
                                 )}
@@ -592,7 +756,7 @@ function SidePanel({
                         {gem.source === "database" && (
                             <div className="side-panel-nearby">
                                 <h3>Near this gem</h3>
-                                {nearbyLoading && <p className="side-panel-nearby-status">Loading nearby spots…</p>}
+                                {nearbyLoading && <Spinner size="sm" inline label="Loading nearby spots…" />}
                                 {!nearbyLoading && nearby.length === 0 && (
                                     <p className="side-panel-nearby-status">Nothing found nearby.</p>
                                 )}
@@ -606,7 +770,7 @@ function SidePanel({
                                             >
                                                 <div>
                                                     <strong>{place.name}</strong>
-                                                    <p>{place.type.replace(/_/g, " ")} · {place.distance}m away</p>
+                                                    <p>{place.source === "database" ? "Hidden gem" : place.type.replace(/_/g, " ")} · {place.distance}m away</p>
                                                 </div>
                                             </div>
                                         ))}

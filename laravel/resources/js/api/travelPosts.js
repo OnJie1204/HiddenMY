@@ -30,3 +30,8 @@ export const updateTravelPost = (id, data) => {
 
 export const deleteTravelPost = (id) =>
     api.delete(`/travel-posts/${id}`);
+
+// Reader action — clone this post's frozen trip snapshot into a new itinerary
+// of the current user's. Deleted / permanently-closed stops are skipped.
+export const copyPostTrip = (id) =>
+    api.post(`/travel-posts/${id}/copy-trip`);

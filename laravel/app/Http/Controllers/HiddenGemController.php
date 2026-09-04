@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ReviewPendingLocationEdit;
 use App\Jobs\VerifyHiddenGemSubmission;
 use App\Models\Location;
 use App\Models\Category;
 use App\Models\LocationImage;
+use App\Models\LocationPendingEdit;
+use App\Models\Report;
 use App\Services\OsmAttractionCache;
 use App\Services\SpecialAchievementService;
 use App\Support\Geo;
@@ -31,6 +34,8 @@ class HiddenGemController extends Controller
         'longitude',
         'status',
         'report_status',
+        'permanently_closed_at',
+        'contact_flagged_at',
         'vote_count',
         'verification_threshold',
     ];
@@ -60,6 +65,17 @@ class HiddenGemController extends Controller
     ];
 
     private const SEARCH_RESULT_LIMIT = 20;
+
+    /** Max address suggestions returned to the Submit / Edit form's type-ahead. */
+    private const ADDRESS_SUGGESTION_LIMIT = 6;
+
+    /** The 16 values the submit form's state <select> accepts. A geocoded state
+     *  that doesn't map to one of these is returned blank so the user picks it. */
+    private const MALAYSIA_STATES = [
+        'Johor', 'Kuala Lumpur', 'Penang', 'Selangor', 'Melaka', 'Perak', 'Pahang',
+        'Sarawak', 'Sabah', 'Terengganu', 'Kelantan', 'Kedah', 'Negeri Sembilan',
+        'Perlis', 'Putrajaya', 'Labuan',
+    ];
 
     /** Nominatim's own documented hard cap on `limit` — asking for more does nothing. */
     private const OSM_SEARCH_FETCH_LIMIT = 50;
@@ -123,6 +139,7 @@ class HiddenGemController extends Controller
             'opening_hours' => $request->opening_hours,
             'phone' => $request->phone,
             'website' => $request->website,
+            'contact_updated_at' => now(),
             'latitude' => $request->latitude,
             'longitude' => $request->longitude,
             'status' => 'pending',
@@ -173,7 +190,9 @@ class HiddenGemController extends Controller
             }
         }
 
-        VerifyHiddenGemSubmission::dispatch($location->id);
+        // afterCommit(): when the queue is not 'sync' the worker must not pick
+        // the job up before this request's writes are committed.
+        VerifyHiddenGemSubmission::dispatch($location->id)->afterCommit();
 
         return response()->json([
             'message' => 'Hidden gem submitted successfully.',
@@ -198,7 +217,7 @@ class HiddenGemController extends Controller
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
-            ->publiclyVisible();
+            ->discoverable();
 
         // Filter by status (hidden_gem / pending_community_vote)
         if ($request->has('status') && in_array($request->status, ['hidden_gem', 'pending_community_vote'])) {
@@ -215,9 +234,16 @@ class HiddenGemController extends Controller
             $query->where('state', $request->state);
         }
 
-        // Search by place name
-        if ($request->has('search') && $request->search) {
-            $query->where('place_name', 'like', '%' . $request->search . '%');
+        // Search by place name, address, or state
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery
+                    ->where('place_name', 'ILIKE', '%' . $search . '%')
+                    ->orWhere('address', 'ILIKE', '%' . $search . '%')
+                    ->orWhere('state', 'ILIKE', '%' . $search . '%');
+            });
         }
 
         // Sorting
@@ -240,6 +266,55 @@ class HiddenGemController extends Controller
         ]);
     }
 
+    /**
+     * Well-known places — gems the community has outgrown (promoted by the
+     * well-known:promote job). Same shape as index(), its own browse list; they
+     * are deliberately kept out of the Hidden Gems list itself.
+     */
+    public function wellKnown(Request $request): JsonResponse
+    {
+        $query = Location::query()
+            ->select(self::PUBLIC_LOCATION_COLUMNS)
+            ->with([
+                'user:id,name,avatar_url',
+                'category:id,name',
+                'images:id,location_id,image_url',
+            ])
+            ->withCount('votes')
+            ->withAvg('ratings', 'rating')
+            ->withCount(['ratings', 'checkIns'])
+            ->wellKnown();
+
+        if ($request->filled('category')) {
+            $query->where('category_id', $request->category);
+        }
+
+        if ($request->filled('state')) {
+            $query->where('state', $request->state);
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('place_name', 'ILIKE', '%' . $search . '%')
+                    ->orWhere('address', 'ILIKE', '%' . $search . '%')
+                    ->orWhere('state', 'ILIKE', '%' . $search . '%');
+            });
+        }
+
+        $query->orderBy('created_at', $request->input('sort') === 'oldest' ? 'asc' : 'desc');
+
+        $perPage = max(1, min((int) $request->input('per_page', 12), 500));
+        $places = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => $places->items(),
+            'current_page' => $places->currentPage(),
+            'last_page' => $places->lastPage(),
+            'total' => $places->total(),
+        ]);
+    }
+
     public function myHiddenGems(Request $request): JsonResponse
     {
         $user = Auth::user();
@@ -248,10 +323,19 @@ class HiddenGemController extends Controller
             'category',
             'images'
         ])
+        ->withExists('votes')
         ->where('user_id', $user->id)
         ->where('status', '!=', 'deleted')
         ->latest()
         ->get();
+
+        $hiddenGems->each(function (Location $gem) {
+            $eligibility = $this->managementEligibility($gem);
+            $gem->setAttribute('can_edit', $eligibility['can_edit']);
+            $gem->setAttribute('can_delete', $eligibility['can_delete']);
+            $gem->setAttribute('edit_mode', $eligibility['edit_mode']);
+            $gem->makeHidden('votes_exists');
+        });
 
         return response()->json([
             'data' => $hiddenGems
@@ -269,6 +353,15 @@ class HiddenGemController extends Controller
         if ($gem->user_id !== Auth::id()) {
             return response()->json([
                 'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        $eligibility = $this->managementEligibility($gem);
+
+        if (! $eligibility['can_delete']) {
+            return response()->json([
+                'title' => 'Deletion Unavailable',
+                'message' => $this->deleteUnavailableMessage($gem),
             ], 403);
         }
 
@@ -291,26 +384,102 @@ class HiddenGemController extends Controller
             ], 403);
         }
 
-        if ($gem->status === 'hidden_gem') {
-            return response()->json([
-                'message' => 'Verified Hidden Gems can no longer be edited.'
-            ], 403);
+        $eligibility = $this->managementEligibility($gem);
+        $editMode = $eligibility['edit_mode'];
+
+        if (! $eligibility['can_edit']) {
+            $message = $editMode === 'delete_only'
+                ? 'This place is marked permanently closed. It can no longer be edited — only deleted.'
+                : 'This Hidden Gem can no longer be edited.';
+
+            return response()->json(['message' => $message], 403);
         }
 
-        if ($gem->votes()->exists()) {
+        // ---- Verified gem (pending_community_vote / hidden_gem / well_known) ----
+        // Contact fields save instantly and clear the "contact info wrong" flag.
+        // A new description and/or extra photos go through a quick async AI
+        // review (content_safety + same_place) before they are applied — the
+        // identity fields (name / address / coordinates / category / originals)
+        // are locked forever and never touched here.
+        if ($editMode === 'verified') {
+            $editType = $request->input('edit_type', 'contact');
+
+            if ($editType === 'contact') {
+                $contact = $request->validate([
+                    'opening_hours' => 'nullable|string|max:255',
+                    'phone' => 'nullable|string|max:30',
+                    'website' => 'nullable|url|max:255',
+                ]);
+
+                $gem->update([
+                    'opening_hours' => $contact['opening_hours'] ?? null,
+                    'phone' => $contact['phone'] ?? null,
+                    'website' => $contact['website'] ?? null,
+                    'contact_flagged_at' => null,
+                    'contact_updated_at' => now(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Contact information updated.',
+                    'data' => $gem->fresh()->load(['category', 'images']),
+                ]);
+            }
+
+            $validated = $request->validate([
+                'description' => 'nullable|string|max:5000',
+                'images' => 'nullable|array|max:5',
+                'images.*' => 'image|max:5120',
+            ]);
+
+            $hasDescription = trim((string) ($validated['description'] ?? '')) !== '';
+            if (! $hasDescription && ! $request->hasFile('images')) {
+                return response()->json([
+                    'message' => 'Add a new description or at least one photo to submit an edit.',
+                ], 422);
+            }
+
+            $usedToday = LocationPendingEdit::where('location_id', $gem->id)
+                ->whereDate('created_at', now()->toDateString())
+                ->count();
+
+            if ($usedToday >= self::MAX_CONTENT_EDITS_PER_DAY) {
+                return response()->json([
+                    'message' => 'You can submit at most ' . self::MAX_CONTENT_EDITS_PER_DAY
+                        . ' description/photo edits per gem per day. Please try again tomorrow.',
+                ], 429);
+            }
+
+            $uploadedImageUrls = $this->uploadLocationImages($request->file('images') ?? []);
+            if ($uploadedImageUrls === null) {
+                return response()->json(['message' => 'Failed to upload image.'], 500);
+            }
+
+            // One pending edit per gem — a fresh submission supersedes any still waiting.
+            LocationPendingEdit::where('location_id', $gem->id)
+                ->where('status', LocationPendingEdit::STATUS_PENDING)
+                ->update([
+                    'status' => LocationPendingEdit::STATUS_REJECTED,
+                    'ai_reason' => 'Replaced by a newer edit.',
+                    'reviewed_at' => now(),
+                ]);
+
+            $pendingEdit = LocationPendingEdit::create([
+                'location_id' => $gem->id,
+                'user_id' => Auth::id(),
+                'proposed_description' => $hasDescription ? $validated['description'] : null,
+                'proposed_image_urls' => $uploadedImageUrls ?: null,
+                'status' => LocationPendingEdit::STATUS_PENDING,
+            ]);
+
+            ReviewPendingLocationEdit::dispatch($pendingEdit->id)->afterCommit();
+
             return response()->json([
-                'message' => 'This Hidden Gem can no longer be edited because voting has started.'
-            ], 403);
+                'message' => 'Your changes were submitted for a quick AI review and will appear once approved.',
+                'data' => $gem->fresh()->load(['category', 'images']),
+            ]);
         }
 
-        $editableStatuses = ['pending', 'ai_rejected', 'pending_community_vote'];
-
-        if (! in_array($gem->status, $editableStatuses, true)) {
-            return response()->json([
-                'message' => 'This hidden gem can no longer be edited.'
-            ], 403);
-        }
-
+        // ---- 'normal' (pending / ai_rejected): a full resubmit, any field ----
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
             'place_name' => 'required|string|max:255',
@@ -325,39 +494,32 @@ class HiddenGemController extends Controller
             'longitude' => 'required|numeric',
             'images' => 'nullable|array',
             'images.*' => 'image|max:5120',
+            'remove_image_ids' => 'nullable|array',
+            'remove_image_ids.*' => 'integer',
         ]);
 
-        $uploadedImageUrls = [];
-
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $fileName = 'hidden-gems/' . uniqid() . '.' . $image->getClientOriginalExtension();
-
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
-                    'apikey' => env('SUPABASE_KEY'),
-                    'Content-Type' => $image->getMimeType(),
-                ])->withBody(
-                    file_get_contents($image->getRealPath()),
-                    $image->getMimeType()
-                )->post(
-                    env('SUPABASE_URL') . '/storage/v1/object/location_images/' . $fileName
-                );
-
-                if ($response->failed()) {
-                    return response()->json([
-                        'message' => 'Failed to upload image.',
-                        'error' => $response->json()
-                    ], 500);
-                }
-
-                $uploadedImageUrls[] = env('SUPABASE_URL')
-                    . '/storage/v1/object/public/location_images/'
-                    . $fileName;
-            }
+        $uploadedImageUrls = $this->uploadLocationImages($request->file('images') ?? []);
+        if ($uploadedImageUrls === null) {
+            return response()->json(['message' => 'Failed to upload image.'], 500);
         }
 
-        unset($validated['images']);
+        // Drop any existing photos the owner removed. Guard: never leave the gem
+        // with zero photos.
+        $removeIds = $validated['remove_image_ids'] ?? [];
+        if (! empty($removeIds)) {
+            $keeping = $gem->images()->whereNotIn('id', $removeIds)->count();
+            if ($keeping === 0 && empty($uploadedImageUrls)) {
+                return response()->json([
+                    'message' => 'A hidden gem needs at least one photo — add a new one before removing the last existing photo.',
+                ], 422);
+            }
+            $gem->images()->whereIn('id', $removeIds)->delete();
+        }
+
+        unset($validated['images'], $validated['remove_image_ids']);
+
+        // A full resubmit stamps the contact fields as freshly set.
+        $validated['contact_updated_at'] = now();
 
         // Update hidden gem information
         $gem->update($validated);
@@ -369,18 +531,22 @@ class HiddenGemController extends Controller
             ]);
         }
 
-        // Reset verification progress after editing
+        // Reset verification progress after editing — an edit is a full
+        // resubmit and the community re-verifies from scratch.
         $gem->vote_count = 0;
         $gem->status = 'pending';
         $gem->ai_review_reason = null;
         $gem->verification_attempts = 0;
+        $gem->report_status = null;
+        $gem->permanently_closed_at = null;
+        $gem->contact_flagged_at = null;
         $gem->save();
 
         // Remove previous vote records
         $gem->votes()->delete();
 
         // Re-run Stage 1 AI verification against the updated submission.
-        VerifyHiddenGemSubmission::dispatch($gem->id);
+        VerifyHiddenGemSubmission::dispatch($gem->id)->afterCommit();
 
         return response()->json([
             'message' => 'Hidden gem updated successfully and is being re-verified.',
@@ -404,9 +570,16 @@ class HiddenGemController extends Controller
                             ->withCount(['ratings', 'checkIns'])
                             ->findOrFail($id);
 
-        $isPubliclyVisible = in_array($location->status, Location::PUBLICLY_VISIBLE_STATUSES, true);
+        $isPubliclyVisible = Location::isPubliclyVisible($location);
         $viewer = Auth::guard('sanctum')->user();
         $isOwner = $viewer !== null && $location->user_id === $viewer->id;
+
+        // A deleted gem is invisible to everyone, its owner included. Anything
+        // else that isn't publicly visible (pending / ai_rejected) stays
+        // owner-only.
+        if ($location->status === Location::STATUS_DELETED) {
+            abort(404);
+        }
 
         if (! $isPubliclyVisible && ! $isOwner) {
             abort(404);
@@ -426,6 +599,39 @@ class HiddenGemController extends Controller
             $location->user->setAttribute('favourite_achievements', $activeFavourites);
         }
 
+        // A "contact info is wrong" report that the community upheld leaves a
+        // warning flag on the gem until the owner's next contact edit clears it.
+        if ($location->contact_flagged_at !== null) {
+            $location->setAttribute('contact_flagged', true);
+        }
+
+        if ($isOwner) {
+            $eligibility = $this->managementEligibility($location);
+            $location->setAttribute('can_edit', $eligibility['can_edit']);
+            $location->setAttribute('can_delete', $eligibility['can_delete']);
+            $location->setAttribute('edit_mode', $eligibility['edit_mode']);
+            $location->setAttribute('can_edit_contact', $eligibility['can_edit_contact']);
+            $location->setAttribute('can_propose_content', $eligibility['can_propose_content']);
+
+            // Surface the current pending description/photo edit (if any) so the
+            // owner sees a "changes under review" / "changes rejected" banner.
+            $pendingEdit = $location->pendingEdits()
+                ->latest('id')
+                ->first();
+
+            if ($pendingEdit && in_array($pendingEdit->status, [
+                LocationPendingEdit::STATUS_PENDING,
+                LocationPendingEdit::STATUS_REJECTED,
+            ], true)) {
+                $location->setAttribute('pending_edit', [
+                    'status' => $pendingEdit->status,
+                    'ai_reason' => $pendingEdit->ai_reason,
+                    'submitted_at' => $pendingEdit->created_at,
+                    'reviewed_at' => $pendingEdit->reviewed_at,
+                ]);
+            }
+        }
+
         return response()->json(['data' => $location]);
     }
 
@@ -437,7 +643,7 @@ class HiddenGemController extends Controller
     {
         $gem = Location::findOrFail($id);
 
-        if (!Auth::check() && !in_array($gem->status, Location::PUBLICLY_VISIBLE_STATUSES, true)) {
+        if (!Auth::check() && !Location::isPubliclyVisible($gem)) {
             abort(404);
         }
 
@@ -457,10 +663,50 @@ class HiddenGemController extends Controller
         return response()->json(['data' => $results]);
     }
 
-    /**
-     * Nearby attractions around an arbitrary coordinate — used by the map's
-     * zoom-in "explore nearby" discovery, which has no Hidden Gem to key off.
-     */
+    public function nearbyGems(Request $request, $id): JsonResponse
+    {
+        $gem = Location::findOrFail($id);
+
+        if (!Auth::check() && !Location::isPubliclyVisible($gem)) {
+            abort(404);
+        }
+
+        $radius = (int) $request->query('radius', self::NEARBY_RADIUS_METERS);
+        $radius = max(100, min(3000, $radius));
+
+        $lat = (float) $gem->latitude;
+        $lng = (float) $gem->longitude;
+        [$minLat, $maxLat, $minLng, $maxLng] = Geo::boundingBox($lat, $lng, $radius);
+
+        $results = Location::query()
+            ->select(['id', 'place_name', 'category_id', 'latitude', 'longitude', 'status', 'permanently_closed_at'])
+            ->with('category:id,name')
+            ->publiclyVisible()
+            ->where('id', '!=', $gem->id)
+            ->whereBetween('latitude', [$minLat, $maxLat])
+            ->whereBetween('longitude', [$minLng, $maxLng])
+            ->get()
+            ->map(function (Location $row) use ($lat, $lng) {
+                return [
+                    'id' => $row->id,
+                    'name' => $row->place_name,
+                    'type' => $row->category?->name ?? 'Hidden gem',
+                    'status' => $row->status,
+                    'permanently_closed_at' => $row->permanently_closed_at,
+                    'latitude' => (float) $row->latitude,
+                    'longitude' => (float) $row->longitude,
+                    'source' => 'database',
+                    'distance' => (int) round(Geo::distanceMeters($lat, $lng, $row->latitude, $row->longitude)),
+                ];
+            })
+            ->filter(fn (array $nearbyGem) => $nearbyGem['distance'] <= $radius)
+            ->sortBy('distance')
+            ->take(10)
+            ->values();
+
+        return response()->json(['data' => $results]);
+    }
+
     public function nearbyAttractions(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -508,7 +754,7 @@ class HiddenGemController extends Controller
         // full row + every photo — this endpoint can be asked for up to 300 rows
         // on a single pan, so trimming it matters more than the other gem queries.
         $query = Location::query()
-            ->select(['id', 'category_id', 'place_name', 'state', 'address', 'description', 'latitude', 'longitude', 'status', 'report_status', 'vote_count', 'verification_threshold'])
+            ->select(['id', 'category_id', 'place_name', 'state', 'address', 'description', 'latitude', 'longitude', 'status', 'report_status', 'permanently_closed_at', 'vote_count', 'verification_threshold'])
             ->with([
                 'category:id,name',
                 // Table-qualified: the "of many" relation joins a subquery that
@@ -568,7 +814,7 @@ class HiddenGemController extends Controller
         $totalDatabaseMatches = (clone $databaseQuery)->count();
 
         $databaseLocations = $databaseQuery
-            ->select(['id', 'place_name', 'state', 'latitude', 'longitude', 'status'])
+            ->select(['id', 'place_name', 'state', 'latitude', 'longitude', 'status', 'permanently_closed_at'])
             ->orderBy('place_name')
             ->skip($dbOffset)
             ->limit(self::SEARCH_RESULT_LIMIT)
@@ -848,6 +1094,155 @@ class HiddenGemController extends Controller
     }
 
     /**
+     * Live address suggestions for the "Submit a Hidden Gem" form's type-ahead.
+     *
+     * Backed by Photon (photon.komoot.io) — an OpenStreetMap-based geocoder
+     * built for autocomplete (prefix matching), unlike Nominatim which the
+     * rest of this controller uses for one-shot lookups. Free, no API key.
+     * Results are filtered to Malaysia and normalised into exactly the fields
+     * the form needs: address / state / postcode / latitude / longitude.
+     */
+    public function addressAutocomplete(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'query' => ['required', 'string', 'min:3', 'max:150'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+        ]);
+
+        $query = trim($validated['query']);
+        $cacheKey = 'photon-autocomplete:'.md5(strtolower($query));
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return response()->json(['data' => $cached]);
+        }
+
+        // Bias ranking toward the pin the user has already placed, else toward
+        // peninsular Malaysia's rough centre so local results surface first.
+        $latitude = isset($validated['latitude']) ? (float) $validated['latitude'] : 4.2;
+        $longitude = isset($validated['longitude']) ? (float) $validated['longitude'] : 102.0;
+
+        try {
+            $features = Http::acceptJson()
+                ->withUserAgent(config('app.name', 'HiddenMY').' address autocomplete')
+                ->timeout(5)
+                ->get(rtrim((string) config('services.photon.url'), '/').'/api', [
+                    'q' => $query,
+                    'lang' => 'en',
+                    'limit' => 15, // over-fetch, then filter to MY and trim
+                    'lat' => $latitude,
+                    'lon' => $longitude,
+                ])
+                ->throw()
+                ->json('features', []);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'message' => 'Address lookup is unavailable right now. You can still type the address and use the map.',
+            ], 502);
+        }
+
+        $suggestions = collect($features)
+            ->filter(fn ($feature) => strtoupper((string) data_get($feature, 'properties.countrycode')) === 'MY')
+            ->map(fn ($feature) => $this->normalisePhotonFeature($feature))
+            ->filter(fn ($s) => $s['latitude'] !== null && $s['longitude'] !== null && $s['label'] !== '')
+            ->unique('label')
+            ->take(self::ADDRESS_SUGGESTION_LIMIT)
+            ->values()
+            ->all();
+
+        Cache::put($cacheKey, $suggestions, now()->addHours(6));
+
+        return response()->json(['data' => $suggestions]);
+    }
+
+    /**
+     * Turn one Photon GeoJSON feature into the flat shape the form consumes.
+     */
+    private function normalisePhotonFeature(array $feature): array
+    {
+        $props = $feature['properties'] ?? [];
+        $coordinates = $feature['geometry']['coordinates'] ?? [null, null];
+
+        $name = trim((string) ($props['name'] ?? ''));
+        $street = trim(implode(' ', array_filter([
+            $props['housenumber'] ?? null,
+            $props['street'] ?? null,
+        ])));
+
+        // Lead with the POI name when it isn't already the street (e.g. a
+        // café or a kampung waterfall), otherwise the street line alone.
+        if ($name !== '' && ($street === '' || stripos($street, $name) === false)) {
+            $street = trim($name.($street !== '' ? ', '.$street : ''));
+        }
+
+        $locality = trim((string) (
+            $props['district']
+            ?? $props['city']
+            ?? $props['county']
+            ?? $props['locality']
+            ?? ''
+        ));
+
+        // Photon usually gives `state`, but the three federal territories
+        // (Kuala Lumpur, Putrajaya, Labuan) come through as `city`/`county`
+        // with no `state` — fall back through those so the form's state
+        // dropdown still auto-fills.
+        $state = $this->canonicalMalaysiaState($props['state'] ?? '')
+            ?: $this->canonicalMalaysiaState($props['county'] ?? '')
+            ?: $this->canonicalMalaysiaState($props['city'] ?? '');
+
+        $postcode = trim((string) ($props['postcode'] ?? ''));
+
+        $address = trim(implode(', ', array_filter([$street, $locality])));
+        if ($address === '') {
+            $address = $locality !== '' ? $locality : ($name !== '' ? $name : $state);
+        }
+
+        $label = trim(implode(', ', array_filter([$address, $state, $postcode])), ', ');
+
+        return [
+            'label' => $label,
+            'address' => $address,
+            'state' => $state,
+            'postcode' => $postcode,
+            'latitude' => isset($coordinates[1]) ? (float) $coordinates[1] : null,
+            'longitude' => isset($coordinates[0]) ? (float) $coordinates[0] : null,
+        ];
+    }
+
+    /**
+     * Normalise a geocoder's state name (Malay / English / federal-territory
+     * variants) to one of the 16 values the form's <select> accepts, or '' if
+     * it doesn't map to one.
+     */
+    private function canonicalMalaysiaState(?string $state): string
+    {
+        $state = trim((string) $state);
+
+        $aliases = [
+            'Pulau Pinang' => 'Penang',
+            'Penang Island' => 'Penang',
+            'Malacca' => 'Melaka',
+            'Malacca City' => 'Melaka',
+            'Wilayah Persekutuan Kuala Lumpur' => 'Kuala Lumpur',
+            'Federal Territory of Kuala Lumpur' => 'Kuala Lumpur',
+            'Kuala Lumpur Federal Territory' => 'Kuala Lumpur',
+            'Wilayah Persekutuan Putrajaya' => 'Putrajaya',
+            'Federal Territory of Putrajaya' => 'Putrajaya',
+            'Wilayah Persekutuan Labuan' => 'Labuan',
+            'Federal Territory of Labuan' => 'Labuan',
+            'Negeri Sembilan Darul Khusus' => 'Negeri Sembilan',
+        ];
+
+        $state = $aliases[$state] ?? $state;
+
+        return in_array($state, self::MALAYSIA_STATES, true) ? $state : '';
+    }
+
+    /**
      * Get categories for filter.
      */
     public function getCategories(): JsonResponse
@@ -895,7 +1290,7 @@ class HiddenGemController extends Controller
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
-            ->publiclyVisible()
+            ->discoverable()
             ->latest()
             ->take(6)
             ->get();
@@ -923,6 +1318,116 @@ class HiddenGemController extends Controller
             ->get();
 
         return response()->json($popularLocations);
+    }
+
+    /**
+     * Upload gem photos to Supabase storage.
+     *
+     * @param  iterable<\Illuminate\Http\UploadedFile>  $files
+     * @return array<int, string>|null  public URLs, or null if any upload failed
+     */
+    private function uploadLocationImages(iterable $files): ?array
+    {
+        $urls = [];
+
+        foreach ($files as $image) {
+            $fileName = 'hidden-gems/' . uniqid() . '.' . $image->getClientOriginalExtension();
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                'apikey' => env('SUPABASE_KEY'),
+                'Content-Type' => $image->getMimeType(),
+            ])->withBody(
+                file_get_contents($image->getRealPath()),
+                $image->getMimeType()
+            )->post(
+                env('SUPABASE_URL') . '/storage/v1/object/location_images/' . $fileName
+            );
+
+            if ($response->failed()) {
+                return null;
+            }
+
+            $urls[] = env('SUPABASE_URL')
+                . '/storage/v1/object/public/location_images/'
+                . $fileName;
+        }
+
+        return $urls;
+    }
+
+    /**
+     * What the owner may do to their own gem. Five modes (see redesign spec §2):
+     *
+     *   'normal'      — pending / ai_rejected. Any field is editable; saving is a
+     *                   full resubmit -> status pending, full AI re-run. Deletable.
+     *   'verified'    — pending_community_vote / hidden_gem / well_known, not
+     *                   closed. Contact fields (hours/phone/website) save instantly;
+     *                   description + added photos go through an async AI review
+     *                   (LocationPendingEdit). Identity fields are locked forever.
+     *                   NOT deletable — the gem now belongs to the community.
+     *   'delete_only' — any gem flagged permanently_closed. The owner can ONLY
+     *                   delete it; no edits, no resubmit.
+     *   null          — deleted, or not the owner. Nothing.
+     */
+    private function managementEligibility(Location $gem): array
+    {
+        $none = [
+            'can_edit' => false,
+            'can_delete' => false,
+            'edit_mode' => null,
+            'can_edit_contact' => false,
+            'can_propose_content' => false,
+        ];
+
+        if ($gem->status === Location::STATUS_DELETED) {
+            return $none;
+        }
+
+        if ($gem->permanently_closed_at !== null) {
+            return array_merge($none, [
+                'can_delete' => true,
+                'edit_mode' => 'delete_only',
+            ]);
+        }
+
+        if (in_array($gem->status, [Location::STATUS_PENDING, Location::STATUS_AI_REJECTED], true)) {
+            return [
+                'can_edit' => true,
+                'can_delete' => true,
+                'edit_mode' => 'normal',
+                'can_edit_contact' => true,
+                'can_propose_content' => false,
+            ];
+        }
+
+        if ($gem->isVerified()) {
+            return [
+                'can_edit' => true,
+                'can_delete' => false,
+                'edit_mode' => 'verified',
+                'can_edit_contact' => true,
+                'can_propose_content' => true,
+            ];
+        }
+
+        return $none;
+    }
+
+    /** Whether the owner has already used up today's 3 AI-reviewed content edits for this gem. */
+    private const MAX_CONTENT_EDITS_PER_DAY = 3;
+
+    private function deleteUnavailableMessage(Location $gem): string
+    {
+        if ($gem->status === Location::STATUS_DELETED) {
+            return 'This Hidden Gem has already been deleted.';
+        }
+
+        if ($gem->isVerified()) {
+            return 'A verified place can no longer be deleted by its owner — it now belongs to the community.';
+        }
+
+        return 'This Hidden Gem can no longer be deleted.';
     }
 
     // ==================== PRIVATE METHODS ====================
@@ -1008,6 +1513,7 @@ class HiddenGemController extends Controller
             'latitude' => $location->latitude,
             'longitude' => $location->longitude,
             'status' => $location->status,
+            'permanently_closed_at' => $location->permanently_closed_at,
             'source' => 'database',
         ];
     }

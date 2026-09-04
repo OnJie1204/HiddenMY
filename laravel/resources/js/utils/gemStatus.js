@@ -1,6 +1,7 @@
 // Shared display copy for a Location's two-stage verification status:
-// Stage 1 (AI hiddenness check) -> pending | ai_rejected | pending_community_vote
-// Stage 2 (community voting)    -> pending_community_vote -> hidden_gem
+// Stage 1 (AI check)         -> pending | ai_rejected | pending_community_vote
+// Stage 2 (community voting) -> pending_community_vote -> hidden_gem
+// Ratchet                    -> hidden_gem -> well_known (community outgrew it)
 export const GEM_STATUS_COPY = {
     pending: {
         status: "pending",
@@ -26,15 +27,25 @@ export const GEM_STATUS_COPY = {
         badgeClass: "hidden-gems-card-verified",
         message: "This place has been recognized as a HiddenMY Hidden Gem!",
     },
-    delisted: {
-        status: "delisted",
-        label: "Delisted",
+    well_known: {
+        status: "well_known",
+        label: "Well-Known Place",
+        badgeClass: "hidden-gems-card-verified",
+        message: "The community has outgrown this one — it's now a well-known place rather than a hidden gem.",
+    },
+    permanently_closed: {
+        status: "permanently_closed",
+        label: "Permanently closed",
         badgeClass: "hidden-gems-card-reported",
-        message: "This place was removed after the community confirmed a reported problem.",
+        message: "The community confirmed this place has closed for good. It stays listed for reference.",
     },
 };
 
 export function getGemStatusDisplay(gem) {
+    // A permanently-closed gem keeps status 'hidden_gem' — the flag decides.
+    if (gem?.permanently_closed_at || gem?.permanentlyClosedAt) {
+        return GEM_STATUS_COPY.permanently_closed;
+    }
     return GEM_STATUS_COPY[gem?.status] ?? GEM_STATUS_COPY.pending;
 }
 

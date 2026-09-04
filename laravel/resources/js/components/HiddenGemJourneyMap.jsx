@@ -46,6 +46,12 @@ const MALAYSIA_BOUNDS = [
 
 const PENINSULAR_MALAYSIA_CENTER = [4.2105, 101.9758];
 
+const JOURNEY_STATUS_LABELS = {
+    pending: "Being Verified",
+    pending_community_vote: "Awaiting Community Votes",
+    hidden_gem: "Hidden Gem",
+};
+
 function InitialJourneyView() {
     const map = useMap();
     const applied = useRef(false);
@@ -105,6 +111,10 @@ export default function HiddenGemJourneyMap({
     onRegionSelect,
     onViewDetails,
 }) {
+    const journeyGems = useMemo(
+        () => gems.filter((gem) => Object.hasOwn(JOURNEY_STATUS_LABELS, gem.status)),
+        [gems]
+    );
     const regionStats = useMemo(() => {
         const stats = Object.fromEntries(
             CANONICAL_REGIONS.map((region) => [
@@ -119,7 +129,7 @@ export default function HiddenGemJourneyMap({
             ])
         );
 
-        gems.forEach((gem) => {
+        journeyGems.forEach((gem) => {
             const region = canonicalRegionName(gem.state);
 
             if (!region) return;
@@ -129,17 +139,17 @@ export default function HiddenGemJourneyMap({
             if (gem.status === "hidden_gem") {
                 stats[region].verifiedCount += 1;
                 stats[region].discovered = true;
-            } else if (gem.status === "pending") {
+            } else {
                 stats[region].pendingCount += 1;
             }
         });
 
         return stats;
-    }, [gems]);
+    }, [journeyGems]);
 
     const mapMarkers = useMemo(
-        () => gems.filter(hasValidCoordinates),
-        [gems]
+        () => journeyGems.filter(hasValidCoordinates),
+        [journeyGems]
     );
 
     const normalizedSelectedRegion = canonicalRegionName(selectedRegion);
@@ -244,7 +254,7 @@ export default function HiddenGemJourneyMap({
                                 <strong>{gem.place_name}</strong>
                                 <span>{gem.state || "Unknown region"}</span>
                                 <span className={`hiddenmy-journey-popup-status ${gem.status}`}>
-                                    {gem.status === "hidden_gem" ? "Verified" : "Pending"}
+                                    {JOURNEY_STATUS_LABELS[gem.status]}
                                 </span>
                                 <button
                                     type="button"

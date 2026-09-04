@@ -1,7 +1,12 @@
 import api from '../api';
 
-export const getHiddenGems = (params = {}) => 
+export const getHiddenGems = (params = {}) =>
     api.get('/hidden-gems', { params });
+
+// Well-known places — gems the community has outgrown. Same response shape as
+// getHiddenGems; deliberately a separate list from the Hidden Gems browse.
+export const getWellKnownPlaces = (params = {}) =>
+    api.get('/well-known-places', { params });
 
 export const getHiddenGemDetail = (id) => 
     api.get(`/hidden-gems/${id}`);
@@ -36,6 +41,18 @@ export const getStates = () =>
 export const geocodeAddress = (query) =>
     api.get('/hidden-gems/geocode', { params: { query } });
 
+// Live address type-ahead for the Submit / Edit Hidden Gem forms (Photon).
+// Pass an AbortController signal so superseded keystrokes get cancelled.
+export const autocompleteAddress = (query, { signal, latitude, longitude } = {}) =>
+    api.get('/hidden-gems/address-autocomplete', {
+        params: {
+            query,
+            latitude: latitude || undefined,
+            longitude: longitude || undefined,
+        },
+        signal,
+    });
+
 export const reverseGeocodeLocation = (latitude, longitude) =>
     api.get('/hidden-gems/reverse-geocode', { params: { latitude, longitude } });
 
@@ -63,6 +80,9 @@ export const getPopularHiddenGems = () =>
 
 export const getNearbyAttractions = (id, radius) =>
     api.get(`/hidden-gems/${id}/nearby`, { params: radius ? { radius } : {} });
+
+export const getNearbyGems = (id, radius) =>
+    api.get(`/hidden-gems/${id}/nearby-gems`, { params: radius ? { radius } : {} });
 
 // Nearby attractions around an arbitrary coordinate (map "explore nearby" mode)
 export const getNearbyAttractionsAt = (latitude, longitude, radius) =>

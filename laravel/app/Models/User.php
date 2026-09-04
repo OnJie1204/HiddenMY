@@ -24,6 +24,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'avatar_url',
+        'google_id',
+        'email_verified_at',
     ];
 
     /**
@@ -46,6 +48,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'locked_until' => 'datetime',
         ];
     }
 
@@ -61,6 +64,14 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function favouriteAchievements()
     {
-        return $this->hasMany(UserFavouriteAchievement::class)->orderBy('position');
+        return $this->hasMany(UserFavouriteAchievement::class)
+            ->where('achievement_type', UserAchievement::TYPE_SPECIAL)
+            ->whereNotNull('position')
+            ->orderBy('position');
+    }
+
+    public function achievements()
+    {
+        return $this->hasMany(UserAchievement::class);
     }
 }

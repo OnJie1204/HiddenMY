@@ -54,7 +54,7 @@ class TravelPostFavouriteAchievementTest extends TestCase
             ]);
     }
 
-    public function test_stale_unearned_favourite_is_not_exposed(): void
+    public function test_permanently_earned_favourite_remains_exposed(): void
     {
         $author = User::factory()->create();
         $this->createPost($author);
@@ -62,7 +62,9 @@ class TravelPostFavouriteAchievementTest extends TestCase
 
         $this->getJson('/api/travel-posts')
             ->assertOk()
-            ->assertJsonPath('data.0.user.favourite_achievements', []);
+            ->assertJsonPath('data.0.user.favourite_achievements', [
+                ['key' => 'hiddenmy-master', 'position' => 1],
+            ]);
     }
 
     public function test_region_stamp_like_key_is_not_exposed(): void

@@ -4,7 +4,10 @@ import VerifyReportModal from "./VerifyReportModal";
 import SignInPrompt from "./SignInPrompt";
 import { getReportForLocation } from "../api/reports";
 
-const REPORTABLE_STATUSES = ["hidden_gem", "pending_community_vote"];
+// Any publicly-visible place can be reported (permanently_closed /
+// incorrect_contact_info). The backend enforces the rest and returns the
+// reasons still open for this place.
+const REPORTABLE_STATUSES = ["hidden_gem", "well_known", "pending_community_vote"];
 
 function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -19,7 +22,8 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     // it to reportStatus — accept either so this drops into any page's gem shape.
     const reportStatus = gem.reportStatus ?? gem.report_status;
     const isPending = reportStatus === "under_review";
-    const canAct = REPORTABLE_STATUSES.includes(gem.status);
+    const isClosed = !!(gem.permanently_closed_at || gem.permanentlyClosedAt);
+    const canAct = REPORTABLE_STATUSES.includes(gem.status) && !isClosed;
 
     async function handleClick(e) {
         e.stopPropagation();

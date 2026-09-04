@@ -38,7 +38,15 @@ function App() {
     if (token) {
       getMe()
         .then(res => setUser(res.data))
-        .catch(() => clearToken())
+        .catch((err) => {
+          // Only a real 401 means "not logged in". A network error / 5xx /
+          // Supabase timeout must keep the token so the next load can retry —
+          // clearing it here logs the user out for good on any hiccup.
+          if (err?.response?.status === 401) {
+            clearToken();
+            setUser(null);
+          }
+        })
         .finally(() => setChecking(false));
     } else {
       setChecking(false);
@@ -123,6 +131,7 @@ function App() {
             )
           }
         />
+
 
         <Route
           path="/hidden-gems/create"

@@ -14,14 +14,11 @@ export default function TripItinerary() {
 
     const [tripName, setTripName] = useState("");
     const [nameError, setNameError] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (tripName.trim().length < 1) {
-            setNameError("Trip name must contain at least 1 character.");
-            return;
-        }
 
         if (tripName.trim().length > 10) {
             setNameError("Trip name cannot exceed 10 characters.");
@@ -29,10 +26,32 @@ export default function TripItinerary() {
         }
 
         setNameError("");
-        handleCreate(); // your existing create function
 
-        setShowCreateModal(false);
-        setTripName("");
+        try {
+            const newTrip = await handleCreate();
+
+            // Only dismiss the dialog once the itinerary is actually saved —
+            // otherwise a failed create looks exactly like a successful one.
+            setShowCreateModal(false);
+            setTripName("");
+
+            // Drop the user straight into the itinerary they just created, and
+            // carry the success notice over so the detail page can show it.
+            if (newTrip?.id) {
+                navigate(`/trip-itinerary/${newTrip.id}`, {
+                    state: {
+                        itinerary: newTrip,
+                        notice: "Trip itinerary created successfully.",
+                    },
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            setNameError(
+                err?.response?.data?.message
+                || "Unable to create the itinerary. Please try again."
+            );
+        }
     };
 
     const [tripItineraries, setTripItineraries] = useState([]);
@@ -60,26 +79,38 @@ export default function TripItinerary() {
         loadTripItineraries();
     }, []);
 
-    const handleCreate = () => {
+    useEffect(() => {
+        if (!successMessage) return;
+
+        const timer = setTimeout(() => setSuccessMessage(""), 3000);
+
+        return () => clearTimeout(timer);
+    }, [successMessage]);
+
+    const handleCreate = async () => {
 
         if (!tripName.trim()) return;
 
-        createTripItinerary({
-            trip_name: tripName
-        })
-            .then((res) => {
+        setIsCreating(true);
 
-                setTripName("");
+        try {
+            const res = await createTripItinerary({
+                trip_name: tripName
+            });
 
-                const newTrip = res.data.data;
+            const newTrip = res.data.data;
 
-                setTripItineraries(prev => [
-                    newTrip,
-                    ...prev
-                ]);
+            setTripItineraries(prev => [
+                newTrip,
+                ...prev
+            ]);
 
-            })
-            .catch(console.error);
+            setSuccessMessage(res.data.message || "Trip itinerary created successfully.");
+
+            return newTrip;
+        } finally {
+            setIsCreating(false);
+        }
 
     };
 
@@ -93,6 +124,14 @@ export default function TripItinerary() {
                 loadTripItineraries();
             });
 
+    };
+
+    const closeCreateModal = () => {
+        if (isCreating) return;
+
+        setShowCreateModal(false);
+        setTripName("");
+        setNameError("");
     };
 
     const handleDelete = (id) => {
@@ -113,6 +152,12 @@ export default function TripItinerary() {
 
     return (
         <div className="trip-page">
+
+            {successMessage && (
+                <div className="hidden-gem-snackbar hidden-gem-snackbar-success" role="status">
+                    {successMessage}
+                </div>
+            )}
 
             <div className="trip-header">
 
@@ -215,11 +260,7 @@ export default function TripItinerary() {
 
                     <div
                         className="modal-overlay"
-                        onClick={() => {
-                            setShowCreateModal(false);
-                            setTripName("");
-                            setNameError("");
-                        }}
+                        onClick={closeCreateModal}
                     >
 
                         <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -232,11 +273,8 @@ export default function TripItinerary() {
                                 <button
                                     type="button"
                                     className="modal-close-btn"
-                                    onClick={() => {
-                                        setShowCreateModal(false);
-                                        setTripName("");
-                                        setNameError("");
-                                    }}
+                                    onClick={closeCreateModal}
+                                    disabled={isCreating}
                                     aria-label="Close"
                                 >
                                     ✕
@@ -269,11 +307,8 @@ export default function TripItinerary() {
                                         <button
                                             type="button"
                                             className="trip-create-modal-cancel-btn"
-                                            onClick={() => {
-                                                setShowCreateModal(false);
-                                                setTripName("");
-                                                setNameError("");
-                                            }}
+                                            onClick={closeCreateModal}
+                                            disabled={isCreating}
                                         >
                                             Cancel
                                         </button>
@@ -281,9 +316,9 @@ export default function TripItinerary() {
                                         <button
                                             type="submit"
                                             className="trip-create-modal-confirm-btn"
-                                            disabled={!tripName.trim()}
+                                            disabled={!tripName.trim() || isCreating}
                                         >
-                                            Create Itinerary
+                                            {isCreating ? "Creating…" : "Create Itinerary"}
                                         </button>
 
                                     </div>

@@ -49,14 +49,16 @@ class UserProfileFavouriteAchievementTest extends TestCase
             ]);
     }
 
-    public function test_stale_unearned_favourite_is_suppressed(): void
+    public function test_permanently_earned_favourite_is_preserved(): void
     {
         $profileOwner = User::factory()->create();
         $this->createFavourite($profileOwner, 'gem-hunter', 1);
 
         $this->getJson("/api/users/{$profileOwner->id}")
             ->assertOk()
-            ->assertJsonPath('user.favourite_achievements', []);
+            ->assertJsonPath('user.favourite_achievements', [
+                ['key' => 'gem-hunter', 'position' => 1],
+            ]);
     }
 
     public function test_unknown_or_region_stamp_like_key_is_not_exposed(): void

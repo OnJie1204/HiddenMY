@@ -84,7 +84,7 @@ function Login({ onLoginSuccess }) {
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
+              {showPassword ? <MdVisibility size={18} /> : <MdVisibilityOff size={18} />}
             </button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -116,7 +116,7 @@ function Login({ onLoginSuccess }) {
             Continue as Guest
           </button>
           <p className="auth-link-row">Don't have an account? <Link to="/register" state={{ from: returnPath }}>Sign Up</Link></p>
-          <p className="auth-link-row"><Link to="/resend-verification">Didn't receive verification email?</Link></p>
+          <p className="auth-link-row"><Link to="/resend-verification">Resend verification email</Link></p>
         </form>
       </div>
     </div>

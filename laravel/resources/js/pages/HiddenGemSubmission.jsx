@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
 import LocationPickerMap from "../components/LocationPickerMap";
+import AddressAutocomplete from "../components/AddressAutocomplete";
+import Spinner from "../components/Spinner";
 
 // Approximate state-capital coordinates, used only as a map-centering
 // fallback when the address itself can't be geocoded — never submitted as
@@ -30,6 +33,7 @@ const STATE_FALLBACK_ZOOM = 10;
 
 export default function HiddenGemSubmission() {
 
+    const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
     const [formData, setFormData] = useState({
@@ -47,6 +51,7 @@ export default function HiddenGemSubmission() {
     });
 
     const [message, setMessage] = useState("");
+    const [submitting, setSubmitting] = useState(false);
     const [categories, setCategories] = useState([]);
     const [images,setImages]=useState([]);
     const [imagePreview,setImagePreview] = useState([]);
@@ -185,6 +190,9 @@ export default function HiddenGemSubmission() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (submitting) return;
+        setSubmitting(true);
+
         try {
 
             const data = new FormData();
@@ -201,31 +209,14 @@ export default function HiddenGemSubmission() {
 
             await createHiddenGem(data);
 
-            setMessage(
-                "Hidden gem submitted! It's now being reviewed by AI before it can go up for community voting — check 'My Hidden Gems' for its status."
-            );
-
-            setFormData({
-                category_id: "",
-                place_name: "",
-                address: "",
-                state: "",
-                postcode: "",
-                description: "",
-                opening_hours: "",
-                phone: "",
-                website: "",
-                latitude: "",
-                longitude: "",
+            // Land on My Hidden Gems so the submitter sees the new entry and its
+            // "Being Verified" status straight away.
+            navigate("/my-hidden-gems", {
+                state: {
+                    flash: "Hidden gem submitted! It's now being reviewed by AI before it can go up for community voting.",
+                },
             });
-
-            setImages([]);
-            setImagePreview([]);
-            setGeocodeStatus("");
-
-            if(fileInputRef.current){
-                fileInputRef.current.value="";
-            }
+            return;
 
         } catch (error) {
 
@@ -234,6 +225,8 @@ export default function HiddenGemSubmission() {
                 "Failed to submit hidden gem."
             );
 
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -265,12 +258,47 @@ export default function HiddenGemSubmission() {
                     />
 
 
-                    <input
+                    <AddressAutocomplete
                         className="form-input"
                         name="address"
                         placeholder="Address"
                         value={formData.address}
-                        onChange={handleChange}
+                        latitude={formData.latitude}
+                        longitude={formData.longitude}
+                        onChange={(text) =>
+                            setFormData((prev) => ({ ...prev, address: text }))
+                        }
+                        onSelect={(suggestion) => {
+                            setFormData((prev) => ({
+                                ...prev,
+                                address: suggestion.address || prev.address,
+                                state: suggestion.state || prev.state,
+                                postcode: suggestion.postcode || prev.postcode,
+                                latitude:
+                                    suggestion.latitude != null
+                                        ? String(suggestion.latitude)
+                                        : prev.latitude,
+                                longitude:
+                                    suggestion.longitude != null
+                                        ? String(suggestion.longitude)
+                                        : prev.longitude,
+                            }));
+
+                            if (
+                                suggestion.latitude != null &&
+                                suggestion.longitude != null
+                            ) {
+                                setMapFocusRequest({
+                                    latitude: suggestion.latitude,
+                                    longitude: suggestion.longitude,
+                                    zoom: 16,
+                                });
+                            }
+
+                            setGeocodeStatus(
+                                "success:Address selected and pinned on the map below — drag or click to fine-tune the exact spot."
+                            );
+                        }}
                     />
 
 
@@ -350,7 +378,11 @@ export default function HiddenGemSubmission() {
                             onClick={handleFindCoordinates}
                             disabled={geocoding}
                         >
-                            {geocoding ? "Finding…" : "Find Coordinates from Address"}
+                            {geocoding ? (
+                                <Spinner size="sm" inline label="Finding…" className="btn-spinner" />
+                            ) : (
+                                "Find Coordinates from Address"
+                            )}
                         </button>
 
                         {geocodeStatus && (
@@ -496,11 +528,16 @@ export default function HiddenGemSubmission() {
                         ))}
                     </div>
 
-                    <button 
+                    <button
                         type="submit"
                         className="hidden-gem-submit-btn"
+                        disabled={submitting}
                     >
-                        Submit Hidden Gem
+                        {submitting ? (
+                            <Spinner size="sm" inline label="Submitting…" className="btn-spinner" />
+                        ) : (
+                            "Submit Hidden Gem"
+                        )}
                     </button>
 
                 </form>

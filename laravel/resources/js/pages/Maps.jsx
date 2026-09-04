@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from "react-leaflet-cluster";
 import 'leaflet/dist/leaflet.css';
@@ -12,6 +12,7 @@ import {
     getPopularHiddenGems,
     getNearbyAttractions,
     getNearbyAttractionsAt,
+    getNearbyGems,
     getHiddenGemsInBounds,
     getHiddenGemDetail,
     getCategories,
@@ -21,6 +22,7 @@ import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist"
 
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
+import Spinner from "../components/Spinner";
 import SearchBar from "../components/SearchBar";
 import SidePanel from "../components/SidePanel";
 import AttractionMarker from "../components/AttractionMarker";
@@ -72,17 +74,76 @@ function FlyToUser({ position }) {
     return null;
 }
 
-function FlyToGem({ gem }) {
+// Brings the selected gem into view — without ever handing the cluster group
+// a new marker list, so a cluster that's expanded/spiderfied stays exactly
+// as the user left it.
+//   - marker already has its own element on the map (you clicked it, or it's
+//     spiderfied): do nothing.
+//   - gem still inside a cluster (picked from search): let the cluster group
+//     zoom / spiderfy until the pin shows.
+//   - OSM attraction / marker not loaded: plain flyTo.
+function RevealSelectedGem({ gem, clusterRef, markerRefs }) {
     const map = useMap();
     useEffect(() => {
-        if (gem) {
-            map.flyTo(
-                [Number(gem.latitude), Number(gem.longitude)],
-                Math.max(map.getZoom(), GEM_FOCUS_ZOOM),
-                FLY_TO_OPTIONS
-            );
+        if (!gem) return;
+
+        const marker = gem.source === "database" ? markerRefs.current[gem.id] : null;
+
+        if (marker?.getElement?.()) return;
+
+        if (marker && clusterRef.current) {
+            clusterRef.current.zoomToShowLayer(marker, () => {});
+            return;
         }
-    }, [gem, map]);
+
+        map.flyTo(
+            [Number(gem.latitude), Number(gem.longitude)],
+            Math.max(map.getZoom(), GEM_FOCUS_ZOOM),
+            FLY_TO_OPTIONS
+        );
+    }, [gem, map, clusterRef, markerRefs]);
+    return null;
+}
+
+// Glows the selected gem's marker by toggling a class on its DOM element
+// (never via the `icon` prop or the marker list, which would re-cluster).
+// Re-applied on zoom/pan since a marker that was clustered has no element
+// until the cluster group reveals it.
+function SelectedGemHighlight({ selectedId, markerRefs, clusterRef }) {
+    const target = selectedId == null ? null : String(selectedId);
+    const targetRef = useRef(target);
+    targetRef.current = target;
+
+    const applyHighlight = () => {
+        const want = targetRef.current;
+        Object.entries(markerRefs.current).forEach(([id, marker]) => {
+            const element = marker?.getElement?.();
+            if (!element) return;
+            element.classList.toggle("hidden-gem-marker-selected", id === want);
+        });
+    };
+
+    // The selected marker may only get a DOM element once the cluster group
+    // finishes zooming / spiderfying — which isn't a plain map event — so
+    // re-apply on the cluster's own animation events and a short retry window.
+    useEffect(() => {
+        applyHighlight();
+        const timers = [80, 250, 500, 900].map((t) => setTimeout(applyHighlight, t));
+        return () => timers.forEach(clearTimeout);
+    }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useMapEvents({
+        zoomend: applyHighlight,
+        moveend: applyHighlight,
+    });
+
+    useEffect(() => {
+        const cluster = clusterRef.current;
+        if (!cluster) return;
+        cluster.on("spiderfied unspiderfied animationend", applyHighlight);
+        return () => cluster.off("spiderfied unspiderfied animationend", applyHighlight);
+    }, [clusterRef]); // eslint-disable-line react-hooks/exhaustive-deps
+
     return null;
 }
 
@@ -135,19 +196,6 @@ function MapClickExplorer({ onMapClick }) {
 
 function Maps({ user }){
     const location = useLocation();
-    const navigate = useNavigate();
-
-    // Mirrors the shared <BackButton> (which is suppressed on /map because the
-    // full-bleed map hero has no room for it) — go back in history, or fall
-    // back to home when this is the first entry in the stack.
-    const handleBack = () => {
-        if (location.key === 'default') {
-            navigate('/');
-        } else {
-            navigate(-1);
-        }
-    };
-
 
     // ==================== URL Params (from HiddenGemDetail) ====================
     const queryParams = new URLSearchParams(location.search);
@@ -167,11 +215,13 @@ function Maps({ user }){
     const [searchResults, setSearchResults] = useState([]);
     const [recentPosts,setRecentPosts]=useState([]);
     const [myGems,setMyGems]=useState([]);
+    const [discoverLoading,setDiscoverLoading]=useState(true);
+    const [boundsLoading,setBoundsLoading]=useState(false);
     const [popularPosts,setPopularPosts]=useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState(null); // null | 'hidden_gem' | 'pending_community_vote'
     const [categories, setCategories] = useState([]);
-    const [categoryFilter, setCategoryFilter] = useState(null); // null = all categories
+    const [categoryFilter, setCategoryFilter] = useState([]); // [] = all categories, otherwise a set of selected category names
     const [wishlistOnly, setWishlistOnly] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [nearby, setNearby] = useState([]);
@@ -188,14 +238,30 @@ function Maps({ user }){
     const [clickedLoading, setClickedLoading] = useState(false);
     const [clickedError, setClickedError] = useState(false);
     const [itineraries, setItineraries] = useState([]);
+    const [itinerariesLoading, setItinerariesLoading] = useState(false);
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [gemReviews, setGemReviews] = useState([]);
     const [gemReviewsLoading, setGemReviewsLoading] = useState(false);
+    const [activeGemImages, setActiveGemImages] = useState([]);
     const [mapFullscreen, setMapFullscreen] = useState(false);
     const mapRef = useRef(null);
     const viewportTimer = useRef(null);
     const heroRef = useRef(null);
     const clickedMarkerRef = useRef(null);
+    // Leaflet marker instances keyed by gem id (for the imperative glow) and
+    // the underlying L.MarkerClusterGroup (for zoomToShowLayer on select).
+    const gemMarkerRefs = useRef({});
+    const gemClusterRef = useRef(null);
+    // The padded bounds + status filter of the last successful gem fetch.
+    // Panning / zooming inside this area reuses what's already loaded instead
+    // of hitting the API again on every moveend.
+    const loadedGemsRef = useRef(null);
+
+    // The app has no global scroll restoration, so navigating here from a
+    // scrolled page would land partway down this (tall) page — reset to top.
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     // Open the "X places found nearby" popup as soon as a click lands, rather
     // than making the user click the little dot a second time to see it.
@@ -211,6 +277,8 @@ function Maps({ user }){
             setClickedPlaces([]);
         }
     }, [clickExploreOn]);
+
+
 
     useEffect(() => {
         if (!mapFullscreen) return;
@@ -245,23 +313,27 @@ function Maps({ user }){
 
     useEffect(() => {
         const id = setTimeout(() => {
-            api.get("/recent-hidden-gems")
-                .then(res => setRecentPosts(res.data))
-                .catch(err => console.log(err));
+            const jobs = [
+                api.get("/recent-hidden-gems")
+                    .then(res => setRecentPosts(res.data))
+                    .catch(err => console.log(err)),
 
-            if (user) {
-                getMyHiddenGems()
-                    .then(res => setMyGems(res.data.data || []))
-                    .catch(err => console.log(err));
-            }
+                user
+                    ? getMyHiddenGems()
+                        .then(res => setMyGems(res.data.data || []))
+                        .catch(err => console.log(err))
+                    : Promise.resolve(),
 
-            getPopularHiddenGems()
-                .then(res => setPopularPosts(res.data || []))
-                .catch(err => console.log(err));
+                getPopularHiddenGems()
+                    .then(res => setPopularPosts(res.data || []))
+                    .catch(err => console.log(err)),
 
-            getCategories()
-                .then(res => setCategories(res.data.data || []))
-                .catch(err => console.log(err));
+                getCategories()
+                    .then(res => setCategories(res.data.data || []))
+                    .catch(err => console.log(err)),
+            ];
+
+            Promise.allSettled(jobs).then(() => setDiscoverLoading(false));
         }, 200);
 
         return () => clearTimeout(id);
@@ -283,9 +355,11 @@ function Maps({ user }){
         loadedPanelExtrasRef.current = true;
 
         const id = setTimeout(() => {
+            setItinerariesLoading(true);
             getTripItineraries()
                 .then(res => setItineraries(res.data || []))
-                .catch(err => console.log(err));
+                .catch(err => console.log(err))
+                .finally(() => setItinerariesLoading(false));
         }, 300);
 
         return () => clearTimeout(id);
@@ -365,18 +439,42 @@ function Maps({ user }){
 
     useEffect(() => () => clearTimeout(viewportTimer.current), []);
 
-    // Query hidden gems for whatever is currently on screen
+    // Query hidden gems for whatever is currently on screen — but only when
+    // the view has actually left the area we already loaded (or the status
+    // filter changed), so small pans/zooms don't keep re-hitting the API.
     useEffect(() => {
         if (!viewport) return;
 
-        getHiddenGemsInBounds({
-            north: viewport.north,
-            south: viewport.south,
-            east: viewport.east,
-            west: viewport.west,
-        }, statusFilter)
-            .then(res => setHiddenGems(res.data.data || []))
-            .catch(err => console.log(err));
+        const loaded = loadedGemsRef.current;
+        const stillCovered =
+            loaded &&
+            loaded.statusFilter === statusFilter &&
+            viewport.north <= loaded.bounds.north &&
+            viewport.south >= loaded.bounds.south &&
+            viewport.east <= loaded.bounds.east &&
+            viewport.west >= loaded.bounds.west;
+
+        if (stillCovered) return;
+
+        // Fetch a margin beyond the screen so a nudge in any direction stays
+        // within the loaded area.
+        const latPad = (viewport.north - viewport.south) * 0.5;
+        const lngPad = (viewport.east - viewport.west) * 0.5;
+        const bounds = {
+            north: viewport.north + latPad,
+            south: viewport.south - latPad,
+            east: viewport.east + lngPad,
+            west: viewport.west - lngPad,
+        };
+
+        setBoundsLoading(true);
+        getHiddenGemsInBounds(bounds, statusFilter)
+            .then(res => {
+                setHiddenGems(res.data.data || []);
+                loadedGemsRef.current = { bounds, statusFilter };
+            })
+            .catch(err => console.log(err))
+            .finally(() => setBoundsLoading(false));
     }, [viewport, statusFilter]);
 
     const exploreCell = exploreOn && viewport && viewport.zoom >= EXPLORE_MIN_ZOOM
@@ -425,6 +523,7 @@ function Maps({ user }){
                 category: raw.category?.name,
                 status: raw.status,
                 reportStatus: raw.report_status,
+                permanentlyClosedAt: raw.permanently_closed_at ?? null,
                 openingHours: raw.opening_hours,
                 phone: raw.phone,
                 website: raw.website,
@@ -452,11 +551,13 @@ function Maps({ user }){
         };
     }
 
-    // Shows a group of gems in the side panel (reopening it if it was closed)
-    function openGroup(group) {
+    // Shows a group of gems in the side panel (reopening it if it was closed).
+    // Stable so the memoized marker list below never changes just because a
+    // gem was selected.
+    const openGroup = useCallback((group) => {
         setSelectedGroup(group);
         setPanelOpen(true);
-    }
+    }, []);
 
     function selectGem(raw) {
         openGroup([normalizeGem(raw, "database")]);
@@ -490,39 +591,58 @@ function Maps({ user }){
             setNearbyLoading(false);
             setGemReviews([]);
             setGemReviewsLoading(false);
+            setActiveGemImages([]);
             return;
         }
 
         // detail only for whichever gem is actually open in the panel.
         setGemReviewsLoading(true);
+        setActiveGemImages([]);
         getHiddenGemDetail(activeGem.id)
-            .then(res => setGemReviews(res.data.data?.votes || []))
+            .then(res => {
+                setGemReviews(res.data.data?.votes || []);
+                setActiveGemImages(res.data.data?.images || []);
+            })
             .catch(err => {
                 console.log(err);
                 setGemReviews([]);
+                setActiveGemImages([]);
             })
             .finally(() => setGemReviewsLoading(false));
 
         setNearbyLoading(true);
         setTimeout(() => {
             if (activeGemIdRef.current !== activeGem.id) return;
+            Promise.allSettled([
+                getNearbyGems(activeGem.id),
+                getNearbyAttractions(activeGem.id),
+            ]).then(([gemsResult, attractionsResult]) => {
+                if (activeGemIdRef.current !== activeGem.id) return;
 
-            getNearbyAttractions(activeGem.id)
-                .then(res => {
-                    if (activeGemIdRef.current !== activeGem.id) return;
-                    setNearby(res.data.data || []);
-                })
-                .catch(err => {
-                    console.log(err);
-                    if (activeGemIdRef.current === activeGem.id) setNearby([]);
-                })
-                .finally(() => {
-                    if (activeGemIdRef.current === activeGem.id) setNearbyLoading(false);
-                });
+                const nearbyGems = gemsResult.status === "fulfilled" ? (gemsResult.value.data.data || []) : [];
+                const nearbyAttractions = attractionsResult.status === "fulfilled" ? (attractionsResult.value.data.data || []) : [];
+                if (gemsResult.status === "rejected") console.log(gemsResult.reason);
+                if (attractionsResult.status === "rejected") console.log(attractionsResult.reason);
+
+                setNearby([...nearbyGems, ...nearbyAttractions].sort((a, b) => a.distance - b.distance));
+            }).finally(() => {
+                if (activeGemIdRef.current === activeGem.id) setNearbyLoading(false);
+            });
         }, 400);
     }, []);
 
     const selectNearby = useCallback((place) => {
+        if (place.source === "database") {
+            openGroup([normalizeGem({
+                id: place.id,
+                place_name: place.name,
+                latitude: place.latitude,
+                longitude: place.longitude,
+                category: { name: place.type },
+                status: place.status,
+            }, "database")]);
+            return;
+        }
         openGroup([normalizeGem(place, "attraction")]);
     }, []);
 
@@ -573,8 +693,8 @@ function Maps({ user }){
     const normalizedGems = useMemo(() => {
         let gems = hiddenGems.map(raw => normalizeGem(raw, "database"));
 
-        if (categoryFilter) {
-            gems = gems.filter(g => g.category === categoryFilter);
+        if (categoryFilter.length > 0) {
+            gems = gems.filter(g => categoryFilter.includes(g.category));
         }
         if (wishlistOnly) {
             gems = gems.filter(g => wishlistIds.has(g.id));
@@ -599,13 +719,37 @@ function Maps({ user }){
         });
     }, [hiddenGems, userPosition, categoryFilter, wishlistOnly, wishlistIds]);
 
+    // The marker elements handed to <MarkerClusterGroup>. Memoized so they
+    // only change when the gems themselves change — selecting a gem must not
+    // produce a new array, or the cluster group re-clusters everything and
+    // collapses any expanded/spiderfied cluster.
+    const gemMarkers = useMemo(
+        () =>
+            normalizedGems.map((gem) => (
+                <HiddenGemMarker
+                    key={gem.id}
+                    gem={gem}
+                    markerRefs={gemMarkerRefs}
+                    onClick={() => openGroup([gem])}
+                />
+            )),
+        [normalizedGems, openGroup],
+    );
+
     // OSM markers to draw: the selected gem's neighbours, the zoom-in discovery
     // results, a map-click explore, and any search hits — de-duplicated by id.
     const osmMarkers = useMemo(() => {
         const byId = new Map();
-        [...nearby, ...explorePlaces, ...clickedPlaces, ...searchResults].forEach(p => {
-            if (p && p.id != null && !byId.has(p.id)) byId.set(p.id, p);
-        });
+        // `nearby` now also carries nearby hidden gems (for the side panel's
+        // "Near this gem" list) alongside OSM attractions — gems already have
+        // their own proper marker via the main gems layer below, so exclude
+        // them here or AttractionMarker renders a second, generic pin on top
+        // of them (it has no gem-specific icon, just a category fallback).
+        [...nearby, ...explorePlaces, ...clickedPlaces, ...searchResults]
+            .filter(p => p && p.source !== "database")
+            .forEach(p => {
+                if (p.id != null && !byId.has(p.id)) byId.set(p.id, p);
+            });
         return Array.from(byId.values());
     }, [nearby, explorePlaces, clickedPlaces, searchResults]);
 
@@ -639,10 +783,28 @@ function Maps({ user }){
         { value: "pending_community_vote", label: "Awaiting Votes" },
     ];
 
-    const activeFilterCount = (statusFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (wishlistOnly ? 1 : 0);
+    const activeFilterCount = (statusFilter ? 1 : 0) + (categoryFilter.length > 0 ? 1 : 0) + (wishlistOnly ? 1 : 0);
+
+    function toggleCategoryFilter(name) {
+        setCategoryFilter(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]);
+    }
+
+    // Resets every filter/discovery toggle back to the app's defaults
+    function clearAllFilters() {
+        setStatusFilter(null);
+        setCategoryFilter([]);
+        setWishlistOnly(false);
+        setExploreOn(true);
+        setClickExploreOn(false);
+    }
+
+    const selectedGemId = selectedGroup && selectedGroup[0] ? selectedGroup[0].id : null;
 
     return (
         <div className="maps-page">
+            <div className="maps-page-header">
+                <h1>Interactive Map</h1>
+            </div>
             <div className={`maps-hero ${mapFullscreen ? "fullscreen" : ""}`} ref={heroRef}>
                 <MapContainer
                     ref={mapRef}
@@ -673,15 +835,15 @@ function Maps({ user }){
                     <FlyToUser position={userPosition}/>
                     </>
                 }
-                <MarkerClusterGroup iconCreateFunction={createGemClusterIcon} zoomToBoundsOnClick={true} spiderfyOnMaxZoom={true}>
-                {normalizedGems.map((gem) => (
-                    <HiddenGemMarker
-                        key={gem.id}
-                        gem={gem}
-                        onClick={() => openGroup([gem])}
-                    />
-                ))}
-            </MarkerClusterGroup>
+                <MarkerClusterGroup
+                    ref={gemClusterRef}
+                    iconCreateFunction={createGemClusterIcon}
+                    zoomToBoundsOnClick={true}
+                    spiderfyOnMaxZoom={true}
+                    showCoverageOnHover={false}
+                >
+                    {gemMarkers}
+                </MarkerClusterGroup>
                 {osmMarkers.map((place) => (
                     <AttractionMarker
                         key={place.id}
@@ -705,7 +867,16 @@ function Maps({ user }){
                         </Popup>
                     </CircleMarker>
                 )}
-                <FlyToGem gem={selectedGroup ? selectedGroup[0] : null}/>
+                <RevealSelectedGem
+                    gem={selectedGroup ? selectedGroup[0] : null}
+                    clusterRef={gemClusterRef}
+                    markerRefs={gemMarkerRefs}
+                />
+                <SelectedGemHighlight
+                    selectedId={selectedGemId}
+                    markerRefs={gemMarkerRefs}
+                    clusterRef={gemClusterRef}
+                />
                 </MapContainer>
 
                 {/* Left column: search box always visible, gem panel docked beneath it */}
@@ -713,9 +884,9 @@ function Maps({ user }){
                     <button
                         type="button"
                         className="maps-back-btn"
-                        onClick={handleBack}
+                        onClick={() => setMapFullscreen(false)}
                     >
-                        ← Back
+                        ← Exit fullscreen
                     </button>
                     <div className="maps-search-float">
                         <SearchBar
@@ -752,17 +923,26 @@ function Maps({ user }){
                         onSelectNearby={selectNearby}
                         onGemChange={handleActiveGemChange}
                         itineraries={itineraries}
+                        itinerariesLoading={itinerariesLoading}
                         onAddToItinerary={handleAddToItinerary}
+                        onItineraryCreated={(trip) => {
+                            if (trip) setItineraries((prev) => [trip, ...prev]);
+                        }}
                         wishlistIds={wishlistIds}
                         onToggleWishlist={handleToggleWishlist}
                         reviews={gemReviews}
                         reviewsLoading={gemReviewsLoading}
+                        images={activeGemImages}
                     />
                 </div>
 
                 {/* Right column: title, status, filters */}
                 <div className="maps-hero-topbar">
-                    <h1 className="maps-hero-title">HiddenMY Interactive Map</h1>
+                    {boundsLoading && (
+                        <div className="maps-updating-pill">
+                            <Spinner size="sm" inline label="Updating gems…" />
+                        </div>
+                    )}
                     {locationError && (
                         <p className="maps-hero-status">{locationError}</p>
                     )}
@@ -780,7 +960,18 @@ function Maps({ user }){
                     {filtersOpen && (
                         <div className="maps-filters-panel">
                             <div className="maps-filters-group">
-                                <span className="maps-filters-group-label">Status</span>
+                                <div className="maps-filters-group-header">
+                                    <span className="maps-filters-group-label">Status</span>
+                                    {activeFilterCount > 0 && (
+                                        <button
+                                            type="button"
+                                            className="maps-filters-clear"
+                                            onClick={clearAllFilters}
+                                        >
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="maps-category-pills">
                                     {statusFilters.map((f) => (
                                         <button
@@ -801,8 +992,8 @@ function Maps({ user }){
                                     <div className="maps-category-pills">
                                         <button
                                             type="button"
-                                            className={`maps-category-pill ${!categoryFilter ? "active" : ""}`}
-                                            onClick={() => setCategoryFilter(null)}
+                                            className={`maps-category-pill ${categoryFilter.length === 0 ? "active" : ""}`}
+                                            onClick={() => setCategoryFilter([])}
                                         >
                                             All
                                         </button>
@@ -810,8 +1001,8 @@ function Maps({ user }){
                                             <button
                                                 type="button"
                                                 key={c.id}
-                                                className={`maps-category-pill ${categoryFilter === c.name ? "active" : ""}`}
-                                                onClick={() => setCategoryFilter(c.name)}
+                                                className={`maps-category-pill ${categoryFilter.includes(c.name) ? "active" : ""}`}
+                                                onClick={() => toggleCategoryFilter(c.name)}
                                             >
                                                 {c.name}
                                             </button>
@@ -880,7 +1071,7 @@ function Maps({ user }){
                         <p className="maps-hero-hint">Zoom in to load nearby attractions</p>
                     )}
                     {exploreLoading && (
-                        <p className="maps-hero-hint">Loading nearby attractions</p>
+                        <Spinner size="sm" inline label="Loading nearby attractions…" className="maps-hero-hint" />
                     )}
                     {!exploreLoading && exploreOn && explorePlaces.length > 0 && (
                         <p className="maps-hero-hint">{explorePlaces.length} places in view</p>
@@ -915,6 +1106,7 @@ function Maps({ user }){
                     title="Recent Hidden Gems"
                     seeMoreTo="/hidden-gems"
                     items={recentPosts}
+                    loading={discoverLoading}
                     onItemClick={selectGem}
                     emptyText="No recent gems yet."
                 />
@@ -923,6 +1115,7 @@ function Maps({ user }){
                         title="My Hidden Gems"
                         seeMoreTo="/my-hidden-gems"
                         items={myGems}
+                        loading={discoverLoading}
                         onItemClick={selectGem}
                         emptyText="You haven't posted any hidden gems yet."
                     />
@@ -931,6 +1124,7 @@ function Maps({ user }){
                     title="Popular Hidden Gems"
                     seeMoreTo="/hidden-gems"
                     items={popularPosts}
+                    loading={discoverLoading}
                     onItemClick={selectGem}
                     emptyText="No popular gems yet."
                 />

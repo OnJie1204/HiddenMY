@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import L from "leaflet";
 import { useCompare } from "../context/CompareContext";
 import { getHiddenGemDetail } from "../api/hiddenGems";
-import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
+import { getTripItineraries, addTripLocation, createTripItinerary } from "../api/TripItinerary";
+
+// Backend caps trip_name at 10 characters (TripItineraryController::store).
+const ITINERARY_NAME_MAX = 10;
 import { getMenuItems } from "../api/menuItems";
 import { toCompareGem } from "../utils/compareGem";
 import { getGemStatusDisplay } from "../utils/gemStatus";
 import GemImage from "../components/GemImage";
 import TruncatedText from "../components/TruncatedText";
+import Spinner from "../components/Spinner";
 
 import "../styles/global.css";
 
@@ -39,15 +43,30 @@ export default function CompareGems() {
     const [fetched, setFetched] = useState({});
     const [missing, setMissing] = useState([]);
     const [itineraries, setItineraries] = useState([]);
+    const [itinerariesLoading, setItinerariesLoading] = useState(true);
     const [itineraryOpenId, setItineraryOpenId] = useState(null);
     const [itineraryStatusById, setItineraryStatusById] = useState({});
+    const [showItineraryForm, setShowItineraryForm] = useState(false);
+    const [newItineraryName, setNewItineraryName] = useState("");
+    const [creatingItinerary, setCreatingItinerary] = useState(false);
     const [menuItemsByGemId, setMenuItemsByGemId] = useState({});
     const [userPosition, setUserPosition] = useState(null);
 
+    // Sticky horizontal scrollbar: the real scroll container is .compare-grid,
+    // but its native scrollbar sits at the bottom of very tall cards. This
+    // proxy bar is pinned to the viewport bottom and kept in sync both ways so
+    // the user can scroll between gems without first scrolling the page down.
+    const gridRef = useRef(null);
+    const scrollbarRef = useRef(null);
+    const [scrollContentWidth, setScrollContentWidth] = useState(0);
+    const [needsScrollbar, setNeedsScrollbar] = useState(false);
+
     useEffect(() => {
+        setItinerariesLoading(true);
         getTripItineraries()
             .then((res) => setItineraries(res.data || []))
-            .catch((err) => console.log(err));
+            .catch((err) => console.log(err))
+            .finally(() => setItinerariesLoading(false));
     }, []);
 
     useEffect(() => {
@@ -73,7 +92,10 @@ export default function CompareGems() {
                     ...prev,
                     [id]: { gem: toCompareGem(res.data.data), votes: res.data.data?.votes || [] },
                 })))
-                .catch(() => setMissing((prev) => Array.from(new Set([...prev, id]))));
+                .catch(() => {
+                    setMissing((prev) => Array.from(new Set([...prev, id])));
+                    removeCompare(Number(id));
+                });
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [urlIds, items]);
@@ -118,6 +140,44 @@ export default function CompareGems() {
         }
     }, [urlIds, items, navigate]);
 
+    // Track the grid's content width vs. its visible width so the proxy
+    // scrollbar matches it and only shows when the row actually overflows.
+    useEffect(() => {
+        const grid = gridRef.current;
+        if (!grid) return;
+
+        // Card width is fixed, so only gem count / viewport width move these
+        // numbers — bail out when nothing changed so async image loads (which
+        // only change card height) don't churn re-renders during scrolling.
+        const measure = () => {
+            const width = grid.scrollWidth;
+            setScrollContentWidth((prev) => (prev === width ? prev : width));
+            setNeedsScrollbar(width - grid.clientWidth > 1);
+        };
+
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(grid);
+        window.addEventListener("resize", measure);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", measure);
+        };
+    }, [gems.length]);
+
+    // Mirror scrollLeft between the grid and the proxy bar. No lock/flag: the
+    // echoed scroll event finds the two already within 1px and does nothing,
+    // so there's no feedback loop and no dropped frames.
+    const syncScroll = (source, target) => {
+        if (!source || !target) return;
+        if (Math.abs(target.scrollLeft - source.scrollLeft) <= 1) return;
+        target.scrollLeft = source.scrollLeft;
+    };
+
+    const handleGridScroll = () => syncScroll(gridRef.current, scrollbarRef.current);
+    const handleScrollbarScroll = () => syncScroll(scrollbarRef.current, gridRef.current);
+
     function openGoogleMaps(g) {
         window.open(`https://www.google.com/maps/dir/?api=1&destination=${g.latitude},${g.longitude}`, "_blank");
     }
@@ -160,11 +220,37 @@ export default function CompareGems() {
                 [gem.id]: { type: "success", message: `Added to "${trip.trip_name}".` },
             }));
             setItineraryOpenId(null);
+            setShowItineraryForm(false);
+            setNewItineraryName("");
         } catch (error) {
             setItineraryStatusById((prev) => ({
                 ...prev,
                 [gem.id]: { type: "error", message: error?.response?.data?.message || "Could not add this stop." },
             }));
+        }
+    }
+
+    async function handleCreateItineraryAndAdd(gem) {
+        const name = newItineraryName.trim();
+        if (!name || creatingItinerary) return;
+
+        setCreatingItinerary(true);
+        setItineraryStatusById((prev) => ({
+            ...prev,
+            [gem.id]: { type: "loading", message: `Creating "${name}"…` },
+        }));
+        try {
+            const res = await createTripItinerary({ trip_name: name });
+            const newTrip = res.data?.data;
+            setItineraries((prev) => [newTrip, ...prev]);
+            await handleAddToItinerary(newTrip, gem);
+        } catch (error) {
+            setItineraryStatusById((prev) => ({
+                ...prev,
+                [gem.id]: { type: "error", message: error?.response?.data?.message || "Could not create the itinerary." },
+            }));
+        } finally {
+            setCreatingItinerary(false);
         }
     }
 
@@ -181,7 +267,7 @@ export default function CompareGems() {
             )}
 
             {gems.length > 0 && (
-                <div className="compare-grid">
+                <div className="compare-grid" ref={gridRef} onScroll={handleGridScroll}>
                     {gems.map((gem) => {
                         const statusDisplay = gem.source === "database" ? getGemStatusDisplay(gem) : null;
                         return (
@@ -288,7 +374,7 @@ export default function CompareGems() {
                                     return (
                                         <div className="compare-card-row">
                                             <span className="compare-card-label">Popular items</span>
-                                            {menuItems === undefined && <span className="compare-card-muted">Loading…</span>}
+                                            {menuItems === undefined && <Spinner size="sm" inline label="Loading…" />}
                                             {menuItems && topItems.length === 0 && <span className="compare-card-muted">None suggested yet</span>}
                                             {topItems.length > 0 && (
                                                 <ul className="compare-card-menu-items">
@@ -313,7 +399,7 @@ export default function CompareGems() {
                                                 <h3>Reviews ({reviews?.length ?? 0})</h3>
                                             </div>
                                             {reviews === undefined && (
-                                                <p className="side-panel-nearby-status">Loading reviews…</p>
+                                                <Spinner size="sm" inline label="Loading reviews…" />
                                             )}
                                             {reviews && reviews.length === 0 && (
                                                 <p className="side-panel-nearby-status">No reviews yet.</p>
@@ -363,6 +449,8 @@ export default function CompareGems() {
                                             : "Only gems that have passed AI review can be added to an itinerary"}
                                         onClick={() => {
                                             setItineraryStatusById((prev) => ({ ...prev, [gem.id]: null }));
+                                            setShowItineraryForm(false);
+                                            setNewItineraryName("");
                                             setItineraryOpenId((open) => (open === gem.id ? null : gem.id));
                                         }}
                                     >
@@ -372,11 +460,11 @@ export default function CompareGems() {
 
                                 {itineraryOpenId === gem.id && (
                                     <div className="side-panel-itinerary-picker compare-card-itinerary-picker">
-                                        {itineraries.length === 0 ? (
-                                            <p className="side-panel-nearby-status">
-                                                No itineraries yet — <Link to="/trip-itinerary">create one</Link> first.
-                                            </p>
-                                        ) : (
+                                        {itinerariesLoading && (
+                                            <Spinner size="sm" inline label="Loading itineraries…" />
+                                        )}
+
+                                        {!itinerariesLoading && itineraries.length > 0 && (
                                             <>
                                                 <h3>Add to which trip?</h3>
                                                 {itineraries.map((trip) => (
@@ -390,6 +478,57 @@ export default function CompareGems() {
                                                 ))}
                                             </>
                                         )}
+
+                                        {!itinerariesLoading && (showItineraryForm ? (
+                                            <form
+                                                className="side-panel-itinerary-create"
+                                                onSubmit={(event) => {
+                                                    event.preventDefault();
+                                                    handleCreateItineraryAndAdd(gem);
+                                                }}
+                                            >
+                                                <input
+                                                    type="text"
+                                                    className="side-panel-itinerary-create-input"
+                                                    placeholder="New trip name"
+                                                    maxLength={ITINERARY_NAME_MAX}
+                                                    value={newItineraryName}
+                                                    onChange={(event) => setNewItineraryName(event.target.value)}
+                                                    autoFocus
+                                                />
+                                                <div className="side-panel-itinerary-create-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="side-panel-itinerary-create-cancel"
+                                                        onClick={() => {
+                                                            setShowItineraryForm(false);
+                                                            setNewItineraryName("");
+                                                        }}
+                                                        disabled={creatingItinerary}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        className="side-panel-itinerary-create-submit"
+                                                        disabled={!newItineraryName.trim() || creatingItinerary}
+                                                    >
+                                                        Create &amp; add
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="side-panel-itinerary-option side-panel-itinerary-new"
+                                                onClick={() => {
+                                                    setItineraryStatusById((prev) => ({ ...prev, [gem.id]: null }));
+                                                    setShowItineraryForm(true);
+                                                }}
+                                            >
+                                                ＋ New itinerary
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
 
@@ -401,6 +540,20 @@ export default function CompareGems() {
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {gems.length > 0 && needsScrollbar && (
+                <div
+                    className="compare-hscroll"
+                    ref={scrollbarRef}
+                    onScroll={handleScrollbarScroll}
+                    aria-hidden="true"
+                >
+                    <div
+                        className="compare-hscroll-track"
+                        style={{ width: scrollContentWidth }}
+                    />
                 </div>
             )}
 

@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
-import { getHiddenGemDetail } from "../api/hiddenGems";
+import { getHiddenGemDetail, updateHiddenGem } from "../api/hiddenGems";
 import { getMe } from "../api/auth";
 import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
+import VerifyReportModal from "../components/VerifyReportModal";
+import Spinner from "../components/Spinner";
 import SignInPrompt from "../components/SignInPrompt";
-import { getReportForLocation, requestFixReview } from "../api/reports";
+import { getReportForLocation } from "../api/reports";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
+import PhotoCarousel from "../components/PhotoCarousel";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
+import { getTripItineraries, addTripLocation, createTripItinerary } from "../api/TripItinerary";
+
+// Backend caps trip_name at 10 characters (TripItineraryController::store).
+const ITINERARY_NAME_MAX = 10;
 import { getTravelPostsForLocation } from "../api/travelPosts";
-import { useCompare } from "../context/CompareContext";
 import MenuItems from "../components/MenuItems";
+import { useCompare } from "../context/CompareContext";
 import api from "../api";
 
 import "../styles/global.css";
@@ -30,14 +37,6 @@ function getVotePhotoUrl(photoPath) {
 }
 
 const COMMENT_EDIT_WINDOW_MS = 72 * 60 * 60 * 1000;
-
-const REPORT_REASON_LABELS = {
-    permanently_closed: "Permanently closed",
-    incorrect_location: "Incorrect location",
-    not_actually_hidden: "No longer hidden (gone viral / well known)",
-    duplicate: "Duplicate of another gem",
-    inappropriate_content: "Inappropriate content",
-};
 
 function canEditWithinCommentWindow(createdAt) {
     const createdAtMs = new Date(createdAt).getTime();
@@ -61,20 +60,44 @@ export default function HiddenGemDetail({ user }) {
     const [voteSuccess, setVoteSuccess] = useState(false);
     const [voteMessage, setVoteMessage] = useState("");
     const [selectedPhoto, setSelectedPhoto] = useState(null);
-    const [currentUser, setCurrentUser] = useState(null);
+    const [currentUser, setCurrentUser] = useState(user ?? null);
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const [wishlistError, setWishlistError] = useState("");
+    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
     const [storyPosts, setStoryPosts] = useState([]);
     const [storiesLoading, setStoriesLoading] = useState(false);
     const [storiesLoaded, setStoriesLoaded] = useState(false);
     const [storiesError, setStoriesError] = useState("");
-    const [reportInfo, setReportInfo] = useState(null);
-    const [fixReviewLoading, setFixReviewLoading] = useState(false);
-    const [fixReviewMessage, setFixReviewMessage] = useState("");
+    const [contactEdit, setContactEdit] = useState(null);
+    const [contactEditSaving, setContactEditSaving] = useState(false);
+    const [contactEditMessage, setContactEditMessage] = useState("");
+    const [confirmingContactSave, setConfirmingContactSave] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
-    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
+    const [itineraries, setItineraries] = useState([]);
+    const [isLoadingItineraries, setIsLoadingItineraries] = useState(false);
+    const [itineraryOpen, setItineraryOpen] = useState(false);
+    const [itineraryStatus, setItineraryStatus] = useState(null);
+    const [showItineraryForm, setShowItineraryForm] = useState(false);
+    const [newItineraryName, setNewItineraryName] = useState("");
+    const [creatingItinerary, setCreatingItinerary] = useState(false);
+    const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+    const [activeReport, setActiveReport] = useState(null);
+    const [loadingReport, setLoadingReport] = useState(false);
+
+    const galleryImages = gem?.images ?? [];
+
+    // A permanently-closed gem is frozen: no new check-ins, votes, ratings,
+    // comments, menu items, itinerary adds or reports (see
+    // Location::acceptsNewInteractions on the backend). Existing content stays
+    // readable; the owner can still resubmit or delete it.
+    const isClosed = !!(gem && gem.permanently_closed_at);
+
+    // Same rule the backend enforces (TripItineraryController::publiclyVisible()).
+    const canAddToItinerary = gem
+        && !isClosed
+        && (gem.status === "hidden_gem" || gem.status === "well_known" || gem.status === "pending_community_vote");
 
     const requireSignIn = (message) => {
         setSignInMessage(message);
@@ -97,13 +120,12 @@ export default function HiddenGemDetail({ user }) {
     const [editCommentPhotoPreview, setEditCommentPhotoPreview] = useState(null);
     const [removeExistingCommentPhoto, setRemoveExistingCommentPhoto] = useState(false);
 
-    // ==================== Comment Edit/Delete State ====================
+    // ==================== Comment Edit State ====================
     const [editingCommentId, setEditingCommentId] = useState(null);
     const [editCommentText, setEditCommentText] = useState("");
     const [editRating, setEditRating] = useState(5);
     const [commentActionMessage, setCommentActionMessage] = useState("");
     const [commentActionLoading, setCommentActionLoading] = useState(false);
-    const [deleteCommentId, setDeleteCommentId] = useState(null);
 
     // ==================== Comment Filter ====================
     const [ratingFilter, setRatingFilter] = useState(0);
@@ -152,6 +174,11 @@ export default function HiddenGemDetail({ user }) {
 
         if (!currentUser) {
             requireSignIn("Login to rate or comment on this hidden gem.");
+            return;
+        }
+
+        if (gem && Number(gem.user_id) === Number(currentUser.id)) {
+            setCommentActionMessage("You cannot rate or comment on your own Hidden Gem.");
             return;
         }
 
@@ -251,25 +278,6 @@ export default function HiddenGemDetail({ user }) {
         }
     };
 
-    const handleDeleteGemComment = async (commentId) => {
-        setCommentActionLoading(true);
-        setCommentActionMessage("");
-
-        try {
-            await api.delete(`/gem-interactions/comments/${commentId}`);
-            setDeleteCommentId(null);
-            await fetchInteractions();
-            setCommentActionMessage("Comment deleted successfully!");
-            setTimeout(() => setCommentActionMessage(""), 3000);
-        } catch (err) {
-            setCommentActionMessage(
-                err.response?.data?.message || "Failed to delete comment."
-            );
-            console.error("Error deleting comment:", err);
-        } finally {
-            setCommentActionLoading(false);
-        }
-    };
 
     useEffect(() => {
         fetchDetail();
@@ -279,7 +287,11 @@ export default function HiddenGemDetail({ user }) {
     useEffect(() => {
         getMe()
             .then((response) => setCurrentUser(response.data))
-            .catch(() => setCurrentUser(null));
+            .catch((err) => {
+                // Keep whatever App already knows on a transient failure; only a
+                // real 401 means the viewer is genuinely signed out.
+                if (err?.response?.status === 401) setCurrentUser(null);
+            });
     }, []);
 
     useEffect(() => {
@@ -289,15 +301,79 @@ export default function HiddenGemDetail({ user }) {
             .catch(err => console.error("Error fetching wishlist:", err));
     }, [currentUser]);
 
+    // Seed the inline contact-edit form for the owner of a verified place
+    // (edit_mode === 'verified'). Contact edits save instantly and never touch
+    // verification; a community-upheld "contact info wrong" report shows a
+    // warning here (gem.contact_flagged) that clears on the next save.
     useEffect(() => {
-        if (!gem || gem.status !== "delisted" || !currentUser || Number(gem.user_id) !== Number(currentUser.id)) {
-            setReportInfo(null);
+        const isOwner = gem && currentUser && Number(gem.user_id) === Number(currentUser.id);
+        if (!isOwner || gem.edit_mode !== "verified") {
+            setContactEdit(null);
             return;
         }
-        getReportForLocation(gem.id)
-            .then((res) => setReportInfo(res.data))
-            .catch(() => setReportInfo(null));
+        setContactEdit({
+            opening_hours: gem.opening_hours ?? "",
+            phone: gem.phone ?? "",
+            website: gem.website ?? "",
+        });
+        setContactEditMessage("");
     }, [gem, currentUser]);
+
+    useEffect(() => {
+        if (!currentUser) {
+            setItineraries([]);
+            return;
+        }
+        setIsLoadingItineraries(true);
+        getTripItineraries()
+            .then((res) => setItineraries(res.data || []))
+            .catch(() => setItineraries([]))
+            .finally(() => setIsLoadingItineraries(false));
+    }, [currentUser]);
+
+    useEffect(() => {
+        setItineraryOpen(false);
+        setItineraryStatus(null);
+        setShowItineraryForm(false);
+        setNewItineraryName("");
+    }, [id]);
+
+    async function handleAddToItinerary(trip) {
+        setItineraryStatus({ type: "loading", message: `Adding to "${trip.trip_name}"…` });
+        try {
+            await addTripLocation(trip.id, { source: "database", location_id: gem.id });
+            setItineraryStatus({ type: "success", message: `Added to "${trip.trip_name}".` });
+            setItineraryOpen(false);
+            setShowItineraryForm(false);
+            setNewItineraryName("");
+        } catch (error) {
+            setItineraryStatus({
+                type: "error",
+                message: error?.response?.data?.message || "Could not add this gem to the trip.",
+            });
+        }
+    }
+
+    async function handleCreateItineraryAndAdd() {
+        const name = newItineraryName.trim();
+        if (!name || creatingItinerary) return;
+
+        setCreatingItinerary(true);
+        setItineraryStatus({ type: "loading", message: `Creating "${name}"…` });
+        try {
+            const res = await createTripItinerary({ trip_name: name });
+            const newTrip = res.data?.data;
+            setItineraries((prev) => [newTrip, ...prev]);
+            await handleAddToItinerary(newTrip);
+        } catch (error) {
+            setItineraryStatus({
+                type: "error",
+                message: error?.response?.data?.message || "Could not create the itinerary.",
+            });
+        } finally {
+            setCreatingItinerary(false);
+        }
+    }
 
     useEffect(() => {
         if (
@@ -356,27 +432,48 @@ export default function HiddenGemDetail({ user }) {
         }
     };
 
-    const handleRequestFixReview = async () => {
-        if (!reportInfo?.root_report) return;
-        setFixReviewLoading(true);
-        setFixReviewMessage("");
+    const handleSaveContactEdit = async () => {
+        if (!contactEdit) return;
+        setConfirmingContactSave(false);
+        setContactEditSaving(true);
+        setContactEditMessage("");
         try {
-            await requestFixReview(reportInfo.root_report.id);
-            const res = await getReportForLocation(gem.id);
-            setReportInfo(res.data);
-            setFixReviewMessage("Fix submitted — the community will now vote on whether it resolves the report.");
+            await updateHiddenGem(gem.id, {
+                edit_type: "contact",
+                opening_hours: contactEdit.opening_hours || "",
+                phone: contactEdit.phone || "",
+                website: contactEdit.website || "",
+            });
+            await fetchDetail();
+            setContactEditMessage("Contact information updated.");
         } catch (err) {
-            setFixReviewMessage(err.response?.data?.message || "Could not request a fix review.");
+            setContactEditMessage(err.response?.data?.message || "Could not update the contact info.");
         } finally {
-            setFixReviewLoading(false);
+            setContactEditSaving(false);
         }
     };
 
-    const showStories = async () => {
-        setActiveTab("stories");
+    // Dedicated "Help Verify" entry point on the detail page — separate from
+    // the small report-icon toggle, which visitors could easily miss or
+    // mistake for "report a new problem" instead of "verify the existing one".
+    async function handleHelpVerify() {
+        if (!currentUser) {
+            requireSignIn("Login to help verify this report.");
+            return;
+        }
+        setLoadingReport(true);
+        try {
+            const res = await getReportForLocation(gem.id);
+            setActiveReport(res.data.data);
+            setVerifyModalOpen(true);
+        } catch (error) {
+            console.error("Error checking report status:", error);
+        } finally {
+            setLoadingReport(false);
+        }
+    }
 
-        if (storiesLoaded) return;
-
+    const fetchStories = async () => {
         setStoriesLoading(true);
         setStoriesError("");
 
@@ -386,17 +483,32 @@ export default function HiddenGemDetail({ user }) {
             setStoriesLoaded(true);
         } catch (err) {
             console.error("Error fetching travel posts for gem:", err);
+            setStoryPosts([]);
             setStoriesError(err.response?.data?.message || "Failed to load community stories.");
         } finally {
             setStoriesLoading(false);
         }
     };
 
+    const showStories = () => {
+        setActiveTab("stories");
+
+        if (!storiesLoaded && !storiesLoading) {
+            fetchStories();
+        }
+    };
+
+    useEffect(() => {
+        setStoryPosts([]);
+        setStoriesLoaded(false);
+        fetchStories();
+    }, [id]);
+
     useEffect(() => {
         if (routeLocation.state?.openTab === "stories") {
-            showStories();
+            setActiveTab("stories");
         }
-    }, []);
+    }, [routeLocation.state]);
 
     const handleVoteSuccess = (data) => {
         setVoteSuccess(true);
@@ -411,16 +523,19 @@ export default function HiddenGemDetail({ user }) {
     // ==================== Star Rating Component ====================
     const StarRating = ({ value, onChange, size = "small" }) => {
         const [hoverRating, setHoverRating] = useState(0);
+        const isInteractive = typeof onChange === "function";
+        const displayedRating = isInteractive && hoverRating ? hoverRating : value;
 
         return (
-            <div className={`star-rating ${size}`}>
+            <div className={`star-rating ${size} ${isInteractive ? "interactive" : "readonly"}`}>
                 {[1, 2, 3, 4, 5].map((star) => (
                     <span
                         key={star}
-                        className={`star ${star <= (hoverRating || value) ? "filled" : ""}`}
-                        onClick={() => onChange && onChange(star)}
-                        onMouseEnter={() => setHoverRating(star)}
-                        onMouseLeave={() => setHoverRating(0)}
+                        className={`star ${star <= displayedRating ? "filled" : ""}`}
+                        onClick={isInteractive ? () => onChange(star) : undefined}
+                        onMouseEnter={isInteractive ? () => setHoverRating(star) : undefined}
+                        onMouseLeave={isInteractive ? () => setHoverRating(0) : undefined}
+                        style={{ pointerEvents: isInteractive ? "auto" : "none" }}
                     >
                         ★
                     </span>
@@ -458,6 +573,12 @@ export default function HiddenGemDetail({ user }) {
         comment => Number(comment.user_id) === Number(currentUser?.id)
     );
 
+    const isGemOwner = Boolean(
+        currentUser &&
+        gem &&
+        Number(gem.user_id) === Number(currentUser.id)
+    );
+
     if (loading) {
         return (
             <div className="gem-detail-loading">
@@ -479,7 +600,7 @@ export default function HiddenGemDetail({ user }) {
     }
 
     return (
-        <div className="gem-detail-page">
+        <div className={`gem-detail-page${gem.permanently_closed_at ? " gem-detail-page-closed" : ""}`}>
 
             {voteSuccess && (
                 <div className="gem-detail-vote-success">
@@ -490,74 +611,52 @@ export default function HiddenGemDetail({ user }) {
             <div className="gem-detail-container">
 
                 <div className="gem-detail-gallery">
-                    <div className="gem-detail-main-image">
-                        {gem.images && gem.images.length > 0 ? (
-                            <img
-                                src={gem.images[0].image_url}
-                                alt={gem.place_name}
-                                onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.parentElement.innerHTML = `<div class="gem-detail-main-placeholder">No Image</div>`;
-                                }}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
+                    {galleryImages.length > 0 ? (
+                        <PhotoCarousel
+                            images={galleryImages}
+                            alt={gem.place_name}
+                            className="gem-detail-carousel"
+                            onImageClick={(url) => setSelectedPhoto(url)}
+                        />
+                    ) : (
+                        <div className="gem-detail-main-image">
                             <div className="gem-detail-main-placeholder">No Image</div>
-                        )}
-                    </div>
-                    <div className="gem-detail-thumbnails">
-                        {gem.images && gem.images.slice(1, 4).map((img, index) => (
-                            <div key={index} className="gem-detail-thumbnail">
-                                <img
-                                    src={img.image_url}
-                                    alt={`${gem.place_name} ${index + 2}`}
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
-                            </div>
-                        ))}
-                        {gem.images && gem.images.length > 4 && (
-                            <div className="gem-detail-thumbnail-more">
-                                +{gem.images.length - 4}
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="gem-detail-header">
                     <div className="gem-detail-title-row">
                         <h1 className="gem-detail-title">{gem.place_name}</h1>
-                        {(gem.status === "hidden_gem" || gem.status === "pending_community_vote") && (
+                        {!isClosed && (gem.status === "hidden_gem" || gem.status === "well_known" || gem.status === "pending_community_vote") && (
                             <div className="hidden-gems-card-icon-actions">
-                                <button
-                                    type="button"
-                                    className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
-                                    onClick={handleToggleWishlist}
-                                    disabled={wishlistBusy}
-                                    title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
-                                >
-                                    {wishlistIds.has(gem.id) ? "♥" : "♡"}
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
-                                    onClick={() => {
-                                        if (!currentUser) {
-                                            requireSignIn("Login to compare hidden gems.");
-                                            return;
-                                        }
-                                        toggleCompare(gem);
-                                    }}
-                                    disabled={!isComparing(gem.id) && !canAddMore}
-                                    title={isComparing(gem.id)
-                                        ? "Remove from comparison"
-                                        : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
-                                >
-                                    {isComparing(gem.id) ? "☑" : "☐"}
-                                </button>
-                                <ReportButton gem={gem} user={currentUser} />
+                                {(gem.status === "hidden_gem" || gem.status === "well_known" || gem.status === "pending_community_vote") && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
+                                            onClick={handleToggleWishlist}
+                                            disabled={wishlistBusy}
+                                            title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
+                                        >
+                                            {wishlistIds.has(gem.id) ? "♥" : "♡"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
+                                            onClick={() => toggleCompare(gem)}
+                                            disabled={!isComparing(gem.id) && !canAddMore}
+                                            title={isComparing(gem.id)
+                                                ? "Remove from comparison"
+                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
+                                        >
+                                            {isComparing(gem.id) ? "☑" : "☐"}
+                                        </button>
+                                    </>
+                                )}
+                                <div className="gem-detail-report-btn-wrapper">
+                                    <ReportButton gem={gem} user={currentUser} />
+                                </div>
                             </div>
                         )}
                     </div>
@@ -578,16 +677,121 @@ export default function HiddenGemDetail({ user }) {
                         <div className="gem-detail-status-row">
                             {gem.status === "hidden_gem" ? (
                                 <span className="gem-detail-status-verified">Hidden Gem</span>
+                            ) : gem.status === "well_known" ? (
+                                <span className="gem-detail-status-verified">Well-Known Place</span>
                             ) : gem.status === "ai_rejected" ? (
                                 <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
                                     Not Accepted
                                 </span>
-                            ) : gem.status === "delisted" ? (
-                                <span className="gem-detail-status-rejected">
-                                    Delisted
-                                </span>
                             ) : null}
+                            {gem.permanently_closed_at && (
+                                <span className="gem-detail-status-rejected" title="The community confirmed this place has closed for good">
+                                    Permanently closed
+                                </span>
+                            )}
                         </div>
+
+                        {canAddToItinerary && (
+                            <div className="gem-detail-itinerary">
+                                <button
+                                    type="button"
+                                    className="gem-detail-itinerary-btn"
+                                    onClick={() => {
+                                        if (!currentUser) {
+                                            requireSignIn("Login to add this gem to a trip itinerary.");
+                                            return;
+                                        }
+                                        setItineraryStatus(null);
+                                        setShowItineraryForm(false);
+                                        setNewItineraryName("");
+                                        setItineraryOpen((open) => !open);
+                                    }}
+                                >
+                                    ＋ Add to itinerary
+                                </button>
+
+                                {itineraryOpen && currentUser && (
+                                    <div className="gem-detail-itinerary-picker">
+                                        {isLoadingItineraries && (
+                                            <Spinner size="sm" inline label="Loading itineraries…" />
+                                        )}
+
+                                        {!isLoadingItineraries && itineraries.length > 0 && (
+                                            <>
+                                                <h4>Add to which trip?</h4>
+                                                {itineraries.map((trip) => (
+                                                    <button
+                                                        key={trip.id}
+                                                        type="button"
+                                                        className="gem-detail-itinerary-option"
+                                                        onClick={() => handleAddToItinerary(trip)}
+                                                    >
+                                                        {trip.trip_name}
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
+
+                                        {!isLoadingItineraries && (showItineraryForm ? (
+                                            <form
+                                                className="gem-detail-itinerary-create"
+                                                onSubmit={(event) => {
+                                                    event.preventDefault();
+                                                    handleCreateItineraryAndAdd();
+                                                }}
+                                            >
+                                                <input
+                                                    type="text"
+                                                    className="gem-detail-itinerary-create-input"
+                                                    placeholder="New trip name"
+                                                    maxLength={ITINERARY_NAME_MAX}
+                                                    value={newItineraryName}
+                                                    onChange={(event) => setNewItineraryName(event.target.value)}
+                                                    autoFocus
+                                                />
+                                                <div className="gem-detail-itinerary-create-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="gem-detail-itinerary-create-cancel"
+                                                        onClick={() => {
+                                                            setShowItineraryForm(false);
+                                                            setNewItineraryName("");
+                                                        }}
+                                                        disabled={creatingItinerary}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        className="gem-detail-itinerary-create-submit"
+                                                        disabled={!newItineraryName.trim() || creatingItinerary}
+                                                    >
+                                                        Create &amp; add
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="gem-detail-itinerary-option gem-detail-itinerary-new"
+                                                onClick={() => {
+                                                    setItineraryStatus(null);
+                                                    setShowItineraryForm(true);
+                                                }}
+                                            >
+                                                ＋ New itinerary
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {itineraryStatus && (
+                                    <p className={`gem-detail-itinerary-status ${itineraryStatus.type}`}>
+                                        {itineraryStatus.message}
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                 </div>
 
@@ -608,7 +812,7 @@ export default function HiddenGemDetail({ user }) {
                         className={`gem-detail-tab ${activeTab === "stories" ? "active" : ""}`}
                         onClick={showStories}
                     >
-                        Community Stories
+                        Community Stories ({storyPosts.length})
                     </button>
                     <button
                         className={`gem-detail-tab ${activeTab === "comments" ? "active" : ""}`}
@@ -619,6 +823,135 @@ export default function HiddenGemDetail({ user }) {
                 </div>
 
                 <div className="gem-detail-content">
+
+                {gem.report_status === "under_review" && Number(gem.user_id) !== Number(currentUser?.id) && (
+                    <div className="report-banner">
+                        <div className="report-banner-text">
+                            <strong>This gem has a report under review</strong>
+                            <p>Help the community confirm or dispute it — 5 votes either way settles it.</p>
+                        </div>
+                        <button
+                            type="button"
+                            className="report-banner-verify-btn"
+                            onClick={handleHelpVerify}
+                            disabled={loadingReport}
+                        >
+                            {loadingReport ? "Loading…" : "Help Verify"}
+                        </button>
+                    </div>
+                )}
+
+                {gem.report_status === "under_review" && Number(gem.user_id) === Number(currentUser?.id) && (
+                    <div className="report-owner-banner">
+                        <h3>⚠ Your gem has been reported</h3>
+                        <p>The community is voting to confirm or dispute it. You'll be able to act once it's resolved.</p>
+                    </div>
+                )}
+
+                {isClosed && (
+                    <div className="report-owner-banner">
+                        <h3>⚠ Marked permanently closed</h3>
+                        <p>
+                            The community confirmed this place has closed for good. It stays listed for
+                            reference but is greyed out, and check-ins, votes, ratings, comments and menu
+                            items are frozen.
+                        </p>
+                        {Number(gem.user_id) === Number(currentUser?.id) && (
+                            gem.status === "pending_community_vote" ? (
+                                <p className="report-owner-countdown">
+                                    If it has reopened, edit it from <Link to="/my-hidden-gems">My Hidden Gems</Link> —
+                                    that counts as a fresh submission and goes through AI review and community
+                                    voting again. You can also delete it there.
+                                </p>
+                            ) : (
+                                <p className="report-owner-countdown">
+                                    This gem was already verified, so it can no longer be edited or deleted —
+                                    the closed listing stays as a permanent record.
+                                </p>
+                            )
+                        )}
+                    </div>
+                )}
+
+                {gem.pending_edit && Number(gem.user_id) === Number(currentUser?.id) && (
+                    <div className="report-owner-banner">
+                        <h3>
+                            {gem.pending_edit.status === "pending_review"
+                                ? "⏳ Your changes are under review"
+                                : "✕ Your changes were not applied"}
+                        </h3>
+                        <p>
+                            {gem.pending_edit.status === "pending_review"
+                                ? "A quick AI check is running on your new description / photos. They'll appear here once approved."
+                                : (gem.pending_edit.ai_reason || "The AI review did not approve the change, so nothing was updated.")}
+                        </p>
+                    </div>
+                )}
+
+                {activeTab === "details" && gem.edit_mode === "verified" && contactEdit && Number(gem.user_id) === Number(currentUser?.id) && (
+                    <div className="report-owner-banner">
+                        <h3>✎ Update your contact info</h3>
+                        <p>
+                            {gem.contact_flagged
+                                ? "The community confirmed a report that the contact details are wrong. Correct the hours, phone and website below — saving clears the warning."
+                                : "Keep your place's hours, phone and website current. Changes here are instant and don't affect its status, votes or ratings."}
+                        </p>
+                        <div className="gem-detail-contact-edit">
+                            <label>Opening hours</label>
+                            <input
+                                type="text"
+                                value={contactEdit.opening_hours}
+                                onChange={(e) => setContactEdit((c) => ({ ...c, opening_hours: e.target.value }))}
+                                maxLength={255}
+                            />
+                            <label>Phone</label>
+                            <input
+                                type="text"
+                                value={contactEdit.phone}
+                                onChange={(e) => setContactEdit((c) => ({ ...c, phone: e.target.value }))}
+                                maxLength={30}
+                            />
+                            <label>Website</label>
+                            <input
+                                type="url"
+                                value={contactEdit.website}
+                                onChange={(e) => setContactEdit((c) => ({ ...c, website: e.target.value }))}
+                                maxLength={255}
+                                placeholder="https://…"
+                            />
+                        </div>
+                        <div className="report-owner-actions">
+                            <button
+                                className="vote-btn-primary"
+                                onClick={() => setConfirmingContactSave(true)}
+                                disabled={contactEditSaving}
+                            >
+                                {contactEditSaving ? "Saving…" : "Save contact info"}
+                            </button>
+                        </div>
+                        {contactEditMessage && <p className="vote-message success">{contactEditMessage}</p>}
+
+                        {confirmingContactSave && (
+                            <div className="delete-modal-overlay" onClick={() => setConfirmingContactSave(false)}>
+                                <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
+                                    <h2>Update contact info?</h2>
+                                    <p>
+                                        These new opening hours, phone and website will show on your
+                                        place immediately and any "may be out of date" warning is cleared.
+                                    </p>
+                                    <div className="delete-modal-actions">
+                                        <button className="delete-modal-cancel" onClick={() => setConfirmingContactSave(false)}>
+                                            Cancel
+                                        </button>
+                                        <button className="delete-modal-confirm" onClick={handleSaveContactEdit}>
+                                            Save changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {activeTab === "details" && (
                     <div className="gem-detail-sections">
@@ -654,6 +987,14 @@ export default function HiddenGemDetail({ user }) {
                                 <div className="gem-detail-section-header">
                                     <span className="gem-detail-section-icon">ℹ️</span>
                                     <h3>Contact Info</h3>
+                                    {gem.contact_flagged && (
+                                        <span
+                                            className="gem-detail-status-rejected"
+                                            title="The community confirmed a report that some of this contact info is wrong. It will be corrected by the owner."
+                                        >
+                                            ⚠ May be out of date
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="gem-detail-contact-list">
                                     {gem.opening_hours && (
@@ -675,6 +1016,15 @@ export default function HiddenGemDetail({ user }) {
                                         </div>
                                     )}
                                 </div>
+                                {gem.contact_updated_at && (
+                                    <p className="gem-detail-contact-updated">
+                                        Contact info updated{" "}
+                                        {new Date(gem.contact_updated_at).toLocaleString("en-GB", {
+                                            day: "numeric", month: "short", year: "numeric",
+                                            hour: "2-digit", minute: "2-digit",
+                                        })}
+                                    </p>
+                                )}
                             </div>
                         )}
 
@@ -688,6 +1038,7 @@ export default function HiddenGemDetail({ user }) {
                                     locationId={gem.id}
                                     currentUser={currentUser}
                                     onRequireSignIn={requireSignIn}
+                                    frozen={isClosed}
                                 />
                             </div>
                         )}
@@ -748,6 +1099,7 @@ export default function HiddenGemDetail({ user }) {
                                 <Link
                                     to={`/users/${gem.user?.id || ''}`}
                                     className="gem-detail-submitter-link"
+                                    style={{ textDecoration: "none" }}
                                     onClick={(event) => {
                                         if (user) return;
                                         event.preventDefault();
@@ -765,7 +1117,11 @@ export default function HiddenGemDetail({ user }) {
 
                         {/* Vote Button */}
                         <div className="gem-detail-vote-section">
-                            {gem.status === "pending_community_vote" ? (
+                            {isClosed ? (
+                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
+                                    ⚠ Permanently closed
+                                </button>
+                            ) : gem.status === "pending_community_vote" ? (
                                 <button
                                     className="gem-detail-vote-btn"
                                     onClick={() => {
@@ -782,11 +1138,11 @@ export default function HiddenGemDetail({ user }) {
                                 <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
                                     ✓ Already a Hidden Gem
                                 </button>
-                            ) : gem.status === "ai_rejected" ? null : gem.status === "delisted" ? (
+                            ) : gem.status === "well_known" ? (
                                 <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ⚠ Delisted after a confirmed report
+                                    ★ Well-Known Place
                                 </button>
-                            ) : (
+                            ) : gem.status === "ai_rejected" ? null : (
                                 <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
                                     ⏳ Being Verified
                                 </button>
@@ -795,90 +1151,55 @@ export default function HiddenGemDetail({ user }) {
                     </div>
                 )}
 
-                {gem.status === "delisted" && reportInfo?.root_report && Number(gem.user_id) === Number(currentUser?.id) && (
-                    <div className="report-owner-banner">
-                        <h3>⚠ This gem was delisted</h3>
-                        <p>
-                            The community confirmed a report: <strong>{REPORT_REASON_LABELS[reportInfo.root_report.reason] || reportInfo.root_report.reason}</strong>
-                            {reportInfo.root_report.flagged_item && (
-                                <> — flagged: {reportInfo.root_report.flagged_item === "description" ? "the description" : "a photo"}</>
-                            )}
-                            .
-                        </p>
-                        {reportInfo.data.id === reportInfo.root_report.id ? (
-                            <>
-                                {reportInfo.root_report.delete_at && (
-                                    <p className="report-owner-countdown">
-                                        Fix this by{" "}
-                                        <strong>
-                                            {new Date(reportInfo.root_report.delete_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                                        </strong>{" "}
-                                        or it will be permanently removed.
-                                    </p>
-                                )}
-                                <div className="report-owner-actions">
-                                    <Link to={`/my-hidden-gems/edit/${gem.id}`} className="vote-btn-secondary">Edit Gem</Link>
-                                    <button className="vote-btn-primary" onClick={handleRequestFixReview} disabled={fixReviewLoading}>
-                                        {fixReviewLoading ? "Submitting..." : "I've fixed it — request review"}
-                                    </button>
+                    {activeTab === "votes" && (
+                    <div className="gem-detail-votes-list">
+                        {gem.votes && gem.votes.length > 0 ? (
+                            gem.votes.map((vote) => (
+                                <div
+                                    id={`vote-${vote.id}`}
+                                    key={vote.id}
+                                    className="gem-detail-vote-item"
+                                >
+                                    <div className="gem-detail-vote-avatar">
+                                        {vote.user?.name?.charAt(0) || "U"}
+                                    </div>
+
+                                    <div className="gem-detail-vote-info">
+                                        <p className="gem-detail-vote-user">
+                                            {vote.user?.name || "Unknown User"}
+                                        </p>
+
+                                        <p className="gem-detail-vote-date">
+                                            Voted on{" "}
+                                            {new Date(vote.created_at).toLocaleDateString("en-GB", {
+                                                day: "numeric",
+                                                month: "short",
+                                                year: "numeric",
+                                            })}
+                                        </p>
+                                    </div>
                                 </div>
-                            </>
+                            ))
                         ) : (
-                            <p className="report-owner-countdown">
-                                A fix is already under review: {reportInfo.data.confirm_count} confirm / {reportInfo.data.dispute_count} dispute.
+                            <p className="gem-detail-no-votes">
+                                No votes yet. Be the first to vote!
                             </p>
                         )}
-                        {fixReviewMessage && <p className="vote-message success">{fixReviewMessage}</p>}
                     </div>
-                )}
-
-                    {activeTab === "votes" && (
-                        <div className="gem-detail-votes-list">
-                            {gem.votes && gem.votes.length > 0 ? (
-                                gem.votes.map((vote) => (
-                                    <div
-                                        id={`vote-${vote.id}`}
-                                        key={vote.id}
-                                        className="gem-detail-vote-item"
-                                    >
-                                        <div className="gem-detail-vote-avatar">
-                                            {vote.user?.name?.charAt(0) || "U"}
-                                        </div>
-
-                                        <div className="gem-detail-vote-info">
-                                            <p className="gem-detail-vote-user">
-                                                {vote.user?.name || "Unknown User"}
-                                            </p>
-
-                                            <p className="gem-detail-vote-date">
-                                                Voted on{" "}
-                                                {new Date(vote.created_at).toLocaleDateString("en-GB", {
-                                                    day: "numeric",
-                                                    month: "short",
-                                                    year: "numeric",
-                                                })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="gem-detail-no-votes">
-                                    No votes yet. Be the first to vote!
-                                </p>
-                            )}
-                        </div>
-                    )}
+)}
 
                     {activeTab === "stories" && (
                         <div className="gem-detail-stories-list">
                             {storiesLoading ? (
-                                <p className="gem-detail-no-votes">Loading community stories…</p>
+                                <Spinner size="sm" inline label="Loading community stories…" />
                             ) : storiesError ? (
                                 <p className="gem-detail-no-votes">{storiesError}</p>
                             ) : storyPosts.length === 0 ? (
-                                <p className="gem-detail-no-votes">
-                                    No travel posts mention this gem yet. Be the first to write one!
-                                </p>
+                                <div className="gem-detail-empty-card">
+                                    <p className="gem-detail-no-votes">
+                                        No travel posts mention this gem yet. Be the first to write one!
+                                    </p>
+                                </div>
                             ) : (
                                 storyPosts.map((post) => (
                                     <div
@@ -975,7 +1296,15 @@ export default function HiddenGemDetail({ user }) {
                             )}
 
                             {/* Rating + Comment Form */}
-                            {hasUserCommented ? (
+                            {isClosed ? (
+                                <div className="gem-detail-already-commented">
+                                    <p>This place is marked permanently closed — new ratings and comments are frozen.</p>
+                                </div>
+                            ) : isGemOwner ? (
+                                <div className="gem-detail-already-commented">
+                                    <p>You cannot rate or comment on your own Hidden Gem.</p>
+                                </div>
+                            ) : hasUserCommented ? (
                                 <div className="gem-detail-already-commented">
                                     <p>You have already rated this location.</p>
                                     <p>You can edit your comment below.</p>
@@ -1164,25 +1493,15 @@ export default function HiddenGemDetail({ user }) {
                                                                     />
                                                                 </div>
                                                             )}
-                                                            {isOwnComment && !isEditing && (
+                                                            {isOwnComment && !isEditing && canEdit && !isGemOwner && (
                                                                 <span className="gem-detail-comment-actions">
-                                                                    {canEdit && (
-                                                                        <button
-                                                                            type="button"
-                                                                            className="gem-detail-comment-edit-btn"
-                                                                            onClick={() => handleEditComment(comment)}
-                                                                            disabled={commentActionLoading}
-                                                                        >
-                                                                            ✎
-                                                                        </button>
-                                                                    )}
                                                                     <button
                                                                         type="button"
-                                                                        className="gem-detail-comment-delete-btn"
-                                                                        onClick={() => setDeleteCommentId(comment.id)}
+                                                                        className="gem-detail-comment-edit-btn"
+                                                                        onClick={() => handleEditComment(comment)}
                                                                         disabled={commentActionLoading}
                                                                     >
-                                                                        ✕
+                                                                        ✎
                                                                     </button>
                                                                 </span>
                                                             )}
@@ -1206,43 +1525,15 @@ export default function HiddenGemDetail({ user }) {
                                         );
                                     })
                                 ) : (
-                                    <p className="gem-detail-no-comments">
-                                        {totalRatings > 0
-                                            ? "No results match your filter."
-                                            : "No ratings yet. Be the first to rate!"}
-                                    </p>
+                                    <div className="gem-detail-empty-card">
+                                        <p className="gem-detail-no-comments">
+                                            {totalRatings > 0
+                                                ? "No results match your filter."
+                                                : "No ratings yet. Be the first to rate!"}
+                                        </p>
+                                    </div>
                                 )}
                             </div>
-
-                            {deleteCommentId && (
-                                <div className="delete-modal-overlay" onClick={() => setDeleteCommentId(null)}>
-                                    <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
-                                        <h2>Delete Comment?</h2>
-                                        <p>Are you sure you want to delete this comment? This action cannot be undone.</p>
-                                        {commentActionMessage && (
-                                            <p className="delete-modal-error">{commentActionMessage}</p>
-                                        )}
-                                        <div className="delete-modal-actions">
-                                            <button
-                                                type="button"
-                                                className="delete-modal-cancel"
-                                                onClick={() => setDeleteCommentId(null)}
-                                                disabled={commentActionLoading}
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="delete-modal-confirm"
-                                                onClick={() => handleDeleteGemComment(deleteCommentId)}
-                                                disabled={commentActionLoading}
-                                            >
-                                                {commentActionLoading ? "Deleting..." : "Delete"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     )}
 
@@ -1261,6 +1552,17 @@ export default function HiddenGemDetail({ user }) {
                 isOpen={showSignIn}
                 onClose={() => setShowSignIn(false)}
                 message={signInMessage}
+            />
+
+            <VerifyReportModal
+                report={activeReport}
+                isOpen={verifyModalOpen}
+                onClose={() => setVerifyModalOpen(false)}
+                onVerifySuccess={(data) => {
+                    if (data?.location) {
+                        setGem((prev) => (prev ? { ...prev, ...data.location } : prev));
+                    }
+                }}
             />
 
             {selectedPhoto && (

@@ -1,15 +1,20 @@
 import api from '../api';
 
 export const checkIn = (locationId, { latitude, longitude }) =>
-    api.post(`/votes/checkin/${locationId}`, { latitude, longitude, check_in_at: new Date().toISOString() });
+    api.post(`/votes/checkin/${locationId}`, {
+        latitude,
+        longitude,
+        check_in_at: new Date().toISOString(),
+    });
 
-export const getMyVotes = () => api.get('/my-votes');
+export const checkVoteEligibility = (locationId) =>
+    api.get(`/votes/check/${locationId}`);
 
-export const updateVoteComment = (voteId, comment) =>
-    api.patch(`/votes/${voteId}/comment`, { comment });
+export const submitVote = (locationId, { latitude, longitude }) =>
+    api.post(`/votes/${locationId}`, {
+        latitude,
+        longitude,
+    });
 
-export const deleteVoteComment = (voteId) =>
-    api.delete(`/votes/${voteId}/comment`);
-
-export const deleteVotePhoto = (voteId) =>
-    api.delete(`/votes/${voteId}/photo`);
+export const getMyVotes = () =>
+    api.get('/my-votes');

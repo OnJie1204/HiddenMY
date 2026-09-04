@@ -32,6 +32,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { createGemClusterIcon } from "../components/GemClusterIcon";
+import Spinner from "../components/Spinner";
 
 
 import "../styles/global.css";
@@ -90,9 +91,29 @@ const toDisplayLocation = (location) => ({
     id: location.id,
     name: location.location?.place_name ?? location.osm_name ?? `OpenStreetMap location (${location.osm_id})`,
     type: location.isHidden ? "hidden" : "osm",
+    // The underlying Hidden Gem (Location) id, so a hidden-gem stop can link
+    // straight to its detail page. Null for OpenStreetMap stops.
+    gemId: location.isHidden ? location.location?.id ?? null : null,
+    // Live status of the underlying gem, so the stop can show a badge when it's
+    // still in voting, well-known, or has since been permanently closed.
+    gemStatus: location.isHidden ? location.location?.status ?? null : null,
+    gemClosedAt: location.isHidden ? location.location?.permanently_closed_at ?? null : null,
     latitude: location.isHidden ? location.location?.latitude : location.latitude,
     longitude: location.isHidden ? location.location?.longitude : location.longitude,
 });
+
+// One short badge for a stop's underlying gem, or null.
+export const stopGemBadge = (stop) => {
+    if (!stop || stop.type !== "hidden") return null;
+    if (stop.gemClosedAt) return { label: "Permanently closed", tone: "closed" };
+    if (stop.gemStatus === "pending_community_vote") return { label: "In community voting", tone: "voting" };
+    if (stop.gemStatus === "well_known") return { label: "Well-known place", tone: "known" };
+    if (stop.gemStatus === "hidden_gem") return { label: "Hidden gem", tone: "gem" };
+    if (stop.gemStatus === "deleted" || (stop.gemId == null && stop.gemStatus == null)) {
+        return { label: "No longer listed", tone: "closed" };
+    }
+    return null;
+};
 
 function MapViewController({ target }) {
     const map = useMap();
@@ -155,7 +176,9 @@ function SortableLocationCard({
 
     index,
 
-    onDelete
+    onDelete,
+
+    onOpen
 
 }) {
 
@@ -211,8 +234,25 @@ function SortableLocationCard({
 
             </div>
 
-            <div className="trip-detail-location-name">
-                {index + 1}. {location.name}
+            <div className="trip-detail-location-main">
+                <button
+                    type="button"
+                    className="trip-detail-location-name"
+                    onClick={() => onOpen(location)}
+                    title={location.type === "hidden"
+                        ? "View hidden gem details"
+                        : "Search for this location on Google"}
+                >
+                    {index + 1}. {location.name}
+                </button>
+                {(() => {
+                    const badge = stopGemBadge(location);
+                    return badge ? (
+                        <span className={`trip-detail-stop-badge trip-detail-stop-badge-${badge.tone}`}>
+                            {badge.label}
+                        </span>
+                    ) : null;
+                })()}
             </div>
 
             <button
@@ -271,13 +311,18 @@ export default function TripItineraryDetail() {
     const [userLocation, setUserLocation] = useState(null);
     const [isRequestingLocation, setIsRequestingLocation] = useState(false);
     const [locationPromptError, setLocationPromptError] = useState("");
+    // null = not asked yet this itinerary visit, "skip" / "share" = the choice
+    // to reuse (and skip the prompt) on subsequent "Add Stopping Point" clicks.
+    const [locationChoice, setLocationChoice] = useState(null);
     const [isIdentifyingClickedLocation, setIsIdentifyingClickedLocation] = useState(false);
     const [mapClickError, setMapClickError] = useState("");
     const [wishlistItems, setWishlistItems] = useState([]);
     const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+    const [deleteError, setDeleteError] = useState("");
     const [isLoadingItinerary, setIsLoadingItinerary] = useState(true);
+    const [successMessage, setSuccessMessage] = useState("");
 
     const closeStoppingPointDialog = () => {
         setIsStoppingPointDialogOpen(false);
@@ -286,30 +331,12 @@ export default function TripItineraryDetail() {
         setSearchResults({ database: [], openStreetMap: [] });
         setMapTarget(null);
         setAddLocationError("");
-        setUserLocation(null);
         setMapClickError("");
+        // userLocation / locationChoice are kept for the rest of this itinerary
+        // visit so the "share or skip" prompt is only shown once.
     };
 
-    const openAddStoppingPointFlow = () => {
-        setLocationPromptError("");
-
-        if (typeof navigator === "undefined" || !navigator.geolocation) {
-            setUserLocation(null);
-            setIsStoppingPointDialogOpen(true);
-            return;
-        }
-
-        setIsLocationPromptOpen(true);
-    };
-
-    const skipLocationAndOpenDialog = () => {
-        setUserLocation(null);
-        setIsRequestingLocation(false);
-        setIsLocationPromptOpen(false);
-        setIsStoppingPointDialogOpen(true);
-    };
-
-    const shareLocationAndOpenDialog = () => {
+    const requestLocation = ({ fromPrompt }) => {
         setIsRequestingLocation(true);
         setLocationPromptError("");
 
@@ -321,6 +348,7 @@ export default function TripItineraryDetail() {
                 };
                 setUserLocation(location);
                 setMapTarget({ ...location, zoom: 13 });
+                setLocationChoice("share");
                 setIsRequestingLocation(false);
                 setIsLocationPromptOpen(false);
                 setIsStoppingPointDialogOpen(true);
@@ -328,10 +356,62 @@ export default function TripItineraryDetail() {
             (error) => {
                 console.error("Failed to get user location.", error);
                 setIsRequestingLocation(false);
-                setLocationPromptError("Unable to access your location. You can skip and search without it.");
+
+                if (fromPrompt) {
+                    setLocationPromptError("Unable to access your location. You can skip and search without it.");
+                } else {
+                    // A repeat open shouldn't strand the user when geolocation
+                    // fails — fall back to a no-location search this time.
+                    setUserLocation(null);
+                    setIsStoppingPointDialogOpen(true);
+                }
             },
             { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 },
         );
+    };
+
+    const openAddStoppingPointFlow = () => {
+        setLocationPromptError("");
+
+        // The location question is asked only once per itinerary visit. Once
+        // the user has answered, reuse that choice and skip straight to the
+        // search dialog.
+        if (locationChoice === "skip") {
+            setUserLocation(null);
+            setIsStoppingPointDialogOpen(true);
+            return;
+        }
+
+        if (locationChoice === "share") {
+            if (userLocation) {
+                setMapTarget({ ...userLocation, zoom: 13 });
+                setIsStoppingPointDialogOpen(true);
+            } else {
+                requestLocation({ fromPrompt: false });
+            }
+            return;
+        }
+
+        if (typeof navigator === "undefined" || !navigator.geolocation) {
+            setLocationChoice("skip");
+            setUserLocation(null);
+            setIsStoppingPointDialogOpen(true);
+            return;
+        }
+
+        setIsLocationPromptOpen(true);
+    };
+
+    const skipLocationAndOpenDialog = () => {
+        setLocationChoice("skip");
+        setUserLocation(null);
+        setIsRequestingLocation(false);
+        setIsLocationPromptOpen(false);
+        setIsStoppingPointDialogOpen(true);
+    };
+
+    const shareLocationAndOpenDialog = () => {
+        requestLocation({ fromPrompt: true });
     };
 
     const refreshItinerary = async () => {
@@ -361,11 +441,41 @@ export default function TripItineraryDetail() {
         }
     }, [selectedLocation]);
 
+    // Auto-dismiss the success toast after a few seconds.
+    useEffect(() => {
+        if (!successMessage) return;
+
+        const timer = setTimeout(() => setSuccessMessage(""), 3000);
+
+        return () => clearTimeout(timer);
+    }, [successMessage]);
+
+    // A notice handed over from another page (e.g. "created" from the itinerary
+    // list). Show it once, then wipe it from history so a refresh won't repeat it.
+    useEffect(() => {
+        if (!state?.notice) return;
+
+        setSuccessMessage(state.notice);
+        navigate(`/trip-itinerary/${id}`, { replace: true, state: { itinerary: state.itinerary } });
+    }, [state, navigate, id]);
+
     useEffect(() => {
         setIsLoadingItinerary(true);
+
+        // Leaving this itinerary (unmount) resets everything on its own; this
+        // also covers navigating straight from one itinerary to another, where
+        // the component is reused. Either way the location choice starts fresh.
+        setLocationChoice(null);
+        setUserLocation(null);
+
         refreshItinerary()
             .catch((error) => {
                 console.error("Failed to load itinerary locations.", error);
+                // This page is the owner's editor. A non-owner (e.g. following
+                // an old link) gets a 403 — send them back to their trips.
+                if (error?.response?.status === 403) {
+                    navigate("/trip-itinerary", { replace: true });
+                }
             })
             .finally(() => {
                 setIsLoadingItinerary(false);
@@ -569,6 +679,7 @@ export default function TripItineraryDetail() {
             await addTripLocation(id, data);
             await refreshItinerary();
             closeStoppingPointDialog();
+            setSuccessMessage("Stopping point added.");
         } catch (error) {
             console.error("Failed to add stopping point.", error);
             setAddLocationError(error.response?.data?.message ?? "Unable to add this stopping point. Please try again.");
@@ -577,16 +688,24 @@ export default function TripItineraryDetail() {
         }
     };
 
-    const createdDate = trip?.created_at
-        ? new Date(trip.created_at).toLocaleDateString(
-            "en-GB",
-            {
+    const formatDate = (value) =>
+        value
+            ? new Date(value).toLocaleDateString("en-GB", {
                 day: "numeric",
                 month: "long",
-                year: "numeric"
-            }
-        )
-        : "";
+                year: "numeric",
+            })
+            : "";
+
+    const createdDate = formatDate(trip?.created_at);
+
+    // Only show a separate "Last Modified" line once the itinerary has actually
+    // changed since creation (the backend bumps updated_at on rename and on any
+    // stopping-point add / remove / reorder).
+    const modifiedDate =
+        trip?.updated_at && trip.updated_at !== trip.created_at
+            ? formatDate(trip.updated_at)
+            : "";
 
     const [locations, setLocations] = useState([]);
 
@@ -626,6 +745,8 @@ export default function TripItineraryDetail() {
                 if (Array.isArray(savedLocations)) {
                     setLocations(savedLocations.map(toDisplayLocation));
                 }
+
+                setSuccessMessage("Stop order updated.");
             } catch (error) {
                 console.error("Failed to save stopping point order.", error);
                 setLocationOrderError("Unable to save the new stop order. The saved order has been restored.");
@@ -658,17 +779,21 @@ export default function TripItineraryDetail() {
         }
 
         try {
-            await updateTripItinerary(id, {
+            const response = await updateTripItinerary(id, {
                 trip_name: newName
             });
 
-            setTrip({
-                ...trip,
-                trip_name: newName
-            });
+            // Merge the fresh row (new name + updated_at) over the current
+            // trip so "Last Modified" reflects the rename immediately. The
+            // response has no `locations` key, so the loaded stops are kept.
+            setTrip((current) => ({
+                ...current,
+                ...(response.data?.data ?? { trip_name: newName }),
+            }));
 
             setRenameError("");
             setIsRenaming(false);
+            setSuccessMessage("Itinerary renamed.");
         } catch (err) {
             console.error(err);
             setRenameError(err?.response?.data?.message || "Failed to rename itinerary. Please try again.");
@@ -680,6 +805,7 @@ export default function TripItineraryDetail() {
     const handleDelete = async () => {
 
         setIsDeletingTrip(true);
+        setDeleteError("");
 
         try {
 
@@ -690,6 +816,7 @@ export default function TripItineraryDetail() {
         } catch (err) {
 
             console.error(err);
+            setDeleteError(err?.response?.data?.message || "Unable to delete this itinerary. Please try again.");
             setIsDeletingTrip(false);
 
         }
@@ -710,7 +837,16 @@ export default function TripItineraryDetail() {
         setLocationOrderError("");
 
         try {
-            await deleteTripLocation(id, locationId);
+            const response = await deleteTripLocation(id, locationId);
+
+            // Keep "Last Modified" current — the endpoint returns the fresh
+            // itinerary (updated_at bumped by removing the stop).
+            const updated = response.data?.data;
+            if (updated) {
+                setTrip(updated);
+            }
+
+            setSuccessMessage("Stopping point removed.");
         } catch (error) {
             console.error("Failed to delete stopping point.", error);
             setLocations(previousLocations);
@@ -720,6 +856,22 @@ export default function TripItineraryDetail() {
     };
 
 
+
+    // Clicking a stop opens its details: hidden gems go to their in-app
+    // detail page; OpenStreetMap stops (which have no in-app page) open a
+    // Google search for the place name so the user can still look it up.
+    const handleOpenLocation = (location) => {
+        if (location.type === "hidden" && location.gemId) {
+            navigate(`/hidden-gems/${location.gemId}`);
+            return;
+        }
+
+        window.open(
+            `https://www.google.com/search?q=${encodeURIComponent(location.name)}`,
+            "_blank",
+            "noopener,noreferrer",
+        );
+    };
 
     const handleOpenRouteInGoogleMaps = () => {
         const stopsWithCoordinates = locations.filter(hasValidCoordinates);
@@ -806,6 +958,12 @@ export default function TripItineraryDetail() {
 
         <div className="trip-detail-container">
 
+            {successMessage && (
+                <div className="hidden-gem-snackbar hidden-gem-snackbar-success" role="status">
+                    {successMessage}
+                </div>
+            )}
+
             {isLoadingItinerary && (
                 <div
                     className="trip-detail-loading-bar"
@@ -878,6 +1036,12 @@ export default function TripItineraryDetail() {
                             <p className="trip-detail-created-date">
                                 Created on {createdDate}
                             </p>
+
+                            {modifiedDate && (
+                                <p className="trip-detail-modified-date">
+                                    Last Modified on {modifiedDate}
+                                </p>
+                            )}
                         </>
 
                     )}
@@ -909,7 +1073,10 @@ export default function TripItineraryDetail() {
 
                     <button
                         className="trip-detail-btn trip-detail-delete-btn"
-                        onClick={() => setIsConfirmingDelete(true)}
+                        onClick={() => {
+                            setDeleteError("");
+                            setIsConfirmingDelete(true);
+                        }}
                     >
                         Delete
                     </button>
@@ -927,6 +1094,11 @@ export default function TripItineraryDetail() {
                     <div className="delete-modal" onClick={(event) => event.stopPropagation()}>
                         <h2>Delete Itinerary?</h2>
                         <p>Are you sure you want to delete this trip itinerary? This action cannot be undone.</p>
+                        {deleteError && (
+                            <p className="delete-modal-error" role="alert">
+                                {deleteError}
+                            </p>
+                        )}
                         <div className="delete-modal-actions">
                             <button
                                 className="delete-modal-cancel"
@@ -1031,6 +1203,7 @@ export default function TripItineraryDetail() {
                                     location={location}
                                     index={index}
                                     onDelete={removeLocation}
+                                    onOpen={handleOpenLocation}
                                 />
 
                             ))}
@@ -1145,7 +1318,7 @@ export default function TripItineraryDetail() {
                                     <div className="stopping-point-list-items">
 
                                         {isLoadingWishlist && (
-                                            <p className="stopping-point-list-status">Loading your wishlist…</p>
+                                            <Spinner size="sm" inline label="Loading your wishlist…" />
                                         )}
 
                                         {!isLoadingWishlist && wishlistItems.length === 0 && (
@@ -1199,7 +1372,7 @@ export default function TripItineraryDetail() {
                                         )}
 
                                         {isSearchingLocations && (
-                                            <p className="stopping-point-list-status">Searching locations…</p>
+                                            <Spinner size="sm" inline label="Searching locations…" />
                                         )}
 
                                         {locationSearchError && (
@@ -1306,7 +1479,7 @@ export default function TripItineraryDetail() {
                         )}
 
                         {isLoadingHiddenGems && (
-                            <p className="stopping-point-map-status">Loading hidden gems…</p>
+                            <Spinner size="sm" inline label="Loading hidden gems…" />
                         )}
                         {hiddenGemsError && (
                             <p className="stopping-point-map-status stopping-point-map-status-error" role="alert">
@@ -1349,7 +1522,7 @@ export default function TripItineraryDetail() {
             )}
 
             {routeError && (
-                <p className="trip-location-order-status trip-location-order-error" role="alert">
+                <p className="trip-location-order-status trip-location-order-error trip-route-error" role="alert">
                     {routeError}
                 </p>
             )}

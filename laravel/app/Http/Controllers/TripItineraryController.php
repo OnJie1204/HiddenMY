@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Location;
 use App\Models\TripItinerary;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ class TripItineraryController extends Controller
     {
         $itineraries = TripItinerary::where('user_id', $request->user()->id)
             ->withCount('locations')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('updated_at', 'desc')
             ->get();
 
         return response()->json($itineraries);
@@ -66,6 +67,10 @@ class TripItineraryController extends Controller
         ]);
     }
 
+    // Sharing an itinerary is no longer done by linking a post to it — a travel
+    // post now carries its own frozen post_stops snapshot and offers "copy this
+    // trip" (TravelPostController::copyTrip). shared()/copy() were removed.
+
     /**
      * Add either a publicly-visible gem (confirmed Hidden Gem or one still in
      * community voting) or an OpenStreetMap location as a stop.
@@ -88,11 +93,13 @@ class TripItineraryController extends Controller
         if ($validated['source'] === 'database') {
             $request->validate(['location_id' => ['required', 'integer']]);
 
-            // Allow anything publicly visible on the map — confirmed Hidden
-            // Gems and gems still in community voting — not just fully
-            // confirmed ones, matching what the map itself shows.
+            // Allow anything publicly visible — gems in community voting,
+            // confirmed Hidden Gems and well-known places — but never a
+            // permanently-closed one (a stop whose gem is closed *later* stays
+            // on the itinerary with a badge; it just can't be freshly added).
             $location = Location::query()
                 ->publiclyVisible()
+                ->whereNull('permanently_closed_at')
                 ->find($validated['location_id']);
 
             if (! $location) {
@@ -188,6 +195,11 @@ class TripItineraryController extends Controller
                     ->whereKey($location['id'])
                     ->update(['order_number' => $location['sequence']]);
             }
+
+            // The updates above run through the query builder, which doesn't
+            // fire model events, so TripLocation's $touches never runs here —
+            // bump the itinerary's "Last Modified" date explicitly.
+            $tripItinerary->touch();
         });
 
         return response()->json([
@@ -231,7 +243,7 @@ class TripItineraryController extends Controller
         }
 
         $request->validate([
-            'trip_name' => 'required|string|max:50',
+            'trip_name' => 'required|string|min:1|max:10',
         ]);
 
         $tripItinerary->update([

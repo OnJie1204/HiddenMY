@@ -9,27 +9,29 @@ class Vote extends Model
 {
     use HasFactory;
 
-    public const COMMENT_EDIT_WINDOW_HOURS = 72;
-
+    /*
+     * Fields that can be stored when a community vote is created.
+     *
+     * A vote only represents which user voted for which Hidden Gem.
+     * Ratings, comments, and photos are handled separately by
+     * the community feedback functionality.
+     */
     protected $fillable = [
         'user_id',
         'location_id',
-        'photo_path',
-        'travel_description',
     ];
 
-    public function isCommentEditable(): bool
-    {
-        return now()->lte(
-            $this->created_at->copy()->addHours(self::COMMENT_EDIT_WINDOW_HOURS)
-        );
-    }
-
+    /**
+     * Get the user who submitted the vote.
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Get the Hidden Gem associated with the vote.
+     */
     public function location()
     {
         return $this->belongsTo(Location::class);
