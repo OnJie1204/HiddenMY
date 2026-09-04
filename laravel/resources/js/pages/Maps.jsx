@@ -19,6 +19,7 @@ import {
 } from "../api/hiddenGems";
 import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
+import { getInteractions } from "../api/gemInteractions";
 
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
@@ -52,6 +53,14 @@ const MALAYSIA_BOUNDS = [
 const FLY_TO_OPTIONS = { duration: 1.1, easeLinearity: 0.25 };
 const EXPLORE_MIN_ZOOM = 14;
 const VIEWPORT_DEBOUNCE_MS = 500;
+
+// Filter selections are kept in sessionStorage so that navigating away (e.g.
+// opening a gem's full detail page) and coming back returns to the map with the
+// same filters still applied, instead of resetting to the defaults.
+const MAP_STATUS_FILTER_KEY = "mapStatusFilter";
+const MAP_CATEGORY_FILTER_KEY = "mapCategoryFilter";
+const MAP_WISHLIST_ONLY_KEY = "mapWishlistOnly";
+
 const EXPLORE_GRID = 100;
 
 function gridCell(lat, lng) {
@@ -219,10 +228,21 @@ function Maps({ user }){
     const [boundsLoading,setBoundsLoading]=useState(false);
     const [popularPosts,setPopularPosts]=useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
-    const [statusFilter, setStatusFilter] = useState(null); // null | 'hidden_gem' | 'pending_community_vote'
+    const [statusFilter, setStatusFilter] = useState(() =>
+        sessionStorage.getItem(MAP_STATUS_FILTER_KEY) || null
+    ); // null | 'hidden_gem' | 'pending_community_vote'
     const [categories, setCategories] = useState([]);
-    const [categoryFilter, setCategoryFilter] = useState([]); // [] = all categories, otherwise a set of selected category names
-    const [wishlistOnly, setWishlistOnly] = useState(false);
+    const [categoryFilter, setCategoryFilter] = useState(() => { // [] = all categories, otherwise a set of selected category names
+        try {
+            const stored = sessionStorage.getItem(MAP_CATEGORY_FILTER_KEY);
+            return stored ? JSON.parse(stored) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [wishlistOnly, setWishlistOnly] = useState(() =>
+        sessionStorage.getItem(MAP_WISHLIST_ONLY_KEY) === "1"
+    );
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [nearby, setNearby] = useState([]);
     const [nearbyLoading, setNearbyLoading] = useState(false);
@@ -600,13 +620,23 @@ function Maps({ user }){
         setActiveGemImages([]);
         getHiddenGemDetail(activeGem.id)
             .then(res => {
-                setGemReviews(res.data.data?.votes || []);
                 setActiveGemImages(res.data.data?.images || []);
             })
             .catch(err => {
                 console.log(err);
-                setGemReviews([]);
                 setActiveGemImages([]);
+            });
+
+        // The panel's "Reviews" are travellers' star ratings and comments
+        // (GemInteraction type=comment) — not the community verification votes
+        // the gem detail payload carries, which only say who voted.
+        getInteractions(activeGem.id)
+            .then(res => {
+                setGemReviews(res.data?.comments || []);
+            })
+            .catch(err => {
+                console.log(err);
+                setGemReviews([]);
             })
             .finally(() => setGemReviewsLoading(false));
 
@@ -797,6 +827,38 @@ function Maps({ user }){
         setExploreOn(true);
         setClickExploreOn(false);
     }
+
+    useEffect(() => {
+        try {
+            if (statusFilter) sessionStorage.setItem(MAP_STATUS_FILTER_KEY, statusFilter);
+            else sessionStorage.removeItem(MAP_STATUS_FILTER_KEY);
+        } catch {
+            // sessionStorage unavailable (private mode) — filters just won't persist
+        }
+    }, [statusFilter]);
+
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(MAP_CATEGORY_FILTER_KEY, JSON.stringify(categoryFilter));
+        } catch {
+            // ignore
+        }
+    }, [categoryFilter]);
+
+    useEffect(() => {
+        try {
+            sessionStorage.setItem(MAP_WISHLIST_ONLY_KEY, wishlistOnly ? "1" : "0");
+        } catch {
+            // ignore
+        }
+    }, [wishlistOnly]);
+
+    // The "My wishlist" pill is only rendered for a logged-in Traveller, so a
+    // restored (or left-over) wishlist filter after signing out would hide every
+    // gem with no visible control to switch it back off. Drop it instead.
+    useEffect(() => {
+        if (!user && wishlistOnly) setWishlistOnly(false);
+    }, [user, wishlistOnly]);
 
     const selectedGemId = selectedGroup && selectedGroup[0] ? selectedGroup[0].id : null;
 
