@@ -788,7 +788,7 @@ class HiddenGemController extends Controller
     public function search(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'query' => ['required', 'string', 'min:2', 'max:100'],
+            'query' => ['required', 'string', 'min:1', 'max:100'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'db_offset' => ['nullable', 'integer', 'min:0'],

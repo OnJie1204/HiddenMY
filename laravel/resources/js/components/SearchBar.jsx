@@ -25,7 +25,7 @@ function SearchBar({ onSelect, userLatitude, userLongitude }) {
             clearTimeout(debounceRef.current);
         }
 
-        if (value.length < 2) {
+        if (value.length < 1) {
             setResults([]);
             setHasMore(false);
             setLoading(false);
@@ -42,7 +42,7 @@ function SearchBar({ onSelect, userLatitude, userLongitude }) {
     // dismissed — so the user doesn't have to edit the text to see them again.
     function triggerSearch() {
         if (debounceRef.current) clearTimeout(debounceRef.current);
-        if (query.trim().length < 2) return;
+        if (query.trim().length < 1) return;
         runSearch(query, { append: false });
     }
 
@@ -130,7 +130,7 @@ function SearchBar({ onSelect, userLatitude, userLongitude }) {
                     }
                 }}
                 onFocus={() => {
-                    if (!loading && results.length === 0 && query.trim().length >= 2) {
+                    if (!loading && results.length === 0 && query.trim().length >= 1) {
                         triggerSearch();
                     }
                 }}
