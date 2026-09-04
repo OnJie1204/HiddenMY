@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { getMenuItems, addMenuItem, toggleMenuItemLike, deleteMenuItem } from "../api/menuItems";
 import Spinner from "./Spinner";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 // Community suggested menu items
-function MenuItems({ locationId, currentUser, onRequireSignIn, frozen = false }) {
+function MenuItems({ locationId, currentUser, frozen = false }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [name, setName] = useState("");
@@ -11,6 +12,7 @@ function MenuItems({ locationId, currentUser, onRequireSignIn, frozen = false })
     const [adding, setAdding] = useState(false);
     const [message, setMessage] = useState("");
     const [busyId, setBusyId] = useState(null);
+    const { requireAuth } = useAuthPrompt();
 
     const fetchItems = () => {
         setLoading(true);
@@ -27,7 +29,7 @@ function MenuItems({ locationId, currentUser, onRequireSignIn, frozen = false })
     const handleAdd = async (e) => {
         e.preventDefault();
         if (!currentUser) {
-            onRequireSignIn("Login to suggest a menu item.");
+            requireAuth({ reason: "suggestMenuItem" });
             return;
         }
         if (!name.trim()) return;
@@ -48,7 +50,7 @@ function MenuItems({ locationId, currentUser, onRequireSignIn, frozen = false })
 
     const handleLike = async (item) => {
         if (!currentUser) {
-            onRequireSignIn("Login to like a menu item.");
+            requireAuth({ reason: "likeMenuItem" });
             return;
         }
         if (busyId) return;

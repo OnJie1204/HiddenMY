@@ -6,8 +6,8 @@ import TruncatedText from "../components/TruncatedText";
 import PhotoCarousel from "../components/PhotoCarousel";
 import LoadingCards from "../components/LoadingCards";
 import ReportButton from "../components/ReportButton";
-import SignInPrompt from "../components/SignInPrompt";
 import { useResumeIntent } from "../utils/useResumeIntent";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 import "../styles/global.css";
 
@@ -51,15 +51,7 @@ export default function HiddenGems({ user }) {
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
     const [wishlistLoaded, setWishlistLoaded] = useState(false);
 
-    const [showSignIn, setShowSignIn] = useState(false);
-    const [signInMessage, setSignInMessage] = useState("");
-    const [signInIntent, setSignInIntent] = useState(null);
-
-    const requireSignIn = (message, intent = null) => {
-        setSignInMessage(message);
-        setSignInIntent(intent);
-        setShowSignIn(true);
-    };
+    const { requireAuth } = useAuthPrompt();
 
     const fetchGems = async () => {
         setLoading(true);
@@ -229,7 +221,7 @@ export default function HiddenGems({ user }) {
         }
 
         if (!user) {
-            requireSignIn("Login to save gems to your wishlist.", { action: "wishlist", gemId: gem.id });
+            requireAuth({ reason: "wishlist", gemId: gem.id });
             return;
         }
 
@@ -366,9 +358,10 @@ export default function HiddenGems({ user }) {
                     className="hidden-gems-submit-btn"
                     onClick={() => {
                         if (!user) {
-                            requireSignIn(
-                                "Login to submit a hidden gem."
-                            );
+                            requireAuth({
+                                reason: "submitHiddenGem",
+                                returnTo: "/hidden-gems/create",
+                            });
                             return;
                         }
 
@@ -636,12 +629,6 @@ export default function HiddenGems({ user }) {
                 </>
             )}
 
-            <SignInPrompt
-                isOpen={showSignIn}
-                onClose={() => setShowSignIn(false)}
-                message={signInMessage}
-                intent={signInIntent}
-            />
         </div>
     );
 }

@@ -10,8 +10,8 @@ import HiddenGemMarker from '../components/HiddenGemMarker';
 import PhotoCarousel from '../components/PhotoCarousel';
 import Spinner from '../components/Spinner';
 import ReportButton from '../components/ReportButton';
-import SignInPrompt from '../components/SignInPrompt';
 import { useResumeIntent } from '../utils/useResumeIntent';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 import { cartoTileUrl } from '../utils/cartoTiles';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -45,26 +45,18 @@ function Home({ user }) {
     const [wishlistLoaded, setWishlistLoaded] = useState(false);
     const [wishlistToast, setWishlistToast] = useState('');
 
-    const [showSignIn, setShowSignIn] = useState(false);
-    const [signInMessage, setSignInMessage] = useState('');
-    const [signInIntent, setSignInIntent] = useState(null);
+    const { requireAuth } = useAuthPrompt();
 
     const mapRef = useRef(null);
     const trendingRef = useRef(null);
 
-    const requireSignIn = (message, intent = null) => {
-        setSignInMessage(message);
-        setSignInIntent(intent);
-        setShowSignIn(true);
-    };
-
-    const handleProtectedNavigation = (event, message) => {
+    const handleProtectedNavigation = (event, reason, returnTo) => {
         if (user) {
             return;
         }
 
         event.preventDefault();
-        requireSignIn(message);
+        requireAuth({ reason, returnTo });
     };
 
     useEffect(() => {
@@ -114,7 +106,7 @@ function Home({ user }) {
         }
 
         if (!user) {
-            requireSignIn('Login to save gems to your wishlist.', { action: 'wishlist', gemId: gem.id });
+            requireAuth({ reason: 'wishlist', gemId: gem.id });
             return;
         }
 
@@ -696,7 +688,8 @@ function Home({ user }) {
                         onClick={(event) =>
                             handleProtectedNavigation(
                                 event,
-                                'Login to view your trips.'
+                                'viewTrips',
+                                '/trip-itinerary'
                             )
                         }
                     >
@@ -718,7 +711,8 @@ function Home({ user }) {
                             onClick={(event) =>
                                 handleProtectedNavigation(
                                     event,
-                                    'Login to create a trip itinerary.'
+                                    'createTrip',
+                                    '/trip-itinerary'
                                 )
                             }
                         >
@@ -777,12 +771,6 @@ function Home({ user }) {
                 </div>
             </div>
 
-            <SignInPrompt
-                isOpen={showSignIn}
-                onClose={() => setShowSignIn(false)}
-                message={signInMessage}
-                intent={signInIntent}
-            />
         </div>
     );
 }

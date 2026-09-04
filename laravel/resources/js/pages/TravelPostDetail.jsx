@@ -6,7 +6,7 @@ import Avatar from "../components/Avatar";
 import PhotoCarousel from "../components/PhotoCarousel";
 import Spinner from "../components/Spinner";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
-import SignInPrompt from "../components/SignInPrompt";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 import "../styles/global.css";
 
@@ -20,8 +20,7 @@ export default function TravelPostDetail({ user }) {
     const [currentUserId, setCurrentUserId] = useState(user?.id ?? null);
     const [deleting, setDeleting] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
-    const [showSignIn, setShowSignIn] = useState(false);
-    const [signInMessage, setSignInMessage] = useState("Login to view this trip itinerary.");
+    const { requireAuth } = useAuthPrompt();
     const [lightboxUrl, setLightboxUrl] = useState(null);
     const [copying, setCopying] = useState(false);
     const [copyResult, setCopyResult] = useState(null);
@@ -50,15 +49,16 @@ export default function TravelPostDetail({ user }) {
         // bouncing a guest straight to the login page.
         if (!user) {
             event.preventDefault();
-            setSignInMessage("Login to view this traveler's profile.");
-            setShowSignIn(true);
+            requireAuth({
+                reason: "viewProfile",
+                returnTo: `/users/${post.user.id}`,
+            });
         }
     }
 
     async function handleCopyTrip() {
         if (!user) {
-            setSignInMessage("Login to copy this trip into your itineraries.");
-            setShowSignIn(true);
+            requireAuth({ reason: "copyTrip" });
             return;
         }
         setCopying(true);
@@ -303,11 +303,6 @@ export default function TravelPostDetail({ user }) {
                     </div>
                 </div>
             )}
-            <SignInPrompt
-                isOpen={showSignIn}
-                onClose={() => setShowSignIn(false)}
-                message={signInMessage}
-            />
         </div>
     );
 }

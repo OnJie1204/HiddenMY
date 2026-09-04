@@ -10,7 +10,7 @@ import Avatar from "./Avatar";
 import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
-import SignInPrompt from "./SignInPrompt";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { getReportForLocation } from "../api/reports";
 import { createTripItinerary } from "../api/TripItinerary";
 
@@ -58,15 +58,12 @@ function SidePanel({
     const [activeReport, setActiveReport] = useState(null);
     const [loadingReport, setLoadingReport] = useState(false);
     const [localReportStatus, setLocalReportStatus] = useState(null);
-    const [showSignIn, setShowSignIn] = useState(false);
-    const [signInMessage, setSignInMessage] = useState("");
-    const [signInAction, setSignInAction] = useState(null);
-
     const [localStatus, setLocalStatus] = useState(null);
     const bodyRef = useRef(null);
     const panelRef = useRef(null);
     const navigate = useNavigate();
     const location = useLocation();
+    const { requireAuth, isAuthPromptOpen } = useAuthPrompt();
 
     // A new selection always lands on the first post's detail view, and resets
     // any scroll from the previously-shown gem.
@@ -129,15 +126,6 @@ function SidePanel({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resumeIntent, user, gem, isOpen]);
 
-    // A closed panel keeps rendering (it just returns null), so its transient
-    // UI state survives. Clear the sign-in prompt on close, otherwise a guest
-    // who dismissed it once sees it again the next time they open the panel.
-    useEffect(() => {
-        if (!isOpen) {
-            setShowSignIn(false);
-        }
-    }, [isOpen]);
-
     // Drag-to-resize
     useEffect(() => {
         if (!isResizing) return;
@@ -177,7 +165,7 @@ function SidePanel({
         // A modal (sign-in prompt, report, verify) sits on top of the panel and
         // is portaled outside panelRef — a click on it must not read as "outside"
         // and close the panel out from under the modal.
-        if (!isOpen || mode !== "nav" || showSignIn || reportModalOpen || verifyModalOpen) {
+        if (!isOpen || mode !== "nav" || isAuthPromptOpen || reportModalOpen || verifyModalOpen) {
             return;
         }
 
@@ -216,7 +204,7 @@ function SidePanel({
             document.removeEventListener("wheel", handleWheel);
             document.removeEventListener("touchmove", handleTouchMove);
         };
-    }, [isOpen, mode, onClose, showSignIn, reportModalOpen, verifyModalOpen]);
+    }, [isOpen, mode, onClose, isAuthPromptOpen, reportModalOpen, verifyModalOpen]);
 
     if (!isOpen) return null;
 
@@ -273,22 +261,17 @@ function SidePanel({
         && !isClosed
         && (status === "hidden_gem" || status === "pending_community_vote");
 
-    function requireSignIn(message, action = null) {
-        setSignInMessage(message);
-        setSignInAction(action);
-        setShowSignIn(true);
-    }
-
     async function handleReportIconClick() {
         // Guests can see the icon (it advertises the feature) but reporting
         // and verifying both require an account — skip the API round-trip
         // entirely and point them at sign-in.
         const isPending = reportStatus === "under_review";
         if (!user) {
-            requireSignIn(isPending
-                ? "Login to help verify this report."
-                : "Login to report a problem with this gem.",
-                isPending ? "verify" : "report");
+            requireAuth({
+                reason: isPending ? "verifyReport" : "report",
+                gemId: gem.id,
+                returnTo: `/map?gemId=${gem.id}`,
+            });
             return;
         }
         if (!isPending) {
@@ -347,7 +330,11 @@ function SidePanel({
     async function handleToggleWishlist() {
         if (!gem || wishlistBusy) return;
         if (!user) {
-            requireSignIn("Login to save gems to your wishlist.", "wishlist");
+            requireAuth({
+                reason: "wishlist",
+                gemId: gem.id,
+                returnTo: `/map?gemId=${gem.id}`,
+            });
             return;
         }
         setWishlistBusy(true);
@@ -379,9 +366,9 @@ function SidePanel({
     };
 
     const menuItems = [
-        { to: '/my-hidden-gems', label: 'My Hidden Gems', signInMessage: 'Login to manage your hidden gems and contributions.' },
+        { to: '/my-hidden-gems', label: 'My Hidden Gems', authReason: 'manageHiddenGems' },
         { to: '/hidden-gems', label: 'Hidden Gems' },
-        { to: '/trip-itinerary', label: 'Trip Itinerary', signInMessage: 'Login to view and plan your trips.' },
+        { to: '/trip-itinerary', label: 'Trip Itinerary', authReason: 'planTrips' },
         { to: '/travel-posts', label: 'Travel Posts' },
         { to: '/map', label: 'Map' },
     ];
@@ -436,15 +423,15 @@ function SidePanel({
 
             {showNavChrome && (
                 <nav className="side-panel-nav">
-                    {menuItems.map(({ to, label, signInMessage: navSignInMessage }) => (
+                    {menuItems.map(({ to, label, authReason }) => (
                         <Link
                             key={to}
                             to={to}
                             className="side-panel-nav-item"
                             onClick={(event) => {
-                                if (!user && navSignInMessage) {
+                                if (!user && authReason) {
                                     event.preventDefault();
-                                    requireSignIn(navSignInMessage);
+                                    requireAuth({ reason: authReason, returnTo: to });
                                     return;
                                 }
                                 onClose();
@@ -590,7 +577,11 @@ function SidePanel({
                                 className="side-panel-icon-btn"
                                 onClick={() => {
                                     if (!user) {
-                                        requireSignIn("Login to add gems to a trip itinerary.", "itinerary");
+                                        requireAuth({
+                                            reason: "itinerary",
+                                            gemId: gem.id,
+                                            returnTo: `/map?gemId=${gem.id}`,
+                                        });
                                         return;
                                     }
                                     setItineraryStatus(null);
@@ -863,13 +854,6 @@ function SidePanel({
                     }}
                 />
             )}
-            <SignInPrompt
-                isOpen={showSignIn}
-                onClose={() => setShowSignIn(false)}
-                message={signInMessage}
-                intent={signInAction ? { action: signInAction, gemId: gem?.id } : null}
-                returnTo={signInAction && gem ? `/map?gemId=${gem.id}` : undefined}
-            />
         </div>
     );
 }

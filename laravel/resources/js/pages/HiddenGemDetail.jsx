@@ -6,7 +6,6 @@ import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
 import VerifyReportModal from "../components/VerifyReportModal";
 import Spinner from "../components/Spinner";
-import SignInPrompt from "../components/SignInPrompt";
 import { getReportForLocation } from "../api/reports";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import PhotoCarousel from "../components/PhotoCarousel";
@@ -16,6 +15,7 @@ import { getTripItineraries, addTripLocation, createTripItinerary } from "../api
 // Backend caps trip_name at 10 characters (TripItineraryController::store).
 const ITINERARY_NAME_MAX = 10;
 import { useResumeIntent } from "../utils/useResumeIntent";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import MenuItems from "../components/MenuItems";
 import api from "../api";
@@ -73,9 +73,7 @@ export default function HiddenGemDetail({ user }) {
     const [contactEditSaving, setContactEditSaving] = useState(false);
     const [contactEditMessage, setContactEditMessage] = useState("");
     const [confirmingContactSave, setConfirmingContactSave] = useState(false);
-    const [showSignIn, setShowSignIn] = useState(false);
-    const [signInMessage, setSignInMessage] = useState("");
-    const [signInAction, setSignInAction] = useState(null);
+    const { requireAuth } = useAuthPrompt();
     const [itineraries, setItineraries] = useState([]);
     const [isLoadingItineraries, setIsLoadingItineraries] = useState(false);
     const [itineraryOpen, setItineraryOpen] = useState(false);
@@ -99,12 +97,6 @@ export default function HiddenGemDetail({ user }) {
     const canAddToItinerary = gem
         && !isClosed
         && (gem.status === "hidden_gem" || gem.status === "well_known" || gem.status === "pending_community_vote");
-
-    const requireSignIn = (message, action = null) => {
-        setSignInMessage(message);
-        setSignInAction(action);
-        setShowSignIn(true);
-    };
 
     const [interactions, setInteractions] = useState({
         comments: [],
@@ -175,7 +167,7 @@ export default function HiddenGemDetail({ user }) {
         e.preventDefault();
 
         if (!currentUser) {
-            requireSignIn("Login to rate or comment on this hidden gem.", "comment");
+            requireAuth({ reason: "comment", gemId: gem.id });
             return;
         }
 
@@ -419,7 +411,7 @@ export default function HiddenGemDetail({ user }) {
     const handleToggleWishlist = async () => {
         if (!gem || wishlistBusy) return;
         if (!currentUser) {
-            requireSignIn("Login to save gems to your wishlist.", "wishlist");
+            requireAuth({ reason: "wishlist", gemId: gem.id });
             return;
         }
 
@@ -473,7 +465,7 @@ export default function HiddenGemDetail({ user }) {
     // mistake for "report a new problem" instead of "verify the existing one".
     async function handleHelpVerify() {
         if (!currentUser) {
-            requireSignIn("Login to help verify this report.", "verify");
+            requireAuth({ reason: "verifyReport", gemId: gem.id });
             return;
         }
         setLoadingReport(true);
@@ -733,7 +725,7 @@ export default function HiddenGemDetail({ user }) {
                                     className="gem-detail-itinerary-btn"
                                     onClick={() => {
                                         if (!currentUser) {
-                                            requireSignIn("Login to add this gem to a trip itinerary.", "itinerary");
+                                            requireAuth({ reason: "itinerary", gemId: gem.id });
                                             return;
                                         }
                                         setItineraryStatus(null);
@@ -1072,7 +1064,6 @@ export default function HiddenGemDetail({ user }) {
                                 <MenuItems
                                     locationId={gem.id}
                                     currentUser={currentUser}
-                                    onRequireSignIn={requireSignIn}
                                     frozen={isClosed}
                                 />
                             </div>
@@ -1138,7 +1129,10 @@ export default function HiddenGemDetail({ user }) {
                                     onClick={(event) => {
                                         if (user) return;
                                         event.preventDefault();
-                                        requireSignIn("Login to view this traveler's profile.");
+                                        requireAuth({
+                                            reason: "viewProfile",
+                                            returnTo: `/users/${gem.user.id}`,
+                                        });
                                     }}
                                 >
                                     {gem.user?.name || "Unknown User"}
@@ -1161,7 +1155,7 @@ export default function HiddenGemDetail({ user }) {
                                     className="gem-detail-vote-btn"
                                     onClick={() => {
                                         if (!currentUser) {
-                                            requireSignIn("Login to vote on this hidden gem.", "vote");
+                                            requireAuth({ reason: "vote", gemId: gem.id });
                                             return;
                                         }
                                         setShowVoteModal(true);
@@ -1581,13 +1575,6 @@ export default function HiddenGemDetail({ user }) {
                 isOpen={showVoteModal}
                 onClose={() => setShowVoteModal(false)}
                 onVoteSuccess={handleVoteSuccess}
-            />
-
-            <SignInPrompt
-                isOpen={showSignIn}
-                onClose={() => setShowSignIn(false)}
-                message={signInMessage}
-                intent={signInAction ? { action: signInAction, gemId: id } : null}
             />
 
             <VerifyReportModal

@@ -5,7 +5,7 @@ import { getCategories, getStates } from "../api/hiddenGems";
 import Avatar from "../components/Avatar";
 import LoadingCards from "../components/LoadingCards";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
-import SignInPrompt from "../components/SignInPrompt";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 import "../styles/global.css";
 
@@ -27,17 +27,14 @@ export default function TravelPosts({ user }) {
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
     const [mineOnly, setMineOnly] = useState(searchParams.get("mine") === "1");
-    const [showSignIn, setShowSignIn] = useState(false);
-    const [signInMessage, setSignInMessage] = useState("");
-
-    const requireSignIn = (message) => {
-        setSignInMessage(message);
-        setShowSignIn(true);
-    };
+    const { requireAuth } = useAuthPrompt();
 
     const handleCreatePost = () => {
         if (!user) {
-            requireSignIn("Login to write a travel post.");
+            requireAuth({
+                reason: "writeTravelPost",
+                returnTo: "/travel-posts/create",
+            });
             return;
         }
         navigate("/travel-posts/create");
@@ -117,7 +114,10 @@ export default function TravelPosts({ user }) {
                     className={mineOnly ? "active" : ""}
                     onClick={() => {
                         if (!user) {
-                            requireSignIn("Login to see the posts you've written.");
+                            requireAuth({
+                                reason: "viewMyTravelPosts",
+                                returnTo: "/travel-posts?mine=1",
+                            });
                             return;
                         }
                         setMineOnly(true);
@@ -230,11 +230,6 @@ export default function TravelPosts({ user }) {
                     ))}
                 </div>
             )}
-            <SignInPrompt
-                isOpen={showSignIn}
-                onClose={() => setShowSignIn(false)}
-                message={signInMessage}
-            />
         </div>
     );
 }

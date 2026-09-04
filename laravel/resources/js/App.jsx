@@ -27,6 +27,7 @@ import EditTravelPost from './pages/EditTravelPost';
 import { getMe } from './api/auth';
 import { getToken, clearToken } from './utils/tokenStorage';
 import { sanitizeIntent } from './utils/authRedirect';
+import { AuthPromptProvider } from './context/AuthPromptContext';
 
 // Gate for pages that need an account. Records where the guest was headed in
 // `state.from` so Login (and the Google callback) can send them back there
@@ -99,7 +100,8 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
+      <AuthPromptProvider>
+        <Routes>
         {/* 不需要 Navbar 的页面 */}
         <Route path="/login" element={<RedirectIfAuthed user={user}><Login onLoginSuccess={setUser} /></RedirectIfAuthed>} />
         <Route path="/register" element={<RedirectIfAuthed user={user}><Register onRegisterSuccess={setUser} /></RedirectIfAuthed>} />
@@ -221,7 +223,8 @@ function App() {
           }
         />
 
-      </Routes>
+        </Routes>
+      </AuthPromptProvider>
     </BrowserRouter>
   );
 }

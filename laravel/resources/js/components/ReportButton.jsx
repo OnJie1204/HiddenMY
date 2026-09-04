@@ -1,9 +1,9 @@
 import { useState } from "react";
 import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
-import SignInPrompt from "./SignInPrompt";
 import { getReportForLocation } from "../api/reports";
 import { useResumeIntent } from "../utils/useResumeIntent";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 // Any publicly-visible place can be reported (permanently_closed /
 // incorrect_contact_info). The backend enforces the rest and returns the
@@ -15,7 +15,7 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [activeReport, setActiveReport] = useState(null);
     const [loadingReport, setLoadingReport] = useState(false);
-    const [showSignIn, setShowSignIn] = useState(false);
+    const { requireAuth } = useAuthPrompt();
 
     // "report" resumes here (re-open the modal — never auto-file); "verify" is
     // left for the detail page's own handler, which does the report lookup.
@@ -42,7 +42,10 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
         // and verifying both require an account — skip the API round-trip
         // entirely and just point them at sign-in.
         if (!user) {
-            setShowSignIn(true);
+            requireAuth({
+                reason: isPending ? "verifyReport" : "report",
+                gemId: gem.id,
+            });
             return;
         }
 
@@ -86,14 +89,6 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
                 isOpen={verifyModalOpen}
                 onClose={() => setVerifyModalOpen(false)}
                 onVerifySuccess={onVerifySuccess}
-            />
-            <SignInPrompt
-                isOpen={showSignIn}
-                onClose={() => setShowSignIn(false)}
-                message={isPending
-                    ? "Login to help verify this report."
-                    : "Login to report a problem with this gem."}
-                intent={{ action: isPending ? "verify" : "report", gemId: gem.id }}
             />
         </>
     );
