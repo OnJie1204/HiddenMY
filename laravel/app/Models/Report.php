@@ -13,8 +13,8 @@ use Illuminate\Database\Eloquent\Model;
  *   permanently_closed     - the place has shut for good. Needs a check-in.
  *                            Upheld -> locations.permanently_closed_at set;
  *                            greyed everywhere, frozen, owner can only delete.
- *   incorrect_contact_info - the hours / phone / website are wrong. Needs an
- *                            established account, no check-in. Upheld ->
+ *   incorrect_contact_info - the hours / phone / website are wrong. Needs a
+ *                            check-in, same as permanently_closed. Upheld ->
  *                            locations.contact_flagged_at set; a warning icon
  *                            shows and clears on the owner's next contact edit.
  *                            No freeze.
@@ -33,9 +33,14 @@ class Report extends Model
         self::REASON_INCORRECT_CONTACT,
     ];
 
-    /** Needs the reporter (and each verifier) to have checked in at the gem. */
+    /**
+     * Every reason needs the reporter (and each verifier) to have checked in at
+     * the place first — you have to have actually been there to report either a
+     * closure or wrong contact details.
+     */
     public const LOCATION_REQUIRED_REASONS = [
         self::REASON_PERMANENTLY_CLOSED,
+        self::REASON_INCORRECT_CONTACT,
     ];
 
     public const STATUS_PENDING = 'pending';
@@ -78,7 +83,7 @@ class Report extends Model
         return $this->status === self::STATUS_PENDING;
     }
 
-    /** permanently_closed always needs a check-in; incorrect_contact_info never does. */
+    /** Both reasons need a check-in at the place. */
     public function requiresCheckIn(): bool
     {
         return in_array($this->reason, self::LOCATION_REQUIRED_REASONS, true);

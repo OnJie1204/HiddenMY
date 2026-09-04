@@ -9631,6 +9631,28 @@ img.avatar {
     font-style: italic;
 }
 
+.report-evidence-photo {
+    display: block;
+    margin-top: 10px;
+    text-decoration: none;
+}
+
+.report-evidence-photo img {
+    display: block;
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--color-border, #e2e2df);
+}
+
+.report-evidence-photo span {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--color-text-muted, #6b6b66);
+}
+
 .report-verdict-actions {
     display: flex;
     flex-direction: column;

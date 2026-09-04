@@ -24,8 +24,8 @@ use Illuminate\Support\Facades\Http;
  *                             frozen everywhere, and its owner can only delete it.
  *
  *   incorrect_contact_info  — the opening hours / phone / website are wrong.
- *                             No check-in needed, but the reporter must be an
- *                             established account. Upheld -> a warning flag
+ *                             Also needs a check-in (you have to have been
+ *                             there). Upheld -> a warning flag
  *                             (locations.contact_flagged_at) that shows a ⚠
  *                             icon next to the contact block and clears itself
  *                             on the owner's next contact edit. No freeze.
@@ -38,7 +38,6 @@ class ReportController extends Controller
     private const VERIFICATION_THRESHOLD = 5;
 
     private const MAX_REPORTS_PER_DAY = 5;
-    private const MIN_ACCOUNT_AGE_DAYS = 7;
 
     /** Every status a report of either reason can be filed against. */
     private function reportableStatuses(): array
@@ -111,12 +110,10 @@ class ReportController extends Controller
         return response()->json([
             'eligible' => true,
             'has_check_in' => $hasCheckIn,
-            'is_established_account' => $this->isEstablishedAccount($user),
-            'message' => 'You can report this place.',
+            'message' => $hasCheckIn ? 'You can report this place.' : 'Please check-in at this location first',
             'location' => $location,
             'reasons' => $availableReasons,
             'location_required_reasons' => Report::LOCATION_REQUIRED_REASONS,
-            'min_account_age_days' => self::MIN_ACCOUNT_AGE_DAYS,
         ]);
     }
 
@@ -162,22 +159,14 @@ class ReportController extends Controller
             return response()->json(['message' => 'You have reached the daily limit for reports. Please try again tomorrow.'], 429);
         }
 
-        // permanently_closed needs a check-in; incorrect_contact_info needs an
-        // established account instead (older than a week, or has checked in
-        // somewhere before) so it can't be spammed from throwaway accounts.
-        if ($reason === Report::REASON_PERMANENTLY_CLOSED) {
-            $hasCheckIn = CheckIn::where('user_id', $user->id)
-                ->where('location_id', $locationId)
-                ->exists();
+        // Both reasons need a check-in at the place — you have to have actually
+        // been there to know it has closed or that its contact details are wrong.
+        $hasCheckIn = CheckIn::where('user_id', $user->id)
+            ->where('location_id', $locationId)
+            ->exists();
 
-            if (!$hasCheckIn) {
-                return response()->json(['message' => 'Please check-in at this location first before reporting'], 400);
-            }
-        } elseif (!$this->isEstablishedAccount($user)) {
-            return response()->json([
-                'message' => 'Reporting incorrect contact info is limited to accounts at least '
-                    . self::MIN_ACCOUNT_AGE_DAYS . ' days old or that have checked in somewhere before.',
-            ], 403);
+        if (!$hasCheckIn) {
+            return response()->json(['message' => 'Please check-in at this location first before reporting'], 400);
         }
 
         $photoPath = null;
@@ -365,14 +354,6 @@ class ReportController extends Controller
             ->count() >= self::MAX_REPORTS_PER_DAY;
     }
 
-    private function isEstablishedAccount($user): bool
-    {
-        if ($user->created_at && $user->created_at->lte(now()->subDays(self::MIN_ACCOUNT_AGE_DAYS))) {
-            return true;
-        }
-
-        return CheckIn::where('user_id', $user->id)->exists();
-    }
 
     private function resolveIfThresholdReached(Report $report, Location $location): void
     {

@@ -19,8 +19,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     const [messageType, setMessageType] = useState('error');
     const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
-    const [manualLat, setManualLat] = useState('');
-    const [manualLng, setManualLng] = useState('');
 
     useEffect(() => {
         if (isOpen && report) {
@@ -53,17 +51,20 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     };
 
     const getCurrentLocation = () => {
-        setGpsStatus('Getting your location...');
+        setGpsStatus('Getting your location…');
+        setMessage('');
         if (!navigator.geolocation) {
-            setGpsStatus('error: Geolocation is not supported by your browser');
+            setGpsStatus('error: Your browser can\'t share your location, so this report can\'t be verified from here.');
             return;
         }
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                setGpsStatus('success: Location found!');
+                setGpsStatus('success: Location found — checking you in…');
                 performCheckIn(position.coords.latitude, position.coords.longitude);
             },
-            (error) => setGpsStatus('error: Unable to get your location. ' + (error.message || '')),
+            (error) => setGpsStatus('error: ' + (error.code === 1
+                ? 'Location permission denied. Allow location access to verify this report.'
+                : ('Couldn\'t get your location. ' + (error.message || '')))),
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
         );
     };
@@ -91,17 +92,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         }
     };
 
-    const confirmManualCheckIn = () => {
-        const lat = parseFloat(manualLat);
-        const lng = parseFloat(manualLng);
-        if (!manualLat || !manualLng || isNaN(lat) || isNaN(lng)) {
-            setMessage('Please enter valid coordinates.');
-            setMessageType('error');
-            return;
-        }
-        performCheckIn(lat, lng);
-    };
-
     const handleVerdict = async (verdict) => {
         setLoading(true);
         setMessage('');
@@ -125,8 +115,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         setMessage('');
         setEligibility(null);
         setGpsStatus('');
-        setManualLat('');
-        setManualLng('');
     };
 
     const handleClose = () => {
@@ -176,12 +164,10 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                             <p className="vote-checkin-hint">You must be within 5 km to check in.</p>
                             <div className="vote-checkin-options">
                                 <button className="vote-checkin-option" onClick={getCurrentLocation} disabled={checkingIn}>
-                                    <span className="vote-checkin-option-label">Use My Current Location</span>
-                                    <span className="vote-checkin-option-desc">Auto-detect your GPS position</span>
-                                </button>
-                                <button className="vote-checkin-option" onClick={() => setStep('manual_checkin')} disabled={checkingIn}>
-                                    <span className="vote-checkin-option-label">Enter Current Location</span>
-                                    <span className="vote-checkin-option-desc">Manually enter your GPS coordinates</span>
+                                    <span className="vote-checkin-option-label">
+                                        {checkingIn ? 'Checking in…' : 'Use My Current Location'}
+                                    </span>
+                                    <span className="vote-checkin-option-desc">Share your location to check in here</span>
                                 </button>
                             </div>
                             {gpsStatus && (
@@ -191,32 +177,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                             )}
                             {message && <div className={`vote-message ${messageType}`}>{message}</div>}
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
-                        </div>
-                    )}
-
-                    {step === 'manual_checkin' && (
-                        <div className="vote-manual-checkin">
-                            <button className="vote-manual-back" onClick={() => setStep('checkin')}>← Back</button>
-                            <h3>Enter Your Current Location</h3>
-                            <div className="vote-manual-inputs">
-                                <div className="vote-manual-input-group">
-                                    <label>Latitude</label>
-                                    <input type="text" className="vote-manual-input" placeholder="e.g. 3.2143"
-                                        value={manualLat} onChange={(e) => setManualLat(e.target.value)} />
-                                </div>
-                                <div className="vote-manual-input-group">
-                                    <label>Longitude</label>
-                                    <input type="text" className="vote-manual-input" placeholder="e.g. 101.7281"
-                                        value={manualLng} onChange={(e) => setManualLng(e.target.value)} />
-                                </div>
-                            </div>
-                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
-                            <div className="vote-actions">
-                                <button className="vote-btn-primary" onClick={confirmManualCheckIn} disabled={checkingIn}>
-                                    {checkingIn ? 'Checking in...' : 'Confirm Check-in'}
-                                </button>
-                                <button className="vote-btn-secondary" onClick={() => setStep('checkin')}>Cancel</button>
-                            </div>
                         </div>
                     )}
 
@@ -231,6 +191,18 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                 <span className="report-summary-label">Reported for</span>
                                 <strong>{REASON_LABELS[report.reason] || report.reason}</strong>
                                 {report.description && <p className="report-summary-desc">"{report.description}"</p>}
+
+                                {report.photo_path && (
+                                    <a
+                                        href={report.photo_path}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="report-evidence-photo"
+                                    >
+                                        <img src={report.photo_path} alt="Evidence from the reporter" />
+                                        <span>Reporter's evidence — tap to view full size</span>
+                                    </a>
+                                )}
 
                                 {report.reason === 'permanently_closed' && (
                                     <p className="report-summary-desc">

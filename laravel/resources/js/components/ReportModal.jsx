@@ -5,18 +5,17 @@ import { checkReportEligibility, submitReport } from '../api/reports';
 import { checkIn as postCheckIn } from '../api/votes';
 
 // A verified place (pending_community_vote / hidden_gem / well_known) can be
-// reported for two things (see Report::REASONS). Both are resolved by a
-// community vote; one report per reason may be open at a time.
-//   permanently_closed     — the place has shut for good. Needs a check-in.
-//   incorrect_contact_info — the hours / phone / website are wrong. No check-in,
-//                            but the reporter must be an established account
-//                            (backend-enforced).
+// reported for two things, both resolved by a community vote (one report per
+// reason open at a time). Both reasons need a check-in at the place — you have
+// to have actually been there.
+//   permanently_closed     — the place has shut for good.
+//   incorrect_contact_info — the hours / phone / website are wrong.
 const REASONS = [
-    { value: 'permanently_closed', label: 'Permanently closed', requiresCheckIn: true },
-    { value: 'incorrect_contact_info', label: 'Contact info is wrong (hours / phone / website)', requiresCheckIn: false },
+    { value: 'permanently_closed', label: 'Permanently closed' },
+    { value: 'incorrect_contact_info', label: 'Contact info is wrong (hours / phone / website)' },
 ];
 
-// checking -> reason -> [checkin -> manual_checkin] -> form -> success/error.
+// checking -> reason -> [checkin] -> form -> success/error.
 function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const navigate = useNavigate();
     const [step, setStep] = useState('checking');
@@ -30,8 +29,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const [messageType, setMessageType] = useState('error');
     const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
-    const [manualLat, setManualLat] = useState('');
-    const [manualLng, setManualLng] = useState('');
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -63,7 +60,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     };
 
     const gemLocation = eligibility?.location;
-    const minAccountAgeDays = eligibility?.min_account_age_days ?? 7;
 
     const handleReasonContinue = () => {
         if (!reason) {
@@ -72,28 +68,25 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             return;
         }
         setMessage('');
-        const meta = REASONS.find((r) => r.value === reason);
-        if (meta?.requiresCheckIn && !eligibility?.has_check_in) {
-            setStep('checkin');
-        } else {
-            setStep('form');
-        }
+        setStep(eligibility?.has_check_in ? 'form' : 'checkin');
     };
 
-    const getCurrentLocation = () => {
-        setGpsStatus('Getting your location...');
+    const useCurrentLocation = () => {
+        setGpsStatus('Getting your location…');
+        setMessage('');
         if (!navigator.geolocation) {
-            setGpsStatus('error: Geolocation is not supported by your browser');
+            setGpsStatus('error: Your browser can\'t share your location, so this place can\'t be reported from here.');
             return;
         }
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const { latitude, longitude } = position.coords;
-                setGpsStatus('success: Location found!');
-                performCheckIn(latitude, longitude);
+                setGpsStatus('success: Location found — checking you in…');
+                performCheckIn(position.coords.latitude, position.coords.longitude);
             },
             (error) => {
-                setGpsStatus('error: Unable to get your location. ' + (error.message || ''));
+                setGpsStatus('error: ' + (error.code === 1
+                    ? 'Location permission denied. Allow location access to report this place.'
+                    : ('Couldn\'t get your location. ' + (error.message || ''))));
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
         );
@@ -112,25 +105,15 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
         } catch (error) {
             const data = error?.response?.data;
             if (data?.distance && data?.max_distance) {
-                setMessage(`You are ${data.distance} km away. You must be within ${data.max_distance} km to check in.`);
+                setMessage(`You are ${data.distance} km away. You must be within ${data.max_distance} km of the place to report it.`);
             } else {
                 setMessage(data?.message || 'Check-in failed');
             }
             setMessageType('error');
+            setGpsStatus('');
         } finally {
             setCheckingIn(false);
         }
-    };
-
-    const confirmManualCheckIn = () => {
-        const lat = parseFloat(manualLat);
-        const lng = parseFloat(manualLng);
-        if (!manualLat || !manualLng || isNaN(lat) || isNaN(lng)) {
-            setMessage('Please enter valid coordinates.');
-            setMessageType('error');
-            return;
-        }
-        performCheckIn(lat, lng);
     };
 
     const handlePhotoChange = (e) => {
@@ -172,8 +155,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
         setMessage('');
         setEligibility(null);
         setGpsStatus('');
-        setManualLat('');
-        setManualLng('');
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -189,13 +170,10 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
 
     if (!isOpen) return null;
 
-    // The backend returns which reasons are still open for this place.
     const availableReasons = eligibility?.reasons
         ? REASONS.filter((r) => eligibility.reasons.includes(r.value))
         : REASONS;
     const selectedReasonMeta = REASONS.find((r) => r.value === reason);
-    const contactReasonBlocked = reason === 'incorrect_contact_info'
-        && eligibility && eligibility.is_established_account === false;
 
     return createPortal((
         <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
@@ -234,15 +212,9 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 </select>
                                 {selectedReasonMeta && (
                                     <p className="report-reason-hint">
-                                        {selectedReasonMeta.requiresCheckIn
-                                            ? "You'll need to check in at this location — you have to have actually been there to know this."
-                                            : "The community votes on your report. If it's confirmed, a warning shows next to the contact info until the owner corrects it."}
-                                    </p>
-                                )}
-                                {contactReasonBlocked && (
-                                    <p className="vote-message error" style={{ marginTop: 8 }}>
-                                        Reporting incorrect contact info needs an account at least {minAccountAgeDays} days
-                                        old, or one that has checked in somewhere before.
+                                        You'll need to check in at this location — you have to have
+                                        actually been there to report this. The community then votes;
+                                        5 either way settles it.
                                     </p>
                                 )}
                             </div>
@@ -250,11 +222,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                             {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
                             <div className="vote-actions">
-                                <button
-                                    className="vote-btn-primary"
-                                    onClick={handleReasonContinue}
-                                    disabled={!reason || contactReasonBlocked}
-                                >
+                                <button className="vote-btn-primary" onClick={handleReasonContinue} disabled={!reason}>
                                     Continue
                                 </button>
                                 <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
@@ -265,7 +233,8 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                     {step === 'checkin' && (
                         <div className="vote-checkin">
                             <h3>Check-in Required</h3>
-                            <p>This reason needs you to have actually been at the location — check in before you can report it.</p>
+                            <p>Reporting a place needs you to have actually been there. We'll use your
+                               current location to check you in — you must be within 5 km.</p>
 
                             {gemLocation && (
                                 <div className="vote-checkin-location">
@@ -274,16 +243,12 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 </div>
                             )}
 
-                            <p className="vote-checkin-hint">You must be within 5 km to check in.</p>
-
                             <div className="vote-checkin-options">
-                                <button className="vote-checkin-option" onClick={getCurrentLocation} disabled={checkingIn}>
-                                    <span className="vote-checkin-option-label">Use My Current Location</span>
-                                    <span className="vote-checkin-option-desc">Auto-detect your GPS position</span>
-                                </button>
-                                <button className="vote-checkin-option" onClick={() => setStep('manual_checkin')} disabled={checkingIn}>
-                                    <span className="vote-checkin-option-label">Enter Current Location</span>
-                                    <span className="vote-checkin-option-desc">Manually enter your GPS coordinates</span>
+                                <button className="vote-checkin-option" onClick={useCurrentLocation} disabled={checkingIn}>
+                                    <span className="vote-checkin-option-label">
+                                        {checkingIn ? 'Checking in…' : 'Use My Current Location'}
+                                    </span>
+                                    <span className="vote-checkin-option-desc">Share your location to check in here</span>
                                 </button>
                             </div>
 
@@ -296,35 +261,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
 
                             <button className="vote-manual-back" onClick={() => setStep('reason')}>← Back</button>
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
-                        </div>
-                    )}
-
-                    {step === 'manual_checkin' && (
-                        <div className="vote-manual-checkin">
-                            <button className="vote-manual-back" onClick={() => setStep('checkin')}>← Back</button>
-                            <h3>Enter Your Current Location</h3>
-
-                            <div className="vote-manual-inputs">
-                                <div className="vote-manual-input-group">
-                                    <label>Latitude</label>
-                                    <input type="text" className="vote-manual-input" placeholder="e.g. 3.2143"
-                                        value={manualLat} onChange={(e) => setManualLat(e.target.value)} />
-                                </div>
-                                <div className="vote-manual-input-group">
-                                    <label>Longitude</label>
-                                    <input type="text" className="vote-manual-input" placeholder="e.g. 101.7281"
-                                        value={manualLng} onChange={(e) => setManualLng(e.target.value)} />
-                                </div>
-                            </div>
-
-                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
-
-                            <div className="vote-actions">
-                                <button className="vote-btn-primary" onClick={confirmManualCheckIn} disabled={checkingIn}>
-                                    {checkingIn ? 'Checking in...' : 'Confirm Check-in'}
-                                </button>
-                                <button className="vote-btn-secondary" onClick={() => setStep('checkin')}>Cancel</button>
-                            </div>
                         </div>
                     )}
 
