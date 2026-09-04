@@ -365,12 +365,29 @@ function SidePanel({
         });
     };
 
-    const menuItems = [
-        { to: '/my-hidden-gems', label: 'My Hidden Gems', authReason: 'manageHiddenGems' },
-        { to: '/hidden-gems', label: 'Hidden Gems' },
-        { to: '/trip-itinerary', label: 'Trip Itinerary', authReason: 'planTrips' },
-        { to: '/travel-posts', label: 'Travel Posts' },
-        { to: '/map', label: 'Map' },
+    const menuSections = [
+        {
+            title: 'Discover',
+            items: [
+                { to: '/hidden-gems', label: 'Hidden Gems' },
+                { to: '/map', label: 'Map' },
+                { to: '/travel-posts', label: 'Travel Posts' },
+            ],
+        },
+        {
+            title: 'Personal',
+            items: [
+                { to: '/wishlist', label: 'Wishlist', authReason: 'viewWishlist' },
+                { to: '/trip-itinerary', label: 'Trip Itinerary', authReason: 'planTrips' },
+                { to: '/my-hidden-gems', label: 'My Hidden Gems', authReason: 'manageHiddenGems' },
+            ],
+        },
+        {
+            title: 'Account',
+            items: [
+                { to: '/profile', label: 'Profile', authReason: 'myProfile' },
+            ],
+        },
     ];
 
     return (
@@ -423,22 +440,29 @@ function SidePanel({
 
             {showNavChrome && (
                 <nav className="side-panel-nav">
-                    {menuItems.map(({ to, label, authReason }) => (
-                        <Link
-                            key={to}
-                            to={to}
-                            className="side-panel-nav-item"
-                            onClick={(event) => {
-                                if (!user && authReason) {
-                                    event.preventDefault();
-                                    requireAuth({ reason: authReason, returnTo: to });
-                                    return;
-                                }
-                                onClose();
-                            }}
-                        >
-                            <span className="side-panel-nav-label">{label}</span>
-                        </Link>
+                    {menuSections.map((section, index) => (
+                        <div className="side-panel-nav-section" key={section.title ?? `section-${index}`}>
+                            {section.title && (
+                                <p className="side-panel-nav-section-title">{section.title}</p>
+                            )}
+                            {section.items.map(({ to, label, authReason }) => (
+                                <Link
+                                    key={to}
+                                    to={to}
+                                    className="side-panel-nav-item"
+                                    onClick={(event) => {
+                                        if (!user && authReason) {
+                                            event.preventDefault();
+                                            requireAuth({ reason: authReason, returnTo: to });
+                                            return;
+                                        }
+                                        onClose();
+                                    }}
+                                >
+                                    <span className="side-panel-nav-label">{label}</span>
+                                </Link>
+                            ))}
+                        </div>
                     ))}
                 </nav>
             )}

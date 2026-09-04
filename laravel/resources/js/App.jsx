@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
+import AuthLoadingScreen from './components/AuthLoadingScreen';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
@@ -96,7 +97,7 @@ function App() {
     }
   }, []);
 
-  if (checking) return <p>Loading...</p>;
+  if (checking) return <AuthLoadingScreen message="Loading…" />;
 
   return (
     <BrowserRouter>

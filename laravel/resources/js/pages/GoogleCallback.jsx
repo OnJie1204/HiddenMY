@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getMe } from '../api/auth';
 import { setToken } from '../utils/tokenStorage';
 import { sanitizeIntent } from '../utils/authRedirect';
+import AuthLoadingScreen from '../components/AuthLoadingScreen';
 
 // Where to send the user once Google auth completes. Login stashes the page the
 // guest originally wanted in sessionStorage (router state can't survive the
@@ -76,7 +77,7 @@ function GoogleCallback({ setUser }) {
     }
   }, [searchParams]);
 
-  return <p>Logging you in...</p>;
+  return <AuthLoadingScreen message="Logging you in…" />;
 }
 
 export default GoogleCallback;

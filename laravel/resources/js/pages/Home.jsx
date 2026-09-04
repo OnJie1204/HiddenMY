@@ -22,6 +22,20 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+// Picks a random gem from `pool`, avoiding `excludeId` when there's another
+// option — so the home-hero-fun-image doesn't "change" to the same gem.
+function pickRandomGem(pool, excludeId) {
+    if (pool.length === 0) return null;
+    if (pool.length === 1) return pool[0];
+
+    let candidate;
+    do {
+        candidate = pool[Math.floor(Math.random() * pool.length)];
+    } while (candidate.id === excludeId);
+
+    return candidate;
+}
+
 const tripColors = [
     '#8DB99C',
     '#C58C7A',
@@ -36,6 +50,8 @@ function Home({ user }) {
     const [recentTrips, setRecentTrips] = useState([]);
     const [popularGems, setPopularGems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [heroGem, setHeroGem] = useState(null);
+    const [heroCandidates, setHeroCandidates] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [mapGems, setMapGems] = useState([]);
     const [selectedGem, setSelectedGem] = useState(null);
@@ -195,10 +211,17 @@ function Home({ user }) {
 
                 const topGems = allGems.slice(0, 3);
 
+                // Only gems with a photo are eligible for the hero spot.
+                const gemsWithImages = allGems.filter(
+                    (gem) => Array.isArray(gem.images) && gem.images.length > 0
+                );
+
                 setPopularGems(allGems.slice(0, 10));
                 setRecentTrips(tripsRes.data || []);
                 setMapGems(topGems);
                 setSelectedGem(topGems[0] || null);
+                setHeroCandidates(gemsWithImages);
+                setHeroGem(pickRandomGem(gemsWithImages));
             } catch (error) {
                 console.error('Error fetching home data:', error);
             } finally {
@@ -208,6 +231,17 @@ function Home({ user }) {
 
         fetchData();
     }, [user]);
+
+    // Rotates the home-hero-fun-image to a random hidden gem every 10 seconds.
+    useEffect(() => {
+        if (heroCandidates.length < 2) return;
+
+        const interval = setInterval(() => {
+            setHeroGem((current) => pickRandomGem(heroCandidates, current?.id));
+        }, 10000);
+
+        return () => clearInterval(interval);
+    }, [heroCandidates]);
 
     useEffect(() => {
         if (selectedGem && mapRef.current) {
@@ -307,8 +341,7 @@ function Home({ user }) {
         };
     };
 
-    const heroImageUrl =
-        topGems[0]?.images?.[0]?.image_url || null;
+    const heroImageUrl = heroGem?.images?.[0]?.image_url || null;
 
     return (
         <div className="home-page">
@@ -356,18 +389,18 @@ function Home({ user }) {
                             className="home-hero-fun-image"
                             onClick={() =>
                                 navigate(
-                                    `/hidden-gems/${topGems[0].id}`
+                                    `/hidden-gems/${heroGem.id}`
                                 )
                             }
-                            aria-label={`View ${topGems[0].place_name}`}
+                            aria-label={`View ${heroGem.place_name}`}
                         >
                             <img
                                 src={heroImageUrl}
-                                alt={topGems[0].place_name}
+                                alt={heroGem.place_name}
                             />
 
                             <span className="home-hero-fun-image-caption">
-                                {topGems[0].place_name}
+                                {heroGem.place_name}
                             </span>
                         </button>
                     )

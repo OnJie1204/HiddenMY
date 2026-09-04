@@ -56,6 +56,12 @@ const AUTH_PROMPTS = Object.freeze({
     planTrips: {
         message: "Login to view and plan your trips.",
     },
+    viewWishlist: {
+        message: "Login to view your wishlist.",
+    },
+    myProfile: {
+        message: "Login to view your profile.",
+    },
 });
 
 export function getAuthPrompt(reason) {
