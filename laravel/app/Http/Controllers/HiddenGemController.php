@@ -139,6 +139,7 @@ class HiddenGemController extends Controller
             'opening_hours' => $request->opening_hours,
             'phone' => $request->phone,
             'website' => $request->website,
+            'contact_updated_at' => now(),
             'latitude' => $request->latitude,
             'longitude' => $request->longitude,
             'status' => 'pending',
@@ -415,6 +416,7 @@ class HiddenGemController extends Controller
                     'phone' => $contact['phone'] ?? null,
                     'website' => $contact['website'] ?? null,
                     'contact_flagged_at' => null,
+                    'contact_updated_at' => now(),
                 ]);
 
                 return response()->json([
@@ -492,6 +494,8 @@ class HiddenGemController extends Controller
             'longitude' => 'required|numeric',
             'images' => 'nullable|array',
             'images.*' => 'image|max:5120',
+            'remove_image_ids' => 'nullable|array',
+            'remove_image_ids.*' => 'integer',
         ]);
 
         $uploadedImageUrls = $this->uploadLocationImages($request->file('images') ?? []);
@@ -499,7 +503,23 @@ class HiddenGemController extends Controller
             return response()->json(['message' => 'Failed to upload image.'], 500);
         }
 
-        unset($validated['images']);
+        // Drop any existing photos the owner removed. Guard: never leave the gem
+        // with zero photos.
+        $removeIds = $validated['remove_image_ids'] ?? [];
+        if (! empty($removeIds)) {
+            $keeping = $gem->images()->whereNotIn('id', $removeIds)->count();
+            if ($keeping === 0 && empty($uploadedImageUrls)) {
+                return response()->json([
+                    'message' => 'A hidden gem needs at least one photo — add a new one before removing the last existing photo.',
+                ], 422);
+            }
+            $gem->images()->whereIn('id', $removeIds)->delete();
+        }
+
+        unset($validated['images'], $validated['remove_image_ids']);
+
+        // A full resubmit stamps the contact fields as freshly set.
+        $validated['contact_updated_at'] = now();
 
         // Update hidden gem information
         $gem->update($validated);

@@ -49,6 +49,7 @@ export default function EditHiddenGem() {
 
     const [postcodeDetectionFailed, setPostcodeDetectionFailed] = useState(false);
     const [existingImages, setExistingImages] = useState([]);
+    const [removedImageIds, setRemovedImageIds] = useState([]);
     const [newImages, setNewImages] = useState([]);
 
     const coordinateLocationRef = useRef(null);
@@ -263,7 +264,7 @@ export default function EditHiddenGem() {
 
             let updateData = dataToSave;
 
-            if (newImages.length > 0) {
+            if (newImages.length > 0 || removedImageIds.length > 0) {
                 updateData = new FormData();
 
                 Object.entries(dataToSave).forEach(([key, value]) => {
@@ -272,6 +273,10 @@ export default function EditHiddenGem() {
 
                 newImages.forEach(({ file }) => {
                     updateData.append("images[]", file);
+                });
+
+                removedImageIds.forEach((imageId) => {
+                    updateData.append("remove_image_ids[]", imageId);
                 });
             }
 
@@ -554,7 +559,7 @@ export default function EditHiddenGem() {
                     <div className="edit-hidden-gem-images-section">
                         <h4>Existing Images</h4>
                         <p className="edit-hidden-gem-images-note">
-                            Existing images cannot be edited or removed.
+                            Remove any you no longer want. Keep at least one photo (or add a new one).
                         </p>
 
                         {existingImages.length > 0 ? (
@@ -565,6 +570,18 @@ export default function EditHiddenGem() {
                                             src={image.image_url}
                                             alt={`${formData.place_name} existing`}
                                         />
+                                        <button
+                                            type="button"
+                                            className="hidden-gem-remove-image-btn"
+                                            onClick={() => {
+                                                setRemovedImageIds((prev) => [...prev, image.id]);
+                                                setExistingImages((prev) =>
+                                                    prev.filter((img) => img.id !== image.id)
+                                                );
+                                            }}
+                                        >
+                                            Remove
+                                        </button>
                                     </div>
                                 ))}
                             </div>

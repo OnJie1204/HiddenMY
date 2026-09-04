@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
 import LocationPickerMap from "../components/LocationPickerMap";
 import AddressAutocomplete from "../components/AddressAutocomplete";
@@ -32,6 +33,7 @@ const STATE_FALLBACK_ZOOM = 10;
 
 export default function HiddenGemSubmission() {
 
+    const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
     const [formData, setFormData] = useState({
@@ -207,31 +209,14 @@ export default function HiddenGemSubmission() {
 
             await createHiddenGem(data);
 
-            setMessage(
-                "Hidden gem submitted! It's now being reviewed by AI before it can go up for community voting — check 'My Hidden Gems' for its status."
-            );
-
-            setFormData({
-                category_id: "",
-                place_name: "",
-                address: "",
-                state: "",
-                postcode: "",
-                description: "",
-                opening_hours: "",
-                phone: "",
-                website: "",
-                latitude: "",
-                longitude: "",
+            // Land on My Hidden Gems so the submitter sees the new entry and its
+            // "Being Verified" status straight away.
+            navigate("/my-hidden-gems", {
+                state: {
+                    flash: "Hidden gem submitted! It's now being reviewed by AI before it can go up for community voting.",
+                },
             });
-
-            setImages([]);
-            setImagePreview([]);
-            setGeocodeStatus("");
-
-            if(fileInputRef.current){
-                fileInputRef.current.value="";
-            }
+            return;
 
         } catch (error) {
 

@@ -8074,6 +8074,32 @@ img.avatar {
 
 .hidden-gem-map-picker-header {
     margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.hidden-gem-map-locate-btn {
+    flex: none;
+    padding: 7px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #1f2937;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.hidden-gem-map-locate-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.hidden-gem-map-locate-btn:hover:not(:disabled) {
+    background: #f1f5f9;
 }
 
 .hidden-gem-map-picker-header h4 {

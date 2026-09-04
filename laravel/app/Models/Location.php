@@ -83,6 +83,7 @@ class Location extends Model
         'report_status',
         'permanently_closed_at',
         'contact_flagged_at',
+        'contact_updated_at',
         'vote_count',
         'verification_threshold',
         'ai_review_reason',
@@ -111,6 +112,7 @@ class Location extends Model
         'ai_reviewed_at' => 'datetime',
         'permanently_closed_at' => 'datetime',
         'contact_flagged_at' => 'datetime',
+        'contact_updated_at' => 'datetime',
     ];
 
     public function user()

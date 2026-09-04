@@ -264,11 +264,20 @@ export default function MyHiddenGems() {
         }
     }, []);
 
+    // Flash message passed from the submission form after a successful submit.
+    useEffect(() => {
+        if (routeLocation.state?.flash) {
+            setSuccessMessage(routeLocation.state.flash);
+            navigate(routeLocation.pathname, { replace: true, state: {} });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         if (successMessage) {
             const timer = setTimeout(() => {
                 setSuccessMessage("");
-            }, 3000);
+            }, 4000);
 
             return () => clearTimeout(timer);
         }

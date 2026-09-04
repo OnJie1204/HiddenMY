@@ -92,6 +92,7 @@ export default function LocationPickerMap({
     const [position, setPosition] = useState(initialPosition);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const [locating, setLocating] = useState(false);
 
     useEffect(() => {
         if (hasValidCoordinates) {
@@ -101,6 +102,33 @@ export default function LocationPickerMap({
             ]);
         }
     }, [hasValidCoordinates, parsedLatitude, parsedLongitude]);
+
+    const useCurrentLocation = () => {
+        if (disabled || locating) return;
+        setMessage("");
+
+        if (!navigator.geolocation) {
+            setMessage("Your browser can't share your location — click your spot on the map instead.");
+            return;
+        }
+
+        setLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setLocating(false);
+                handleMapClick(pos.coords.latitude, pos.coords.longitude);
+            },
+            (error) => {
+                setLocating(false);
+                setMessage(
+                    error.code === 1
+                        ? "Location permission denied — click your spot on the map instead."
+                        : "Couldn't get your location — click your spot on the map instead."
+                );
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        );
+    };
 
     const handleMapClick = async (lat, lng) => {
         setPosition([lat, lng]);
@@ -139,10 +167,20 @@ export default function LocationPickerMap({
                 <div>
                     <h4>Select Location on Map</h4>
                     <p>
-                        Click on the map to automatically fill
-                        the address and coordinates.
+                        Click on the map, or use your current location, to
+                        automatically fill the address and coordinates.
                     </p>
                 </div>
+                {!disabled && (
+                    <button
+                        type="button"
+                        className="hidden-gem-map-locate-btn"
+                        onClick={useCurrentLocation}
+                        disabled={locating || loading}
+                    >
+                        {locating ? "Locating…" : "📍 Use my current location"}
+                    </button>
+                )}
             </div>
 
             <div className="hidden-gem-map-picker-map">
