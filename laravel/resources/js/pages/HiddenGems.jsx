@@ -596,7 +596,7 @@ export default function HiddenGems({ user }) {
                                     <div className="hidden-gems-card-status">
                                         {gem.status === "hidden_gem" ? (
                                             <span className="hidden-gems-card-verified">
-                                                Verified
+                                                Hidden Gem
                                             </span>
                                         ) : gem.status === "well_known" ? (
                                             <span className="hidden-gems-card-verified">
