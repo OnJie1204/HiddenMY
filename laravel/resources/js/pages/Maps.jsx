@@ -84,33 +84,46 @@ function FlyToUser({ position }) {
     return null;
 }
 
-// Brings the selected gem into view — without ever handing the cluster group
-// a new marker list, so a cluster that's expanded/spiderfied stays exactly
-// as the user left it.
-//   - marker already has its own element on the map (you clicked it, or it's
-//     spiderfied): do nothing.
-//   - gem still inside a cluster (picked from search): let the cluster group
-//     zoom / spiderfy until the pin shows.
-//   - OSM attraction / marker not loaded: plain flyTo.
+// Brings the selected gem into view and centers it — without ever handing the
+// cluster group a new marker list, so an expanded/spiderfied cluster stays
+// exactly as the user left it.
+//   - marker already visible AND we're already zoomed in close (spiderfied
+//     markers only exist at/near max cluster zoom, which sits above this):
+//     plain panTo, no zoom change, so an open spiderfy isn't disturbed.
+//   - marker visible but the view is still wide (e.g. a standalone gem
+//     clicked at a country-wide zoom): flyTo with a zoom bump. A plain pan
+//     can't recenter here — maxBounds/maxBoundsViscosity clamps horizontal
+//     panning once the visible span is close to the bounds' own width, which
+//     a wide zoom easily hits. Zooming in first shrinks the span so the pan
+//     is no longer fighting the bounds clamp.
+//   - gem still inside a collapsed cluster (picked from search): let the
+//     cluster group zoom / spiderfy until the pin shows, then center it.
+//   - OSM attraction / marker not loaded: same zoom-bump flyTo.
 function RevealSelectedGem({ gem, clusterRef, markerRefs }) {
     const map = useMap();
     useEffect(() => {
         if (!gem) return;
 
+        const target = [Number(gem.latitude), Number(gem.longitude)];
         const marker = gem.source === "database" ? markerRefs.current[gem.id] : null;
 
-        if (marker?.getElement?.()) return;
-
-        if (marker && clusterRef.current) {
-            clusterRef.current.zoomToShowLayer(marker, () => {});
+        if (marker?.getElement?.()) {
+            if (map.getZoom() >= GEM_FOCUS_ZOOM) {
+                map.panTo(target, FLY_TO_OPTIONS);
+            } else {
+                map.flyTo(target, GEM_FOCUS_ZOOM, FLY_TO_OPTIONS);
+            }
             return;
         }
 
-        map.flyTo(
-            [Number(gem.latitude), Number(gem.longitude)],
-            Math.max(map.getZoom(), GEM_FOCUS_ZOOM),
-            FLY_TO_OPTIONS
-        );
+        if (marker && clusterRef.current) {
+            clusterRef.current.zoomToShowLayer(marker, () => {
+                map.flyTo(target, Math.max(map.getZoom(), GEM_FOCUS_ZOOM), FLY_TO_OPTIONS);
+            });
+            return;
+        }
+
+        map.flyTo(target, Math.max(map.getZoom(), GEM_FOCUS_ZOOM), FLY_TO_OPTIONS);
     }, [gem, map, clusterRef, markerRefs]);
     return null;
 }
