@@ -762,7 +762,10 @@ function SidePanel({
                         )}
 
 
-                        {/* Reviews are the votes left when someone verifies/visits this gem */}
+                        {/* Reviews are travellers' star ratings and comments (GemInteraction
+                            type=comment) — not the community verification votes, which only
+                            record who voted. "See all" opens the detail page's Ratings tab
+                            so it lands on the same content this list is showing. */}
                         {gem.source === "database" && (
                             <div className="side-panel-reviews">
                                 <div className="side-panel-reviews-header">
@@ -770,7 +773,7 @@ function SidePanel({
                                     <button
                                         type="button"
                                         className="side-panel-reviews-see-all"
-                                        onClick={() => navigate(`/hidden-gems/${gem.id}`, { state: { openTab: "votes" } })}
+                                        onClick={() => navigate(`/hidden-gems/${gem.id}`, { state: { openTab: "comments" } })}
                                     >
                                         See all
                                     </button>
@@ -791,6 +794,14 @@ function SidePanel({
                                                         })}
                                                     </span>
                                                 </div>
+                                                {review.rating > 0 && (
+                                                    <span
+                                                        className="side-panel-review-stars"
+                                                        aria-label={`${review.rating} out of 5 stars`}
+                                                    >
+                                                        {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
+                                                    </span>
+                                                )}
                                                 {review.photo_path && (
                                                     <img
                                                         src={getVotePhotoUrl(review.photo_path)}
@@ -799,8 +810,8 @@ function SidePanel({
                                                         onError={(e) => { e.target.style.display = "none"; }}
                                                     />
                                                 )}
-                                                {review.travel_description && (
-                                                    <p className="side-panel-review-text">"{review.travel_description}"</p>
+                                                {review.comment && (
+                                                    <p className="side-panel-review-text">"{review.comment}"</p>
                                                 )}
                                             </div>
                                         ))}

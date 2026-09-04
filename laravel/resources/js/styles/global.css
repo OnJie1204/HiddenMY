@@ -12020,3 +12020,41 @@ pre {
     font-size: 17px;
     line-height: 1.5;
 }
+
+.gem-detail-wishlist-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #1f2937;
+    font-size: 22px;
+    line-height: 1;
+
+    cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.gem-detail-wishlist-btn:hover {
+    background: #f3f4f6;
+    transform: translateY(-1px);
+}
+
+.gem-detail-wishlist-btn.active {
+    color: #111827;
+    background: #ffffff;
+    border-color: #d1d5db;
+}
+
+.gem-detail-wishlist-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
