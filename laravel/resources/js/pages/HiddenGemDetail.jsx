@@ -18,7 +18,6 @@ const ITINERARY_NAME_MAX = 10;
 import { useResumeIntent } from "../utils/useResumeIntent";
 import { getTravelPostsForLocation } from "../api/travelPosts";
 import MenuItems from "../components/MenuItems";
-import { useCompare } from "../context/CompareContext";
 import api from "../api";
 
 import "../styles/global.css";
@@ -66,7 +65,6 @@ export default function HiddenGemDetail({ user }) {
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const [wishlistError, setWishlistError] = useState("");
     const [wishlistToast, setWishlistToast] = useState("");
-    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
     const [storyPosts, setStoryPosts] = useState([]);
     const [storiesLoading, setStoriesLoading] = useState(false);
     const [storiesLoaded, setStoriesLoaded] = useState(false);
@@ -688,20 +686,6 @@ export default function HiddenGemDetail({ user }) {
                                             title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
                                         >
                                             {wishlistIds.has(gem.id) ? "♥" : "♡"}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={`gem-detail-wishlist-btn ${isComparing(gem.id) ? "active" : ""}`}
-                                            onClick={() => toggleCompare(gem)}
-                                            disabled={!isComparing(gem.id) && !canAddMore}
-                                            title={isComparing(gem.id)
-                                                ? "Remove from comparison"
-                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
-                                        >
-                                            <span
-                                                className={`compare-checkbox ${isComparing(gem.id) ? "compare-checkbox-checked" : ""}`}
-                                                aria-hidden="true"
-                                            />
                                         </button>
                                     </>
                                 )}

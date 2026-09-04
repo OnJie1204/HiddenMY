@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { loginNavOptions } from "../utils/authRedirect";
 import googleMapsIcon from "../assets/google_maps.png";
@@ -11,7 +11,6 @@ import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
 import SignInPrompt from "./SignInPrompt";
-import { useCompare } from "../context/CompareContext";
 import { getReportForLocation } from "../api/reports";
 import { createTripItinerary } from "../api/TripItinerary";
 
@@ -68,7 +67,6 @@ function SidePanel({
     const panelRef = useRef(null);
     const navigate = useNavigate();
     const location = useLocation();
-    const { isComparing, toggleCompare, canAddMore, maxCompare, clearCompare } = useCompare();
 
     // A new selection always lands on the first post's detail view, and resets
     // any scroll from the previously-shown gem.
@@ -256,19 +254,17 @@ function SidePanel({
     const canAddToItinerary = gem
         && (gem.source === "attraction" || status === "hidden_gem" || status === "pending_community_vote");
 
-    // A permanently-closed gem is frozen — no new wishlisting, comparing or
+    // A permanently-closed gem is frozen — no new wishlisting or
     // reporting (see Location::acceptsNewInteractions on the backend).
     const isClosed = !!(gem && (gem.permanently_closed_at || gem.permanentlyClosedAt));
 
-    // OSM attractions aren't Location records, so there's nothing to wishlist
-    // or compare — only our own database gems that have passed AI review qualify.
+    // OSM attractions aren't Location records, so there's nothing to wishlist —
+    // only our own database gems that have passed AI review qualify.
     const canWishlist = gem
         && gem.source === "database"
         && !isClosed
         && (status === "hidden_gem" || status === "pending_community_vote");
     const isWishlisted = gem && wishlistIds.has(gem.id);
-    const canCompare = canWishlist;
-    const comparing = gem && isComparing(gem.id);
 
     // A verified Hidden Gem, or one still in community voting (permanently_closed
     // only) — the backend enforces per-reason and returns the allowed reasons.
@@ -371,10 +367,15 @@ function SidePanel({
 
     const handleLogout = async () => {
         localStorage.removeItem('token');
-        setUser(null);
-        clearCompare();
         onClose();
-        navigate('/login');
+        // See the matching comment in Navbar's handleLogout: navigate() and
+        // setUser() must land in the same transition, or the synchronous
+        // setUser(null) commits first against the old protected route and
+        // RequireAuth bounces to /login before navigate('/') takes effect.
+        startTransition(() => {
+            navigate('/');
+            setUser(null);
+        });
     };
 
     const menuItems = [
@@ -517,24 +518,6 @@ function SidePanel({
                                             : "Only gems that have passed AI review can be saved"}
                                     >
                                         {isWishlisted ? "♥" : "♡"}
-                                    </button>
-                                )}
-                                {gem.source === "database" && (
-                                    <button
-                                        type="button"
-                                        className={`compare-toggle-btn ${comparing ? "compare-toggle-btn-active" : ""}`}
-                                        onClick={() => toggleCompare(gem)}
-                                        disabled={!canCompare || (!comparing && !canAddMore)}
-                                        title={!canCompare
-                                            ? "Only gems that have passed AI review can be compared"
-                                            : comparing
-                                                ? "Remove from comparison"
-                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
-                                    >
-                                        <span
-                                            className={`compare-checkbox ${comparing ? "compare-checkbox-checked" : ""}`}
-                                            aria-hidden="true"
-                                        />
                                     </button>
                                 )}
                                 {canReportOrVerify && (

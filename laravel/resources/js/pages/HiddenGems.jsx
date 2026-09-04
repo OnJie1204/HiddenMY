@@ -8,7 +8,6 @@ import LoadingCards from "../components/LoadingCards";
 import ReportButton from "../components/ReportButton";
 import SignInPrompt from "../components/SignInPrompt";
 import { useResumeIntent } from "../utils/useResumeIntent";
-import { useCompare } from "../context/CompareContext";
 
 import "../styles/global.css";
 
@@ -51,8 +50,6 @@ export default function HiddenGems({ user }) {
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
     const [wishlistLoaded, setWishlistLoaded] = useState(false);
-
-    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
 
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
@@ -552,39 +549,6 @@ export default function HiddenGems({ user }) {
                                                 {wishlistIds.has(gem.id)
                                                     ? "♥"
                                                     : "♡"}
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                className={`compare-toggle-btn ${
-                                                    isComparing(gem.id)
-                                                        ? "compare-toggle-btn-active"
-                                                        : ""
-                                                }`}
-                                                disabled={
-                                                    !isComparing(gem.id) &&
-                                                    !canAddMore
-                                                }
-                                                title={
-                                                    isComparing(gem.id)
-                                                        ? "Remove from comparison"
-                                                        : canAddMore
-                                                          ? "Add to comparison"
-                                                          : `You can compare up to ${maxCompare} at a time`
-                                                }
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    toggleCompare(gem);
-                                                }}
-                                            >
-                                                <span
-                                                    className={`compare-checkbox ${
-                                                        isComparing(gem.id)
-                                                            ? "compare-checkbox-checked"
-                                                            : ""
-                                                    }`}
-                                                    aria-hidden="true"
-                                                />
                                             </button>
 
                                             <ReportButton

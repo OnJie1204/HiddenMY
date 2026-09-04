@@ -1,21 +1,27 @@
+import { startTransition } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../api/auth';
 import { clearToken } from '../utils/tokenStorage';
-import { useCompare } from '../context/CompareContext';
 import { loginNavOptions } from '../utils/authRedirect';
 import Avatar from './Avatar';
 
 function Navbar({ user, setUser, onMenuClick }) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { clearCompare } = useCompare();
 
     const handleLogout = async () => {
         await logout();
         clearToken();
-        setUser(null);
-        clearCompare();
-        navigate('/login');
+        // BrowserRouter applies navigate() through startTransition (low
+        // priority), but setUser is a normal synchronous update. Left as two
+        // separate updates, the synchronous setUser(null) commits first with
+        // the old protected route still in context, so RequireAuth fires its
+        // own redirect to /login before the pending navigate('/') lands.
+        // Wrapping both in the same transition keeps them in one render.
+        startTransition(() => {
+            navigate('/');
+            setUser(null);
+        });
     };
 
     return (

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import SidePanel from './SidePanel';
-import CompareTray from './CompareTray';
 import BackButton from './BackButton';
 
 function Layout({ children, user, setUser }) {
@@ -40,7 +39,6 @@ function Layout({ children, user, setUser }) {
                 <BackButton />
                 {children}
             </main>
-            <CompareTray />
             <Footer />
         </div>
     );

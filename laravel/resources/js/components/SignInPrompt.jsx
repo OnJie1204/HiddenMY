@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { sanitizeIntent } from "../utils/authRedirect";
 
 // Shared "you need an account for that" modal — every write action a guest
-// can reach (vote, report, wishlist, compare, itinerary, check-in, comment,
+// can reach (vote, report, wishlist, itinerary, check-in, comment,
 // ...) opens this instead of silently failing or crashing on a null user.
 // Reuses the same overlay/modal classes as VoteModal/ReportModal so it reads
 // as part of the same modal family rather than a one-off popup.

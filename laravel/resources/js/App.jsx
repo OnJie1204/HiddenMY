@@ -24,8 +24,6 @@ import TravelPosts from './pages/TravelPosts';
 import TravelPostDetail from './pages/TravelPostDetail';
 import CreateTravelPost from './pages/CreateTravelPost';
 import EditTravelPost from './pages/EditTravelPost';
-import CompareGems from './pages/CompareGems';
-import { CompareProvider } from './context/CompareContext';
 import { getMe } from './api/auth';
 import { getToken, clearToken } from './utils/tokenStorage';
 import { sanitizeIntent } from './utils/authRedirect';
@@ -101,7 +99,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      <CompareProvider>
       <Routes>
         {/* 不需要 Navbar 的页面 */}
         <Route path="/login" element={<RedirectIfAuthed user={user}><Login onLoginSuccess={setUser} /></RedirectIfAuthed>} />
@@ -135,10 +132,6 @@ function App() {
         <Route path="/travel-posts/:id" element={
           <Layout user={user} setUser={setUser}><TravelPostDetail user={user} /></Layout>
         } />
-        <Route path="/compare" element={
-          <Layout user={user} setUser={setUser}><CompareGems user={user} /></Layout>
-        } />
-
         {/* 需要 Navbar 的页面(登入后才能进) */}
         <Route path="/profile" element={
           <RequireAuth user={user}><Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout></RequireAuth>
@@ -229,7 +222,6 @@ function App() {
         />
 
       </Routes>
-      </CompareProvider>
     </BrowserRouter>
   );
 }

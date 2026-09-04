@@ -24,7 +24,6 @@ const GUEST_VIEWABLE_PATHS = [
     /^\/map(\/|\?|#|$)/,
     /^\/hidden-gems(\/|\?|#|$)/,
     /^\/travel-posts(\/|\?|#|$)/,
-    /^\/compare(\/|\?|#|$)/,
 ];
 
 // Routes that live under a public prefix but still require an account.
