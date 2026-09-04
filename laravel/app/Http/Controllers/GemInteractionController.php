@@ -4,12 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Location;
 use App\Models\GemInteraction;
+use App\Services\ProfanityFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 
 class GemInteractionController extends Controller
 {
+    public function __construct(private ProfanityFilter $profanity)
+    {
+    }
+
     public function toggle(Request $request, $locationId)
     {
         $user = Auth::user();
@@ -47,6 +52,12 @@ class GemInteractionController extends Controller
             if (!$request->rating) {
                 return response()->json([
                     'message' => 'Rating is required.'
+                ], 422);
+            }
+
+            if (!$this->profanity->isClean($request->comment)) {
+                return response()->json([
+                    'message' => 'Please reword your comment — it looks like it contains inappropriate language.'
                 ], 422);
             }
 
@@ -301,6 +312,12 @@ class GemInteractionController extends Controller
             'photo' => 'nullable|image|max:5120',
             'remove_photo' => 'nullable|boolean',
         ]);
+
+        if (!$this->profanity->isClean($request->comment)) {
+            return response()->json([
+                'message' => 'Please reword your comment — it looks like it contains inappropriate language.'
+            ], 422);
+        }
 
         $photoPath = $comment->photo_path;
 

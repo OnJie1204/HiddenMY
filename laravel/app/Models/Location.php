@@ -11,8 +11,37 @@ class Location extends Model
     use HasFactory;
 
     /**
-     * AI-written verification fields — never mass-assignable from user input.
-     * store()/update() must not pass these through $request->validate()'d data.
+     * The gem lifecycle (see the HiddenMY Redesign spec):
+     *   pending               - AI hasn't verified yet (running, or a technical
+     *                           failure being retried). Private.
+     *   ai_rejected           - failed AI: score, outside Malaysia, duplicate,
+     *                           or unsafe content. Private.
+     *   pending_community_vote - passed AI, collecting votes. Public.
+     *   hidden_gem            - reached the vote threshold. Public.
+     *   well_known            - post tags + ratings >= 50 (one-way). Public, but
+     *                           shown on its own page, not the hidden-gems list.
+     *   deleted              - soft-deleted behind a strong confirm. Invisible
+     *                           to everyone, including the owner.
+     *
+     * Two flags ride alongside status without changing it:
+     *   permanently_closed_at  - 5 confirmed "permanently closed" reports.
+     *                            Greyed everywhere, frozen, owner can only delete.
+     *   contact_flagged_at     - 5 confirmed "incorrect contact info" reports.
+     *                            Shows a warning icon; cleared on the owner's
+     *                            next contact edit. No freeze.
+     */
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_AI_REJECTED = 'ai_rejected';
+    public const STATUS_PENDING_VOTE = 'pending_community_vote';
+    public const STATUS_HIDDEN_GEM = 'hidden_gem';
+    public const STATUS_WELL_KNOWN = 'well_known';
+    public const STATUS_DELETED = 'deleted';
+
+    /** Reached from hidden_gem when engagement crosses this. One-way. */
+    public const WELL_KNOWN_THRESHOLD = 50;
+
+    /**
+     * AI-written fields — never mass-assignable from user input.
      */
     public const AI_VERIFICATION_FIELDS = [
         'status',
@@ -26,6 +55,8 @@ class Location extends Model
         'tourism_value_level',
         'evidence_score',
         'evidence_level',
+        'content_safety_score',
+        'content_safety_level',
         'duplicate_status',
         'duplicate_of_location_id',
         'verification_result_json',
@@ -51,7 +82,8 @@ class Location extends Model
         'status',
         'report_status',
         'permanently_closed_at',
-        'contact_edit_unlocked_at',
+        'contact_flagged_at',
+        'contact_updated_at',
         'vote_count',
         'verification_threshold',
         'ai_review_reason',
@@ -67,6 +99,8 @@ class Location extends Model
         'tourism_value_level',
         'evidence_score',
         'evidence_level',
+        'content_safety_score',
+        'content_safety_level',
         'duplicate_status',
         'duplicate_of_location_id',
         'verification_result_json',
@@ -77,7 +111,8 @@ class Location extends Model
         'verification_result_json' => 'array',
         'ai_reviewed_at' => 'datetime',
         'permanently_closed_at' => 'datetime',
-        'contact_edit_unlocked_at' => 'datetime',
+        'contact_flagged_at' => 'datetime',
+        'contact_updated_at' => 'datetime',
     ];
 
     public function user()
@@ -95,10 +130,6 @@ class Location extends Model
         return $this->hasMany(LocationImage::class);
     }
 
-    /**
-     * Just the first photo, for callers (like the map's viewport query) that
-     * only ever render one thumbnail and shouldn't pay to eager-load every photo.
-     */
     public function firstImage()
     {
         return $this->hasOne(LocationImage::class)->oldestOfMany();
@@ -109,12 +140,17 @@ class Location extends Model
         return $this->hasMany(Vote::class);
     }
 
+    public function checkIns()
+    {
+        return $this->hasMany(CheckIn::class);
+    }
+
     public function gemInteractions()
     {
         return $this->hasMany(GemInteraction::class);
     }
 
-    /** Star ratings only — GemInteraction also stores like/dislike rows under other types. */
+    /** Star ratings only — GemInteraction also stores like/dislike rows. */
     public function ratings()
     {
         return $this->hasMany(GemInteraction::class)->where('type', 'comment');
@@ -130,22 +166,33 @@ class Location extends Model
         return $this->hasMany(Report::class);
     }
 
-    /** The currently-open report, if any — a gem can only have one active
-     *  report at a time (see ReportController::store's status gate). */
-    public function activeReport()
+    /** Open (still being voted on) reports — a gem can have one per reason. */
+    public function openReports()
     {
-        return $this->hasOne(Report::class)->where('status', 'pending')->latestOfMany();
+        return $this->hasMany(Report::class)->where('status', 'pending');
     }
 
+    /** Owner's proposed description/photo edits awaiting the AI review. */
+    public function pendingEdits()
+    {
+        return $this->hasMany(LocationPendingEdit::class);
+    }
+
+    public function pendingEdit()
+    {
+        return $this->hasOne(LocationPendingEdit::class)
+            ->where('status', 'pending_review')
+            ->latestOfMany();
+    }
+
+    /** Travel-post gem tags (drives "Community Stories" on the detail page). */
     public function posts()
     {
         return $this->belongsToMany(TravelPost::class, 'post_locations')
-            ->withPivot(['caption', 'order_number'])
+            ->withPivot(['caption', 'order_number', 'visited'])
             ->withTimestamps()
             ->orderByDesc('post_locations.created_at');
     }
-
-    // ==================== Interactions (Like / Dislike / Comment) ====================
 
     public function interactions()
     {
@@ -167,96 +214,129 @@ class Location extends Model
         return $this->hasMany(GemInteraction::class)->where('type', 'comment');
     }
 
-    // ==================== Status Helpers ====================
+    // ==================== Status helpers ====================
 
     public function isPending()
     {
-        return $this->status === 'pending';
+        return $this->status === self::STATUS_PENDING;
     }
 
     public function isAiRejected()
     {
-        return $this->status === 'ai_rejected';
+        return $this->status === self::STATUS_AI_REJECTED;
     }
 
     public function isPendingCommunityVote()
     {
-        return $this->status === 'pending_community_vote';
+        return $this->status === self::STATUS_PENDING_VOTE;
     }
 
     public function isHiddenGem()
     {
-        return $this->status === 'hidden_gem';
+        return $this->status === self::STATUS_HIDDEN_GEM;
     }
 
-    public function isDelisted()
+    public function isWellKnown()
     {
-        return $this->status === 'delisted';
+        return $this->status === self::STATUS_WELL_KNOWN;
     }
 
-    /** A report is open and the community hasn't yet confirmed or disputed
-     *  it. `status` stays 'hidden_gem' the whole time this is true — see the
-     *  report_status column comment on why it's a separate flag. */
+    public function isDeleted()
+    {
+        return $this->status === self::STATUS_DELETED;
+    }
+
+    /** Verified (past AI): votes cannot re-run verification, only contact +
+     *  AI-reviewed description edits are allowed. */
+    public function isVerified(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_PENDING_VOTE,
+            self::STATUS_HIDDEN_GEM,
+            self::STATUS_WELL_KNOWN,
+        ], true);
+    }
+
+    /** A report is being voted on. `status` is unchanged while this is true. */
     public function isUnderReview()
     {
         return $this->report_status === 'under_review';
     }
 
-    /** Community-confirmed "permanently closed" report. The gem stays a
-     *  verified Hidden Gem and stays publicly visible — the UI just greys it
-     *  out and shows a "Permanently closed" badge. */
     public function isPermanentlyClosed(): bool
     {
         return $this->permanently_closed_at !== null;
     }
 
-    /** A community-confirmed "contact info is wrong" report has unlocked a
-     *  one-off, contact-fields-only edit for the owner (see
-     *  HiddenGemController::update). Cleared once the owner saves. */
-    public function contactEditUnlocked(): bool
+    public function isContactFlagged(): bool
     {
-        return $this->contact_edit_unlocked_at !== null;
+        return $this->contact_flagged_at !== null;
     }
 
-    /** A permanently-closed gem is frozen: no new votes, ratings,
-     *  comments, menu items or reports. Existing content stays readable, and
-     *  the owner can still resubmit or delete it. */
+    /** A permanently-closed gem is frozen: no new check-ins, votes, ratings,
+     *  comments, menu items, itinerary adds, post tags or reports. Existing
+     *  content stays readable; the owner can only delete it. */
     public function acceptsNewInteractions(): bool
     {
         return $this->permanently_closed_at === null;
     }
 
-    public const FROZEN_MESSAGE = 'This place is marked permanently closed, so it can no longer be voted on, rated, commented on or added to.';
+    public const FROZEN_MESSAGE = 'This place is marked permanently closed, so it can no longer be checked in, rated, commented on, or added to.';
 
-    public function scopeHiddenGems(Builder $query)
-    {
-        return $query->where('status', 'hidden_gem');
-    }
+    // ==================== Visibility scopes ====================
 
     /**
-     * Statuses safe to surface on public (unauthenticated) listings — everything
-     * that hasn't passed AI hiddenness verification yet must stay invisible.
+     * Every status a member of the public may reach directly (by URL), tag in
+     * a post, or add to an itinerary. Excludes only the private stages.
      */
-    public const PUBLICLY_VISIBLE_STATUSES = ['pending_community_vote', 'hidden_gem'];
+    public const PUBLICLY_VISIBLE_STATUSES = [
+        self::STATUS_PENDING_VOTE,
+        self::STATUS_HIDDEN_GEM,
+        self::STATUS_WELL_KNOWN,
+    ];
+
+    /**
+     * Statuses shown on the Hidden Gems list + map. Well-known has graduated
+     * to its own page.
+     */
+    public const DISCOVERABLE_STATUSES = [
+        self::STATUS_PENDING_VOTE,
+        self::STATUS_HIDDEN_GEM,
+    ];
+
+    /** Gems that count toward a submitter's achievements. */
+    public const ACHIEVEMENT_STATUSES = [
+        self::STATUS_HIDDEN_GEM,
+        self::STATUS_WELL_KNOWN,
+    ];
 
     public static function isPubliclyVisible(self $location): bool
     {
-        if (in_array($location->status, self::PUBLICLY_VISIBLE_STATUSES, true)) {
-            return true;
-        }
-
-        return $location->status === 'delisted' && $location->report_status === 'upheld';
+        return in_array($location->status, self::PUBLICLY_VISIBLE_STATUSES, true);
     }
 
     public function scopePubliclyVisible(Builder $query)
     {
-        return $query->where(function (Builder $q) {
-            $q->whereIn('status', self::PUBLICLY_VISIBLE_STATUSES)
-                ->orWhere(function (Builder $q2) {
-                    $q2->where('status', 'delisted')->where('report_status', 'upheld');
-                });
-        });
+        return $query->whereIn('status', self::PUBLICLY_VISIBLE_STATUSES);
     }
+
+    /** The Hidden Gems list + map — well-known excluded. */
+    public function scopeDiscoverable(Builder $query)
+    {
+        return $query->whereIn('status', self::DISCOVERABLE_STATUSES);
+    }
+
+    public function scopeWellKnown(Builder $query)
+    {
+        return $query->where('status', self::STATUS_WELL_KNOWN);
+    }
+
+    public function scopeHiddenGems(Builder $query)
+    {
+        return $query->where('status', self::STATUS_HIDDEN_GEM);
+    }
+
+    // ==================== Computed ====================
 
     public function getVoteProgressAttribute()
     {
@@ -264,7 +344,6 @@ class Location extends Model
         if ($threshold <= 0) {
             return 100;
         }
-
         return min(100, round(($this->vote_count / $threshold) * 100));
     }
 

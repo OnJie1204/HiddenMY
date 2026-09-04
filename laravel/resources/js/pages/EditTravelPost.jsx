@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getTravelPostDetail, updateTravelPost } from "../api/travelPosts";
 import { getTripItineraries } from "../api/TripItinerary";
-import SearchBar from "../components/SearchBar";
+import TripStopsEditor, { appendStopsToFormData } from "../components/TripStopsEditor";
 import Spinner from "../components/Spinner";
+
+let editSeq = 0;
 
 export default function EditTravelPost() {
     const { id } = useParams();
@@ -15,9 +17,8 @@ export default function EditTravelPost() {
     const [loading, setLoading] = useState(true);
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
-    const [tripItineraryId, setTripItineraryId] = useState("");
     const [itineraries, setItineraries] = useState([]);
-    const [taggedLocations, setTaggedLocations] = useState([]); // [{ id, place_name, caption }]
+    const [stops, setStops] = useState([]);
 
     const [existingImages, setExistingImages] = useState([]); // [{ id, image_url }]
     const [removedImageIds, setRemovedImageIds] = useState([]);
@@ -41,13 +42,29 @@ export default function EditTravelPost() {
                 const post = res.data.data;
                 setTitle(post.title);
                 setBody(post.body);
-                setTripItineraryId(post.trip_itinerary_id || "");
-                setTaggedLocations(
-                    (post.locations || []).map((location) => ({
-                        id: location.id,
-                        place_name: location.place_name,
-                        caption: location.pivot?.caption || "",
-                    }))
+                setStops(
+                    (post.stops || [])
+                        .filter((s) => !s.removed)
+                        .map((s) =>
+                            s.kind === "gem"
+                                ? {
+                                      key: `e${editSeq++}`,
+                                      kind: "gem",
+                                      location_id: s.gem?.id,
+                                      name: s.name,
+                                      caption: s.caption || "",
+                                  }
+                                : {
+                                      key: `e${editSeq++}`,
+                                      kind: "osm",
+                                      osm_name: s.name,
+                                      name: s.name,
+                                      latitude: s.latitude,
+                                      longitude: s.longitude,
+                                      caption: s.caption || "",
+                                  }
+                        )
+                        .filter((s) => s.kind === "osm" || s.location_id)
                 );
                 setExistingImages(post.images || []);
                 setExistingCoverUrl(post.cover_image_url || "");
@@ -65,29 +82,6 @@ export default function EditTravelPost() {
             return () => clearTimeout(timer);
         }
     }, [message]);
-
-    function handleSelectLocation(item) {
-        if (item.source !== "database") {
-            setMessage("Only saved hidden gems can be tagged in a post.");
-            return;
-        }
-
-        setTaggedLocations((prev) =>
-            prev.some((l) => l.id === item.id)
-                ? prev
-                : [...prev, { id: item.id, place_name: item.name, caption: "" }]
-        );
-    }
-
-    function removeTaggedLocation(locationId) {
-        setTaggedLocations((prev) => prev.filter((l) => l.id !== locationId));
-    }
-
-    function updateCaption(locationId, caption) {
-        setTaggedLocations((prev) =>
-            prev.map((l) => (l.id === locationId ? { ...l, caption } : l))
-        );
-    }
 
     function removeExistingImage(imageId) {
         setExistingImages((prev) => prev.filter((img) => img.id !== imageId));
@@ -126,15 +120,7 @@ export default function EditTravelPost() {
             const data = new FormData();
             data.append("title", title);
             data.append("body", body);
-
-            if (tripItineraryId) {
-                data.append("trip_itinerary_id", tripItineraryId);
-            }
-
-            taggedLocations.forEach((location) => {
-                data.append("location_ids[]", location.id);
-                data.append("captions[]", location.caption || "");
-            });
+            appendStopsToFormData(data, stops);
 
             removedImageIds.forEach((imageId) => data.append("remove_image_ids[]", imageId));
 
@@ -185,46 +171,12 @@ export default function EditTravelPost() {
                         onChange={(e) => setBody(e.target.value)}
                     />
 
-                    <label className="travel-post-form-label">Link to a Trip (optional)</label>
-                    <select
-                        className="form-input"
-                        value={tripItineraryId}
-                        onChange={(e) => setTripItineraryId(e.target.value)}
-                    >
-                        <option value="">Not linked to a trip</option>
-                        {itineraries.map((trip) => (
-                            <option key={trip.id} value={trip.id}>
-                                {trip.trip_name}
-                            </option>
-                        ))}
-                    </select>
-
-                    <label className="travel-post-form-label">Tag Hidden Gems</label>
-                    <SearchBar onSelect={handleSelectLocation} />
-
-                    {taggedLocations.length > 0 && (
-                        <div className="travel-post-tag-list">
-                            {taggedLocations.map((location) => (
-                                <div key={location.id} className="travel-post-tag-item">
-                                    <span className="travel-post-tag-name">{location.place_name}</span>
-                                    <input
-                                        className="form-input"
-                                        placeholder="Caption (optional)"
-                                        value={location.caption}
-                                        onChange={(e) => updateCaption(location.id, e.target.value)}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="travel-post-tag-remove-btn"
-                                        title="Remove"
-                                        onClick={() => removeTaggedLocation(location.id)}
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    <label className="travel-post-form-label">The Trip (optional)</label>
+                    <p className="travel-post-form-hint">
+                        This trip is a snapshot. Reorder, caption, add or remove stops here —
+                        stops whose hidden gem has since been removed are dropped on save.
+                    </p>
+                    <TripStopsEditor stops={stops} setStops={setStops} itineraries={itineraries} />
 
                     <label className="travel-post-form-label">Cover Image</label>
                     <div className="hidden-gem-upload-row">

@@ -264,11 +264,20 @@ export default function MyHiddenGems() {
         }
     }, []);
 
+    // Flash message passed from the submission form after a successful submit.
+    useEffect(() => {
+        if (routeLocation.state?.flash) {
+            setSuccessMessage(routeLocation.state.flash);
+            navigate(routeLocation.pathname, { replace: true, state: {} });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         if (successMessage) {
             const timer = setTimeout(() => {
                 setSuccessMessage("");
-            }, 3000);
+            }, 4000);
 
             return () => clearTimeout(timer);
         }
@@ -409,7 +418,6 @@ export default function MyHiddenGems() {
                         <option value="ai_rejected">Not Accepted</option>
                         <option value="pending_community_vote">Awaiting Community Votes</option>
                         <option value="hidden_gem">Hidden Gem</option>
-                        <option value="delisted">Delisted</option>
                     </select>
 
                     <select
@@ -566,12 +574,12 @@ export default function MyHiddenGems() {
                                         <button
                                             className="my-hidden-gems-edit-btn"
                                             onClick={() =>
-                                                navigate(gem.edit_mode === "contact_only"
+                                                navigate(gem.edit_mode === "verified"
                                                     ? `/hidden-gems/${gem.id}`
                                                     : `/my-hidden-gems/edit/${gem.id}`)
                                             }
                                         >
-                                            {gem.edit_mode === "contact_only" ? "Edit contact info" : "Edit"}
+                                            {gem.edit_mode === "verified" ? "Edit info" : "Edit"}
                                         </button>
                                     )}
 

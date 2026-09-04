@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getHiddenGems, getCategories, getStates } from "../api/hiddenGems";
+import { getHiddenGems, getWellKnownPlaces, getCategories, getStates } from "../api/hiddenGems";
 import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
 import TruncatedText from "../components/TruncatedText";
 import PhotoCarousel from "../components/PhotoCarousel";
 import LoadingCards from "../components/LoadingCards";
 import ReportButton from "../components/ReportButton";
 import SignInPrompt from "../components/SignInPrompt";
+import { useCompare } from "../context/CompareContext";
 
 import "../styles/global.css";
 
@@ -49,6 +50,8 @@ export default function HiddenGems({ user }) {
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusyId, setWishlistBusyId] = useState(null);
 
+    const { isComparing, toggleCompare, canAddMore, maxCompare } = useCompare();
+
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
 
@@ -80,7 +83,11 @@ export default function HiddenGems({ user }) {
                 statusParam = "pending_community_vote";
             }
 
-            if (statusParam) {
+            // "well_known" is its own list (a separate endpoint) — the community
+            // has outgrown these, so they're kept out of the Hidden Gems browse.
+            const wantWellKnown = statusParam === "well_known";
+
+            if (statusParam && !wantWellKnown) {
                 params.status = statusParam;
             }
 
@@ -96,7 +103,9 @@ export default function HiddenGems({ user }) {
                 params.sort = filter.sort;
             }
 
-            const response = await getHiddenGems(params);
+            const response = wantWellKnown
+                ? await getWellKnownPlaces(params)
+                : await getHiddenGems(params);
 
             console.log("API Response:", response.data);
 
@@ -412,6 +421,7 @@ export default function HiddenGems({ user }) {
                     <option value="">All Status</option>
                     <option value="verified">Verified</option>
                     <option value="pending">Pending</option>
+                    <option value="well_known">Well-Known Places</option>
                 </select>
 
                 <select
@@ -527,6 +537,34 @@ export default function HiddenGems({ user }) {
                                                     : "♡"}
                                             </button>
 
+                                            <button
+                                                type="button"
+                                                className={`compare-toggle-btn ${
+                                                    isComparing(gem.id)
+                                                        ? "compare-toggle-btn-active"
+                                                        : ""
+                                                }`}
+                                                disabled={
+                                                    !isComparing(gem.id) &&
+                                                    !canAddMore
+                                                }
+                                                title={
+                                                    isComparing(gem.id)
+                                                        ? "Remove from comparison"
+                                                        : canAddMore
+                                                          ? "Add to comparison"
+                                                          : `You can compare up to ${maxCompare} at a time`
+                                                }
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleCompare(gem);
+                                                }}
+                                            >
+                                                {isComparing(gem.id)
+                                                    ? "☑"
+                                                    : "☐"}
+                                            </button>
+
                                             <ReportButton
                                                 gem={gem}
                                                 user={user}
@@ -559,6 +597,10 @@ export default function HiddenGems({ user }) {
                                         {gem.status === "hidden_gem" ? (
                                             <span className="hidden-gems-card-verified">
                                                 Verified
+                                            </span>
+                                        ) : gem.status === "well_known" ? (
+                                            <span className="hidden-gems-card-verified">
+                                                Well-Known Place
                                             </span>
                                         ) : gem.status ===
                                           "pending_community_vote" ? (

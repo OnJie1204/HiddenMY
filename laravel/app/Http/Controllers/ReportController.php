@@ -2,47 +2,58 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CheckIn;
 use App\Models\Location;
 use App\Models\Report;
 use App\Models\ReportVote;
-use App\Support\Geo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Validation\ValidationException;
 
+/**
+ * Reporting — verified places (pending_community_vote / hidden_gem / well_known).
+ *
+ * Two reasons, each resolved by its own community vote (5 confirms upholds, 5
+ * disputes rejects). One report per reason may be open on a place at a time,
+ * and the two reasons can be open simultaneously.
+ *
+ *   permanently_closed      — the place has shut for good. The reporter (and
+ *                             every verifier) must have checked in there.
+ *                             Upheld -> locations.permanently_closed_at is set;
+ *                             the place stays visible but is greyed out and
+ *                             frozen everywhere, and its owner can only delete it.
+ *
+ *   incorrect_contact_info  — the opening hours / phone / website are wrong.
+ *                             Also needs a check-in (you have to have been
+ *                             there). Upheld -> a warning flag
+ *                             (locations.contact_flagged_at) that shows a ⚠
+ *                             icon next to the contact block and clears itself
+ *                             on the owner's next contact edit. No freeze.
+ *
+ * Nothing here ever deletes, hides or re-verifies a place.
+ */
 class ReportController extends Controller
 {
+    /** Confirms (or disputes) needed to resolve a report. */
     private const VERIFICATION_THRESHOLD = 5;
+
     private const MAX_REPORTS_PER_DAY = 5;
-    private const MIN_ACCOUNT_AGE_DAYS = 7;
-    private const MAX_LOCATION_DISTANCE = 5.0;
 
-    private const REPORTABLE_STATUSES = [
-        'permanently_closed' => ['hidden_gem', 'pending_community_vote'],
-        'inappropriate_content' => ['hidden_gem', 'pending_community_vote'],
-    ];
-
-    private function anyReportableStatuses(): array
+    /** Every status a report of either reason can be filed against. */
+    private function reportableStatuses(): array
     {
-        return array_values(
-            array_unique(
-                array_merge(...array_values(self::REPORTABLE_STATUSES))
-            )
-        );
+        return Location::PUBLICLY_VISIBLE_STATUSES;
     }
 
-    private function reasonsForStatus(string $status): array
+    /** Reasons still open (no pending report) for this place. */
+    private function availableReasons(Location $location): array
     {
-        return array_values(array_filter(
-            Report::REASONS,
-            fn (string $reason) =>
-                in_array(
-                    $status,
-                    self::REPORTABLE_STATUSES[$reason] ?? [],
-                    true
-                )
-        ));
+        $openReasons = $location->reports()
+            ->where('status', Report::STATUS_PENDING)
+            ->pluck('reason')
+            ->all();
+
+        return array_values(array_diff(Report::REASONS, $openReasons));
     }
 
     public function checkEligibility($locationId)
@@ -50,10 +61,7 @@ class ReportController extends Controller
         $user = Auth::user();
 
         if (!$user) {
-            return response()->json([
-                'eligible' => false,
-                'message' => 'Please login first',
-            ], 401);
+            return response()->json(['eligible' => false, 'message' => 'Please login first'], 401);
         }
 
         $location = Location::with('images')->findOrFail($locationId);
@@ -62,56 +70,50 @@ class ReportController extends Controller
             return response()->json([
                 'eligible' => false,
                 'message' => 'You cannot report your own hidden gem',
-            ], 403);
+            ]);
         }
 
-        if (!in_array(
-            $location->status,
-            $this->anyReportableStatuses(),
-            true
-        )) {
+        if (!in_array($location->status, $this->reportableStatuses(), true)) {
             return response()->json([
                 'eligible' => false,
-                'message' =>
-                    'Only Hidden Gems that have passed AI review can be reported.',
-            ], 400);
+                'message' => 'Only verified places can be reported.',
+            ]);
         }
 
         if ($location->permanently_closed_at !== null) {
             return response()->json([
                 'eligible' => false,
-                'message' =>
-                    'This gem is already marked permanently closed.',
-            ], 400);
+                'message' => 'This place is already marked permanently closed.',
+            ]);
         }
 
-        if ($location->report_status === 'under_review') {
+        $availableReasons = $this->availableReasons($location);
+
+        if (empty($availableReasons)) {
             return response()->json([
                 'eligible' => false,
-                'message' =>
-                    'This gem already has a report under review.',
-            ], 409);
+                'message' => 'Every report reason already has a report under review for this place.',
+            ]);
         }
 
         if ($this->reportRateLimitExceeded($user->id)) {
             return response()->json([
                 'eligible' => false,
-                'message' =>
-                    'You have reached the daily limit for reports. Please try again tomorrow.',
-            ], 429);
+                'message' => 'You have reached the daily limit for reports. Please try again tomorrow.',
+            ]);
         }
+
+        $hasCheckIn = CheckIn::where('user_id', $user->id)
+            ->where('location_id', $locationId)
+            ->exists();
 
         return response()->json([
             'eligible' => true,
-            'is_established_account' =>
-                $this->isEstablishedAccount($user),
-            'message' => 'You can report this gem.',
+            'has_check_in' => $hasCheckIn,
+            'message' => $hasCheckIn ? 'You can report this place.' : 'Please check-in at this location first',
             'location' => $location,
-            'reasons' =>
-                $this->reasonsForStatus($location->status),
-            'location_required_reasons' =>
-                Report::LOCATION_REQUIRED_REASONS,
-            'max_distance' => self::MAX_LOCATION_DISTANCE,
+            'reasons' => $availableReasons,
+            'location_required_reasons' => Report::LOCATION_REQUIRED_REASONS,
         ]);
     }
 
@@ -120,388 +122,161 @@ class ReportController extends Controller
         $user = Auth::user();
 
         if (!$user) {
-            return response()->json([
-                'message' => 'Please login first',
-            ], 401);
+            return response()->json(['message' => 'Please login first'], 401);
         }
 
         $location = Location::findOrFail($locationId);
 
-        try {
-            $validated = $request->validate([
-                'reason' =>
-                    'required|string|in:' . implode(',', Report::REASONS),
-                'description' =>
-                    'nullable|string|max:1000',
-                'photo' =>
-                    'nullable|image|max:5120',
-
-                'suggested_opening_hours' =>
-                    'nullable|string|max:255',
-                'suggested_phone' =>
-                    'nullable|string|max:30',
-                'suggested_website' =>
-                    'nullable|url|max:255',
-                'suggested_description' =>
-                    'nullable|string|max:2000',
-
-                'suggested_latitude' =>
-                    'nullable|numeric|between:-90,90|required_with:suggested_longitude',
-                'suggested_longitude' =>
-                    'nullable|numeric|between:-180,180|required_with:suggested_latitude',
-
-                'reporter_latitude' =>
-                    'nullable|numeric|between:-90,90|required_with:reporter_longitude',
-                'reporter_longitude' =>
-                    'nullable|numeric|between:-180,180|required_with:reporter_latitude',
-            ]);
-        } catch (ValidationException $exception) {
-            return response()->json([
-                'message' => 'The report contains invalid information.',
-                'errors' => $exception->errors(),
-            ], 422);
-        }
+        $validated = $request->validate([
+            'reason' => 'required|string|in:' . implode(',', Report::REASONS),
+            'description' => 'nullable|string|max:1000',
+            'photo' => 'nullable|image|max:5120',
+        ]);
 
         $reason = $validated['reason'];
-        $isVotingGem =
-            $location->status === 'pending_community_vote';
 
         if ($location->user_id === $user->id) {
-            return response()->json([
-                'message' => 'You cannot report your own hidden gem',
-            ], 403);
+            return response()->json(['message' => 'You cannot report your own hidden gem'], 403);
         }
 
-        if (!in_array(
-            $location->status,
-            self::REPORTABLE_STATUSES[$reason] ?? [],
-            true
-        )) {
+        if (!in_array($location->status, $this->reportableStatuses(), true)) {
             return response()->json([
-                'message' =>
-                    'Only Hidden Gems that have passed AI review can be reported.',
+                'message' => 'Only verified places can be reported.',
             ], 400);
         }
 
         if ($location->permanently_closed_at !== null) {
+            return response()->json(['message' => 'This place is already marked permanently closed.'], 400);
+        }
+
+        if (!in_array($reason, $this->availableReasons($location), true)) {
             return response()->json([
-                'message' =>
-                    'This gem is already marked permanently closed.',
+                'message' => 'There is already a report under review for that reason.',
             ], 400);
         }
 
-        if ($location->report_status === 'under_review') {
-            return response()->json([
-                'message' =>
-                    'This gem already has a report under review.',
-            ], 409);
-        }
-
         if ($this->reportRateLimitExceeded($user->id)) {
-            return response()->json([
-                'message' =>
-                    'You have reached the daily limit for reports. Please try again tomorrow.',
-            ], 429);
+            return response()->json(['message' => 'You have reached the daily limit for reports. Please try again tomorrow.'], 429);
         }
 
-        $wantsLocation =
-            $isVotingGem
-            && isset($validated['suggested_latitude'])
-            && isset($validated['suggested_longitude']);
+        // Both reasons need a check-in at the place — you have to have actually
+        // been there to know it has closed or that its contact details are wrong.
+        $hasCheckIn = CheckIn::where('user_id', $user->id)
+            ->where('location_id', $locationId)
+            ->exists();
 
-        $wantsDescription =
-            $isVotingGem
-            && !empty($validated['suggested_description']);
-
-        $wantsContact =
-            ($validated['suggested_opening_hours'] ?? null) !== null
-            || ($validated['suggested_phone'] ?? null) !== null
-            || ($validated['suggested_website'] ?? null) !== null;
-
-        if ($reason === 'inappropriate_content') {
-            if (
-                !$isVotingGem
-                && (
-                    isset($validated['suggested_latitude'])
-                    || !empty($validated['suggested_description'])
-                )
-            ) {
-                return response()->json([
-                    'message' =>
-                        'A verified Hidden Gem can only be reported for incorrect contact info.',
-                ], 400);
-            }
-
-            if (
-                !$wantsLocation
-                && !$wantsDescription
-                && !$wantsContact
-            ) {
-                return response()->json([
-                    'message' => $isVotingGem
-                        ? 'Add at least one correction — location, description or contact info.'
-                        : 'Add at least one corrected contact detail.',
-                ], 400);
-            }
-        }
-
-        $requiresLocationVerification =
-            in_array(
-                $reason,
-                Report::LOCATION_REQUIRED_REASONS,
-                true
-            )
-            || $wantsLocation;
-
-        if (
-            !$requiresLocationVerification
-            && !$this->isEstablishedAccount($user)
-        ) {
-            return response()->json([
-                'message' =>
-                    'This report reason is limited to accounts that are at least '
-                    . self::MIN_ACCOUNT_AGE_DAYS
-                    . ' days old.',
-            ], 403);
-        }
-
-        $distance = null;
-
-        if ($requiresLocationVerification) {
-            if (
-                !isset($validated['reporter_latitude'])
-                || !isset($validated['reporter_longitude'])
-            ) {
-                return response()->json([
-                    'message' =>
-                        'Your current location is required for this report.',
-                ], 422);
-            }
-
-            if (
-                $location->latitude === null
-                || $location->longitude === null
-            ) {
-                return response()->json([
-                    'message' =>
-                        'This hidden gem does not have valid coordinates for location verification.',
-                ], 422);
-            }
-
-            $distance = $this->calculateDistance(
-                (float) $validated['reporter_latitude'],
-                (float) $validated['reporter_longitude'],
-                (float) $location->latitude,
-                (float) $location->longitude
-            );
-
-            if ($distance > self::MAX_LOCATION_DISTANCE) {
-                return response()->json([
-                    'message' =>
-                        'You must be within 5 km of this hidden gem to submit this report.',
-                    'distance' => round($distance, 2),
-                    'max_distance' =>
-                        self::MAX_LOCATION_DISTANCE,
-                ], 422);
-            }
+        if (!$hasCheckIn) {
+            return response()->json(['message' => 'Please check-in at this location first before reporting'], 400);
         }
 
         $photoPath = null;
-
         if ($request->hasFile('photo')) {
             $photo = $request->file('photo');
-            $fileName =
-                'votes/'
-                . uniqid()
-                . '.'
-                . $photo->getClientOriginalExtension();
+            $fileName = 'votes/' . uniqid() . '.' . $photo->getClientOriginalExtension();
 
             $response = Http::withHeaders([
-                'Authorization' =>
-                    'Bearer ' . env('SUPABASE_KEY'),
+                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
                 'apikey' => env('SUPABASE_KEY'),
                 'Content-Type' => $photo->getMimeType(),
             ])->withBody(
                 file_get_contents($photo->getRealPath()),
                 $photo->getMimeType()
             )->post(
-                env('SUPABASE_URL')
-                . '/storage/v1/object/vote_photos/'
-                . $fileName
+                env('SUPABASE_URL') . '/storage/v1/object/vote_photos/' . $fileName
             );
 
             if ($response->failed()) {
                 return response()->json([
-                    'message' =>
-                        'Failed to upload report photo.',
+                    'message' => 'Failed to upload report photo.',
                     'error' => $response->json(),
                 ], 500);
             }
 
-            $photoPath =
-                env('SUPABASE_URL')
+            $photoPath = env('SUPABASE_URL')
                 . '/storage/v1/object/public/vote_photos/'
                 . $fileName;
         }
-
-        $isContentReport =
-            $reason === 'inappropriate_content';
 
         $report = Report::create([
             'user_id' => $user->id,
             'location_id' => $locationId,
             'reason' => $reason,
-            'description' =>
-                $validated['description'] ?? null,
+            'description' => $validated['description'] ?? null,
             'photo_path' => $photoPath,
-
-            'suggested_opening_hours' =>
-                $isContentReport && $wantsContact
-                    ? ($validated['suggested_opening_hours'] ?? null)
-                    : null,
-
-            'suggested_phone' =>
-                $isContentReport && $wantsContact
-                    ? ($validated['suggested_phone'] ?? null)
-                    : null,
-
-            'suggested_website' =>
-                $isContentReport && $wantsContact
-                    ? ($validated['suggested_website'] ?? null)
-                    : null,
-
-            'suggested_description' =>
-                $isContentReport && $wantsDescription
-                    ? $validated['suggested_description']
-                    : null,
-
-            'suggested_latitude' =>
-                $isContentReport && $wantsLocation
-                    ? $validated['suggested_latitude']
-                    : null,
-
-            'suggested_longitude' =>
-                $isContentReport && $wantsLocation
-                    ? $validated['suggested_longitude']
-                    : null,
-
+            'status' => Report::STATUS_PENDING,
             'confirm_count' => 0,
             'dispute_count' => 0,
         ]);
 
-        $location->update([
-            'report_status' => 'under_review',
-        ]);
+        $location->update(['report_status' => 'under_review']);
 
         return response()->json([
-            'message' =>
-                'Report submitted. The community will now vote to confirm or dispute it.',
+            'message' => 'Report submitted. The community will now vote to confirm or dispute it.',
             'report' => $report,
             'location' => $location->fresh(),
-            'distance' =>
-                $distance !== null
-                    ? round($distance, 2)
-                    : null,
-            'max_distance' =>
-                $requiresLocationVerification
-                    ? self::MAX_LOCATION_DISTANCE
-                    : null,
         ], 201);
     }
 
     public function show($locationId)
     {
-        $report = Report::with('user:id,name')
+        $reports = Report::with('user:id,name')
             ->where('location_id', $locationId)
+            ->whereIn('status', [Report::STATUS_PENDING, Report::STATUS_UPHELD])
             ->latest()
-            ->first();
+            ->get();
 
-        if (!$report) {
-            return response()->json([
-                'data' => null,
-            ]);
-        }
+        $pending = $reports->firstWhere('status', Report::STATUS_PENDING);
 
-        $myVerdict = Auth::check()
-            ? ReportVote::where(
-                'report_id',
-                $report->id
-            )
-                ->where('user_id', Auth::id())
-                ->value('verdict')
+        $myVerdict = ($pending && Auth::check())
+            ? ReportVote::where('report_id', $pending->id)->where('user_id', Auth::id())->value('verdict')
             : null;
 
         return response()->json([
-            'data' => $report,
-            'root_report' => $report,
+            'data' => $pending,
+            'root_report' => $pending,
+            'reports' => $reports,
             'my_verdict' => $myVerdict,
         ]);
     }
 
+    /** Same shape as checkEligibility() above, for the confirm/dispute vote. */
     public function checkVerifyEligibility(Report $report)
     {
         $user = Auth::user();
 
         if (!$user) {
-            return response()->json([
-                'eligible' => false,
-                'message' => 'Please login first',
-            ], 401);
+            return response()->json(['eligible' => false, 'message' => 'Please login first'], 401);
         }
 
         if (!$report->isPending()) {
-            return response()->json([
-                'eligible' => false,
-                'message' =>
-                    'This report has already been resolved.',
-            ], 400);
+            return response()->json(['eligible' => false, 'message' => 'This report has already been resolved.']);
         }
 
         if ($report->user_id === $user->id) {
-            return response()->json([
-                'eligible' => false,
-                'message' =>
-                    'You cannot verify your own report.',
-            ], 403);
+            return response()->json(['eligible' => false, 'message' => 'You cannot verify your own report.']);
         }
 
-        $location =
-            $report->location()
-                ->with('images')
-                ->firstOrFail();
+        $location = $report->location()->with('images')->first();
 
         if ($location->user_id === $user->id) {
-            return response()->json([
-                'eligible' => false,
-                'message' =>
-                    'You cannot verify a report on your own hidden gem.',
-            ], 403);
+            return response()->json(['eligible' => false, 'message' => 'You cannot verify a report on your own hidden gem.']);
         }
 
-        $alreadyVoted =
-            ReportVote::where(
-                'report_id',
-                $report->id
-            )
-                ->where('user_id', $user->id)
-                ->exists();
+        $alreadyVoted = ReportVote::where('report_id', $report->id)->where('user_id', $user->id)->exists();
 
         if ($alreadyVoted) {
-            return response()->json([
-                'eligible' => false,
-                'message' =>
-                    'You have already voted on this report.',
-            ], 409);
+            return response()->json(['eligible' => false, 'message' => 'You have already voted on this report.']);
         }
+
+        $requiresCheckIn = $report->requiresCheckIn();
+        $hasCheckIn = !$requiresCheckIn || CheckIn::where('user_id', $user->id)
+            ->where('location_id', $location->id)
+            ->exists();
 
         return response()->json([
             'eligible' => true,
-            'requires_location_verification' =>
-                $report->requiresLocationVerification(),
-            'max_distance' =>
-                self::MAX_LOCATION_DISTANCE,
-            'message' =>
-                'You can verify this report.',
+            'has_check_in' => $hasCheckIn,
+            'message' => $hasCheckIn ? 'You can verify this report.' : 'Please check-in at this location first',
             'report' => $report,
             'location' => $location,
         ]);
@@ -512,116 +287,48 @@ class ReportController extends Controller
         $user = Auth::user();
 
         if (!$user) {
-            return response()->json([
-                'message' => 'Please login first',
-            ], 401);
+            return response()->json(['message' => 'Please login first'], 401);
         }
 
-        try {
-            $validated = $request->validate([
-                'verdict' =>
-                    'required|string|in:'
-                    . implode(',', ReportVote::VERDICTS),
-                'comment' =>
-                    'nullable|string|max:1000',
-                'latitude' =>
-                    'nullable|numeric|between:-90,90|required_with:longitude',
-                'longitude' =>
-                    'nullable|numeric|between:-180,180|required_with:latitude',
-            ]);
-        } catch (ValidationException $exception) {
-            return response()->json([
-                'message' =>
-                    'The verification request contains invalid information.',
-                'errors' => $exception->errors(),
-            ], 422);
-        }
+        $validated = $request->validate([
+            'verdict' => 'required|string|in:' . implode(',', ReportVote::VERDICTS),
+            'comment' => 'nullable|string|max:1000',
+        ]);
 
         if (!$report->isPending()) {
-            return response()->json([
-                'message' =>
-                    'This report has already been resolved.',
-            ], 400);
+            return response()->json(['message' => 'This report has already been resolved.'], 400);
         }
 
         if ($report->user_id === $user->id) {
-            return response()->json([
-                'message' =>
-                    'You cannot verify your own report.',
-            ], 403);
+            return response()->json(['message' => 'You cannot verify your own report.'], 403);
         }
 
         $location = $report->location;
 
         if ($location->user_id === $user->id) {
-            return response()->json([
-                'message' =>
-                    'You cannot verify a report on your own hidden gem.',
-            ], 403);
+            return response()->json(['message' => 'You cannot verify a report on your own hidden gem.'], 403);
         }
 
-        $alreadyVoted =
-            ReportVote::where(
-                'report_id',
-                $report->id
-            )
-                ->where('user_id', $user->id)
-                ->exists();
+        $alreadyVoted = ReportVote::where('report_id', $report->id)->where('user_id', $user->id)->exists();
 
         if ($alreadyVoted) {
-            return response()->json([
-                'message' =>
-                    'You have already voted on this report.',
-            ], 409);
+            return response()->json(['message' => 'You have already voted on this report.'], 400);
         }
 
-        $distance = null;
+        $requiresCheckIn = $report->requiresCheckIn();
+        $hasCheckIn = CheckIn::where('user_id', $user->id)
+            ->where('location_id', $location->id)
+            ->exists();
 
-        if ($report->requiresLocationVerification()) {
-            if (
-                !isset($validated['latitude'])
-                || !isset($validated['longitude'])
-            ) {
-                return response()->json([
-                    'message' =>
-                        'Your current location is required to verify this report.',
-                ], 422);
-            }
-
-            if (
-                $location->latitude === null
-                || $location->longitude === null
-            ) {
-                return response()->json([
-                    'message' =>
-                        'This hidden gem does not have valid coordinates for location verification.',
-                ], 422);
-            }
-
-            $distance = $this->calculateDistance(
-                (float) $validated['latitude'],
-                (float) $validated['longitude'],
-                (float) $location->latitude,
-                (float) $location->longitude
-            );
-
-            if ($distance > self::MAX_LOCATION_DISTANCE) {
-                return response()->json([
-                    'message' =>
-                        'You must be within 5 km of this hidden gem to verify this report.',
-                    'distance' => round($distance, 2),
-                    'max_distance' =>
-                        self::MAX_LOCATION_DISTANCE,
-                ], 422);
-            }
+        if ($requiresCheckIn && !$hasCheckIn) {
+            return response()->json(['message' => 'Please check-in at this location first before verifying'], 400);
         }
 
         $vote = ReportVote::create([
             'report_id' => $report->id,
             'user_id' => $user->id,
             'verdict' => $validated['verdict'],
-            'comment' =>
-                $validated['comment'] ?? null,
+            'comment' => $validated['comment'] ?? null,
         ]);
 
         if ($validated['verdict'] === 'confirm') {
@@ -630,130 +337,70 @@ class ReportController extends Controller
             $report->increment('dispute_count');
         }
 
-        $this->resolveIfThresholdReached(
-            $report->fresh(),
-            $location
-        );
+        $this->resolveIfThresholdReached($report->fresh(), $location);
 
         return response()->json([
             'message' => 'Vote recorded.',
             'vote' => $vote,
             'report' => $report->fresh(),
             'location' => $location->fresh(),
-            'distance' =>
-                $distance !== null
-                    ? round($distance, 2)
-                    : null,
-            'max_distance' =>
-                $report->requiresLocationVerification()
-                    ? self::MAX_LOCATION_DISTANCE
-                    : null,
         ], 201);
     }
 
     private function reportRateLimitExceeded(int $userId): bool
     {
         return Report::where('user_id', $userId)
-            ->where(
-                'created_at',
-                '>=',
-                now()->subDay()
-            )
+            ->where('created_at', '>=', now()->subDay())
             ->count() >= self::MAX_REPORTS_PER_DAY;
     }
 
-    private function isEstablishedAccount($user): bool
+
+    private function resolveIfThresholdReached(Report $report, Location $location): void
     {
-        return $user->created_at
-            && $user->created_at->lte(
-                now()->subDays(
-                    self::MIN_ACCOUNT_AGE_DAYS
-                )
-            );
-    }
-
-    private function resolveIfThresholdReached(
-        Report $report,
-        Location $location
-    ): void {
-        if (
-            $report->confirm_count
-            >= self::VERIFICATION_THRESHOLD
-        ) {
-            $this->applyConfirmed(
-                $report,
-                $location
-            );
-        } elseif (
-            $report->dispute_count
-            >= self::VERIFICATION_THRESHOLD
-        ) {
-            $this->applyDisputed(
-                $report,
-                $location
-            );
+        if ($report->confirm_count >= self::VERIFICATION_THRESHOLD) {
+            $this->applyConfirmed($report, $location);
+        } elseif ($report->dispute_count >= self::VERIFICATION_THRESHOLD) {
+            $this->applyDisputed($report, $location);
         }
     }
 
-    private function applyConfirmed(
-        Report $report,
-        Location $location
-    ): void {
-        $report->update([
-            'status' => 'upheld',
-            'resolved_at' => now(),
-        ]);
+    private function applyConfirmed(Report $report, Location $location): void
+    {
+        $report->update(['status' => Report::STATUS_UPHELD, 'resolved_at' => now()]);
 
-        if (
-            $report->reason
-            === 'permanently_closed'
-        ) {
-            $location->update([
-                'report_status' => null,
-                'permanently_closed_at' =>
-                    now(),
-            ]);
-
-            return;
+        if ($report->reason === Report::REASON_PERMANENTLY_CLOSED) {
+            // The place keeps its status and stays publicly visible — the UI
+            // greys it out and shows a "Permanently closed" badge. Every
+            // interaction freezes (Location::acceptsNewInteractions) and the
+            // owner can now only delete it.
+            $location->update(['permanently_closed_at' => now()]);
         }
 
-        if (
-            $report->reason
-            === 'inappropriate_content'
-        ) {
-            $location->update([
-                'report_status' => null,
-                'contact_edit_unlocked_at' =>
-                    now(),
-            ]);
+        if ($report->reason === Report::REASON_INCORRECT_CONTACT) {
+            // A warning flag next to the contact block. It clears itself the
+            // next time the owner edits their contact fields
+            // (HiddenGemController::update, 'contact' edit type).
+            $location->update(['contact_flagged_at' => now()]);
         }
+
+        $this->clearReportStatusIfSettled($location);
     }
 
-    private function applyDisputed(
-        Report $report,
-        Location $location
-    ): void {
-        $report->update([
-            'status' => 'rejected',
-            'resolved_at' => now(),
-        ]);
-
-        $location->update([
-            'report_status' => null,
-        ]);
+    private function applyDisputed(Report $report, Location $location): void
+    {
+        $report->update(['status' => Report::STATUS_REJECTED, 'resolved_at' => now()]);
+        $this->clearReportStatusIfSettled($location);
     }
 
-    private function calculateDistance(
-        float $lat1,
-        float $lon1,
-        float $lat2,
-        float $lon2
-    ): float {
-        return Geo::distanceMeters(
-            $lat1,
-            $lon1,
-            $lat2,
-            $lon2
-        ) / 1000;
+    /** report_status is a coarse "has an open report" marker — drop it once none remain. */
+    private function clearReportStatusIfSettled(Location $location): void
+    {
+        $stillOpen = $location->reports()
+            ->where('status', Report::STATUS_PENDING)
+            ->exists();
+
+        if (!$stillOpen) {
+            $location->update(['report_status' => null]);
+        }
     }
 }

@@ -1,15 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../api/auth';
 import { clearToken } from '../utils/tokenStorage';
+import { useCompare } from '../context/CompareContext';
 import Avatar from './Avatar';
 
 function Navbar({ user, setUser, onMenuClick }) {
     const navigate = useNavigate();
+    const { clearCompare } = useCompare();
 
     const handleLogout = async () => {
         await logout();
         clearToken();
         setUser(null);
+        clearCompare();
         navigate('/login');
     };
 

@@ -4,10 +4,10 @@ import VerifyReportModal from "./VerifyReportModal";
 import SignInPrompt from "./SignInPrompt";
 import { getReportForLocation } from "../api/reports";
 
-// permanently_closed can be reported on a gem still in community voting too;
-// inappropriate_content is verified-only. The backend enforces per-reason
-// (ReportController::REPORTABLE_STATUSES) and returns the allowed reasons.
-const REPORTABLE_STATUSES = ["hidden_gem", "pending_community_vote"];
+// Any publicly-visible place can be reported (permanently_closed /
+// incorrect_contact_info). The backend enforces the rest and returns the
+// reasons still open for this place.
+const REPORTABLE_STATUSES = ["hidden_gem", "well_known", "pending_community_vote"];
 
 function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     const [reportModalOpen, setReportModalOpen] = useState(false);

@@ -73,8 +73,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ===== Trip Itineraries =====
-    Route::get('trip-itineraries/{tripItinerary}/shared', [TripItineraryController::class, 'shared']);
-    Route::post('trip-itineraries/{tripItinerary}/copy', [TripItineraryController::class, 'copy']);
     Route::post('trip-itineraries/{tripItinerary}/locations', [TripItineraryController::class, 'storeLocation']);
     Route::put('trip-itineraries/{tripItinerary}/locations/order', [TripItineraryController::class, 'updateLocationOrder']);
     Route::delete('trip-itineraries/{tripItinerary}/locations/{location}', [TripItineraryController::class, 'destroyLocation']);
@@ -82,6 +80,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ===== Vote Routes =====
     Route::get('/votes/check/{locationId}', [VoteController::class, 'checkEligibility']);
+    // Standalone GPS check-in — used by the reporting / verification flow (voting
+    // sends coordinates inline via the store route below).
+    Route::post('/votes/checkin/{locationId}', [VoteController::class, 'checkIn']);
     Route::post('/votes/{locationId}', [VoteController::class, 'store']);
     Route::get('/my-votes', [VoteController::class, 'myVotes']);
 
@@ -110,6 +111,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ===== Travel Posts (write / account-specific) =====
     Route::get('my-travel-posts', [TravelPostController::class, 'myPosts']);
     Route::post('travel-posts', [TravelPostController::class, 'store']);
+    Route::post('travel-posts/{id}/copy-trip', [TravelPostController::class, 'copyTrip']);
     Route::put('travel-posts/{id}', [TravelPostController::class, 'update']);
     Route::delete('travel-posts/{id}', [TravelPostController::class, 'destroy']);
 
@@ -134,6 +136,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('recent-hidden-gems', [HiddenGemController::class, 'recent']);
 Route::get('popular-hidden-gems', [HiddenGemController::class, 'popular']);
 Route::get('hidden-gems', [HiddenGemController::class, 'index']);
+Route::get('well-known-places', [HiddenGemController::class, 'wellKnown']);
 Route::get('hidden-gems/search', [HiddenGemController::class, 'search']);
 Route::get('hidden-gems/categories', [HiddenGemController::class, 'getCategories']);
 Route::get('hidden-gems/states', [HiddenGemController::class, 'getStates']);

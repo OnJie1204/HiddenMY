@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import SidePanel from './SidePanel';
+import CompareTray from './CompareTray';
 import BackButton from './BackButton';
 
 function Layout({ children, user, setUser }) {
@@ -20,7 +21,6 @@ function Layout({ children, user, setUser }) {
 
     const toggleSidePanel = () => {
         setSidePanelOpen(!sidePanelOpen);
-
         if (sidePanelOpen) {
             setSidePanelGroup(null);
         }
@@ -28,25 +28,19 @@ function Layout({ children, user, setUser }) {
 
     return (
         <div className="layout">
-            <Navbar
-                user={user}
-                setUser={setUser}
-                onMenuClick={toggleSidePanel}
-            />
-
-            <SidePanel
-                group={sidePanelGroup}
+            <Navbar user={user} setUser={setUser} onMenuClick={toggleSidePanel} />
+            <SidePanel 
+                group={sidePanelGroup} 
                 isOpen={sidePanelOpen}
                 onClose={closeSidePanel}
                 user={user}
                 setUser={setUser}
             />
-
             <main className="layout-main">
                 <BackButton />
                 {children}
             </main>
-
+            <CompareTray />
             <Footer />
         </div>
     );

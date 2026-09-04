@@ -10,6 +10,7 @@ import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
 import SignInPrompt from "./SignInPrompt";
+import { useCompare } from "../context/CompareContext";
 import { getReportForLocation } from "../api/reports";
 import { createTripItinerary } from "../api/TripItinerary";
 
@@ -63,6 +64,7 @@ function SidePanel({
     const bodyRef = useRef(null);
     const panelRef = useRef(null);
     const navigate = useNavigate();
+    const { isComparing, toggleCompare, canAddMore, maxCompare, clearCompare } = useCompare();
 
     // A new selection always lands on the first post's detail view, and resets
     // any scroll from the previously-shown gem.
@@ -201,17 +203,19 @@ function SidePanel({
     const canAddToItinerary = gem
         && (gem.source === "attraction" || status === "hidden_gem" || status === "pending_community_vote");
 
-    // A permanently-closed gem is frozen — no new wishlisting or
+    // A permanently-closed gem is frozen — no new wishlisting, comparing or
     // reporting (see Location::acceptsNewInteractions on the backend).
     const isClosed = !!(gem && (gem.permanently_closed_at || gem.permanentlyClosedAt));
 
-    // OSM attractions aren't Location records, so there's nothing to wishlist.
-    // Only our own database gems that have passed AI review qualify.
+    // OSM attractions aren't Location records, so there's nothing to wishlist
+    // or compare — only our own database gems that have passed AI review qualify.
     const canWishlist = gem
         && gem.source === "database"
         && !isClosed
         && (status === "hidden_gem" || status === "pending_community_vote");
     const isWishlisted = gem && wishlistIds.has(gem.id);
+    const canCompare = canWishlist;
+    const comparing = gem && isComparing(gem.id);
 
     // A verified Hidden Gem, or one still in community voting (permanently_closed
     // only) — the backend enforces per-reason and returns the allowed reasons.
@@ -313,6 +317,7 @@ function SidePanel({
     const handleLogout = async () => {
         localStorage.removeItem('token');
         setUser(null);
+        clearCompare();
         onClose();
         navigate('/login');
     };
@@ -334,18 +339,20 @@ function SidePanel({
             {/* Header: Logo + Close */}
             <div className="side-panel-header" style={showNavChrome ? undefined : { justifyContent: "flex-end" }}>
                 {showNavChrome && (
-                    <div className="side-panel-logo">
+                    <Link to="/" className="side-panel-logo" onClick={onClose}>
                         <span className="side-panel-logo-icon">✦</span>
                         <span className="side-panel-logo-text">HiddenMY</span>
-                    </div>
+                    </Link>
                 )}
                 {!showNavChrome && (
                     <button
-                        className="side-panel-fullscreen-btn"
-                        onClick={() => setIsFullscreen(f => !f)}
-                        aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        type="button"
+                        className="side-panel-close"
+                        onClick={onClose}
+                        aria-label="Close location details"
+                        title="Close location details"
                     >
-                        {isFullscreen ? "⤢" : "⛶"}
+                        ✕
                     </button>
                 )}
             </div>
@@ -430,8 +437,8 @@ function SidePanel({
                                 {gem.source === "database" && status === "ai_rejected" && (
                                     <span className="badge badge-pending">Not Accepted</span>
                                 )}
-                                {gem.source === "database" && status === "delisted" && (
-                                    <span className="badge badge-reported">Delisted</span>
+                                {gem.source === "database" && status === "well_known" && (
+                                    <span className="badge badge-success">Well-Known Place</span>
                                 )}
                                 {gem.source === "database" && (gem.permanently_closed_at || gem.permanentlyClosedAt) && (
                                     <span className="badge badge-reported">Permanently closed</span>
@@ -455,6 +462,21 @@ function SidePanel({
                                             : "Only gems that have passed AI review can be saved"}
                                     >
                                         {isWishlisted ? "♥" : "♡"}
+                                    </button>
+                                )}
+                                {gem.source === "database" && (
+                                    <button
+                                        type="button"
+                                        className={`compare-toggle-btn ${comparing ? "compare-toggle-btn-active" : ""}`}
+                                        onClick={() => toggleCompare(gem)}
+                                        disabled={!canCompare || (!comparing && !canAddMore)}
+                                        title={!canCompare
+                                            ? "Only gems that have passed AI review can be compared"
+                                            : comparing
+                                                ? "Remove from comparison"
+                                                : (canAddMore ? "Add to comparison" : `You can compare up to ${maxCompare} at a time`)}
+                                    >
+                                        {comparing ? "☑" : "☐"}
                                     </button>
                                 )}
                                 {canReportOrVerify && (
@@ -490,7 +512,7 @@ function SidePanel({
                         )}
 
                         {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
-                        {gem.source === "database" && (gem.ratingCount > 0 || gem.distanceKm != null) && (
+                        {gem.source === "database" && (gem.ratingCount > 0 || gem.checkInsCount > 0 || gem.distanceKm != null) && (
                             <div className="side-panel-stats-row">
                                 {gem.ratingCount > 0 && (
                                     <span className="side-panel-stat">★ {gem.ratingAvg?.toFixed(1)} <em>({gem.ratingCount})</em></span>
@@ -499,6 +521,9 @@ function SidePanel({
                                     <span className="side-panel-stat">
                                         📍 {gem.distanceKm < 1 ? `${Math.round(gem.distanceKm * 1000)}m away` : `${gem.distanceKm.toFixed(1)}km away`}
                                     </span>
+                                )}
+                                {gem.checkInsCount > 0 && (
+                                    <span className="side-panel-stat">✓ {gem.checkInsCount} check-in{gem.checkInsCount > 1 ? "s" : ""}</span>
                                 )}
                             </div>
                         )}

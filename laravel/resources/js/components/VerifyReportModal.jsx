@@ -1,73 +1,49 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import {
-    checkVerifyEligibility,
-    verifyReport,
-} from '../api/reports';
+import { checkVerifyEligibility, verifyReport } from '../api/reports';
+import { checkIn as postCheckIn } from '../api/votes';
 
 const REASON_LABELS = {
     permanently_closed: 'Permanently closed',
-    inappropriate_content: 'Information is wrong',
+    incorrect_contact_info: 'Contact info is wrong (hours / phone / website)',
 };
 
-function VerifyReportModal({
-    report,
-    isOpen,
-    onClose,
-    onVerifySuccess,
-}) {
+function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     const navigate = useNavigate();
-
     const [step, setStep] = useState('checking');
     const [loading, setLoading] = useState(false);
     const [eligibility, setEligibility] = useState(null);
     const [comment, setComment] = useState('');
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState('error');
+    const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
-    const [checkingLocation, setCheckingLocation] = useState(false);
-    const [currentLocation, setCurrentLocation] = useState(null);
 
     useEffect(() => {
         if (isOpen && report) {
             checkEligibility();
         }
-
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, report?.id]);
 
     const checkEligibility = async () => {
         setLoading(true);
         setStep('checking');
-        setMessage('');
-        setGpsStatus('');
-        setCurrentLocation(null);
-
         try {
             const res = await checkVerifyEligibility(report.id);
             const data = res.data;
-
             setEligibility(data);
-
-            if (!data.eligible) {
+            if (data.eligible) {
+                setStep(data.has_check_in ? 'vote' : 'checkin');
+            } else {
                 setStep('error');
                 setMessage(data.message);
                 setMessageType('error');
-                return;
-            }
-
-            if (data.requires_location_verification) {
-                setStep('location');
-            } else {
-                setStep('vote');
             }
         } catch (error) {
             setStep('error');
-            setMessage(
-                error?.response?.data?.message
-                || 'Unable to check eligibility'
-            );
+            setMessage(error?.response?.data?.message || 'Unable to check eligibility');
             setMessageType('error');
         } finally {
             setLoading(false);
@@ -75,113 +51,57 @@ function VerifyReportModal({
     };
 
     const getCurrentLocation = () => {
-        setCheckingLocation(true);
-        setGpsStatus('Getting your location...');
+        setGpsStatus('Getting your location…');
         setMessage('');
-
         if (!navigator.geolocation) {
-            setGpsStatus(
-                'error: Geolocation is not supported by your browser'
-            );
-            setCheckingLocation(false);
+            setGpsStatus('error: Your browser can\'t share your location, so this report can\'t be verified from here.');
             return;
         }
-
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const {
-                    latitude,
-                    longitude,
-                } = position.coords;
-
-                setCurrentLocation({
-                    latitude,
-                    longitude,
-                });
-
-                setGpsStatus(
-                    'success: Location found. The server will verify your distance when you submit your verdict.'
-                );
-
-                setMessage('');
-                setMessageType('success');
-                setStep('vote');
-                setCheckingLocation(false);
+                setGpsStatus('success: Location found — checking you in…');
+                performCheckIn(position.coords.latitude, position.coords.longitude);
             },
-            (error) => {
-                setGpsStatus(
-                    'error: Unable to get your location. '
-                    + (error.message || '')
-                );
-                setCheckingLocation(false);
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0,
-            }
+            (error) => setGpsStatus('error: ' + (error.code === 1
+                ? 'Location permission denied. Allow location access to verify this report.'
+                : ('Couldn\'t get your location. ' + (error.message || '')))),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
         );
+    };
+
+    const performCheckIn = async (latitude, longitude) => {
+        setCheckingIn(true);
+        setMessage('');
+        try {
+            const res = await postCheckIn(eligibility.location.id, { latitude, longitude });
+            setEligibility((prev) => ({ ...prev, has_check_in: true }));
+            setStep('vote');
+            const distanceMsg = res.data.distance ? ` (${res.data.distance} km away)` : '';
+            setMessage('Check-in successful!' + distanceMsg);
+            setMessageType('success');
+        } catch (error) {
+            const data = error?.response?.data;
+            if (data?.distance && data?.max_distance) {
+                setMessage(`You are ${data.distance} km away. You must be within ${data.max_distance} km to check in.`);
+            } else {
+                setMessage(data?.message || 'Check-in failed');
+            }
+            setMessageType('error');
+        } finally {
+            setCheckingIn(false);
+        }
     };
 
     const handleVerdict = async (verdict) => {
         setLoading(true);
         setMessage('');
-
         try {
-            const payload = {
-                verdict,
-                comment: comment || undefined,
-            };
-
-            if (
-                eligibility?.requires_location_verification
-            ) {
-                if (!currentLocation) {
-                    setStep('location');
-                    setMessage(
-                        'Please detect your current location first.'
-                    );
-                    setMessageType('error');
-                    setLoading(false);
-                    return;
-                }
-
-                payload.latitude =
-                    currentLocation.latitude;
-                payload.longitude =
-                    currentLocation.longitude;
-            }
-
-            const res = await verifyReport(
-                report.id,
-                payload
-            );
-
+            const res = await verifyReport(report.id, { verdict, comment: comment || undefined });
             setStep('success');
             setMessage(res.data.message);
-            setMessageType('success');
-
             onVerifySuccess?.(res.data);
         } catch (error) {
-            const data = error?.response?.data;
-
-            if (
-                data?.distance !== undefined
-                && data?.max_distance !== undefined
-            ) {
-                setMessage(
-                    `You are ${data.distance} km away. You must be within ${data.max_distance} km to verify this report.`
-                );
-                setMessageType('error');
-                setStep('location');
-                setCurrentLocation(null);
-                return;
-            }
-
-            setMessage(
-                data?.message
-                || 'Failed to record vote'
-            );
+            setMessage(error?.response?.data?.message || 'Failed to record vote');
             setMessageType('error');
             setStep('error');
         } finally {
@@ -191,14 +111,10 @@ function VerifyReportModal({
 
     const reset = () => {
         setStep('checking');
-        setLoading(false);
-        setEligibility(null);
         setComment('');
         setMessage('');
-        setMessageType('error');
+        setEligibility(null);
         setGpsStatus('');
-        setCheckingLocation(false);
-        setCurrentLocation(null);
     };
 
     const handleClose = () => {
@@ -211,390 +127,164 @@ function VerifyReportModal({
         navigate('/login');
     };
 
-    if (!isOpen || !report) {
-        return null;
-    }
+    if (!isOpen || !report) return null;
 
     const gemLocation = eligibility?.location;
 
-    const suggestedContact =
-        report.reason === 'inappropriate_content'
-            ? [
-                report.suggested_latitude != null
-                && report.suggested_longitude != null
-                    ? {
-                        label: 'Location',
-                        current: gemLocation
-                            ? `${Number(gemLocation.latitude).toFixed(5)}, ${Number(gemLocation.longitude).toFixed(5)}`
-                            : '—',
-                        suggested:
-                            `${Number(report.suggested_latitude).toFixed(5)}, ${Number(report.suggested_longitude).toFixed(5)}`,
-                    }
-                    : null,
-                report.suggested_description
-                    ? {
-                        label: 'Description',
-                        current:
-                            gemLocation?.description,
-                        suggested:
-                            report.suggested_description,
-                    }
-                    : null,
-                report.suggested_opening_hours
-                    ? {
-                        label: 'Hours',
-                        current:
-                            gemLocation?.opening_hours,
-                        suggested:
-                            report.suggested_opening_hours,
-                    }
-                    : null,
-                report.suggested_phone
-                    ? {
-                        label: 'Phone',
-                        current:
-                            gemLocation?.phone,
-                        suggested:
-                            report.suggested_phone,
-                    }
-                    : null,
-                report.suggested_website
-                    ? {
-                        label: 'Website',
-                        current:
-                            gemLocation?.website,
-                        suggested:
-                            report.suggested_website,
-                    }
-                    : null,
-            ].filter(Boolean)
-            : [];
+    // Portaled to <body> — see ReportModal.jsx for why (a hovered ancestor
+    // card's :hover transform would otherwise hijack this fixed-position
+    // modal's containing block, making it snap between full-screen and
+    // pinned-to-the-card).
+    return createPortal((
+        <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
+            <div className="vote-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="vote-modal-header">
+                    <h2>Verify Report</h2>
+                    <button className="vote-modal-close" onClick={handleClose}>✕</button>
+                </div>
 
-    return createPortal(
-        (
-            <div
-                className="vote-modal-overlay"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    handleClose();
-                }}
-            >
-                <div
-                    className="vote-modal"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="vote-modal-header">
-                        <h2>Verify Report</h2>
+                <div className="vote-modal-body">
+                    {step === 'checking' && (
+                        <div className="vote-loading">
+                            <div className="vote-loading-spinner"></div>
+                            <p>Checking eligibility...</p>
+                        </div>
+                    )}
 
-                        <button
-                            className="vote-modal-close"
-                            onClick={handleClose}
-                        >
-                            ✕
-                        </button>
-                    </div>
-
-                    <div className="vote-modal-body">
-                        {step === 'checking' && (
-                            <div className="vote-loading">
-                                <div className="vote-loading-spinner"></div>
-                                <p>
-                                    Checking eligibility...
-                                </p>
-                            </div>
-                        )}
-
-                        {step === 'location' && (
-                            <div className="vote-checkin">
-                                <h3>
-                                    Current Location Required
-                                </h3>
-
-                                <p>
-                                    This report requires real-time location verification before you can confirm or dispute it.
-                                </p>
-
-                                {gemLocation && (
-                                    <div className="vote-checkin-location">
-                                        <p className="vote-checkin-location-name">
-                                            {gemLocation.place_name}
-                                        </p>
-
-                                        <p className="vote-checkin-location-address">
-                                            {gemLocation.address}
-                                        </p>
-                                    </div>
-                                )}
-
-                                <p className="vote-checkin-hint">
-                                    You must be within {eligibility?.max_distance ?? 5} km. Your current coordinates are checked by the server and are not stored as a check-in.
-                                </p>
-
-                                <div className="vote-checkin-options">
-                                    <button
-                                        className="vote-checkin-option"
-                                        onClick={getCurrentLocation}
-                                        disabled={checkingLocation}
-                                    >
-                                        <span className="vote-checkin-option-label">
-                                            {checkingLocation
-                                                ? 'Detecting Location...'
-                                                : 'Use My Current Location'}
-                                        </span>
-
-                                        <span className="vote-checkin-option-desc">
-                                            Detect your current GPS position
-                                        </span>
-                                    </button>
+                    {step === 'checkin' && (
+                        <div className="vote-checkin">
+                            <h3>Check-in Required</h3>
+                            <p>You need to check-in at this location before you can verify this report.</p>
+                            {gemLocation && (
+                                <div className="vote-checkin-location">
+                                    <p className="vote-checkin-location-name">{gemLocation.place_name}</p>
+                                    <p className="vote-checkin-location-address">{gemLocation.address}</p>
                                 </div>
-
-                                {gpsStatus && (
-                                    <div
-                                        className={`vote-gps-status ${
-                                            gpsStatus.startsWith('error:')
-                                                ? 'error'
-                                                : 'success'
-                                        }`}
-                                    >
-                                        {gpsStatus.replace(
-                                            /^(error:|success:)/,
-                                            ''
-                                        )}
-                                    </div>
-                                )}
-
-                                {message && (
-                                    <div
-                                        className={`vote-message ${messageType}`}
-                                    >
-                                        {message}
-                                    </div>
-                                )}
-
-                                <button
-                                    className="vote-btn-secondary"
-                                    onClick={handleClose}
-                                >
-                                    Cancel
+                            )}
+                            <p className="vote-checkin-hint">You must be within 5 km to check in.</p>
+                            <div className="vote-checkin-options">
+                                <button className="vote-checkin-option" onClick={getCurrentLocation} disabled={checkingIn}>
+                                    <span className="vote-checkin-option-label">
+                                        {checkingIn ? 'Checking in…' : 'Use My Current Location'}
+                                    </span>
+                                    <span className="vote-checkin-option-desc">Share your location to check in here</span>
                                 </button>
                             </div>
-                        )}
-
-                        {step === 'vote' && (
-                            <div className="vote-form">
-                                <div className="vote-location-info">
-                                    <p>
-                                        {eligibility?.location?.place_name}
-                                    </p>
-
-                                    <p className="vote-location-address">
-                                        {eligibility?.location?.address}
-                                    </p>
+                            {gpsStatus && (
+                                <div className={`vote-gps-status ${gpsStatus.startsWith('error:') ? 'error' : 'success'}`}>
+                                    {gpsStatus.replace(/^(error:|success:)/, '')}
                                 </div>
+                            )}
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
+                            <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
+                        </div>
+                    )}
 
-                                <div className="report-summary">
-                                    <span className="report-summary-label">
-                                        Reported for
-                                    </span>
+                    {step === 'vote' && (
+                        <div className="vote-form">
+                            <div className="vote-location-info">
+                                <p>{eligibility?.location?.place_name}</p>
+                                <p className="vote-location-address">{eligibility?.location?.address}</p>
+                            </div>
 
-                                    <strong>
-                                        {REASON_LABELS[report.reason]
-                                            || report.reason}
-                                    </strong>
+                            <div className="report-summary">
+                                <span className="report-summary-label">Reported for</span>
+                                <strong>{REASON_LABELS[report.reason] || report.reason}</strong>
+                                {report.description && <p className="report-summary-desc">"{report.description}"</p>}
 
-                                    {report.description && (
+                                {report.photo_path && (
+                                    <a
+                                        href={report.photo_path}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="report-evidence-photo"
+                                    >
+                                        <img src={report.photo_path} alt="Evidence from the reporter" />
+                                        <span>Reporter's evidence — tap to view full size</span>
+                                    </a>
+                                )}
+
+                                {report.reason === 'permanently_closed' && (
+                                    <p className="report-summary-desc">
+                                        Confirm only if you've seen it closed for good. If confirmed, the gem stays
+                                        listed but is greyed out and marked "Permanently closed".
+                                    </p>
+                                )}
+
+                                {report.reason === 'incorrect_contact_info' && (
+                                    <div className="report-contact-diff">
                                         <p className="report-summary-desc">
-                                            "{report.description}"
+                                            Current contact info:
                                         </p>
-                                    )}
-
-                                    {report.reason === 'permanently_closed' && (
-                                        <p className="report-summary-desc">
-                                            Confirm only if you have seen that this place is permanently closed. If confirmed, the gem remains listed but is marked as permanently closed and interactions are frozen.
-                                        </p>
-                                    )}
-
-                                    {report.reason === 'inappropriate_content' && (
-                                        <div className="report-contact-diff">
-                                            {suggestedContact.length === 0 ? (
-                                                <p className="report-summary-desc">
-                                                    The reporter flagged the information but suggested no replacement.
-                                                </p>
-                                            ) : (
-                                                suggestedContact.map(
-                                                    (row) => (
-                                                        <div
-                                                            key={row.label}
-                                                            className="report-contact-diff-row"
-                                                        >
-                                                            <span className="report-contact-diff-label">
-                                                                {row.label}
-                                                            </span>
-
-                                                            <span className="report-contact-diff-old">
-                                                                {row.current || '—'}
-                                                            </span>
-
-                                                            <span className="report-contact-diff-arrow">
-                                                                →
-                                                            </span>
-
-                                                            <span className="report-contact-diff-new">
-                                                                {row.suggested}
-                                                            </span>
-                                                        </div>
-                                                    )
-                                                )
-                                            )}
-
-                                            <p className="report-summary-desc">
-                                                {gemLocation?.status === 'pending_community_vote'
-                                                    ? 'If confirmed, the owner can fix the reported information and the gem can go through the required review flow again.'
-                                                    : 'If confirmed, the owner can apply the permitted correction. Nothing changes if the report is disputed.'}
-                                            </p>
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Hours</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.opening_hours || '—'}</span>
                                         </div>
-                                    )}
-                                </div>
-
-                                {eligibility?.requires_location_verification && currentLocation && (
-                                    <div className="vote-gps-status success">
-                                        Current location captured. The server will verify the 5 km distance when you submit.
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Phone</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.phone || '—'}</span>
+                                        </div>
+                                        <div className="report-contact-diff-row">
+                                            <span className="report-contact-diff-label">Website</span>
+                                            <span className="report-contact-diff-old">{gemLocation?.website || '—'}</span>
+                                        </div>
+                                        <p className="report-summary-desc">
+                                            If confirmed, a warning shows next to the contact info until the owner
+                                            corrects it. Nothing changes if disputed.
+                                        </p>
                                     </div>
                                 )}
+                            </div>
 
-                                <div className="vote-form-group">
-                                    <label>
-                                        Comment (optional)
-                                    </label>
+                            <div className="vote-form-group">
+                                <label>Comment (optional)</label>
+                                <textarea
+                                    className="vote-textarea"
+                                    placeholder='What did you find when you visited?'
+                                    value={comment}
+                                    onChange={(e) => setComment(e.target.value)}
+                                    maxLength={1000}
+                                />
+                                <span className="vote-char-count">{comment.length}/1000</span>
+                            </div>
 
-                                    <textarea
-                                        className="vote-textarea"
-                                        placeholder="Add any context that would help the community verify this report..."
-                                        value={comment}
-                                        onChange={(e) =>
-                                            setComment(
-                                                e.target.value
-                                            )
-                                        }
-                                        maxLength={1000}
-                                    />
+                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
-                                    <span className="vote-char-count">
-                                        {comment.length}/1000
-                                    </span>
-                                </div>
-
-                                {message && (
-                                    <div
-                                        className={`vote-message ${messageType}`}
-                                    >
-                                        {message}
-                                    </div>
-                                )}
-
-                                <div className="report-verdict-actions">
-                                    <button
-                                        className="report-verdict-btn report-verdict-dispute"
-                                        onClick={() =>
-                                            handleVerdict(
-                                                'dispute'
-                                            )
-                                        }
-                                        disabled={loading}
-                                    >
-                                        ✓ This is fine — dispute report
-                                    </button>
-
-                                    <button
-                                        className="report-verdict-btn report-verdict-confirm"
-                                        onClick={() =>
-                                            handleVerdict(
-                                                'confirm'
-                                            )
-                                        }
-                                        disabled={loading}
-                                    >
-                                        ⚠ Confirm — issue is real
-                                    </button>
-                                </div>
-
-                                {eligibility?.requires_location_verification && (
-                                    <button
-                                        type="button"
-                                        className="vote-manual-back"
-                                        onClick={() =>
-                                            setStep('location')
-                                        }
-                                        disabled={loading}
-                                    >
-                                        Detect location again
-                                    </button>
-                                )}
-
-                                <button
-                                    className="vote-btn-secondary"
-                                    onClick={handleClose}
-                                    disabled={loading}
-                                >
-                                    Cancel
+                            <div className="report-verdict-actions">
+                                <button className="report-verdict-btn report-verdict-dispute" onClick={() => handleVerdict('dispute')} disabled={loading}>
+                                    ✓ This is fine — dispute report
+                                </button>
+                                <button className="report-verdict-btn report-verdict-confirm" onClick={() => handleVerdict('confirm')} disabled={loading}>
+                                    ⚠ Confirm — issue is real
                                 </button>
                             </div>
-                        )}
+                            <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
+                        </div>
+                    )}
 
-                        {step === 'success' && (
-                            <div className="vote-success">
-                                <h3>
-                                    Vote Recorded
-                                </h3>
+                    {step === 'success' && (
+                        <div className="vote-success">
+                            <h3>Vote Recorded</h3>
+                            <p>{message}</p>
+                            <button className="vote-btn-primary" onClick={handleClose}>Close</button>
+                        </div>
+                    )}
 
-                                <p>
-                                    {message}
-                                </p>
-
-                                <button
-                                    className="vote-btn-primary"
-                                    onClick={handleClose}
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        )}
-
-                        {step === 'error' && (
-                            <div className="vote-error">
-                                <h3>
-                                    Cannot Verify
-                                </h3>
-
-                                <p>
-                                    {message}
-                                </p>
-
-                                {message
-                                    .toLowerCase()
-                                    .includes('login') ? (
-                                    <button
-                                        className="vote-btn-primary"
-                                        onClick={goToLogin}
-                                    >
-                                        Login to Verify
-                                    </button>
-                                ) : (
-                                    <button
-                                        className="vote-btn-primary"
-                                        onClick={handleClose}
-                                    >
-                                        Close
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    {step === 'error' && (
+                        <div className="vote-error">
+                            <h3>Cannot Verify</h3>
+                            <p>{message}</p>
+                            {message.includes('login') ? (
+                                <button className="vote-btn-primary" onClick={goToLogin}>Login to Verify</button>
+                            ) : (
+                                <button className="vote-btn-primary" onClick={handleClose}>Close</button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
-        ),
-        document.body
-    );
+        </div>
+    ), document.body);
 }
 
 export default VerifyReportModal;

@@ -3016,6 +3016,36 @@ img.avatar {
     text-decoration: underline;
 }
 
+.trip-detail-location-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.trip-detail-location-main .trip-detail-location-name {
+    flex: 0 1 auto;
+}
+
+.trip-detail-stop-badge {
+    flex: none;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}
+
+.trip-detail-stop-badge-voting { background: #fef3c7; color: #92400e; }
+.trip-detail-stop-badge-known  { background: #fde68a; color: #78350f; }
+.trip-detail-stop-badge-gem    { background: #dcfce7; color: #166534; }
+.trip-detail-stop-badge-closed { background: #fee2e2; color: #b91c1c; }
+
 .trip-detail-delete-stop-btn {
     width: 38px;
     height: 38px;
@@ -3504,6 +3534,407 @@ img.avatar {
     color: var(--color-text-muted);
     cursor: pointer;
     text-decoration: underline;
+}
+
+/* ===== Compare: card icon (Hidden Gems browsing page) ===== */
+.hidden-gems-card-icon-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.compare-toggle-btn {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+    transition: transform 0.1s, color 0.1s;
+}
+
+.compare-toggle-btn:hover {
+    transform: scale(1.1);
+}
+
+.compare-toggle-btn-active {
+    color: var(--color-primary);
+}
+
+.compare-toggle-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ===== Compare: pull-out tray (every page, via Layout.jsx) ===== */
+.compare-tray {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.compare-tray-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-primary);
+    color: white;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: transform 0.15s;
+}
+
+.compare-tray-tab:hover {
+    transform: translateY(-2px);
+}
+
+.compare-tray-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.2);
+    font-size: 12px;
+}
+
+.compare-tray-panel {
+    width: 280px;
+    max-width: calc(100vw - 40px);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 14px;
+}
+
+.compare-tray-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.compare-tray-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.compare-tray-clear {
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.compare-tray-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.compare-tray-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.compare-tray-item-image {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.compare-tray-item-title {
+    flex: 1;
+    font-size: 13px;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.compare-tray-item-remove {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px;
+}
+
+.compare-tray-item-remove:hover {
+    color: var(--color-accent);
+}
+
+.compare-tray-compare-btn {
+    width: 100%;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: white;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.compare-tray-compare-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ===== Compare: dedicated /compare page ===== */
+/* Same centred page shell as .hidden-gems-page / .trip-page so Compare sits
+   in the system's standard container instead of breaking full-bleed. */
+.compare-page {
+    padding: 32px 24px 56px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.compare-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 24px;
+}
+
+.compare-page-header h1 {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--color-text);
+}
+
+.compare-page-back {
+    color: var(--color-text-muted);
+    font-size: 14px;
+    text-decoration: none;
+    /* Now a <button> (navigate(-1) instead of a fixed /map link), so it needs
+       its own reset to still look like the plain text link it was. */
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.compare-page-back:hover {
+    color: var(--color-primary);
+}
+
+.compare-page-empty {
+    text-align: center;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 56px 24px;
+}
+
+.compare-page-empty p {
+    margin: 0;
+}
+
+.compare-grid {
+    display: flex;
+    gap: 20px;
+    align-items: start;
+    /* Keep every gem on one row. Few gems stretch to fill the width; once
+       they can't all fit (4–5 gems) the row scrolls sideways instead of
+       dropping a lone card onto a second row. The visible control is the
+       sticky .compare-hscroll proxy below, so this bar itself is hidden. */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+}
+
+.compare-grid::-webkit-scrollbar {
+    display: none;
+}
+
+/* Proxy horizontal scrollbar pinned to the bottom of the viewport, kept in
+   sync with .compare-grid both ways (CompareGems.jsx) so a wide comparison
+   can be scrolled without first scrolling the page down to reach the bar. */
+.compare-hscroll {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-top: 8px;
+    padding-top: 4px;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    scrollbar-width: thin;
+}
+
+/* Force a visible track even where the OS uses overlay scrollbars. */
+.compare-hscroll::-webkit-scrollbar {
+    height: 10px;
+}
+
+.compare-hscroll::-webkit-scrollbar-thumb {
+    background: var(--color-text-muted);
+    border-radius: 999px;
+}
+
+.compare-hscroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.compare-hscroll-track {
+    height: 1px;
+}
+
+.compare-card {
+    position: relative;
+    /* Fixed width so every card is identical no matter what content loads in
+       (reviews, menu items, long URLs) — a flexible basis let a card with an
+       unbreakable string grow wider than its siblings and pushed the last
+       card partly out of view. */
+    flex: 0 0 300px;
+    width: 300px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    padding: 20px;
+    /* Keep long text (addresses, website URLs, single long words in a review)
+       wrapping inside the fixed width instead of spilling out. */
+    overflow-wrap: anywhere;
+}
+
+.compare-card-remove {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    border: none;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: var(--radius-full);
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: 13px;
+}
+
+.compare-card-remove:hover {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+}
+
+.compare-card-image {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+}
+
+.compare-card h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0 0 12px;
+    padding-right: 24px;
+}
+
+.compare-card-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 0;
+    border-top: 1px solid var(--color-border);
+    font-size: 13px;
+}
+
+.compare-card-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted);
+}
+
+.compare-card-muted {
+    color: var(--color-text-muted);
+    font-weight: 400;
+}
+
+.compare-card-menu-items {
+    list-style: none;
+    margin: 2px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.compare-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.compare-card-actions button {
+    flex: 1 1 100px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+    padding: 8px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.compare-card-actions button:hover {
+    background: var(--color-surface-muted);
+}
+
+.compare-card-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.compare-card-itinerary-picker {
+    margin-top: 10px;
+}
+
+.compare-page-missing {
+    margin-top: 20px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    text-align: center;
 }
 
 .wishlist-itinerary-picker {
@@ -5819,6 +6250,8 @@ img.avatar {
     font-weight: 800;
     font-size: 1.1rem;
     color: var(--color-text);
+    text-decoration: none;
+    cursor: pointer;
 }
 
 .side-panel-logo-icon {
@@ -7671,6 +8104,32 @@ img.avatar {
 
 .hidden-gem-map-picker-header {
     margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.hidden-gem-map-locate-btn {
+    flex: none;
+    padding: 7px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #fff;
+    color: #1f2937;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.hidden-gem-map-locate-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.hidden-gem-map-locate-btn:hover:not(:disabled) {
+    background: #f1f5f9;
 }
 
 .hidden-gem-map-picker-header h4 {
@@ -9228,6 +9687,28 @@ img.avatar {
     font-style: italic;
 }
 
+.report-evidence-photo {
+    display: block;
+    margin-top: 10px;
+    text-decoration: none;
+}
+
+.report-evidence-photo img {
+    display: block;
+    width: 100%;
+    max-height: 220px;
+    object-fit: cover;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--color-border, #e2e2df);
+}
+
+.report-evidence-photo span {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--color-text-muted, #6b6b66);
+}
+
 .report-verdict-actions {
     display: flex;
     flex-direction: column;
@@ -9502,11 +9983,27 @@ img.avatar {
     color: var(--color-accent);
 }
 
-.travel-post-toolbar {
+/* Centered reading column — the Layout <main> already supplies the outer
+   page padding, so this just narrows and stacks the post's cards. */
+.travel-post-detail-page {
+    max-width: 760px;
+    margin: 0 auto;
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    margin-bottom: 16px;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* The post itself: one self-contained card, cover image flush to its edges. */
+.travel-post-article {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.travel-post-article-body {
+    padding: 30px 34px 34px;
 }
 
 .travel-post-owner-actions {
@@ -9516,33 +10013,80 @@ img.avatar {
 }
 
 .travel-post-cover-wrap {
-    border-radius: var(--radius-md);
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 24px;
 }
 
 .travel-post-cover {
     width: 100%;
-    max-height: 380px;
+    max-height: 400px;
     object-fit: cover;
     display: block;
 }
 
+.travel-post-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
 .travel-post-title {
     margin: 0;
-    font-size: 26px;
+    font-size: 27px;
     line-height: 1.3;
     color: var(--color-text);
+    flex: 1;
+    min-width: 0;
 }
 
 .travel-post-byline {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 18px 0 24px;
+    margin: 16px 0 22px;
     padding-bottom: 20px;
     border-bottom: 1px solid var(--color-border);
+}
+
+/* Author name + date; grows so the trip button is pushed to the right edge. */
+.travel-post-byline-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.travel-post-trip-link {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.travel-post-trip-link:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+@media (max-width: 600px) {
+    .travel-post-byline {
+        flex-wrap: wrap;
+    }
+
+    .travel-post-trip-link {
+        width: 100%;
+        justify-content: center;
+        margin-top: 4px;
+    }
 }
 
 .travel-post-byline-name {
@@ -9558,21 +10102,16 @@ img.avatar {
     margin: 2px 0 0;
 }
 
-.travel-post-byline-meta .wishlist-link {
-    color: var(--color-text);
-    font-weight: 500;
-}
-
 .travel-post-body {
     white-space: pre-wrap;
     line-height: 1.8;
     font-size: 16px;
     color: var(--color-text);
-    margin: 0 0 28px;
+    margin: 0;
 }
 
 .travel-post-gallery {
-    margin: 0 0 32px;
+    margin: 26px 0 0;
 }
 
 .travel-post-carousel {
@@ -9597,6 +10136,31 @@ img.avatar {
     .travel-post-carousel {
         --photo-carousel-height: 260px;
     }
+
+    .travel-post-article-body {
+        padding: 22px 18px 24px;
+    }
+
+    .travel-post-tagged-gems {
+        padding: 20px 18px 22px;
+    }
+
+    .travel-post-title {
+        font-size: 22px;
+    }
+
+    .travel-post-cover {
+        max-height: 260px;
+    }
+}
+
+/* Tagged gems: a matching card sitting below the article. */
+.travel-post-tagged-gems {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 24px 28px 28px;
 }
 
 .travel-post-section-title {
@@ -9605,29 +10169,7 @@ img.avatar {
     color: var(--color-text-muted);
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    margin: 0 0 14px;
-}
-
-.travel-post-map-btn {
-    width: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    margin-top: 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-full);
-    background: var(--color-surface-muted);
-    color: var(--color-text);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-.travel-post-map-btn:hover {
-    background: var(--color-surface);
-    border-color: var(--color-text-muted);
+    margin: 0 0 16px;
 }
 
 .travel-post-visited-badge {
@@ -9637,6 +10179,141 @@ img.avatar {
     border-radius: var(--radius-full);
     font-size: 11px;
     font-weight: 600;
+}
+
+/* -- Frozen trip snapshot (post_stops) on the detail page -- */
+.travel-post-stop-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.travel-post-stop {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 10px;
+    border-radius: var(--radius-md, 8px);
+}
+
+.travel-post-stop + .travel-post-stop {
+    border-top: 1px solid var(--color-border);
+}
+
+.travel-post-stop.is-closed,
+.travel-post-stop.is-removed {
+    opacity: 0.6;
+}
+
+.travel-post-stop-rank {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.travel-post-stop-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.travel-post-stop-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.travel-post-stop-name-link,
+.travel-post-stop-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text);
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+}
+
+.travel-post-stop-name-link {
+    cursor: pointer;
+}
+
+.travel-post-stop-name-link:hover {
+    color: var(--color-primary, #b45309);
+    text-decoration: underline;
+}
+
+.travel-post-stop-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}
+
+.travel-post-stop-tag.is-closed {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.travel-post-stop-meta {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.travel-post-stop-caption {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--color-text);
+}
+
+.travel-post-copy-result {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md, 8px);
+    font-size: 13px;
+}
+
+.travel-post-copy-result.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.travel-post-copy-result.error {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.travel-post-copy-result button {
+    border: 1px solid currentColor;
+    background: none;
+    color: inherit;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
 }
 
 /* -- Create/Edit form page -- */
@@ -9753,6 +10430,132 @@ img.avatar {
     text-transform: uppercase;
     letter-spacing: 0.4px;
     margin: 22px 0 8px;
+}
+
+.travel-post-form-hint {
+    font-size: 12.5px;
+    color: var(--color-text-muted);
+    margin: 0 0 12px;
+    line-height: 1.5;
+}
+
+/* -- Trip stops editor (Create/Edit travel post) -- */
+.trip-stops-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.trip-stops-editor-row .form-input {
+    margin: 0;
+}
+
+.trip-stops-editor-note {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.trip-stops-editor-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.trip-stops-editor-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 10px 10px 12px;
+}
+
+.trip-stops-editor-rank {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-top: 3px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.trip-stops-editor-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.trip-stops-editor-body .form-input {
+    margin: 0;
+}
+
+.trip-stops-editor-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.trip-stops-editor-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-text);
+}
+
+.trip-stops-editor-kind {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+}
+
+.trip-stops-editor-actions {
+    flex: none;
+    display: flex;
+    gap: 4px;
+}
+
+.trip-stops-editor-actions button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+}
+
+.trip-stops-editor-actions button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.trip-stops-editor-remove {
+    color: #b91c1c !important;
+    font-size: 16px !important;
+    font-weight: 700;
 }
 
 .travel-post-tag-list {
@@ -10146,6 +10949,12 @@ img.avatar {
     gap: 8px;
 }
 
+.gem-detail-contact-updated {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--color-text-muted, #6b7280);
+}
+
 .gem-detail-contact-row {
     display: flex;
     gap: 8px;
@@ -10254,6 +11063,13 @@ img.avatar {
 .gem-marker-closed {
     filter: grayscale(1);
     opacity: 0.5;
+}
+
+/* Map marker for a well-known place — the community has outgrown it, so it
+   reads as established rather than "hidden": a warm gold cast + subtle ring. */
+.gem-marker-well-known {
+    filter: sepia(0.7) saturate(2.2) hue-rotate(5deg) brightness(1.05)
+        drop-shadow(0 0 4px rgba(202, 138, 4, 0.9));
 }
 
 /* ---- Shared (read-only) trip itinerary view ---- */
@@ -10915,15 +11731,12 @@ pre {
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
 }
 
-.compare-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
-}
-
-/* ---- Tablet ----------------------------------------------------------- */
-@media (max-width: 1024px) {
-    .compare-page {
-        padding-left: 24px;
-        padding-right: 24px;
+/* On phones the compare row shows ~one card at a time with a peek of the
+   next, swiped through horizontally. */
+@media (max-width: 560px) {
+    .compare-card {
+        flex: 0 0 82vw;
+        width: 82vw;
     }
 }
 
@@ -10931,17 +11744,13 @@ pre {
 @media (max-width: 768px) {
     /* Page shells — tighten the horizontal gutters everywhere */
     .hidden-gems-page,
-    .trip-page {
+    .trip-page,
+    .compare-page {
         padding: 24px 16px 48px;
     }
 
     .trip-detail-container {
         padding: 20px 16px 48px;
-    }
-
-    .compare-page {
-        padding-left: 16px;
-        padding-right: 16px;
     }
 
     /* Page headers wrap instead of squashing the title / action button */
@@ -10953,7 +11762,8 @@ pre {
 
     .hidden-gems-header h1,
     .trip-header h1,
-    .trip-detail-header h1 {
+    .trip-detail-header h1,
+    .compare-page-header h1 {
         font-size: 22px;
     }
 
@@ -11020,11 +11830,7 @@ pre {
 @media (max-width: 400px) {
     .hidden-gems-page,
     .trip-page,
-    .trip-detail-container {
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-
+    .trip-detail-container,
     .compare-page {
         padding-left: 12px;
         padding-right: 12px;
@@ -11551,42 +12357,4 @@ pre {
     color: #6b7280;
     font-size: 17px;
     line-height: 1.5;
-}
-
-.gem-detail-wishlist-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    color: #1f2937;
-    font-size: 22px;
-    line-height: 1;
-
-    cursor: pointer;
-    transition:
-        background-color 0.2s ease,
-        border-color 0.2s ease,
-        transform 0.2s ease;
-}
-
-.gem-detail-wishlist-btn:hover {
-    background: #f3f4f6;
-    transform: translateY(-1px);
-}
-
-.gem-detail-wishlist-btn.active {
-    color: #111827;
-    background: #ffffff;
-    border-color: #d1d5db;
-}
-
-.gem-detail-wishlist-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
 }

@@ -37,6 +37,15 @@ function SearchBar({ onSelect, userLatitude, userLongitude }) {
         }, DEBOUNCE_MS);
     }
 
+    // Re-run the search for the text already in the box. Used by the search
+    // button, the Enter key, and re-focusing the field after the results were
+    // dismissed — so the user doesn't have to edit the text to see them again.
+    function triggerSearch() {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (query.trim().length < 2) return;
+        runSearch(query, { append: false });
+    }
+
     async function runSearch(value, { append }) {
         const requestId = ++latestRequestId.current;
 
@@ -86,12 +95,16 @@ function SearchBar({ onSelect, userLatitude, userLongitude }) {
         };
     }, []);
 
+    function closeResults() {
+        setResults([]);
+        setHasMore(false);
+    }
+
     // Close dropdown on outside click
     useEffect(() => {
         function handleClickOutside(e) {
             if (containerRef.current && !containerRef.current.contains(e.target)) {
-                setResults([]);
-                setHasMore(false);
+                closeResults();
             }
         }
 
@@ -101,8 +114,7 @@ function SearchBar({ onSelect, userLatitude, userLongitude }) {
 
     function selectResult(item) {
         setQuery(item.name);
-        setResults([]);
-        setHasMore(false);
+        closeResults();
         onSelect(item);
     }
 
@@ -111,39 +123,76 @@ function SearchBar({ onSelect, userLatitude, userLongitude }) {
             <input
                 value={query}
                 onChange={(e) => handleChange(e.target.value)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        triggerSearch();
+                    }
+                }}
+                onFocus={() => {
+                    if (!loading && results.length === 0 && query.trim().length >= 2) {
+                        triggerSearch();
+                    }
+                }}
                 placeholder="Search hidden gems or attractions..."
                 className="search-input"
             />
-            {loading && <Spinner size="sm" inline label="Searching…" className="search-bar-loading" />}
+            <button
+                type="button"
+                className="search-btn"
+                onClick={triggerSearch}
+                aria-label="Search"
+                disabled={loading}
+            >
+                {loading ? <Spinner size="sm" /> : "🔍"}
+            </button>
 
             {results.length > 0 && (
                 <div className="search-dropdown">
-                    {results.map((item, index) => (
-                        <div
-                            key={item.id ?? index}
-                            onClick={() => selectResult(item)}
-                            style={{
-                                padding: "12px",
-                                cursor: "pointer",
-                                borderBottom: "1px solid #E5E7EB",
-                            }}
-                        >
-                            <b>{item.name}</b>
-                            <br />
-                            <small>{item.source === "database" ? "Hidden Gem" : "Attraction"}</small>
-                        </div>
-                    ))}
-
-                    {hasMore && (
+                    <div className="search-dropdown-header">
+                        <span className="search-dropdown-count">
+                            {results.length}{hasMore ? "+" : ""} result{results.length === 1 ? "" : "s"}
+                        </span>
                         <button
                             type="button"
-                            className="search-load-more-btn"
-                            onClick={loadMore}
-                            disabled={loadingMore}
+                            className="search-dropdown-close"
+                            onClick={closeResults}
+                            aria-label="Close results"
                         >
-                            {loadingMore ? "Loading…" : "Load more results"}
+                            ✕
                         </button>
-                    )}
+                    </div>
+
+                    <div className="search-dropdown-list">
+                        {results.map((item, index) => (
+                            <button
+                                type="button"
+                                key={item.id ?? index}
+                                className="search-dropdown-item"
+                                onClick={() => selectResult(item)}
+                            >
+                                <span className="search-dropdown-item-name">{item.name}</span>
+                                <span
+                                    className={`search-dropdown-item-tag ${
+                                        item.source === "database" ? "is-gem" : "is-osm"
+                                    }`}
+                                >
+                                    {item.source === "database" ? "Hidden Gem" : "Attraction"}
+                                </span>
+                            </button>
+                        ))}
+
+                        {hasMore && (
+                            <button
+                                type="button"
+                                className="search-load-more-btn"
+                                onClick={loadMore}
+                                disabled={loadingMore}
+                            >
+                                {loadingMore ? "Loading…" : "Load more results"}
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

@@ -2,36 +2,32 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { checkReportEligibility, submitReport } from '../api/reports';
+import { checkIn as postCheckIn } from '../api/votes';
 
-// A Hidden Gem — verified, or still in community voting — can be reported for
-// two things (see Report::REASONS). The backend returns which reasons apply to
-// this gem's status; `inappropriate_content` also covers more on a gem still
-// in voting (location + description, not just contact info).
+// A verified place (pending_community_vote / hidden_gem / well_known) can be
+// reported for two things, both resolved by a community vote (one report per
+// reason open at a time). Both reasons need a check-in at the place — you have
+// to have actually been there.
+//   permanently_closed     — the place has shut for good.
+//   incorrect_contact_info — the hours / phone / website are wrong.
 const REASONS = [
-    { value: 'permanently_closed', label: 'Permanently closed', requiresLocation: true },
-    { value: 'inappropriate_content', label: 'Information is wrong', requiresLocation: false },
+    { value: 'permanently_closed', label: 'Permanently closed' },
+    { value: 'incorrect_contact_info', label: 'Contact info is wrong (hours / phone / website)' },
 ];
 
-// checking -> reason -> [location] -> [corrections] -> form -> success/error.
+// checking -> reason -> [checkin] -> form -> success/error.
 function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const navigate = useNavigate();
     const [step, setStep] = useState('checking');
     const [loading, setLoading] = useState(false);
     const [eligibility, setEligibility] = useState(null);
     const [reason, setReason] = useState('');
-    const [suggestedHours, setSuggestedHours] = useState('');
-    const [suggestedPhone, setSuggestedPhone] = useState('');
-    const [suggestedWebsite, setSuggestedWebsite] = useState('');
-    const [suggestedDescription, setSuggestedDescription] = useState('');
-    const [wantLocationFix, setWantLocationFix] = useState(false);
-    // Captured from the user's current GPS position.
-    const [suggestedCoords, setSuggestedCoords] = useState(null);
     const [description, setDescription] = useState('');
     const [photo, setPhoto] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState('error');
-    const [checkingLocation, setCheckingLocation] = useState(false);
+    const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
     const fileInputRef = useRef(null);
 
@@ -64,16 +60,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     };
 
     const gemLocation = eligibility?.location;
-    const isVotingGem = gemLocation?.status === 'pending_community_vote';
-
-    const prefillFromGem = () => {
-        const gem = eligibility?.location;
-        if (!gem) return;
-        setSuggestedHours(gem.opening_hours || '');
-        setSuggestedPhone(gem.phone || '');
-        setSuggestedWebsite(gem.website || '');
-        setSuggestedDescription(gem.description || '');
-    };
 
     const handleReasonContinue = () => {
         if (!reason) {
@@ -82,87 +68,52 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             return;
         }
         setMessage('');
-        const meta = REASONS.find((r) => r.value === reason);
-        if (meta?.requiresLocation) {
-            setStep('location');
-        } else if (reason === 'inappropriate_content') {
-            prefillFromGem();
-            setStep('corrections');
-        } else {
-            setStep('form');
-        }
+        setStep(eligibility?.has_check_in ? 'form' : 'checkin');
     };
 
-    const contactChanged = () => {
-        const gem = eligibility?.location || {};
-        return (suggestedHours || '') !== (gem.opening_hours || '')
-            || (suggestedPhone || '') !== (gem.phone || '')
-            || (suggestedWebsite || '') !== (gem.website || '');
-    };
-
-    const descriptionChanged = () => {
-        const gem = eligibility?.location || {};
-        return isVotingGem && (suggestedDescription || '').trim() !== (gem.description || '').trim();
-    };
-
-    const handleCorrectionsContinue = () => {
-        if (wantLocationFix && !suggestedCoords) {
-            setMessage('');
-            setStep('location');
-            return;
-        }
-        if (!contactChanged() && !descriptionChanged() && !suggestedCoords) {
-            setMessage(isVotingGem
-                ? 'Change at least one thing — location, description or contact info.'
-                : 'Change at least one contact field so the community knows what needs fixing.');
-            setMessageType('error');
-            return;
-        }
+    const useCurrentLocation = () => {
+        setGpsStatus('Getting your location…');
         setMessage('');
-        setStep('form');
-    };
-
-    const getCurrentLocation = () => {
-        setCheckingLocation(true);
-        setGpsStatus('Getting your location...');
-        setMessage('');
-
         if (!navigator.geolocation) {
-            setGpsStatus('error: Geolocation is not supported by your browser');
-            setCheckingLocation(false);
+            setGpsStatus('error: Your browser can\'t share your location, so this place can\'t be reported from here.');
             return;
         }
-
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const { latitude, longitude } = position.coords;
-
-                setSuggestedCoords({ latitude, longitude });
-                setGpsStatus('success: Location found!');
-                setMessageType('success');
-
-                if (reason === 'inappropriate_content') {
-                    setStep('corrections');
-                } else {
-                    setStep('form');
-                }
-
-                setCheckingLocation(false);
+                setGpsStatus('success: Location found — checking you in…');
+                performCheckIn(position.coords.latitude, position.coords.longitude);
             },
             (error) => {
-                setGpsStatus(
-                    'error: Unable to get your location. ' +
-                    (error.message || '')
-                );
-                setMessageType('error');
-                setCheckingLocation(false);
+                setGpsStatus('error: ' + (error.code === 1
+                    ? 'Location permission denied. Allow location access to report this place.'
+                    : ('Couldn\'t get your location. ' + (error.message || ''))));
             },
-            {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 0,
-            }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
         );
+    };
+
+    const performCheckIn = async (latitude, longitude) => {
+        setCheckingIn(true);
+        setMessage('');
+        try {
+            const res = await postCheckIn(locationId, { latitude, longitude });
+            setEligibility((prev) => ({ ...prev, has_check_in: true }));
+            const distanceMsg = res.data.distance ? ` (${res.data.distance} km away)` : '';
+            setMessage('Check-in successful!' + distanceMsg);
+            setMessageType('success');
+            setStep('form');
+        } catch (error) {
+            const data = error?.response?.data;
+            if (data?.distance && data?.max_distance) {
+                setMessage(`You are ${data.distance} km away. You must be within ${data.max_distance} km of the place to report it.`);
+            } else {
+                setMessage(data?.message || 'Check-in failed');
+            }
+            setMessageType('error');
+            setGpsStatus('');
+        } finally {
+            setCheckingIn(false);
+        }
     };
 
     const handlePhotoChange = (e) => {
@@ -182,31 +133,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
             if (description) formData.append('description', description);
             if (photo) formData.append('photo', photo);
 
-            if (suggestedCoords) {
-                formData.append('reporter_latitude', suggestedCoords.latitude);
-                formData.append('reporter_longitude', suggestedCoords.longitude);
-            }
-
-            if (reason === 'inappropriate_content') {
-                const gem = eligibility?.location || {};
-                if ((suggestedHours || '') !== (gem.opening_hours || '')) {
-                    formData.append('suggested_opening_hours', suggestedHours);
-                }
-                if ((suggestedPhone || '') !== (gem.phone || '')) {
-                    formData.append('suggested_phone', suggestedPhone);
-                }
-                if ((suggestedWebsite || '') !== (gem.website || '')) {
-                    formData.append('suggested_website', suggestedWebsite);
-                }
-                if (descriptionChanged()) {
-                    formData.append('suggested_description', suggestedDescription);
-                }
-                if (suggestedCoords) {
-                    formData.append('suggested_latitude', suggestedCoords.latitude);
-                    formData.append('suggested_longitude', suggestedCoords.longitude);
-                }
-            }
-
             const res = await submitReport(locationId, formData);
             setStep('success');
             setMessage(res.data.message);
@@ -223,12 +149,6 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
     const reset = () => {
         setStep('checking');
         setReason('');
-        setSuggestedHours('');
-        setSuggestedPhone('');
-        setSuggestedWebsite('');
-        setSuggestedDescription('');
-        setWantLocationFix(false);
-        setSuggestedCoords(null);
         setDescription('');
         setPhoto(null);
         setPhotoPreview(null);
@@ -250,12 +170,10 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
 
     if (!isOpen) return null;
 
-    // The backend returns which reasons apply to this gem's status.
     const availableReasons = eligibility?.reasons
         ? REASONS.filter((r) => eligibility.reasons.includes(r.value))
         : REASONS;
     const selectedReasonMeta = REASONS.find((r) => r.value === reason);
-    const backFromLocation = reason === 'inappropriate_content' ? 'corrections' : 'reason';
 
     return createPortal((
         <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
@@ -294,11 +212,9 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 </select>
                                 {selectedReasonMeta && (
                                     <p className="report-reason-hint">
-                                        {selectedReasonMeta.requiresLocation
-                                            ? "You'll need to share your current GPS location so the server can verify that you are nearby."
-                                            : isVotingGem
-                                                ? "On the next step, suggest the correct location, description or contact details."
-                                                : "On the next step, enter the corrected contact details."}
+                                        You'll need to check in at this location — you have to have
+                                        actually been there to report this. The community then votes;
+                                        5 either way settles it.
                                     </p>
                                 )}
                             </div>
@@ -314,14 +230,11 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                         </div>
                     )}
 
-                    {step === 'location' && (
+                    {step === 'checkin' && (
                         <div className="vote-checkin">
-                            <h3>Current Location Required</h3>
-                            <p>
-                                {reason === 'inappropriate_content'
-                                    ? "Use your current GPS position as the suggested correct location."
-                                    : 'Use your current GPS position so the server can verify that you are near this hidden gem.'}
-                            </p>
+                            <h3>Check-in Required</h3>
+                            <p>Reporting a place needs you to have actually been there. We'll use your
+                               current location to check you in — you must be within 5 km.</p>
 
                             {gemLocation && (
                                 <div className="vote-checkin-location">
@@ -330,22 +243,12 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                 </div>
                             )}
 
-                            <p className="vote-checkin-hint">
-                                Your coordinates are submitted with the report for server-side verification. No check-in record is saved.
-                            </p>
-
                             <div className="vote-checkin-options">
-                                <button
-                                    className="vote-checkin-option"
-                                    onClick={getCurrentLocation}
-                                    disabled={checkingLocation}
-                                >
+                                <button className="vote-checkin-option" onClick={useCurrentLocation} disabled={checkingIn}>
                                     <span className="vote-checkin-option-label">
-                                        {checkingLocation ? 'Detecting Location...' : 'Use My Current Location'}
+                                        {checkingIn ? 'Checking in…' : 'Use My Current Location'}
                                     </span>
-                                    <span className="vote-checkin-option-desc">
-                                        Detect your current GPS position
-                                    </span>
+                                    <span className="vote-checkin-option-desc">Share your location to check in here</span>
                                 </button>
                             </div>
 
@@ -354,104 +257,10 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                                     {gpsStatus.replace(/^(error:|success:)/, '')}
                                 </div>
                             )}
-
                             {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
-                            <button className="vote-manual-back" onClick={() => setStep(backFromLocation)}>
-                                ← Back
-                            </button>
-                            <button className="vote-btn-secondary" onClick={handleClose}>
-                                Cancel
-                            </button>
-                        </div>
-                    )}
-
-                    {step === 'corrections' && (
-                        <div className="vote-form">
-                            <div className="vote-location-info">
-                                <p>{gemLocation?.place_name}</p>
-                                <p className="vote-location-address">{gemLocation?.address}</p>
-                            </div>
-
-                            <div className="vote-form-group">
-                                <label>What's the correct information?</label>
-                                <p className="report-reason-hint" style={{ margin: '0 0 10px' }}>
-                                    Fill in what you know is right. Leave anything that's already correct as-is.
-                                    Voters see your suggestion; if the community confirms it, the owner applies it.
-                                </p>
-
-                                {isVotingGem && (
-                                    <>
-                                        <label className="report-contact-label">Location</label>
-                                        {suggestedCoords ? (
-                                            <p className="report-reason-hint" style={{ margin: '0 0 8px' }}>
-                                                ✓ Correct location captured from your current GPS position
-                                                ({suggestedCoords.latitude.toFixed(5)}, {suggestedCoords.longitude.toFixed(5)}).{' '}
-                                                <button type="button" className="vote-link-btn" onClick={() => { setSuggestedCoords(null); setWantLocationFix(false); }}>Undo</button>
-                                            </p>
-                                        ) : (
-                                            <label className="report-flag-option" style={{ marginBottom: 8 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={wantLocationFix}
-                                                    onChange={(e) => setWantLocationFix(e.target.checked)}
-                                                />
-                                                <span>The pin is in the wrong place — use my current GPS position</span>
-                                            </label>
-                                        )}
-
-                                        <label className="report-contact-label">Description</label>
-                                        <textarea
-                                            className="vote-textarea"
-                                            placeholder="The correct description of this place"
-                                            value={suggestedDescription}
-                                            onChange={(e) => setSuggestedDescription(e.target.value)}
-                                            maxLength={2000}
-                                        />
-                                    </>
-                                )}
-
-                                <label className="report-contact-label">Opening hours</label>
-                                <input
-                                    type="text"
-                                    className="vote-manual-input"
-                                    placeholder="e.g. 9am – 6pm, closed Mondays"
-                                    value={suggestedHours}
-                                    onChange={(e) => setSuggestedHours(e.target.value)}
-                                    maxLength={255}
-                                />
-
-                                <label className="report-contact-label">Phone</label>
-                                <input
-                                    type="text"
-                                    className="vote-manual-input"
-                                    placeholder="e.g. 012-345 6789"
-                                    value={suggestedPhone}
-                                    onChange={(e) => setSuggestedPhone(e.target.value)}
-                                    maxLength={30}
-                                />
-
-                                <label className="report-contact-label">Website</label>
-                                <input
-                                    type="url"
-                                    className="vote-manual-input"
-                                    placeholder="https://…"
-                                    value={suggestedWebsite}
-                                    onChange={(e) => setSuggestedWebsite(e.target.value)}
-                                    maxLength={255}
-                                />
-                            </div>
-
-                            {message && <div className={`vote-message ${messageType}`}>{message}</div>}
-
-                            <button className="vote-manual-back" onClick={() => setStep('reason')}>← Back to reason</button>
-
-                            <div className="vote-actions">
-                                <button className="vote-btn-primary" onClick={handleCorrectionsContinue}>
-                                    {wantLocationFix && !suggestedCoords ? 'Detect current location' : 'Continue'}
-                                </button>
-                                <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
-                            </div>
+                            <button className="vote-manual-back" onClick={() => setStep('reason')}>← Back</button>
+                            <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
                         </div>
                     )}
 
@@ -465,22 +274,19 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
                             <div className="report-summary">
                                 <span className="report-summary-label">Reason</span>
                                 <strong>{selectedReasonMeta?.label}</strong>
-                                {reason === 'inappropriate_content' && (
-                                    <div className="report-summary-desc">
-                                        {suggestedCoords && <p>Location → {suggestedCoords.latitude.toFixed(5)}, {suggestedCoords.longitude.toFixed(5)}</p>}
-                                        {descriptionChanged() && <p>Description → updated</p>}
-                                        {suggestedHours && <p>Hours → {suggestedHours}</p>}
-                                        {suggestedPhone && <p>Phone → {suggestedPhone}</p>}
-                                        {suggestedWebsite && <p>Website → {suggestedWebsite}</p>}
-                                    </div>
-                                )}
                             </div>
 
                             <div className="vote-form-group">
-                                <label>Details (optional)</label>
+                                <label>
+                                    {reason === 'incorrect_contact_info'
+                                        ? 'What is wrong, and what should it be?'
+                                        : 'Details (optional)'}
+                                </label>
                                 <textarea
                                     className="vote-textarea"
-                                    placeholder="Add any context that would help others verify this..."
+                                    placeholder={reason === 'incorrect_contact_info'
+                                        ? 'e.g. The phone number is disconnected; the correct one is 012-345 6789.'
+                                        : 'Add any context that would help others verify this...'}
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     maxLength={1000}
@@ -510,12 +316,7 @@ function ReportModal({ locationId, isOpen, onClose, onReportSuccess }) {
 
                             {message && <div className={`vote-message ${messageType}`}>{message}</div>}
 
-                            <button
-                                className="vote-manual-back"
-                                onClick={() => setStep(reason === 'inappropriate_content' ? 'corrections' : 'reason')}
-                            >
-                                ← {reason === 'inappropriate_content' ? 'Change the corrections' : 'Change reason'}
-                            </button>
+                            <button className="vote-manual-back" onClick={() => setStep('reason')}>← Change reason</button>
 
                             <div className="vote-actions">
                                 <button className="vote-btn-primary report-btn-primary" onClick={handleSubmit} disabled={loading}>

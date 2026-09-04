@@ -71,6 +71,9 @@ class VerifyHiddenGemSubmission implements ShouldQueue
 
     private const VALID_DUPLICATE_STATUSES = ['NO_DUPLICATE', 'POSSIBLE_DUPLICATE', 'CONFIRMED_DUPLICATE'];
 
+    /** Description / photo content check. UNSAFE rejects the submission. */
+    private const VALID_SAFETY_LEVELS = ['CLEAR', 'BORDERLINE', 'UNSAFE'];
+
     /**
      * Gemini frequently returns 503 ("currently experiencing high demand") or
      * 429 (rate limit) under normal load — these are transient, not a sign
@@ -259,15 +262,26 @@ class VerifyHiddenGemSubmission implements ShouldQueue
             (float) $location->longitude
         );
 
+        $safetyLevel = strtoupper((string) ($parsed['content_safety']['level'] ?? 'CLEAR'));
+        $safetyLevel = in_array($safetyLevel, self::VALID_SAFETY_LEVELS, true) ? $safetyLevel : 'CLEAR';
+        $contentUnsafe = $safetyLevel === 'UNSAFE';
+        $safetyScore = isset($parsed['content_safety']['score'])
+            ? $this->clampScore($parsed['content_safety']['score'])
+            : ($safetyLevel === 'UNSAFE' ? 0 : ($safetyLevel === 'BORDERLINE' ? 50 : 100));
+
         $status = match (true) {
+            $contentUnsafe => 'ai_rejected',
             ! $inMalaysia => 'ai_rejected',
             $weighted >= self::PASS_SCORE => 'pending_community_vote',
             default => 'ai_rejected',
         };
 
-        $reason = $status === 'ai_rejected' && ! $inMalaysia
-            ? 'This submission does not appear to be located in Malaysia.'
-            : ($parsed['reason'] ?? '');
+        $reason = match (true) {
+            $contentUnsafe => 'The description or photos contain content that does not meet HiddenMY\'s community standards.'
+                . ($parsed['content_safety']['reason'] ? ' ' . $parsed['content_safety']['reason'] : ''),
+            $status === 'ai_rejected' && ! $inMalaysia => 'This submission does not appear to be located in Malaysia.',
+            default => ($parsed['reason'] ?? ''),
+        };
 
         // A possible (unconfirmed) duplicate from the PHP check is stored for
         // reference but never forces a status on its own — only Gemini's own
@@ -301,6 +315,8 @@ class VerifyHiddenGemSubmission implements ShouldQueue
             'tourism_value_level' => $parsed['tourism_value']['level'],
             'evidence_score' => $evidence,
             'evidence_level' => $parsed['evidence']['level'],
+            'content_safety_score' => $safetyScore,
+            'content_safety_level' => $safetyLevel,
             'duplicate_status' => $duplicateStatus,
             'duplicate_of_location_id' => $duplicate['location']?->id,
             'ai_review_reason' => Str::limit($reason, 500),
@@ -422,6 +438,13 @@ class VerifyHiddenGemSubmission implements ShouldQueue
           VERY_LOW/LOW/MODERATE/HIGH/VERY_HIGH scale as google_visibility.
         - evidence: quality of the supporting evidence itself (photos, GPS, address specificity,
           description detail) — STRONG/MODERATE/WEAK/INSUFFICIENT.
+        - content_safety: whether the DESCRIPTION TEXT and PHOTOS contain hate speech,
+          harassment, sexual/explicit material, or gratuitously graphic violence.
+          CLEAR = nothing objectionable. BORDERLINE = crude or edgy but not abusive.
+          UNSAFE = clearly hateful, harassing, or explicit. Judge the *content*, not the
+          *subject*: a war memorial, a heritage execution site, or a bar named "Bloody
+          Mary's" is CLEAR — the topic is dark but the writing and imagery are fine. Only
+          mark UNSAFE for content that is itself abusive or explicit.
         - duplicate: your own read on whether this looks like a duplicate of another submission,
           informed by the duplicate-check context you're given (which is authoritative — you're
           only asked to corroborate or note disagreement, not overrule it).
@@ -431,6 +454,9 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         Score each of google_visibility, legitimacy, tourism_value, and evidence from 0-100.
         Never reject or downscore solely because Google can't find the place — hiddenness is
         graded on its own axis, not treated as a red flag.
+
+        content_safety is a gate, not a weighted score: if you mark it UNSAFE the submission
+        is rejected regardless of every other axis.
 
         Respond only with the requested JSON.
         PROMPT;
@@ -488,12 +514,21 @@ class VerifyHiddenGemSubmission implements ShouldQueue
                     ],
                     'required' => ['status'],
                 ],
+                'content_safety' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'level' => ['type' => 'string', 'enum' => self::VALID_SAFETY_LEVELS],
+                        'score' => ['type' => 'integer'],
+                        'reason' => ['type' => 'string'],
+                    ],
+                    'required' => ['level', 'reason'],
+                ],
                 'is_hidden_gem' => ['type' => 'boolean'],
                 'reason' => ['type' => 'string'],
                 'missing_evidence' => ['type' => 'array', 'items' => ['type' => 'string']],
                 'recommendation' => ['type' => 'string'],
             ],
-            'required' => ['in_malaysia', 'google_visibility', 'legitimacy', 'tourism_value', 'evidence', 'duplicate', 'reason'],
+            'required' => ['in_malaysia', 'google_visibility', 'legitimacy', 'tourism_value', 'evidence', 'content_safety', 'duplicate', 'reason'],
         ];
     }
 
@@ -573,6 +608,15 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         }
 
         $parsed['in_malaysia'] = (bool) $parsed['in_malaysia'];
+
+        // content_safety degrades gracefully — an omitted or unrecognised value
+        // is treated as CLEAR rather than voiding the whole response.
+        $safety = strtoupper((string) ($parsed['content_safety']['level'] ?? 'CLEAR'));
+        $parsed['content_safety'] = [
+            'level' => in_array($safety, self::VALID_SAFETY_LEVELS, true) ? $safety : 'CLEAR',
+            'score' => $parsed['content_safety']['score'] ?? null,
+            'reason' => $parsed['content_safety']['reason'] ?? '',
+        ];
 
         $visibilityLevel = strtoupper((string) ($parsed['google_visibility']['level'] ?? ''));
         if (! in_array($visibilityLevel, self::VALID_VISIBILITY_LEVELS, true)) {
