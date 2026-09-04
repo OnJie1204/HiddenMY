@@ -46,6 +46,7 @@ export default function TripStopsEditor({ stops, setStops, itineraries = [] }) {
                           kind: "gem",
                           location_id: row.location.id,
                           name: row.location.place_name,
+                          gem_status: row.location.status,
                           caption: "",
                           source_itinerary_id: Number(id),
                       }
@@ -77,7 +78,7 @@ export default function TripStopsEditor({ stops, setStops, itineraries = [] }) {
     function addFromSearch(item) {
         const stop =
             item.source === "database"
-                ? { kind: "gem", location_id: item.id, name: item.name, caption: "" }
+                ? { kind: "gem", location_id: item.id, name: item.name, gem_status: item.status, caption: "" }
                 : {
                       kind: "osm",
                       osm_id: item.osm_id ?? null,
@@ -146,7 +147,13 @@ export default function TripStopsEditor({ stops, setStops, itineraries = [] }) {
                                 <div className="trip-stops-editor-head">
                                     <span className="trip-stops-editor-name">{stop.name}</span>
                                     <span className="trip-stops-editor-kind">
-                                        {stop.kind === "gem" ? "Hidden gem" : "Place"}
+                                        {stop.kind !== "gem"
+                                            ? "Place"
+                                            : stop.gem_status === "pending_community_vote"
+                                                ? "In community voting"
+                                                : stop.gem_status === "well_known"
+                                                    ? "Well-known place"
+                                                    : "Hidden gem"}
                                     </span>
                                     {stop.source_itinerary_id && (
                                         <span className="trip-stops-editor-kind">from a trip</span>

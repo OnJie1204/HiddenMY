@@ -60,7 +60,7 @@ export default function HiddenGemDetail({ user }) {
     const [voteSuccess, setVoteSuccess] = useState(false);
     const [voteMessage, setVoteMessage] = useState("");
     const [selectedPhoto, setSelectedPhoto] = useState(null);
-    const [currentUser, setCurrentUser] = useState(null);
+    const [currentUser, setCurrentUser] = useState(user ?? null);
     const [wishlistIds, setWishlistIds] = useState(() => new Set());
     const [wishlistBusy, setWishlistBusy] = useState(false);
     const [wishlistError, setWishlistError] = useState("");
@@ -72,6 +72,7 @@ export default function HiddenGemDetail({ user }) {
     const [contactEdit, setContactEdit] = useState(null);
     const [contactEditSaving, setContactEditSaving] = useState(false);
     const [contactEditMessage, setContactEditMessage] = useState("");
+    const [confirmingContactSave, setConfirmingContactSave] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
     const [signInMessage, setSignInMessage] = useState("");
     const [itineraries, setItineraries] = useState([]);
@@ -286,7 +287,11 @@ export default function HiddenGemDetail({ user }) {
     useEffect(() => {
         getMe()
             .then((response) => setCurrentUser(response.data))
-            .catch(() => setCurrentUser(null));
+            .catch((err) => {
+                // Keep whatever App already knows on a transient failure; only a
+                // real 401 means the viewer is genuinely signed out.
+                if (err?.response?.status === 401) setCurrentUser(null);
+            });
     }, []);
 
     useEffect(() => {
@@ -429,6 +434,7 @@ export default function HiddenGemDetail({ user }) {
 
     const handleSaveContactEdit = async () => {
         if (!contactEdit) return;
+        setConfirmingContactSave(false);
         setContactEditSaving(true);
         setContactEditMessage("");
         try {
@@ -882,7 +888,7 @@ export default function HiddenGemDetail({ user }) {
                     </div>
                 )}
 
-                {gem.edit_mode === "verified" && contactEdit && Number(gem.user_id) === Number(currentUser?.id) && (
+                {activeTab === "details" && gem.edit_mode === "verified" && contactEdit && Number(gem.user_id) === Number(currentUser?.id) && (
                     <div className="report-owner-banner">
                         <h3>✎ Update your contact info</h3>
                         <p>
@@ -915,11 +921,35 @@ export default function HiddenGemDetail({ user }) {
                             />
                         </div>
                         <div className="report-owner-actions">
-                            <button className="vote-btn-primary" onClick={handleSaveContactEdit} disabled={contactEditSaving}>
+                            <button
+                                className="vote-btn-primary"
+                                onClick={() => setConfirmingContactSave(true)}
+                                disabled={contactEditSaving}
+                            >
                                 {contactEditSaving ? "Saving…" : "Save contact info"}
                             </button>
                         </div>
                         {contactEditMessage && <p className="vote-message success">{contactEditMessage}</p>}
+
+                        {confirmingContactSave && (
+                            <div className="delete-modal-overlay" onClick={() => setConfirmingContactSave(false)}>
+                                <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
+                                    <h2>Update contact info?</h2>
+                                    <p>
+                                        These new opening hours, phone and website will show on your
+                                        place immediately and any "may be out of date" warning is cleared.
+                                    </p>
+                                    <div className="delete-modal-actions">
+                                        <button className="delete-modal-cancel" onClick={() => setConfirmingContactSave(false)}>
+                                            Cancel
+                                        </button>
+                                        <button className="delete-modal-confirm" onClick={handleSaveContactEdit}>
+                                            Save changes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -986,6 +1016,15 @@ export default function HiddenGemDetail({ user }) {
                                         </div>
                                     )}
                                 </div>
+                                {gem.contact_updated_at && (
+                                    <p className="gem-detail-contact-updated">
+                                        Contact info updated{" "}
+                                        {new Date(gem.contact_updated_at).toLocaleString("en-GB", {
+                                            day: "numeric", month: "short", year: "numeric",
+                                            hour: "2-digit", minute: "2-digit",
+                                        })}
+                                    </p>
+                                )}
                             </div>
                         )}
 

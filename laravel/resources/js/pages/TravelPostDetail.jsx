@@ -17,7 +17,7 @@ export default function TravelPostDetail({ user }) {
     const [post, setPost] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [currentUserId, setCurrentUserId] = useState(null);
+    const [currentUserId, setCurrentUserId] = useState(user?.id ?? null);
     const [deleting, setDeleting] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
@@ -26,7 +26,11 @@ export default function TravelPostDetail({ user }) {
     const [copyResult, setCopyResult] = useState(null);
 
     useEffect(() => {
-        getMe().then((res) => setCurrentUserId(res.data.id)).catch(() => {});
+        getMe()
+            .then((res) => setCurrentUserId(res.data.id))
+            .catch((err) => {
+                if (err?.response?.status === 401) setCurrentUserId(null);
+            });
     }, []);
 
     useEffect(() => {
@@ -212,7 +216,7 @@ export default function TravelPostDetail({ user }) {
                             } else if (gem?.status === "well_known") {
                                 kindLabel = "Well-known place";
                             } else if (gem?.status === "pending_community_vote") {
-                                kindLabel = "Hidden gem · awaiting votes";
+                                kindLabel = "In community voting";
                             }
 
                             return (

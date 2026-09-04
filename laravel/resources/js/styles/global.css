@@ -3016,6 +3016,36 @@ img.avatar {
     text-decoration: underline;
 }
 
+.trip-detail-location-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.trip-detail-location-main .trip-detail-location-name {
+    flex: 0 1 auto;
+}
+
+.trip-detail-stop-badge {
+    flex: none;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}
+
+.trip-detail-stop-badge-voting { background: #fef3c7; color: #92400e; }
+.trip-detail-stop-badge-known  { background: #fde68a; color: #78350f; }
+.trip-detail-stop-badge-gem    { background: #dcfce7; color: #166534; }
+.trip-detail-stop-badge-closed { background: #fee2e2; color: #b91c1c; }
+
 .trip-detail-delete-stop-btn {
     width: 38px;
     height: 38px;
@@ -10917,6 +10947,12 @@ img.avatar {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.gem-detail-contact-updated {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--color-text-muted, #6b7280);
 }
 
 .gem-detail-contact-row {

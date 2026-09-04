@@ -56,6 +56,12 @@ function Profile({ setAppUser }) {
         setEmail(userRes.data.email);
         setHasPassword(userRes.data.has_password);
         setFavouriteAchievements(favouritesRes.data.data || []);
+      }).catch((err) => {
+        // A transient failure shouldn't blank the page; only a 401 is a real
+        // sign-out (handled by the api 401 interceptor + App).
+        if (err?.response?.status !== 401) {
+          setError('Could not load your profile right now — please refresh.');
+        }
       }).finally(() => setLoading(false));
     } else {
       setLoading(true);

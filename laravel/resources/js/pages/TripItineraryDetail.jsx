@@ -94,9 +94,26 @@ const toDisplayLocation = (location) => ({
     // The underlying Hidden Gem (Location) id, so a hidden-gem stop can link
     // straight to its detail page. Null for OpenStreetMap stops.
     gemId: location.isHidden ? location.location?.id ?? null : null,
+    // Live status of the underlying gem, so the stop can show a badge when it's
+    // still in voting, well-known, or has since been permanently closed.
+    gemStatus: location.isHidden ? location.location?.status ?? null : null,
+    gemClosedAt: location.isHidden ? location.location?.permanently_closed_at ?? null : null,
     latitude: location.isHidden ? location.location?.latitude : location.latitude,
     longitude: location.isHidden ? location.location?.longitude : location.longitude,
 });
+
+// One short badge for a stop's underlying gem, or null.
+export const stopGemBadge = (stop) => {
+    if (!stop || stop.type !== "hidden") return null;
+    if (stop.gemClosedAt) return { label: "Permanently closed", tone: "closed" };
+    if (stop.gemStatus === "pending_community_vote") return { label: "In community voting", tone: "voting" };
+    if (stop.gemStatus === "well_known") return { label: "Well-known place", tone: "known" };
+    if (stop.gemStatus === "hidden_gem") return { label: "Hidden gem", tone: "gem" };
+    if (stop.gemStatus === "deleted" || (stop.gemId == null && stop.gemStatus == null)) {
+        return { label: "No longer listed", tone: "closed" };
+    }
+    return null;
+};
 
 function MapViewController({ target }) {
     const map = useMap();
@@ -217,16 +234,26 @@ function SortableLocationCard({
 
             </div>
 
-            <button
-                type="button"
-                className="trip-detail-location-name"
-                onClick={() => onOpen(location)}
-                title={location.type === "hidden"
-                    ? "View hidden gem details"
-                    : "Search for this location on Google"}
-            >
-                {index + 1}. {location.name}
-            </button>
+            <div className="trip-detail-location-main">
+                <button
+                    type="button"
+                    className="trip-detail-location-name"
+                    onClick={() => onOpen(location)}
+                    title={location.type === "hidden"
+                        ? "View hidden gem details"
+                        : "Search for this location on Google"}
+                >
+                    {index + 1}. {location.name}
+                </button>
+                {(() => {
+                    const badge = stopGemBadge(location);
+                    return badge ? (
+                        <span className={`trip-detail-stop-badge trip-detail-stop-badge-${badge.tone}`}>
+                            {badge.label}
+                        </span>
+                    ) : null;
+                })()}
+            </div>
 
             <button
 
