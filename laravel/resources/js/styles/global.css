@@ -1991,6 +1991,13 @@ img.avatar {
     color: var(--color-text);
 }
 
+.trip-itinerary-stop-count {
+    margin: 4px 0 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+}
+
 .modal-overlay {
     position: fixed;
     inset: 0;

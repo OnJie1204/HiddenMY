@@ -3,9 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import {
     getTripItineraries,
-    createTripItinerary,
-    updateTripItinerary,
-    deleteTripItinerary
+    createTripItinerary
 } from "../api/TripItinerary";
 
 import "../styles/global.css";
@@ -55,8 +53,6 @@ export default function TripItinerary() {
     };
 
     const [tripItineraries, setTripItineraries] = useState([]);
-    const [editingId, setEditingId] = useState(null);
-    const [editingName, setEditingName] = useState("");
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [isLoadingItineraries, setIsLoadingItineraries] = useState(true);
     const navigate = useNavigate();
@@ -114,40 +110,12 @@ export default function TripItinerary() {
 
     };
 
-    const handleUpdate = (id) => {
-
-        updateTripItinerary(id, {
-            name: editingName
-        })
-            .then(() => {
-                setEditingId(null);
-                loadTripItineraries();
-            });
-
-    };
-
     const closeCreateModal = () => {
         if (isCreating) return;
 
         setShowCreateModal(false);
         setTripName("");
         setNameError("");
-    };
-
-    const handleDelete = (id) => {
-
-        if (!window.confirm("Delete this itinerary?"))
-            return;
-
-        deleteTripItinerary(id)
-            .then(() => {
-
-                setTripItineraries(prev =>
-                    prev.filter(trip => trip.id !== id)
-                );
-
-            });
-
     };
 
     return (
@@ -210,6 +178,10 @@ export default function TripItinerary() {
                             <h2>
                                 {trip.trip_name}
                             </h2>
+
+                            <p className="trip-itinerary-stop-count">
+                                {trip.locations_count ?? 0} Stops
+                            </p>
 
                             <div className="trip-itinerary-card-dates">
 
