@@ -123,7 +123,7 @@ export default function HiddenGemDetail({ user }) {
 
     // ==================== Comment Filter ====================
     const [ratingFilter, setRatingFilter] = useState(0);
-    const [filterType, setFilterType] = useState('all');
+    const [filterType, setFilterType] = useState("all");
 
     const fetchDetail = async () => {
         try {
@@ -181,11 +181,11 @@ export default function HiddenGemDetail({ user }) {
         setSubmittingComment(true);
         try {
             const formData = new FormData();
-            formData.append('type', 'comment');
-            formData.append('comment', newComment.trim() || '');
-            formData.append('rating', newRating);
+            formData.append("type", "comment");
+            formData.append("comment", newComment.trim() || "");
+            formData.append("rating", newRating);
             if (commentPhoto) {
-                formData.append('photo', commentPhoto);
+                formData.append("photo", commentPhoto);
             }
 
             await api.post(`/gem-interactions/${id}`, formData);
@@ -195,16 +195,16 @@ export default function HiddenGemDetail({ user }) {
             setCommentPhotoPreview(null);
             await fetchInteractions();
         } catch (err) {
-                console.error("Error submitting comment:", err);
-                console.error("STATUS:", err.response?.status);
-                console.error("DATA:", err.response?.data);
+            console.error("Error submitting comment:", err);
+            console.error("STATUS:", err.response?.status);
+            console.error("DATA:", err.response?.data);
 
-                setCommentActionMessage(
-                    err.response?.data?.message ||
-                    JSON.stringify(err.response?.data?.errors) ||
-                    "Failed to post rating."
-                );
-            } finally {
+            setCommentActionMessage(
+                err.response?.data?.message ||
+                JSON.stringify(err.response?.data?.errors) ||
+                "Failed to post rating."
+            );
+        } finally {
             setSubmittingComment(false);
         }
     };
@@ -237,16 +237,16 @@ export default function HiddenGemDetail({ user }) {
 
         try {
             const formData = new FormData();
-            formData.append('_method', 'PUT');
-            formData.append('comment', editCommentText.trim() || '');
-            formData.append('rating', String(editRating));
+            formData.append("_method", "PUT");
+            formData.append("comment", editCommentText.trim() || "");
+            formData.append("rating", String(editRating));
 
             if (editCommentPhoto) {
-                formData.append('photo', editCommentPhoto);
+                formData.append("photo", editCommentPhoto);
             }
 
             if (removeExistingCommentPhoto) {
-                formData.append('remove_photo', '1');
+                formData.append("remove_photo", "1");
             }
 
             await api.post(`/gem-interactions/comments/${commentId}`, formData);
@@ -272,7 +272,6 @@ export default function HiddenGemDetail({ user }) {
         }
     };
 
-
     useEffect(() => {
         fetchDetail();
         fetchInteractions();
@@ -289,11 +288,12 @@ export default function HiddenGemDetail({ user }) {
     }, []);
 
     const [wishlistLoaded, setWishlistLoaded] = useState(false);
+
     useEffect(() => {
         if (!currentUser) return;
         getWishlist()
-            .then(res => setWishlistIds(new Set((res.data.data || []).map(g => g.id))))
-            .catch(err => console.error("Error fetching wishlist:", err))
+            .then((res) => setWishlistIds(new Set((res.data.data || []).map((g) => g.id))))
+            .catch((err) => console.error("Error fetching wishlist:", err))
             .finally(() => setWishlistLoaded(true));
     }, [currentUser]);
 
@@ -303,10 +303,12 @@ export default function HiddenGemDetail({ user }) {
     // warning here (gem.contact_flagged) that clears on the next save.
     useEffect(() => {
         const isOwner = gem && currentUser && Number(gem.user_id) === Number(currentUser.id);
+
         if (!isOwner || gem.edit_mode !== "verified") {
             setContactEdit(null);
             return;
         }
+
         setContactEdit({
             opening_hours: gem.opening_hours ?? "",
             phone: gem.phone ?? "",
@@ -320,6 +322,7 @@ export default function HiddenGemDetail({ user }) {
             setItineraries([]);
             return;
         }
+
         setIsLoadingItineraries(true);
         getTripItineraries()
             .then((res) => setItineraries(res.data || []))
@@ -335,10 +338,22 @@ export default function HiddenGemDetail({ user }) {
     }, [id]);
 
     async function handleAddToItinerary(trip) {
-        setItineraryStatus({ type: "loading", message: `Adding to "${trip.trip_name}"…` });
+        setItineraryStatus({
+            type: "loading",
+            message: `Adding to "${trip.trip_name}"…`,
+        });
+
         try {
-            await addTripLocation(trip.id, { source: "database", location_id: gem.id });
-            setItineraryStatus({ type: "success", message: `Added to "${trip.trip_name}".` });
+            await addTripLocation(trip.id, {
+                source: "database",
+                location_id: gem.id,
+            });
+
+            setItineraryStatus({
+                type: "success",
+                message: `Added to "${trip.trip_name}".`,
+            });
+
             setItineraryOpen(false);
             setShowItineraryForm(false);
             setNewItineraryName("");
@@ -355,7 +370,11 @@ export default function HiddenGemDetail({ user }) {
         if (!name || creatingItinerary) return;
 
         setCreatingItinerary(true);
-        setItineraryStatus({ type: "loading", message: `Creating "${name}"…` });
+        setItineraryStatus({
+            type: "loading",
+            message: `Creating "${name}"…`,
+        });
+
         try {
             const res = await createTripItinerary({ trip_name: name });
             const newTrip = res.data?.data;
@@ -373,29 +392,35 @@ export default function HiddenGemDetail({ user }) {
 
     useEffect(() => {
         if (
-            activeTab === "votes"
-            && gem
-            && routeLocation.state?.voteId
+            activeTab === "votes" &&
+            gem &&
+            routeLocation.state?.voteId
         ) {
             const voteElement = document.getElementById(
                 `vote-${routeLocation.state.voteId}`
             );
 
-            voteElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+            voteElement?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+            });
         }
     }, [activeTab, gem, routeLocation.state]);
 
     useEffect(() => {
         if (
-            activeTab === "comments"
-            && interactions.comments.length > 0
-            && routeLocation.state?.interactionId
+            activeTab === "comments" &&
+            interactions.comments.length > 0 &&
+            routeLocation.state?.interactionId
         ) {
             const interactionElement = document.getElementById(
                 `interaction-${routeLocation.state.interactionId}`
             );
 
-            interactionElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+            interactionElement?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+            });
         }
     }, [activeTab, interactions.comments, routeLocation.state]);
 
@@ -410,6 +435,7 @@ export default function HiddenGemDetail({ user }) {
 
     const handleToggleWishlist = async () => {
         if (!gem || wishlistBusy) return;
+
         if (!currentUser) {
             requireAuth({ reason: "wishlist", gemId: gem.id });
             return;
@@ -418,22 +444,28 @@ export default function HiddenGemDetail({ user }) {
         const isWishlisted = wishlistIds.has(gem.id);
         setWishlistBusy(true);
         setWishlistError("");
+
         try {
             if (isWishlisted) {
                 await removeFromWishlist(gem.id);
-                setWishlistIds(prev => {
+
+                setWishlistIds((prev) => {
                     const next = new Set(prev);
                     next.delete(gem.id);
                     return next;
                 });
+
                 setWishlistToast("Removed from wishlist");
             } else {
                 await addToWishlist(gem.id);
-                setWishlistIds(prev => new Set(prev).add(gem.id));
+
+                setWishlistIds((prev) => new Set(prev).add(gem.id));
                 setWishlistToast("Added to wishlist");
             }
         } catch (err) {
-            setWishlistError(err.response?.data?.message || "Could not update your wishlist.");
+            setWishlistError(
+                err.response?.data?.message || "Could not update your wishlist."
+            );
         } finally {
             setWishlistBusy(false);
         }
@@ -441,9 +473,11 @@ export default function HiddenGemDetail({ user }) {
 
     const handleSaveContactEdit = async () => {
         if (!contactEdit) return;
+
         setConfirmingContactSave(false);
         setContactEditSaving(true);
         setContactEditMessage("");
+
         try {
             await updateHiddenGem(gem.id, {
                 edit_type: "contact",
@@ -451,10 +485,13 @@ export default function HiddenGemDetail({ user }) {
                 phone: contactEdit.phone || "",
                 website: contactEdit.website || "",
             });
+
             await fetchDetail();
             setContactEditMessage("Contact information updated.");
         } catch (err) {
-            setContactEditMessage(err.response?.data?.message || "Could not update the contact info.");
+            setContactEditMessage(
+                err.response?.data?.message || "Could not update the contact info."
+            );
         } finally {
             setContactEditSaving(false);
         }
@@ -468,7 +505,9 @@ export default function HiddenGemDetail({ user }) {
             requireAuth({ reason: "verifyReport", gemId: gem.id });
             return;
         }
+
         setLoadingReport(true);
+
         try {
             const res = await getReportForLocation(gem.id);
             setActiveReport(res.data.data);
@@ -498,9 +537,14 @@ export default function HiddenGemDetail({ user }) {
         verify: () => handleHelpVerify(),
         comment: () => {
             setActiveTab("comments");
+
             setTimeout(() => {
-                document.getElementById("gem-detail-comment-form")
-                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                document
+                    .getElementById("gem-detail-comment-form")
+                    ?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                    });
             }, 200);
         },
     }, !!gem && !!currentUser && wishlistLoaded);
@@ -516,7 +560,9 @@ export default function HiddenGemDetail({ user }) {
         } catch (err) {
             console.error("Error fetching travel posts for gem:", err);
             setStoryPosts([]);
-            setStoriesError(err.response?.data?.message || "Failed to load community stories.");
+            setStoriesError(
+                err.response?.data?.message || "Failed to load community stories."
+            );
         } finally {
             setStoriesLoading(false);
         }
@@ -544,8 +590,11 @@ export default function HiddenGemDetail({ user }) {
 
     const handleVoteSuccess = (data) => {
         setVoteSuccess(true);
-        setVoteMessage(data.message);
+        setVoteMessage(
+            data?.message || "Your vote has been recorded successfully."
+        );
         fetchDetail();
+
         setTimeout(() => {
             setVoteSuccess(false);
             setVoteMessage("");
@@ -556,18 +605,37 @@ export default function HiddenGemDetail({ user }) {
     const StarRating = ({ value, onChange, size = "small" }) => {
         const [hoverRating, setHoverRating] = useState(0);
         const isInteractive = typeof onChange === "function";
-        const displayedRating = isInteractive && hoverRating ? hoverRating : value;
+        const displayedRating =
+            isInteractive && hoverRating ? hoverRating : value;
 
         return (
-            <div className={`star-rating ${size} ${isInteractive ? "interactive" : "readonly"}`}>
+            <div
+                className={`star-rating ${size} ${
+                    isInteractive ? "interactive" : "readonly"
+                }`}
+            >
                 {[1, 2, 3, 4, 5].map((star) => (
                     <span
                         key={star}
-                        className={`star ${star <= displayedRating ? "filled" : ""}`}
-                        onClick={isInteractive ? () => onChange(star) : undefined}
-                        onMouseEnter={isInteractive ? () => setHoverRating(star) : undefined}
-                        onMouseLeave={isInteractive ? () => setHoverRating(0) : undefined}
-                        style={{ pointerEvents: isInteractive ? "auto" : "none" }}
+                        className={`star ${
+                            star <= displayedRating ? "filled" : ""
+                        }`}
+                        onClick={
+                            isInteractive ? () => onChange(star) : undefined
+                        }
+                        onMouseEnter={
+                            isInteractive
+                                ? () => setHoverRating(star)
+                                : undefined
+                        }
+                        onMouseLeave={
+                            isInteractive
+                                ? () => setHoverRating(0)
+                                : undefined
+                        }
+                        style={{
+                            pointerEvents: isInteractive ? "auto" : "none",
+                        }}
                     >
                         ★
                     </span>
@@ -578,31 +646,50 @@ export default function HiddenGemDetail({ user }) {
 
     // ==================== Count Ratings ====================
     const ratingCounts = {
-        5: interactions.comments?.filter(c => c.rating === 5).length || 0,
-        4: interactions.comments?.filter(c => c.rating === 4).length || 0,
-        3: interactions.comments?.filter(c => c.rating === 3).length || 0,
-        2: interactions.comments?.filter(c => c.rating === 2).length || 0,
-        1: interactions.comments?.filter(c => c.rating === 1).length || 0,
+        5: interactions.comments?.filter((c) => c.rating === 5).length || 0,
+        4: interactions.comments?.filter((c) => c.rating === 4).length || 0,
+        3: interactions.comments?.filter((c) => c.rating === 3).length || 0,
+        2: interactions.comments?.filter((c) => c.rating === 2).length || 0,
+        1: interactions.comments?.filter((c) => c.rating === 1).length || 0,
     };
 
     const totalRatings = interactions.comments?.length || 0;
 
-    const averageRating = totalRatings > 0
-        ? (interactions.comments.reduce((sum, c) => sum + (c.rating || 0), 0) / totalRatings).toFixed(1)
-        : 0;
+    const averageRating =
+        totalRatings > 0
+            ? (
+                  interactions.comments.reduce(
+                      (sum, c) => sum + (c.rating || 0),
+                      0
+                  ) / totalRatings
+              ).toFixed(1)
+            : 0;
 
     // ==================== Filtered Comments ====================
-    const filteredComments = interactions.comments?.filter(comment => {
-        if (ratingFilter > 0 && comment.rating !== ratingFilter) return false;
-        if (filterType === 'with_comment' && !comment.comment) return false;
-        if (filterType === 'rating_only' && comment.comment) return false;
-        if (filterType === 'with_photo' && !comment.photo_path) return false;
-        return true;
-    }) || [];
+    const filteredComments =
+        interactions.comments?.filter((comment) => {
+            if (ratingFilter > 0 && comment.rating !== ratingFilter) {
+                return false;
+            }
+
+            if (filterType === "with_comment" && !comment.comment) {
+                return false;
+            }
+
+            if (filterType === "rating_only" && comment.comment) {
+                return false;
+            }
+
+            if (filterType === "with_photo" && !comment.photo_path) {
+                return false;
+            }
+
+            return true;
+        }) || [];
 
     // ==================== Has User Commented ====================
     const hasUserCommented = interactions.comments?.some(
-        comment => Number(comment.user_id) === Number(currentUser?.id)
+        (comment) => Number(comment.user_id) === Number(currentUser?.id)
     );
 
     const isGemOwner = Boolean(
@@ -624,6 +711,7 @@ export default function HiddenGemDetail({ user }) {
         return (
             <div className="gem-detail-error">
                 <p>{error || "Hidden gem not found."}</p>
+
                 <Link to="/hidden-gems" className="gem-detail-back-link">
                     ← Back to List
                 </Link>
@@ -632,22 +720,23 @@ export default function HiddenGemDetail({ user }) {
     }
 
     return (
-        <div className={`gem-detail-page${gem.permanently_closed_at ? " gem-detail-page-closed" : ""}`}>
-
-            {voteSuccess && (
-                <div className="gem-detail-vote-success">
-                    {voteMessage}
-                </div>
-            )}
-
+        <div
+            className={`gem-detail-page${
+                gem.permanently_closed_at
+                    ? " gem-detail-page-closed"
+                    : ""
+            }`}
+        >
             {wishlistToast && (
-                <div className="hidden-gem-snackbar hidden-gem-snackbar-success" role="status">
+                <div
+                    className="hidden-gem-snackbar hidden-gem-snackbar-success"
+                    role="status"
+                >
                     {wishlistToast}
                 </div>
             )}
 
             <div className="gem-detail-container">
-
                 <div className="gem-detail-gallery">
                     {galleryImages.length > 0 ? (
                         <PhotoCarousel
@@ -658,100 +747,160 @@ export default function HiddenGemDetail({ user }) {
                         />
                     ) : (
                         <div className="gem-detail-main-image">
-                            <div className="gem-detail-main-placeholder">No Image</div>
+                            <div className="gem-detail-main-placeholder">
+                                No Image
+                            </div>
                         </div>
                     )}
                 </div>
 
                 <div className="gem-detail-header">
                     <div className="gem-detail-title-row">
-                        <h1 className="gem-detail-title">{gem.place_name}</h1>
-                        {!isClosed && (gem.status === "hidden_gem" || gem.status === "well_known" || gem.status === "pending_community_vote") && (
-                            <div className="hidden-gems-card-icon-actions">
-                                {(gem.status === "hidden_gem" || gem.status === "well_known" || gem.status === "pending_community_vote") && (
-                                    <>
-                                        <button
-                                            type="button"
-                                            className={`gem-detail-wishlist-btn ${wishlistIds.has(gem.id) ? "active" : ""}`}
-                                            onClick={handleToggleWishlist}
-                                            disabled={wishlistBusy}
-                                            title={wishlistIds.has(gem.id) ? "Remove from wishlist" : "Save to wishlist"}
-                                        >
-                                            {wishlistIds.has(gem.id) ? "♥" : "♡"}
-                                        </button>
-                                    </>
-                                )}
-                                <div className="gem-detail-report-btn-wrapper">
-                                    <ReportButton gem={gem} user={currentUser} />
+                        <h1 className="gem-detail-title">
+                            {gem.place_name}
+                        </h1>
+
+                        {!isClosed &&
+                            (gem.status === "hidden_gem" ||
+                                gem.status === "well_known" ||
+                                gem.status === "pending_community_vote") && (
+                                <div className="hidden-gems-card-icon-actions">
+                                    {(gem.status === "hidden_gem" ||
+                                        gem.status === "well_known" ||
+                                        gem.status ===
+                                            "pending_community_vote") && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className={`gem-detail-wishlist-btn ${
+                                                    wishlistIds.has(gem.id)
+                                                        ? "active"
+                                                        : ""
+                                                }`}
+                                                onClick={handleToggleWishlist}
+                                                disabled={wishlistBusy}
+                                                title={
+                                                    wishlistIds.has(gem.id)
+                                                        ? "Remove from wishlist"
+                                                        : "Save to wishlist"
+                                                }
+                                            >
+                                                {wishlistIds.has(gem.id)
+                                                    ? "♥"
+                                                    : "♡"}
+                                            </button>
+                                        </>
+                                    )}
+
+                                    <div className="gem-detail-report-btn-wrapper">
+                                        <ReportButton
+                                            gem={gem}
+                                            user={currentUser}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+                    </div>
+
+                    {wishlistError && (
+                        <p className="gem-detail-wishlist-error">
+                            {wishlistError}
+                        </p>
+                    )}
+
+                    <div className="gem-detail-meta-row">
+                        <span className="gem-detail-category-tag">
+                            {gem.category?.name || "Uncategorized"}
+                        </span>
+
+                        <span className="gem-detail-location-tag">
+                            {gem.state || "Unknown"}
+                        </span>
+
+                        {gem.status === "pending_community_vote" && (
+                            <span className="gem-detail-status-pending">
+                                {gem.votes?.length || 0} of{" "}
+                                {gem.verification_threshold || 10} votes
+                            </span>
                         )}
                     </div>
-                    {wishlistError && <p className="gem-detail-wishlist-error">{wishlistError}</p>}
-                        <div className="gem-detail-meta-row">
-                            <span className="gem-detail-category-tag">
-                                {gem.category?.name || "Uncategorized"}
+
+                    <div className="gem-detail-status-row">
+                        {gem.status === "hidden_gem" ? (
+                            <span className="gem-detail-status-verified">
+                                Hidden Gem
                             </span>
-                            <span className="gem-detail-location-tag">
-                                {gem.state || "Unknown"}
+                        ) : gem.status === "well_known" ? (
+                            <span className="gem-detail-status-verified">
+                                Well-Known Place
                             </span>
-                            {gem.status === "pending_community_vote" && (
-                                <span className="gem-detail-status-pending">
-                                    {gem.votes?.length || 0} of {gem.verification_threshold || 10} votes
-                                </span>
-                            )}
-                        </div>
-                        <div className="gem-detail-status-row">
-                            {gem.status === "hidden_gem" ? (
-                                <span className="gem-detail-status-verified">Hidden Gem</span>
-                            ) : gem.status === "well_known" ? (
-                                <span className="gem-detail-status-verified">Well-Known Place</span>
-                            ) : gem.status === "ai_rejected" ? (
-                                <span className="gem-detail-status-rejected" title={gem.ai_review_reason || ""}>
-                                    Not Accepted
-                                </span>
-                            ) : null}
-                            {gem.permanently_closed_at && (
-                                <span className="gem-detail-status-rejected" title="The community confirmed this place has closed for good">
-                                    Permanently closed
-                                </span>
-                            )}
-                        </div>
+                        ) : gem.status === "ai_rejected" ? (
+                            <span
+                                className="gem-detail-status-rejected"
+                                title={gem.ai_review_reason || ""}
+                            >
+                                Not Accepted
+                            </span>
+                        ) : null}
 
-                        {canAddToItinerary && (
-                            <div className="gem-detail-itinerary">
-                                <button
-                                    type="button"
-                                    className="gem-detail-itinerary-btn"
-                                    onClick={() => {
-                                        if (!currentUser) {
-                                            requireAuth({ reason: "itinerary", gemId: gem.id });
-                                            return;
-                                        }
-                                        setItineraryStatus(null);
-                                        setShowItineraryForm(false);
-                                        setNewItineraryName("");
-                                        setItineraryOpen((open) => !open);
-                                    }}
-                                >
-                                    ＋ Add to itinerary
-                                </button>
+                        {gem.permanently_closed_at && (
+                            <span
+                                className="gem-detail-status-rejected"
+                                title="The community confirmed this place has closed for good"
+                            >
+                                Permanently closed
+                            </span>
+                        )}
+                    </div>
 
-                                {itineraryOpen && currentUser && (
-                                    <div className="gem-detail-itinerary-picker">
-                                        {isLoadingItineraries && (
-                                            <Spinner size="sm" inline label="Loading itineraries…" />
-                                        )}
+                    {canAddToItinerary && (
+                        <div className="gem-detail-itinerary">
+                            <button
+                                type="button"
+                                className="gem-detail-itinerary-btn"
+                                onClick={() => {
+                                    if (!currentUser) {
+                                        requireAuth({
+                                            reason: "itinerary",
+                                            gemId: gem.id,
+                                        });
+                                        return;
+                                    }
 
-                                        {!isLoadingItineraries && itineraries.length > 0 && (
+                                    setItineraryStatus(null);
+                                    setShowItineraryForm(false);
+                                    setNewItineraryName("");
+                                    setItineraryOpen((open) => !open);
+                                }}
+                            >
+                                ＋ Add to itinerary
+                            </button>
+
+                            {itineraryOpen && currentUser && (
+                                <div className="gem-detail-itinerary-picker">
+                                    {isLoadingItineraries && (
+                                        <Spinner
+                                            size="sm"
+                                            inline
+                                            label="Loading itineraries…"
+                                        />
+                                    )}
+
+                                    {!isLoadingItineraries &&
+                                        itineraries.length > 0 && (
                                             <>
                                                 <h4>Add to which trip?</h4>
+
                                                 {itineraries.map((trip) => (
                                                     <button
                                                         key={trip.id}
                                                         type="button"
                                                         className="gem-detail-itinerary-option"
-                                                        onClick={() => handleAddToItinerary(trip)}
+                                                        onClick={() =>
+                                                            handleAddToItinerary(
+                                                                trip
+                                                            )
+                                                        }
                                                     >
                                                         {trip.trip_name}
                                                     </button>
@@ -759,7 +908,8 @@ export default function HiddenGemDetail({ user }) {
                                             </>
                                         )}
 
-                                        {!isLoadingItineraries && (showItineraryForm ? (
+                                    {!isLoadingItineraries &&
+                                        (showItineraryForm ? (
                                             <form
                                                 className="gem-detail-itinerary-create"
                                                 onSubmit={(event) => {
@@ -771,27 +921,44 @@ export default function HiddenGemDetail({ user }) {
                                                     type="text"
                                                     className="gem-detail-itinerary-create-input"
                                                     placeholder="New trip name"
-                                                    maxLength={ITINERARY_NAME_MAX}
+                                                    maxLength={
+                                                        ITINERARY_NAME_MAX
+                                                    }
                                                     value={newItineraryName}
-                                                    onChange={(event) => setNewItineraryName(event.target.value)}
+                                                    onChange={(event) =>
+                                                        setNewItineraryName(
+                                                            event.target.value
+                                                        )
+                                                    }
                                                     autoFocus
                                                 />
+
                                                 <div className="gem-detail-itinerary-create-actions">
                                                     <button
                                                         type="button"
                                                         className="gem-detail-itinerary-create-cancel"
                                                         onClick={() => {
-                                                            setShowItineraryForm(false);
-                                                            setNewItineraryName("");
+                                                            setShowItineraryForm(
+                                                                false
+                                                            );
+                                                            setNewItineraryName(
+                                                                ""
+                                                            );
                                                         }}
-                                                        disabled={creatingItinerary}
+                                                        disabled={
+                                                            creatingItinerary
+                                                        }
                                                     >
                                                         Cancel
                                                     </button>
+
                                                     <button
                                                         type="submit"
                                                         className="gem-detail-itinerary-create-submit"
-                                                        disabled={!newItineraryName.trim() || creatingItinerary}
+                                                        disabled={
+                                                            !newItineraryName.trim() ||
+                                                            creatingItinerary
+                                                        }
                                                     >
                                                         Create &amp; add
                                                     </button>
@@ -809,40 +976,52 @@ export default function HiddenGemDetail({ user }) {
                                                 ＋ New itinerary
                                             </button>
                                         ))}
-                                    </div>
-                                )}
+                                </div>
+                            )}
 
-                                {itineraryStatus && (
-                                    <p className={`gem-detail-itinerary-status ${itineraryStatus.type}`}>
-                                        {itineraryStatus.message}
-                                    </p>
-                                )}
-                            </div>
-                        )}
-
+                            {itineraryStatus && (
+                                <p
+                                    className={`gem-detail-itinerary-status ${itineraryStatus.type}`}
+                                >
+                                    {itineraryStatus.message}
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="gem-detail-tabs">
                     <button
-                        className={`gem-detail-tab ${activeTab === "details" ? "active" : ""}`}
+                        className={`gem-detail-tab ${
+                            activeTab === "details" ? "active" : ""
+                        }`}
                         onClick={() => setActiveTab("details")}
                     >
                         Details
                     </button>
+
                     <button
-                        className={`gem-detail-tab ${activeTab === "votes" ? "active" : ""}`}
+                        className={`gem-detail-tab ${
+                            activeTab === "votes" ? "active" : ""
+                        }`}
                         onClick={() => setActiveTab("votes")}
                     >
                         Votes ({gem.votes?.length || 0})
                     </button>
+
                     <button
-                        className={`gem-detail-tab ${activeTab === "stories" ? "active" : ""}`}
+                        className={`gem-detail-tab ${
+                            activeTab === "stories" ? "active" : ""
+                        }`}
                         onClick={showStories}
                     >
                         Community Stories ({storyPosts.length})
                     </button>
+
                     <button
-                        className={`gem-detail-tab ${activeTab === "comments" ? "active" : ""}`}
+                        className={`gem-detail-tab ${
+                            activeTab === "comments" ? "active" : ""
+                        }`}
                         onClick={() => setActiveTab("comments")}
                     >
                         Ratings ({totalRatings})
@@ -850,383 +1029,597 @@ export default function HiddenGemDetail({ user }) {
                 </div>
 
                 <div className="gem-detail-content">
-
-                {gem.report_status === "under_review" && Number(gem.user_id) !== Number(currentUser?.id) && (
-                    <div className="report-banner">
-                        <div className="report-banner-text">
-                            <strong>This gem has a report under review</strong>
-                            <p>Help the community confirm or dispute it — 5 votes either way settles it.</p>
-                        </div>
-                        <button
-                            type="button"
-                            className="report-banner-verify-btn"
-                            onClick={handleHelpVerify}
-                            disabled={loadingReport}
-                        >
-                            {loadingReport ? "Loading…" : "Help Verify"}
-                        </button>
-                    </div>
-                )}
-
-                {gem.report_status === "under_review" && Number(gem.user_id) === Number(currentUser?.id) && (
-                    <div className="report-owner-banner">
-                        <h3>⚠ Your gem has been reported</h3>
-                        <p>The community is voting to confirm or dispute it. You'll be able to act once it's resolved.</p>
-                    </div>
-                )}
-
-                {isClosed && (
-                    <div className="report-owner-banner">
-                        <h3>⚠ Marked permanently closed</h3>
-                        <p>
-                            The community confirmed this place has closed for good. It stays listed for
-                            reference but is greyed out, and check-ins, votes, ratings, comments and menu
-                            items are frozen.
-                        </p>
-                        {Number(gem.user_id) === Number(currentUser?.id) && (
-                            gem.status === "pending_community_vote" ? (
-                                <p className="report-owner-countdown">
-                                    If it has reopened, edit it from <Link to="/my-hidden-gems">My Hidden Gems</Link> —
-                                    that counts as a fresh submission and goes through AI review and community
-                                    voting again. You can also delete it there.
-                                </p>
-                            ) : (
-                                <p className="report-owner-countdown">
-                                    This gem was already verified, so it can no longer be edited or deleted —
-                                    the closed listing stays as a permanent record.
-                                </p>
-                            )
-                        )}
-                    </div>
-                )}
-
-                {gem.pending_edit && Number(gem.user_id) === Number(currentUser?.id) && (
-                    <div className="report-owner-banner">
-                        <h3>
-                            {gem.pending_edit.status === "pending_review"
-                                ? "⏳ Your changes are under review"
-                                : "✕ Your changes were not applied"}
-                        </h3>
-                        <p>
-                            {gem.pending_edit.status === "pending_review"
-                                ? "A quick AI check is running on your new description / photos. They'll appear here once approved."
-                                : (gem.pending_edit.ai_reason || "The AI review did not approve the change, so nothing was updated.")}
-                        </p>
-                    </div>
-                )}
-
-                {activeTab === "details" && gem.edit_mode === "verified" && contactEdit && Number(gem.user_id) === Number(currentUser?.id) && (
-                    <div className="report-owner-banner">
-                        <h3>✎ Update your contact info</h3>
-                        <p>
-                            {gem.contact_flagged
-                                ? "The community confirmed a report that the contact details are wrong. Correct the hours, phone and website below — saving clears the warning."
-                                : "Keep your place's hours, phone and website current. Changes here are instant and don't affect its status, votes or ratings."}
-                        </p>
-                        <div className="gem-detail-contact-edit">
-                            <label>Opening hours</label>
-                            <input
-                                type="text"
-                                value={contactEdit.opening_hours}
-                                onChange={(e) => setContactEdit((c) => ({ ...c, opening_hours: e.target.value }))}
-                                maxLength={255}
-                            />
-                            <label>Phone</label>
-                            <input
-                                type="text"
-                                value={contactEdit.phone}
-                                onChange={(e) => setContactEdit((c) => ({ ...c, phone: e.target.value }))}
-                                maxLength={30}
-                            />
-                            <label>Website</label>
-                            <input
-                                type="url"
-                                value={contactEdit.website}
-                                onChange={(e) => setContactEdit((c) => ({ ...c, website: e.target.value }))}
-                                maxLength={255}
-                                placeholder="https://…"
-                            />
-                        </div>
-                        <div className="report-owner-actions">
-                            <button
-                                className="vote-btn-primary"
-                                onClick={() => setConfirmingContactSave(true)}
-                                disabled={contactEditSaving}
-                            >
-                                {contactEditSaving ? "Saving…" : "Save contact info"}
-                            </button>
-                        </div>
-                        {contactEditMessage && <p className="vote-message success">{contactEditMessage}</p>}
-
-                        {confirmingContactSave && (
-                            <div className="delete-modal-overlay" onClick={() => setConfirmingContactSave(false)}>
-                                <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
-                                    <h2>Update contact info?</h2>
+                    {gem.report_status === "under_review" &&
+                        Number(gem.user_id) !==
+                            Number(currentUser?.id) && (
+                            <div className="report-banner">
+                                <div className="report-banner-text">
+                                    <strong>
+                                        This gem has a report under review
+                                    </strong>
                                     <p>
-                                        These new opening hours, phone and website will show on your
-                                        place immediately and any "may be out of date" warning is cleared.
+                                        Help the community confirm or dispute it
+                                        — 5 votes either way settles it.
                                     </p>
-                                    <div className="delete-modal-actions">
-                                        <button className="delete-modal-cancel" onClick={() => setConfirmingContactSave(false)}>
-                                            Cancel
-                                        </button>
-                                        <button className="delete-modal-confirm" onClick={handleSaveContactEdit}>
-                                            Save changes
-                                        </button>
-                                    </div>
                                 </div>
+
+                                <button
+                                    type="button"
+                                    className="report-banner-verify-btn"
+                                    onClick={handleHelpVerify}
+                                    disabled={loadingReport}
+                                >
+                                    {loadingReport
+                                        ? "Loading…"
+                                        : "Help Verify"}
+                                </button>
                             </div>
                         )}
-                    </div>
-                )}
 
-                {activeTab === "details" && (
-                    <div className="gem-detail-sections">
-                        {/* Location Card */}
-                        <div className="gem-detail-section-card">
-                            <div className="gem-detail-section-header">
-                                <span className="gem-detail-section-icon">📍</span>
-                                <h3>Location</h3>
+                    {gem.report_status === "under_review" &&
+                        Number(gem.user_id) ===
+                            Number(currentUser?.id) && (
+                            <div className="report-owner-banner">
+                                <h3>⚠ Your gem has been reported</h3>
+                                <p>
+                                    The community is voting to confirm or
+                                    dispute it. You'll be able to act once it's
+                                    resolved.
+                                </p>
                             </div>
-                            <Link
-                                to={`/map?lat=${gem.latitude}&lng=${gem.longitude}`}
-                                state={{ highlightGem: gem, openPanel: true, flyTo: true }}
-                                className="gem-detail-location-link"
-                            >
-                                {gem.address}
-                            </Link>
-                            <p className="gem-detail-coords"></p>
-                        </div>
+                        )}
 
-                        {/* Description Card */}
-                        <div className="gem-detail-section-card">
-                            <div className="gem-detail-section-header">
-                                <span className="gem-detail-section-icon">📝</span>
-                                <h3>Description</h3>
-                            </div>
-                            <p className="gem-detail-description-text">
-                                "{gem.description || "No description available."}"
+                    {isClosed && (
+                        <div className="report-owner-banner">
+                            <h3>⚠ Marked permanently closed</h3>
+                            <p>
+                                The community confirmed this place has closed
+                                for good. It stays listed for reference but is
+                                greyed out, and check-ins, votes, ratings,
+                                comments and menu items are frozen.
                             </p>
-                        </div>
 
-                        {(gem.opening_hours || gem.phone || gem.website) && (
-                            <div className="gem-detail-section-card">
-                                <div className="gem-detail-section-header">
-                                    <span className="gem-detail-section-icon">ℹ️</span>
-                                    <h3>Contact Info</h3>
-                                    {gem.contact_flagged && (
-                                        <span
-                                            className="gem-detail-status-rejected"
-                                            title="The community confirmed a report that some of this contact info is wrong. It will be corrected by the owner."
-                                        >
-                                            ⚠ May be out of date
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="gem-detail-contact-list">
-                                    {gem.opening_hours && (
-                                        <div className="gem-detail-contact-row">
-                                            <span className="gem-detail-contact-label">Hours</span>
-                                            <span>{gem.opening_hours}</span>
-                                        </div>
-                                    )}
-                                    {gem.phone && (
-                                        <div className="gem-detail-contact-row">
-                                            <span className="gem-detail-contact-label">Phone</span>
-                                            <a href={`tel:${gem.phone}`}>{gem.phone}</a>
-                                        </div>
-                                    )}
-                                    {gem.website && (
-                                        <div className="gem-detail-contact-row">
-                                            <span className="gem-detail-contact-label">Website</span>
-                                            <a href={gem.website} target="_blank" rel="noopener noreferrer">{gem.website}</a>
-                                        </div>
-                                    )}
-                                </div>
-                                {gem.contact_updated_at && (
-                                    <p className="gem-detail-contact-updated">
-                                        Contact info updated{" "}
-                                        {new Date(gem.contact_updated_at).toLocaleString("en-GB", {
-                                            day: "numeric", month: "short", year: "numeric",
-                                            hour: "2-digit", minute: "2-digit",
-                                        })}
+                            {Number(gem.user_id) ===
+                                Number(currentUser?.id) &&
+                                (gem.status ===
+                                "pending_community_vote" ? (
+                                    <p className="report-owner-countdown">
+                                        If it has reopened, edit it from{" "}
+                                        <Link to="/my-hidden-gems">
+                                            My Hidden Gems
+                                        </Link>{" "}
+                                        — that counts as a fresh submission and
+                                        goes through AI review and community
+                                        voting again. You can also delete it
+                                        there.
                                     </p>
+                                ) : (
+                                    <p className="report-owner-countdown">
+                                        This gem was already verified, so it can
+                                        no longer be edited or deleted — the
+                                        closed listing stays as a permanent
+                                        record.
+                                    </p>
+                                ))}
+                        </div>
+                    )}
+
+                    {gem.pending_edit &&
+                        Number(gem.user_id) ===
+                            Number(currentUser?.id) && (
+                            <div className="report-owner-banner">
+                                <h3>
+                                    {gem.pending_edit.status ===
+                                    "pending_review"
+                                        ? "⏳ Your changes are under review"
+                                        : "✕ Your changes were not applied"}
+                                </h3>
+
+                                <p>
+                                    {gem.pending_edit.status ===
+                                    "pending_review"
+                                        ? "A quick AI check is running on your new description / photos. They'll appear here once approved."
+                                        : gem.pending_edit.ai_reason ||
+                                          "The AI review did not approve the change, so nothing was updated."}
+                                </p>
+                            </div>
+                        )}
+
+                    {activeTab === "details" &&
+                        gem.edit_mode === "verified" &&
+                        contactEdit &&
+                        Number(gem.user_id) ===
+                            Number(currentUser?.id) && (
+                            <div className="report-owner-banner">
+                                <h3>✎ Update your contact info</h3>
+
+                                <p>
+                                    {gem.contact_flagged
+                                        ? "The community confirmed a report that the contact details are wrong. Correct the hours, phone and website below — saving clears the warning."
+                                        : "Keep your place's hours, phone and website current. Changes here are instant and don't affect its status, votes or ratings."}
+                                </p>
+
+                                <div className="gem-detail-contact-edit">
+                                    <label>Opening hours</label>
+                                    <input
+                                        type="text"
+                                        value={contactEdit.opening_hours}
+                                        onChange={(e) =>
+                                            setContactEdit((c) => ({
+                                                ...c,
+                                                opening_hours: e.target.value,
+                                            }))
+                                        }
+                                        maxLength={255}
+                                    />
+
+                                    <label>Phone</label>
+                                    <input
+                                        type="text"
+                                        value={contactEdit.phone}
+                                        onChange={(e) =>
+                                            setContactEdit((c) => ({
+                                                ...c,
+                                                phone: e.target.value,
+                                            }))
+                                        }
+                                        maxLength={30}
+                                    />
+
+                                    <label>Website</label>
+                                    <input
+                                        type="url"
+                                        value={contactEdit.website}
+                                        onChange={(e) =>
+                                            setContactEdit((c) => ({
+                                                ...c,
+                                                website: e.target.value,
+                                            }))
+                                        }
+                                        maxLength={255}
+                                        placeholder="https://…"
+                                    />
+                                </div>
+
+                                <div className="report-owner-actions">
+                                    <button
+                                        className="vote-btn-primary"
+                                        onClick={() =>
+                                            setConfirmingContactSave(true)
+                                        }
+                                        disabled={contactEditSaving}
+                                    >
+                                        {contactEditSaving
+                                            ? "Saving…"
+                                            : "Save contact info"}
+                                    </button>
+                                </div>
+
+                                {contactEditMessage && (
+                                    <p className="vote-message success">
+                                        {contactEditMessage}
+                                    </p>
+                                )}
+
+                                {confirmingContactSave && (
+                                    <div
+                                        className="delete-modal-overlay"
+                                        onClick={() =>
+                                            setConfirmingContactSave(false)
+                                        }
+                                    >
+                                        <div
+                                            className="delete-modal"
+                                            onClick={(e) =>
+                                                e.stopPropagation()
+                                            }
+                                        >
+                                            <h2>Update contact info?</h2>
+
+                                            <p>
+                                                These new opening hours, phone
+                                                and website will show on your
+                                                place immediately and any "may
+                                                be out of date" warning is
+                                                cleared.
+                                            </p>
+
+                                            <div className="delete-modal-actions">
+                                                <button
+                                                    className="delete-modal-cancel"
+                                                    onClick={() =>
+                                                        setConfirmingContactSave(
+                                                            false
+                                                        )
+                                                    }
+                                                >
+                                                    Cancel
+                                                </button>
+
+                                                <button
+                                                    className="delete-modal-confirm"
+                                                    onClick={
+                                                        handleSaveContactEdit
+                                                    }
+                                                >
+                                                    Save changes
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         )}
 
-                        {gem.category?.name === "Food & Beverage" && (
+                    {activeTab === "details" && (
+                        <div className="gem-detail-sections">
+                            {/* Location Card */}
                             <div className="gem-detail-section-card">
                                 <div className="gem-detail-section-header">
-                                    <span className="gem-detail-section-icon">🍽️</span>
-                                    <h3>Menu Items</h3>
-                                </div>
-                                <MenuItems
-                                    locationId={gem.id}
-                                    currentUser={currentUser}
-                                    frozen={isClosed}
-                                />
-                            </div>
-                        )}
-
-                        {/* Vote Progress Card */}
-                        {gem.status === "pending_community_vote" && (
-                            <div className="gem-detail-section-card">
-                                <div className="gem-detail-section-header">
-                                    <span className="gem-detail-section-icon">🗳️</span>
-                                    <h3>Vote Progress</h3>
-                                </div>
-                                <div className="gem-detail-progress-bar">
-                                    <div
-                                        className="gem-detail-progress-fill"
-                                        style={{
-                                            width: `${Math.min(
-                                                ((gem.votes?.length || 0) /
-                                                    (gem.verification_threshold || 10)) *
-                                                    100,
-                                                100
-                                            )}%`,
-                                        }}
-                                    ></div>
+                                    <span className="gem-detail-section-icon">
+                                        📍
+                                    </span>
+                                    <h3>Location</h3>
                                 </div>
 
-                                <p className="gem-detail-progress-text">
-                                    {gem.votes?.length || 0} of {gem.verification_threshold || 10} votes
-                                    {" "}
-                                    ({Math.max(
-                                        (gem.verification_threshold || 10) -
-                                            (gem.votes?.length || 0),
-                                        0
-                                    )} more needed)
-                                </p>
-                            </div>
-                        )}
-
-                        {/* AI Rejected Card */}
-                        {gem.status === "ai_rejected" && (
-                            <div className="gem-detail-section-card">
-                                <div className="gem-detail-section-header">
-                                    <span className="gem-detail-section-icon">🤖</span>
-                                    <h3>AI Verification Result</h3>
-                                </div>
-                                <p className="gem-detail-description-text">
-                                    {gem.ai_review_reason || "This submission did not meet HiddenMY's hidden gem requirements."}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Discovered by Card */}
-                        <div className="gem-detail-section-card">
-                            <div className="gem-detail-section-header">
-                                <span className="gem-detail-section-icon">👤</span>
-                                <h3>Discovered by</h3>
-                            </div>
-                            <div className="gem-detail-submitter-identity">
                                 <Link
-                                    to={`/users/${gem.user?.id || ''}`}
-                                    className="gem-detail-submitter-link"
-                                    style={{ textDecoration: "none" }}
-                                    onClick={(event) => {
-                                        if (user) return;
-                                        event.preventDefault();
-                                        requireAuth({
-                                            reason: "viewProfile",
-                                            returnTo: `/users/${gem.user.id}`,
-                                        });
+                                    to={`/map?lat=${gem.latitude}&lng=${gem.longitude}`}
+                                    state={{
+                                        highlightGem: gem,
+                                        openPanel: true,
+                                        flyTo: true,
                                     }}
+                                    className="gem-detail-location-link"
                                 >
-                                    {gem.user?.name || "Unknown User"}
+                                    {gem.address}
                                 </Link>
-                                <FavouriteAchievementBadges
-                                    favourites={gem.user?.favourite_achievements}
-                                    className="gem-detail-submitter-achievements"
-                                />
+
+                                <p className="gem-detail-coords"></p>
                             </div>
-                        </div>
 
-                        {/* Vote Button */}
-                        <div className="gem-detail-vote-section">
-                            {isClosed ? (
-                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ⚠ Permanently closed
-                                </button>
-                            ) : gem.status === "pending_community_vote" ? (
-                                <button
-                                    className="gem-detail-vote-btn"
-                                    onClick={() => {
-                                        if (!currentUser) {
-                                            requireAuth({ reason: "vote", gemId: gem.id });
-                                            return;
-                                        }
-                                        setShowVoteModal(true);
-                                    }}
-                                >
-                                    🗳️ Vote Now
-                                </button>
-                            ) : gem.status === "hidden_gem" ? (
-                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ✓ Already a Hidden Gem
-                                </button>
-                            ) : gem.status === "well_known" ? (
-                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ★ Well-Known Place
-                                </button>
-                            ) : gem.status === "ai_rejected" ? null : (
-                                <button className="gem-detail-vote-btn gem-detail-vote-btn-verified" disabled>
-                                    ⏳ Being Verified
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
+                            {/* Description Card */}
+                            <div className="gem-detail-section-card">
+                                <div className="gem-detail-section-header">
+                                    <span className="gem-detail-section-icon">
+                                        📝
+                                    </span>
+                                    <h3>Description</h3>
+                                </div>
 
-                    {activeTab === "votes" && (
-                    <div className="gem-detail-votes-list">
-                        {gem.votes && gem.votes.length > 0 ? (
-                            gem.votes.map((vote) => (
-                                <div
-                                    id={`vote-${vote.id}`}
-                                    key={vote.id}
-                                    className="gem-detail-vote-item"
-                                >
-                                    <div className="gem-detail-vote-avatar">
-                                        {vote.user?.name?.charAt(0) || "U"}
+                                <p className="gem-detail-description-text">
+                                    "
+                                    {gem.description ||
+                                        "No description available."}
+                                    "
+                                </p>
+                            </div>
+
+                            {(gem.opening_hours ||
+                                gem.phone ||
+                                gem.website) && (
+                                <div className="gem-detail-section-card">
+                                    <div className="gem-detail-section-header">
+                                        <span className="gem-detail-section-icon">
+                                            ℹ️
+                                        </span>
+                                        <h3>Contact Info</h3>
+
+                                        {gem.contact_flagged && (
+                                            <span
+                                                className="gem-detail-status-rejected"
+                                                title="The community confirmed a report that some of this contact info is wrong. It will be corrected by the owner."
+                                            >
+                                                ⚠ May be out of date
+                                            </span>
+                                        )}
                                     </div>
 
-                                    <div className="gem-detail-vote-info">
-                                        <p className="gem-detail-vote-user">
-                                            {vote.user?.name || "Unknown User"}
-                                        </p>
+                                    <div className="gem-detail-contact-list">
+                                        {gem.opening_hours && (
+                                            <div className="gem-detail-contact-row">
+                                                <span className="gem-detail-contact-label">
+                                                    Hours
+                                                </span>
+                                                <span>
+                                                    {gem.opening_hours}
+                                                </span>
+                                            </div>
+                                        )}
 
-                                        <p className="gem-detail-vote-date">
-                                            Voted on{" "}
-                                            {new Date(vote.created_at).toLocaleDateString("en-GB", {
+                                        {gem.phone && (
+                                            <div className="gem-detail-contact-row">
+                                                <span className="gem-detail-contact-label">
+                                                    Phone
+                                                </span>
+                                                <a
+                                                    href={`tel:${gem.phone}`}
+                                                >
+                                                    {gem.phone}
+                                                </a>
+                                            </div>
+                                        )}
+
+                                        {gem.website && (
+                                            <div className="gem-detail-contact-row">
+                                                <span className="gem-detail-contact-label">
+                                                    Website
+                                                </span>
+                                                <a
+                                                    href={gem.website}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    {gem.website}
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {gem.contact_updated_at && (
+                                        <p className="gem-detail-contact-updated">
+                                            Contact info updated{" "}
+                                            {new Date(
+                                                gem.contact_updated_at
+                                            ).toLocaleString("en-GB", {
                                                 day: "numeric",
                                                 month: "short",
                                                 year: "numeric",
+                                                hour: "2-digit",
+                                                minute: "2-digit",
                                             })}
                                         </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {gem.category?.name === "Food & Beverage" && (
+                                <div className="gem-detail-section-card">
+                                    <div className="gem-detail-section-header">
+                                        <span className="gem-detail-section-icon">
+                                            🍽️
+                                        </span>
+                                        <h3>Menu Items</h3>
+                                    </div>
+
+                                    <MenuItems
+                                        locationId={gem.id}
+                                        currentUser={currentUser}
+                                        frozen={isClosed}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Vote Progress Card */}
+                            {gem.status === "pending_community_vote" && (
+                                <div className="gem-detail-section-card">
+                                    <div className="gem-detail-section-header">
+                                        <span className="gem-detail-section-icon">
+                                            🗳️
+                                        </span>
+                                        <h3>Vote Progress</h3>
+                                    </div>
+
+                                    <div className="gem-detail-progress-bar">
+                                        <div
+                                            className="gem-detail-progress-fill"
+                                            style={{
+                                                width: `${Math.min(
+                                                    ((gem.votes?.length || 0) /
+                                                        (gem.verification_threshold ||
+                                                            10)) *
+                                                        100,
+                                                    100
+                                                )}%`,
+                                            }}
+                                        ></div>
+                                    </div>
+
+                                    <p className="gem-detail-progress-text">
+                                        {gem.votes?.length || 0} of{" "}
+                                        {gem.verification_threshold || 10} votes{" "}
+                                        (
+                                        {Math.max(
+                                            (gem.verification_threshold ||
+                                                10) -
+                                                (gem.votes?.length || 0),
+                                            0
+                                        )}{" "}
+                                        more needed)
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* AI Rejected Card */}
+                            {gem.status === "ai_rejected" && (
+                                <div className="gem-detail-section-card">
+                                    <div className="gem-detail-section-header">
+                                        <span className="gem-detail-section-icon">
+                                            🤖
+                                        </span>
+                                        <h3>AI Verification Result</h3>
+                                    </div>
+
+                                    <p className="gem-detail-description-text">
+                                        {gem.ai_review_reason ||
+                                            "This submission did not meet HiddenMY's hidden gem requirements."}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Discovered by Card */}
+                            <div className="gem-detail-section-card">
+                                <div className="gem-detail-section-header">
+                                    <span className="gem-detail-section-icon">
+                                        👤
+                                    </span>
+                                    <h3>Discovered by</h3>
+                                </div>
+
+                                <div className="gem-detail-submitter-identity">
+                                    <Link
+                                        to={`/users/${gem.user?.id || ""}`}
+                                        className="gem-detail-submitter-link"
+                                        style={{
+                                            textDecoration: "none",
+                                        }}
+                                        onClick={(event) => {
+                                            if (user) return;
+
+                                            event.preventDefault();
+
+                                            requireAuth({
+                                                reason: "viewProfile",
+                                                returnTo: `/users/${gem.user.id}`,
+                                            });
+                                        }}
+                                    >
+                                        {gem.user?.name || "Unknown User"}
+                                    </Link>
+
+                                    <FavouriteAchievementBadges
+                                        favourites={
+                                            gem.user
+                                                ?.favourite_achievements
+                                        }
+                                        className="gem-detail-submitter-achievements"
+                                    />
+                                </div>
+                            </div>
+
+                            {voteSuccess && (
+                                <div
+                                    className="gem-detail-vote-feedback"
+                                    role="status"
+                                    aria-live="polite"
+                                >
+                                    <div className="gem-detail-vote-feedback-icon">
+                                        ✓
+                                    </div>
+
+                                    <div className="gem-detail-vote-feedback-content">
+                                        <strong>Vote submitted</strong>
+                                        <span>
+                                            {voteMessage ||
+                                                "Your vote has been recorded successfully."}
+                                        </span>
                                     </div>
                                 </div>
-                            ))
-                        ) : (
-                            <p className="gem-detail-no-votes">
-                                No votes yet. Be the first to vote!
-                            </p>
-                        )}
-                    </div>
-)}
+                            )}
+
+                            {/* Vote Button */}
+                            <div className="gem-detail-vote-section">
+                                {isClosed ? (
+                                    <button
+                                        className="gem-detail-vote-btn gem-detail-vote-btn-verified"
+                                        disabled
+                                    >
+                                        ⚠ Permanently closed
+                                    </button>
+                                ) : gem.status ===
+                                  "pending_community_vote" ? (
+                                    <button
+                                        className="gem-detail-vote-btn"
+                                        onClick={() => {
+                                            if (!currentUser) {
+                                                requireAuth({
+                                                    reason: "vote",
+                                                    gemId: gem.id,
+                                                });
+                                                return;
+                                            }
+
+                                            setShowVoteModal(true);
+                                        }}
+                                    >
+                                        🗳️ Vote Now
+                                    </button>
+                                ) : gem.status === "hidden_gem" ? (
+                                    <button
+                                        className="gem-detail-vote-btn gem-detail-vote-btn-verified"
+                                        disabled
+                                    >
+                                        ✓ Already a Hidden Gem
+                                    </button>
+                                ) : gem.status === "well_known" ? (
+                                    <button
+                                        className="gem-detail-vote-btn gem-detail-vote-btn-verified"
+                                        disabled
+                                    >
+                                        ★ Well-Known Place
+                                    </button>
+                                ) : gem.status === "ai_rejected" ? null : (
+                                    <button
+                                        className="gem-detail-vote-btn gem-detail-vote-btn-verified"
+                                        disabled
+                                    >
+                                        ⏳ Being Verified
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === "votes" && (
+                        <div className="gem-detail-votes-list">
+                            {gem.votes && gem.votes.length > 0 ? (
+                                gem.votes.map((vote) => (
+                                    <div
+                                        id={`vote-${vote.id}`}
+                                        key={vote.id}
+                                        className="gem-detail-vote-item"
+                                    >
+                                        <div className="gem-detail-vote-avatar">
+                                            {vote.user?.name?.charAt(0) ||
+                                                "U"}
+                                        </div>
+
+                                        <div className="gem-detail-vote-info">
+                                            <p className="gem-detail-vote-user">
+                                                {vote.user?.name ||
+                                                    "Unknown User"}
+                                            </p>
+
+                                            <p className="gem-detail-vote-date">
+                                                Voted on{" "}
+                                                {new Date(
+                                                    vote.created_at
+                                                ).toLocaleDateString(
+                                                    "en-GB",
+                                                    {
+                                                        day: "numeric",
+                                                        month: "short",
+                                                        year: "numeric",
+                                                    }
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="gem-detail-no-votes">
+                                    No votes yet. Be the first to vote!
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {activeTab === "stories" && (
                         <div className="gem-detail-stories-list">
                             {storiesLoading ? (
-                                <Spinner size="sm" inline label="Loading community stories…" />
+                                <Spinner
+                                    size="sm"
+                                    inline
+                                    label="Loading community stories…"
+                                />
                             ) : storiesError ? (
-                                <p className="gem-detail-no-votes">{storiesError}</p>
+                                <p className="gem-detail-no-votes">
+                                    {storiesError}
+                                </p>
                             ) : storyPosts.length === 0 ? (
                                 <div className="gem-detail-empty-card">
                                     <p className="gem-detail-no-votes">
-                                        No travel posts mention this gem yet. Be the first to write one!
+                                        No travel posts mention this gem yet.
+                                        Be the first to write one!
                                     </p>
                                 </div>
                             ) : (
@@ -1234,24 +1627,41 @@ export default function HiddenGemDetail({ user }) {
                                     <div
                                         key={post.id}
                                         className="gem-detail-story-card"
-                                        onClick={() => navigate(`/travel-posts/${post.id}`)}
+                                        onClick={() =>
+                                            navigate(
+                                                `/travel-posts/${post.id}`
+                                            )
+                                        }
                                     >
-                                        {(post.cover_image_url || post.images?.[0]?.image_url) ? (
+                                        {post.cover_image_url ||
+                                        post.images?.[0]?.image_url ? (
                                             <img
-                                                src={post.cover_image_url || post.images[0].image_url}
+                                                src={
+                                                    post.cover_image_url ||
+                                                    post.images[0].image_url
+                                                }
                                                 alt={post.title}
                                                 className="gem-detail-story-image"
                                             />
                                         ) : (
                                             <div className="gem-detail-story-image" />
                                         )}
+
                                         <div className="gem-detail-story-info">
-                                            <p className="gem-detail-story-title">{post.title}</p>
+                                            <p className="gem-detail-story-title">
+                                                {post.title}
+                                            </p>
+
                                             <p className="gem-detail-story-author">
-                                                by {post.user?.name || "Traveler"}
+                                                by{" "}
+                                                {post.user?.name ||
+                                                    "Traveler"}
                                             </p>
                                         </div>
-                                        <span className="gem-detail-story-arrow">→</span>
+
+                                        <span className="gem-detail-story-arrow">
+                                            →
+                                        </span>
                                     </div>
                                 ))
                             )}
@@ -1261,9 +1671,15 @@ export default function HiddenGemDetail({ user }) {
                     {activeTab === "comments" && (
                         <div className="gem-detail-comments">
                             {commentActionMessage && (
-                                <div className={`gem-detail-comment-action-message ${
-                                    commentActionMessage.includes('success') ? 'success' : 'error'
-                                }`}>
+                                <div
+                                    className={`gem-detail-comment-action-message ${
+                                        commentActionMessage.includes(
+                                            "success"
+                                        )
+                                            ? "success"
+                                            : "error"
+                                    }`}
+                                >
                                     {commentActionMessage}
                                 </div>
                             )}
@@ -1275,49 +1691,130 @@ export default function HiddenGemDetail({ user }) {
                                         <div className="gem-rating-score">
                                             {averageRating}
                                         </div>
+
                                         <div className="gem-rating-outof">
                                             out of 5
                                         </div>
+
                                         <div className="gem-rating-stars">
-                                            <StarRating value={Math.round(averageRating)} size="medium" />
+                                            <StarRating
+                                                value={Math.round(
+                                                    averageRating
+                                                )}
+                                                size="medium"
+                                            />
                                         </div>
                                     </div>
+
                                     <div className="gem-rating-right">
                                         <div className="gem-rating-filter-buttons">
                                             <button
-                                                className={`gem-filter-btn ${ratingFilter === 0 ? 'active' : ''}`}
-                                                onClick={() => { setRatingFilter(0); setFilterType('all'); }}
+                                                className={`gem-filter-btn ${
+                                                    ratingFilter === 0
+                                                        ? "active"
+                                                        : ""
+                                                }`}
+                                                onClick={() => {
+                                                    setRatingFilter(0);
+                                                    setFilterType("all");
+                                                }}
                                             >
                                                 All
                                             </button>
-                                            {[5, 4, 3, 2, 1].map((rating) => (
-                                                <button
-                                                    key={rating}
-                                                    className={`gem-filter-btn ${ratingFilter === rating ? 'active' : ''}`}
-                                                    onClick={() => { setRatingFilter(rating); setFilterType('all'); }}
-                                                >
-                                                    {rating} Star ({ratingCounts[rating]})
-                                                </button>
-                                            ))}
+
+                                            {[5, 4, 3, 2, 1].map(
+                                                (rating) => (
+                                                    <button
+                                                        key={rating}
+                                                        className={`gem-filter-btn ${
+                                                            ratingFilter ===
+                                                            rating
+                                                                ? "active"
+                                                                : ""
+                                                        }`}
+                                                        onClick={() => {
+                                                            setRatingFilter(
+                                                                rating
+                                                            );
+                                                            setFilterType(
+                                                                "all"
+                                                            );
+                                                        }}
+                                                    >
+                                                        {rating} Star (
+                                                        {
+                                                            ratingCounts[
+                                                                rating
+                                                            ]
+                                                        }
+                                                        )
+                                                    </button>
+                                                )
+                                            )}
                                         </div>
+
                                         <div className="gem-rating-filter-buttons gem-rating-filter-row2">
                                             <button
-                                                className={`gem-filter-btn ${filterType === 'with_comment' ? 'active' : ''}`}
-                                                onClick={() => { setFilterType('with_comment'); setRatingFilter(0); }}
+                                                className={`gem-filter-btn ${
+                                                    filterType ===
+                                                    "with_comment"
+                                                        ? "active"
+                                                        : ""
+                                                }`}
+                                                onClick={() => {
+                                                    setFilterType(
+                                                        "with_comment"
+                                                    );
+                                                    setRatingFilter(0);
+                                                }}
                                             >
-                                                With Comments ({interactions.comments?.filter(c => c.comment).length || 0})
+                                                With Comments (
+                                                {interactions.comments?.filter(
+                                                    (c) => c.comment
+                                                ).length || 0}
+                                                )
                                             </button>
+
                                             <button
-                                                className={`gem-filter-btn ${filterType === 'rating_only' ? 'active' : ''}`}
-                                                onClick={() => { setFilterType('rating_only'); setRatingFilter(0); }}
+                                                className={`gem-filter-btn ${
+                                                    filterType ===
+                                                    "rating_only"
+                                                        ? "active"
+                                                        : ""
+                                                }`}
+                                                onClick={() => {
+                                                    setFilterType(
+                                                        "rating_only"
+                                                    );
+                                                    setRatingFilter(0);
+                                                }}
                                             >
-                                                Rating Only ({interactions.comments?.filter(c => !c.comment).length || 0})
+                                                Rating Only (
+                                                {interactions.comments?.filter(
+                                                    (c) => !c.comment
+                                                ).length || 0}
+                                                )
                                             </button>
+
                                             <button
-                                                className={`gem-filter-btn ${filterType === 'with_photo' ? 'active' : ''}`}
-                                                onClick={() => { setFilterType('with_photo'); setRatingFilter(0); }}
+                                                className={`gem-filter-btn ${
+                                                    filterType ===
+                                                    "with_photo"
+                                                        ? "active"
+                                                        : ""
+                                                }`}
+                                                onClick={() => {
+                                                    setFilterType(
+                                                        "with_photo"
+                                                    );
+                                                    setRatingFilter(0);
+                                                }}
                                             >
-                                                With Photos ({interactions.comments?.filter(c => c.photo_path).length || 0})
+                                                With Photos (
+                                                {interactions.comments?.filter(
+                                                    (c) => c.photo_path
+                                                ).length || 0}
+                                                )
                                             </button>
                                         </div>
                                     </div>
@@ -1327,50 +1824,91 @@ export default function HiddenGemDetail({ user }) {
                             {/* Rating + Comment Form */}
                             {isClosed ? (
                                 <div className="gem-detail-already-commented">
-                                    <p>This place is marked permanently closed — new ratings and comments are frozen.</p>
+                                    <p>
+                                        This place is marked permanently closed
+                                        — new ratings and comments are frozen.
+                                    </p>
                                 </div>
                             ) : isGemOwner ? (
                                 <div className="gem-detail-already-commented">
-                                    <p>You cannot rate or comment on your own Hidden Gem.</p>
+                                    <p>
+                                        You cannot rate or comment on your own
+                                        Hidden Gem.
+                                    </p>
                                 </div>
                             ) : hasUserCommented ? (
                                 <div className="gem-detail-already-commented">
-                                    <p>You have already rated this location.</p>
+                                    <p>
+                                        You have already rated this location.
+                                    </p>
                                     <p>You can edit your comment below.</p>
                                 </div>
                             ) : (
-                                <form id="gem-detail-comment-form" className="gem-detail-comment-form" onSubmit={handleCommentSubmit}>
+                                <form
+                                    id="gem-detail-comment-form"
+                                    className="gem-detail-comment-form"
+                                    onSubmit={handleCommentSubmit}
+                                >
                                     <div className="gem-detail-comment-rating-input">
                                         <label>Your Rating:</label>
-                                        <StarRating value={newRating} onChange={setNewRating} size="medium" />
+                                        <StarRating
+                                            value={newRating}
+                                            onChange={setNewRating}
+                                            size="medium"
+                                        />
                                     </div>
+
                                     <input
                                         type="text"
                                         className="gem-detail-comment-input"
                                         placeholder="Write a comment (optional)..."
                                         value={newComment}
-                                        onChange={(e) => setNewComment(e.target.value)}
+                                        onChange={(e) =>
+                                            setNewComment(e.target.value)
+                                        }
                                     />
-                                    
+
                                     {/* Upload Photo */}
                                     <div className="gem-detail-comment-photo-upload">
                                         <input
                                             type="file"
                                             accept="image/*"
-                                            onChange={handleCommentPhotoChange}
-                                            style={{ display: 'none' }}
+                                            onChange={
+                                                handleCommentPhotoChange
+                                            }
+                                            style={{ display: "none" }}
                                             id="comment-photo-upload"
                                         />
-                                        <label htmlFor="comment-photo-upload" className="gem-detail-comment-photo-btn">
+
+                                        <label
+                                            htmlFor="comment-photo-upload"
+                                            className="gem-detail-comment-photo-btn"
+                                        >
                                             📷 Upload Photo
                                         </label>
+
                                         {commentPhotoPreview && (
                                             <div className="gem-detail-comment-photo-preview">
-                                                <img src={commentPhotoPreview} alt="Preview" />
-                                                <button type="button" onClick={() => {
-                                                    setCommentPhoto(null);
-                                                    setCommentPhotoPreview(null);
-                                                }}>✕</button>
+                                                <img
+                                                    src={
+                                                        commentPhotoPreview
+                                                    }
+                                                    alt="Preview"
+                                                />
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setCommentPhoto(
+                                                            null
+                                                        );
+                                                        setCommentPhotoPreview(
+                                                            null
+                                                        );
+                                                    }}
+                                                >
+                                                    ✕
+                                                </button>
                                             </div>
                                         )}
                                     </div>
@@ -1378,7 +1916,10 @@ export default function HiddenGemDetail({ user }) {
                                     <button
                                         type="submit"
                                         className="gem-detail-comment-submit"
-                                        disabled={submittingComment || !newRating}
+                                        disabled={
+                                            submittingComment ||
+                                            !newRating
+                                        }
                                     >
                                         Post
                                     </button>
@@ -1389,10 +1930,22 @@ export default function HiddenGemDetail({ user }) {
                             <div className="gem-detail-comments-list">
                                 {filteredComments.length > 0 ? (
                                     filteredComments.map((comment) => {
-                                        const isOwnComment = Number(comment.user_id) === Number(currentUser?.id);
-                                        const isEditing = editingCommentId === comment.id;
-                                        const createdAt = new Date(comment.created_at);
-                                        const canEdit = canEditWithinCommentWindow(comment.created_at);
+                                        const isOwnComment =
+                                            Number(comment.user_id) ===
+                                            Number(currentUser?.id);
+
+                                        const isEditing =
+                                            editingCommentId ===
+                                            comment.id;
+
+                                        const createdAt = new Date(
+                                            comment.created_at
+                                        );
+
+                                        const canEdit =
+                                            canEditWithinCommentWindow(
+                                                comment.created_at
+                                            );
 
                                         return (
                                             <div
@@ -1401,24 +1954,41 @@ export default function HiddenGemDetail({ user }) {
                                                 className="gem-detail-comment-item"
                                             >
                                                 <div className="gem-detail-comment-avatar">
-                                                    {comment.user?.name?.charAt(0) || "U"}
+                                                    {comment.user?.name?.charAt(
+                                                        0
+                                                    ) || "U"}
                                                 </div>
+
                                                 <div className="gem-detail-comment-info">
                                                     <div className="gem-detail-comment-user-row">
                                                         <p className="gem-detail-comment-user">
-                                                            {comment.user?.name || "Unknown User"}
+                                                            {comment.user
+                                                                ?.name ||
+                                                                "Unknown User"}
+
                                                             {isOwnComment && (
-                                                                <span className="gem-detail-comment-badge">You</span>
-                                                            )}
-                                                            {!canEdit && isOwnComment && (
-                                                                <span className="gem-detail-comment-badge gem-detail-comment-badge-locked">
-                                                                    🔒 Edit locked
+                                                                <span className="gem-detail-comment-badge">
+                                                                    You
                                                                 </span>
                                                             )}
+
+                                                            {!canEdit &&
+                                                                isOwnComment && (
+                                                                    <span className="gem-detail-comment-badge gem-detail-comment-badge-locked">
+                                                                        🔒 Edit
+                                                                        locked
+                                                                    </span>
+                                                                )}
                                                         </p>
+
                                                         {comment.rating && (
                                                             <div className="gem-detail-comment-stars">
-                                                                <StarRating value={comment.rating} size="tiny" />
+                                                                <StarRating
+                                                                    value={
+                                                                        comment.rating
+                                                                    }
+                                                                    size="tiny"
+                                                                />
                                                             </div>
                                                         )}
                                                     </div>
@@ -1426,38 +1996,80 @@ export default function HiddenGemDetail({ user }) {
                                                     {isEditing ? (
                                                         <div className="gem-detail-comment-edit-area">
                                                             <div className="gem-detail-comment-rating-input">
-                                                                <label>Your Rating:</label>
-                                                                <StarRating value={editRating} onChange={setEditRating} size="medium" />
+                                                                <label>
+                                                                    Your
+                                                                    Rating:
+                                                                </label>
+
+                                                                <StarRating
+                                                                    value={
+                                                                        editRating
+                                                                    }
+                                                                    onChange={
+                                                                        setEditRating
+                                                                    }
+                                                                    size="medium"
+                                                                />
                                                             </div>
+
                                                             <textarea
                                                                 className="gem-detail-comment-edit-input"
-                                                                value={editCommentText}
-                                                                onChange={(e) => setEditCommentText(e.target.value)}
-                                                                maxLength={500}
-                                                                disabled={commentActionLoading}
+                                                                value={
+                                                                    editCommentText
+                                                                }
+                                                                onChange={(
+                                                                    e
+                                                                ) =>
+                                                                    setEditCommentText(
+                                                                        e
+                                                                            .target
+                                                                            .value
+                                                                    )
+                                                                }
+                                                                maxLength={
+                                                                    500
+                                                                }
+                                                                disabled={
+                                                                    commentActionLoading
+                                                                }
                                                                 placeholder="Write a comment (optional)..."
                                                             />
+
                                                             <div className="gem-detail-comment-photo-upload">
                                                                 <input
                                                                     type="file"
                                                                     accept="image/*"
-                                                                    onChange={handleEditCommentPhotoChange}
-                                                                    style={{ display: 'none' }}
+                                                                    onChange={
+                                                                        handleEditCommentPhotoChange
+                                                                    }
+                                                                    style={{
+                                                                        display:
+                                                                            "none",
+                                                                    }}
                                                                     id={`edit-comment-photo-upload-${comment.id}`}
                                                                 />
 
-                                                                {!removeExistingCommentPhoto && !editCommentPhotoPreview && comment.photo_path && (
-                                                                    <div className="gem-detail-comment-photo-preview">
-                                                                        <img
-                                                                            src={getVotePhotoUrl(comment.photo_path)}
-                                                                            alt="Current comment photo"
-                                                                        />
-                                                                    </div>
-                                                                )}
+                                                                {!removeExistingCommentPhoto &&
+                                                                    !editCommentPhotoPreview &&
+                                                                    comment.photo_path && (
+                                                                        <div className="gem-detail-comment-photo-preview">
+                                                                            <img
+                                                                                src={getVotePhotoUrl(
+                                                                                    comment.photo_path
+                                                                                )}
+                                                                                alt="Current comment photo"
+                                                                            />
+                                                                        </div>
+                                                                    )}
 
                                                                 {editCommentPhotoPreview && (
                                                                     <div className="gem-detail-comment-photo-preview">
-                                                                        <img src={editCommentPhotoPreview} alt="New preview" />
+                                                                        <img
+                                                                            src={
+                                                                                editCommentPhotoPreview
+                                                                            }
+                                                                            alt="New preview"
+                                                                        />
                                                                     </div>
                                                                 )}
 
@@ -1465,38 +2077,66 @@ export default function HiddenGemDetail({ user }) {
                                                                     htmlFor={`edit-comment-photo-upload-${comment.id}`}
                                                                     className="gem-detail-comment-photo-btn"
                                                                 >
-                                                                    {comment.photo_path || editCommentPhotoPreview ? "Replace Photo" : "Upload Photo"}
+                                                                    {comment.photo_path ||
+                                                                    editCommentPhotoPreview
+                                                                        ? "Replace Photo"
+                                                                        : "Upload Photo"}
                                                                 </label>
 
-                                                                {(comment.photo_path || editCommentPhotoPreview) && (
+                                                                {(comment.photo_path ||
+                                                                    editCommentPhotoPreview) && (
                                                                     <button
                                                                         type="button"
                                                                         className="gem-detail-comment-photo-remove-btn"
-                                                                        disabled={commentActionLoading}
+                                                                        disabled={
+                                                                            commentActionLoading
+                                                                        }
                                                                         onClick={() => {
-                                                                            setEditCommentPhoto(null);
-                                                                            setEditCommentPhotoPreview(null);
-                                                                            setRemoveExistingCommentPhoto(true);
+                                                                            setEditCommentPhoto(
+                                                                                null
+                                                                            );
+                                                                            setEditCommentPhotoPreview(
+                                                                                null
+                                                                            );
+                                                                            setRemoveExistingCommentPhoto(
+                                                                                true
+                                                                            );
                                                                         }}
                                                                     >
-                                                                        Remove Photo
+                                                                        Remove
+                                                                        Photo
                                                                     </button>
                                                                 )}
                                                             </div>
+
                                                             <div className="gem-detail-comment-edit-actions">
                                                                 <button
                                                                     type="button"
                                                                     className="gem-detail-comment-edit-save"
-                                                                    onClick={() => handleSaveCommentEdit(comment.id)}
-                                                                    disabled={commentActionLoading || !editRating}
+                                                                    onClick={() =>
+                                                                        handleSaveCommentEdit(
+                                                                            comment.id
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        commentActionLoading ||
+                                                                        !editRating
+                                                                    }
                                                                 >
-                                                                    {commentActionLoading ? "Saving..." : "Save"}
+                                                                    {commentActionLoading
+                                                                        ? "Saving..."
+                                                                        : "Save"}
                                                                 </button>
+
                                                                 <button
                                                                     type="button"
                                                                     className="gem-detail-comment-edit-cancel"
-                                                                    onClick={handleCancelEdit}
-                                                                    disabled={commentActionLoading}
+                                                                    onClick={
+                                                                        handleCancelEdit
+                                                                    }
+                                                                    disabled={
+                                                                        commentActionLoading
+                                                                    }
                                                                 >
                                                                     Cancel
                                                                 </button>
@@ -1506,48 +2146,80 @@ export default function HiddenGemDetail({ user }) {
                                                         <div className="gem-detail-comment-text-wrapper">
                                                             {comment.comment ? (
                                                                 <p className="gem-detail-comment-text">
-                                                                    "{comment.comment}"
+                                                                    "
+                                                                    {
+                                                                        comment.comment
+                                                                    }
+                                                                    "
                                                                 </p>
                                                             ) : (
                                                                 <p className="gem-detail-comment-text gem-detail-no-comment-text">
-                                                                    No comment
+                                                                    No
+                                                                    comment
                                                                 </p>
                                                             )}
+
                                                             {comment.photo_path && (
                                                                 <div className="gem-detail-comment-photo-display">
-                                                                    <img 
-                                                                        src={getVotePhotoUrl(comment.photo_path)} 
+                                                                    <img
+                                                                        src={getVotePhotoUrl(
+                                                                            comment.photo_path
+                                                                        )}
                                                                         alt="Comment photo"
-                                                                        onClick={() => setSelectedPhoto(comment.photo_path)}
+                                                                        onClick={() =>
+                                                                            setSelectedPhoto(
+                                                                                comment.photo_path
+                                                                            )
+                                                                        }
                                                                     />
                                                                 </div>
                                                             )}
-                                                            {isOwnComment && !isEditing && canEdit && !isGemOwner && (
-                                                                <span className="gem-detail-comment-actions">
-                                                                    <button
-                                                                        type="button"
-                                                                        className="gem-detail-comment-edit-btn"
-                                                                        onClick={() => handleEditComment(comment)}
-                                                                        disabled={commentActionLoading}
-                                                                    >
-                                                                        ✎
-                                                                    </button>
-                                                                </span>
-                                                            )}
+
+                                                            {isOwnComment &&
+                                                                !isEditing &&
+                                                                canEdit &&
+                                                                !isGemOwner && (
+                                                                    <span className="gem-detail-comment-actions">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="gem-detail-comment-edit-btn"
+                                                                            onClick={() =>
+                                                                                handleEditComment(
+                                                                                    comment
+                                                                                )
+                                                                            }
+                                                                            disabled={
+                                                                                commentActionLoading
+                                                                            }
+                                                                        >
+                                                                            ✎
+                                                                        </button>
+                                                                    </span>
+                                                                )}
                                                         </div>
                                                     )}
 
                                                     <p className="gem-detail-comment-date">
-                                                        Rated on {createdAt.toLocaleDateString("en-GB", {
-                                                            day: "numeric",
-                                                            month: "short",
-                                                            year: "numeric"
-                                                        })}
-                                                        {isOwnComment && !isEditing && !canEdit && (
-                                                            <span className="gem-detail-comment-edit-locked">
-                                                                (Cannot edit after 3 days)
-                                                            </span>
+                                                        Rated on{" "}
+                                                        {createdAt.toLocaleDateString(
+                                                            "en-GB",
+                                                            {
+                                                                day: "numeric",
+                                                                month: "short",
+                                                                year: "numeric",
+                                                            }
                                                         )}
+
+                                                        {isOwnComment &&
+                                                            !isEditing &&
+                                                            !canEdit && (
+                                                                <span className="gem-detail-comment-edit-locked">
+                                                                    (Cannot
+                                                                    edit
+                                                                    after 3
+                                                                    days)
+                                                                </span>
+                                                            )}
                                                     </p>
                                                 </div>
                                             </div>
@@ -1565,9 +2237,7 @@ export default function HiddenGemDetail({ user }) {
                             </div>
                         </div>
                     )}
-
                 </div>
-
             </div>
 
             <VoteModal
@@ -1583,16 +2253,35 @@ export default function HiddenGemDetail({ user }) {
                 onClose={() => setVerifyModalOpen(false)}
                 onVerifySuccess={(data) => {
                     if (data?.location) {
-                        setGem((prev) => (prev ? { ...prev, ...data.location } : prev));
+                        setGem((prev) =>
+                            prev
+                                ? {
+                                      ...prev,
+                                      ...data.location,
+                                  }
+                                : prev
+                        );
                     }
                 }}
             />
 
             {selectedPhoto && (
-                <div className="photo-modal-overlay" onClick={() => setSelectedPhoto(null)}>
-                    <div className="photo-modal-content" onClick={(e) => e.stopPropagation()}>
-                        <button className="photo-modal-close" onClick={() => setSelectedPhoto(null)}>✕</button>
-                        <img 
+                <div
+                    className="photo-modal-overlay"
+                    onClick={() => setSelectedPhoto(null)}
+                >
+                    <div
+                        className="photo-modal-content"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            className="photo-modal-close"
+                            onClick={() => setSelectedPhoto(null)}
+                        >
+                            ✕
+                        </button>
+
+                        <img
                             src={getVotePhotoUrl(selectedPhoto)}
                             alt="Photo enlarged"
                             className="photo-modal-image"
@@ -1600,7 +2289,6 @@ export default function HiddenGemDetail({ user }) {
                     </div>
                 </div>
             )}
-
         </div>
     );
 }
