@@ -75,6 +75,9 @@ export const updateHiddenGem = (id, data) => {
 export const getMyHiddenGems = () =>
     api.get('/my-hidden-gems');
 
+export const getMyHiddenGemJourney = () =>
+    api.get('/my-hidden-gem-journey');
+
 export const getPopularHiddenGems = () =>
     api.get('/popular-hidden-gems');
 

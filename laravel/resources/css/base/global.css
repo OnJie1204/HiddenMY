@@ -6961,6 +6961,27 @@ img.avatar {
     margin-top: 10px;
 }
 
+.hiddenmy-favourite-snackbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(420px, calc(100vw - 32px));
+    text-align: center;
+    white-space: normal;
+    text-wrap: balance;
+    line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+    .hiddenmy-favourite-snackbar {
+        max-width: calc(100vw - 24px);
+        padding-right: 14px;
+        padding-left: 14px;
+    }
+}
+
 .hiddenmy-special-modal-artwork {
     min-height: 360px;
 }
@@ -7153,6 +7174,15 @@ img.avatar {
     box-shadow: 0 4px 12px rgba(15, 118, 110, 0.08);
 }
 
+.my-vote-card.is-unavailable {
+    cursor: default;
+}
+
+.my-vote-card.is-unavailable:hover {
+    border-color: #e5e7eb;
+    box-shadow: none;
+}
+
 .my-vote-card-content {
     min-width: 0;
     flex: 1;
@@ -7265,6 +7295,27 @@ img.avatar {
     background: #eef4f3;
 }
 
+/* Journey-only status colours: retain the source gem's facets, luminance and
+   dimensions while keeping teammate maps on their shared marker filters. */
+.hiddenmy-journey-map .gem-marker:not(.gem-marker-pending):not(.gem-marker-well-known):not(.gem-marker-closed) {
+    filter: none;
+}
+
+.hiddenmy-journey-map .gem-marker-pending {
+    filter: grayscale(1) sepia(1) saturate(2.5) hue-rotate(340deg)
+        brightness(1.12) contrast(0.9);
+}
+
+.hiddenmy-journey-map .gem-marker-well-known {
+    filter: grayscale(1) sepia(1) saturate(2.2) hue-rotate(5deg)
+        brightness(1.1) contrast(0.92);
+}
+
+.hiddenmy-journey-map .gem-marker-closed {
+    filter: grayscale(1) brightness(1.05) contrast(0.88);
+    opacity: 0.68;
+}
+
 .hiddenmy-journey-map .leaflet-container {
     background: #eef4f3;
 }
@@ -7350,11 +7401,18 @@ img.avatar {
 
 .hiddenmy-journey-legend {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px 18px;
+    flex-direction: column;
+    gap: 10px;
     margin-top: 12px;
     color: #64748b;
     font-size: 12px;
+}
+
+.hiddenmy-journey-legend-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    min-width: 0;
 }
 
 .hiddenmy-journey-legend span {
@@ -7381,18 +7439,28 @@ img.avatar {
 }
 
 .hiddenmy-journey-legend .verified-marker,
-.hiddenmy-journey-legend .pending-marker {
+.hiddenmy-journey-legend .pending-marker,
+.hiddenmy-journey-legend .well-known-marker,
+.hiddenmy-journey-legend .closed-marker {
     border: 2px solid #ffffff;
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
 }
 
 .hiddenmy-journey-legend .verified-marker {
-    background: #0f766e;
+    background: #3b82f6;
 }
 
 .hiddenmy-journey-legend .pending-marker {
-    background: #d97706;
+    background: #fb923c;
+}
+
+.hiddenmy-journey-legend .well-known-marker {
+    background: #eab308;
+}
+
+.hiddenmy-journey-legend .closed-marker {
+    background: #94a3b8;
 }
 
 .hiddenmy-journey-region-panel {

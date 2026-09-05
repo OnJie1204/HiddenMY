@@ -206,7 +206,7 @@ class TravelPostController extends Controller
                 if ($stop->isGemStop()) {
                     $gem = $stop->location;
 
-                    if (! $gem || $gem->status === 'deleted') {
+                    if (! $gem || in_array($gem->status, [Location::STATUS_DELETED, Location::STATUS_ARCHIVED], true)) {
                         $skipped[] = ($gem->place_name ?? $stop->osm_name) ?: 'a removed hidden gem';
 
                         continue;
@@ -499,9 +499,9 @@ class TravelPostController extends Controller
 
             $stops = $post->stops->map(function (PostStop $stop) {
                 $isGem = $stop->isGemStop();
-                // A gem stop is "removed" if the row is gone (hard delete) or
-                // its status is now 'deleted' (the normal soft delete).
-                $live = ($isGem && $stop->location && $stop->location->status !== 'deleted')
+                // A gem stop is "removed" if the row is gone or its status is
+                // now deleted/archived through logical removal.
+                $live = ($isGem && $stop->location && ! in_array($stop->location->status, [Location::STATUS_DELETED, Location::STATUS_ARCHIVED], true))
                     ? $stop->location
                     : null;
                 $lat = $live?->latitude ?? $stop->latitude;
