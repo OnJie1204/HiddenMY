@@ -2,14 +2,13 @@
 
 namespace App\Jobs\HiddenGems;
 
+use App\Integrations\Gemini\GeminiClient;
+use App\Integrations\Http\RemoteImageFetcher;
 use App\Models\Location;
 use App\Services\HiddenGems\DuplicateDetectionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -37,14 +36,6 @@ class VerifyHiddenGemSubmission implements ShouldQueue
     /** Worst-case ceiling: Call A + Call B, each with retries and a fallback
      *  model, plus up to 5 image downloads. */
     public int $timeout = 240;
-
-    // The model is configurable (config/services.php -> GEMINI_MODEL /
-    // GEMINI_FALLBACK_MODEL) so a Google deprecation or capacity outage is a
-    // .env change, not a code deploy. A dated snapshot (e.g. 'gemini-2.5-flash')
-    // 404s once Google retires it for a key; even the 'gemini-flash-latest'
-    // rolling alias went to persistent 503 in Aug 2026. This is the last-resort
-    // default if config and env are both somehow empty.
-    private const DEFAULT_MODEL = 'gemini-3.6-flash';
 
     private const MAX_IMAGES = 5;
 
@@ -74,28 +65,24 @@ class VerifyHiddenGemSubmission implements ShouldQueue
     /** Description / photo content check. UNSAFE rejects the submission. */
     private const VALID_SAFETY_LEVELS = ['CLEAR', 'BORDERLINE', 'UNSAFE'];
 
-    /**
-     * Gemini frequently returns 503 ("currently experiencing high demand") or
-     * 429 (rate limit) under normal load — these are transient, not a sign
-     * the request itself is bad, so they're worth one immediate retry rather
-     * than immediately failing the whole submission back to 'pending' and
-     * waiting for the next scheduled retry pass.
-     */
-    private const RETRYABLE_HTTP_STATUSES = [429, 500, 502, 503, 504];
-
     public function __construct(public int $locationId) {}
 
-    public function handle(): void
+    private GeminiClient $gemini;
+
+    private RemoteImageFetcher $remoteImages;
+
+    public function handle(?GeminiClient $gemini = null, ?RemoteImageFetcher $remoteImages = null): void
     {
+        $this->gemini = $gemini ?? app(GeminiClient::class);
+        $this->remoteImages = $remoteImages ?? app(RemoteImageFetcher::class);
+
         $location = Location::with(['images', 'category'])->find($this->locationId);
 
         if (! $location || ! $location->isPending()) {
             return;
         }
 
-        $apiKey = config('services.gemini.key');
-
-        if (! $apiKey) {
+        if (! $this->gemini->configured()) {
             Log::warning('Skipping hidden gem AI verification: GEMINI_API_KEY is not set.');
 
             return;
@@ -120,8 +107,8 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         }
 
         try {
-            $research = $this->runVisibilityResearch($apiKey, $location);
-            $scoring = $this->runStructuredScoring($apiKey, $location, $research['text'], $duplicate);
+            $research = $this->runVisibilityResearch($location);
+            $scoring = $this->runStructuredScoring($location, $research['text'], $duplicate);
 
             $this->applyResult(
                 $location,
@@ -145,11 +132,10 @@ class VerifyHiddenGemSubmission implements ShouldQueue
      *
      * @return array{text: ?string, unknown: bool}
      */
-    private function runVisibilityResearch(string $apiKey, Location $location): array
+    private function runVisibilityResearch(Location $location): array
     {
         try {
             $result = $this->postToGemini(
-                $apiKey,
                 fn (string $model) => [
                     'contents' => [
                         [
@@ -191,7 +177,6 @@ class VerifyHiddenGemSubmission implements ShouldQueue
      * @return array{parsed: array, model: string}
      */
     private function runStructuredScoring(
-        string $apiKey,
         Location $location,
         ?string $groundingText,
         array $duplicate
@@ -200,7 +185,6 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         $parts = $this->buildScoringParts($location, $groundingText, $duplicate);
 
         $result = $this->postToGemini(
-            $apiKey,
             fn (string $model) => [
                 'contents' => [
                     ['role' => 'user', 'parts' => $parts],
@@ -667,135 +651,14 @@ class VerifyHiddenGemSubmission implements ShouldQueue
      * @param  callable(Response): bool|null  $validator  return false to treat a 200 as bad_response
      * @return array{response: Response, model: string}
      */
-    private function postToGemini(string $apiKey, callable $payload, int $timeout, ?callable $validator = null): array
+    private function postToGemini(callable $payload, int $timeout, ?callable $validator = null): array
     {
-        $models = $this->models();
-        $lastError = null;
-
-        foreach ($models as $index => $model) {
-            $isFallback = $index > 0;
-
-            for ($attempt = 1; ; $attempt++) {
-                try {
-                    $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
-                        ->timeout($timeout)
-                        ->post(
-                            'https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent',
-                            $payload($model),
-                        )
-                        ->throw();
-
-                    if ($validator !== null && ! $validator($response)) {
-                        throw new GeminiBadResponseException(
-                            'Gemini returned an unusable response (malformed JSON or content-filtered).'
-                        );
-                    }
-
-                    return ['response' => $response, 'model' => $model];
-                } catch (Throwable $e) {
-                    $lastError = $e;
-                    $class = $this->classifyGeminiFailure($e);
-
-                    Log::warning('Gemini call failed.', [
-                        'location_id' => $this->locationId,
-                        'model' => $model,
-                        'attempt' => $attempt,
-                        'class' => $class,
-                        'error' => $e->getMessage(),
-                    ]);
-
-                    // A malformed request won't be fixed by retrying or by
-                    // switching models — stop the whole pipeline now.
-                    if ($class === 'deterministic') {
-                        throw $e;
-                    }
-
-                    if ($class === 'model_missing') {
-                        Log::error('Gemini model unavailable (404) — update GEMINI_MODEL / GEMINI_FALLBACK_MODEL.', [
-                            'model' => $model,
-                        ]);
-
-                        break; // straight to the next model, no retry
-                    }
-
-                    $maxAttempts = match (true) {
-                        $isFallback => 1, // fallback model is a single shot
-                        $class === 'rate_limit', $class === 'bad_response' => 2,
-                        default => 3, // transient on the primary: 2 retries
-                    };
-
-                    if ($attempt >= $maxAttempts) {
-                        break; // give up on this model, try the next one
-                    }
-
-                    $delay = $this->retryDelayMicroseconds($class, $attempt, $e);
-                    if ($delay > 0) {
-                        usleep($delay);
-                    }
-                }
-            }
-        }
-
-        throw $lastError ?? new \RuntimeException('Gemini request failed: no model configured.');
-    }
-
-    /** @return 'transient'|'rate_limit'|'model_missing'|'deterministic'|'bad_response' */
-    private function classifyGeminiFailure(Throwable $e): string
-    {
-        if ($e instanceof GeminiBadResponseException) {
-            return 'bad_response';
-        }
-
-        if ($e instanceof ConnectionException) {
-            return 'transient'; // DNS / connect / read timeout
-        }
-
-        if ($e instanceof RequestException) {
-            $status = $e->response->status();
-
-            return match (true) {
-                $status === 429 => 'rate_limit',
-                $status === 404 => 'model_missing',
-                in_array($status, self::RETRYABLE_HTTP_STATUSES, true) => 'transient',
-                $status >= 400 && $status < 500 => 'deterministic',
-                default => 'transient',
-            };
-        }
-
-        return 'transient';
-    }
-
-    private function retryDelayMicroseconds(string $class, int $attempt, Throwable $e): int
-    {
-        if (app()->runningUnitTests()) {
-            return 0;
-        }
-
-        if ($class === 'rate_limit' && $e instanceof RequestException) {
-            $retryAfter = (int) $e->response->header('Retry-After');
-
-            if ($retryAfter > 0) {
-                return min($retryAfter, 30) * 1_000_000;
-            }
-        }
-
-        // Exponential backoff: 1s, 2s, 4s.
-        return (2 ** ($attempt - 1)) * 1_000_000;
-    }
-
-    /**
-     * Ordered list of models to try: [primary] or [primary, fallback]. Both
-     * come from config, which carries hard-coded defaults, plus a final
-     * literal guard here so a blank config value can never disable verification.
-     *
-     * @return list<string>
-     */
-    private function models(): array
-    {
-        $primary = trim((string) config('services.gemini.model')) ?: self::DEFAULT_MODEL;
-        $fallback = trim((string) config('services.gemini.fallback_model'));
-
-        return array_values(array_unique(array_filter([$primary, $fallback])));
+        return $this->gemini->generateWithModelFallback(
+            $payload,
+            $timeout,
+            $validator,
+            ['location_id' => $this->locationId],
+        );
     }
 
     private function clampScore(mixed $value): int
@@ -817,7 +680,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
     private function downloadImageAsInlineData(string $url): ?array
     {
         try {
-            $response = Http::timeout(15)->get($url)->throw();
+            return $this->remoteImages->inlineData($url);
         } catch (Throwable $e) {
             Log::warning('Failed to download hidden gem image for AI verification.', [
                 'url' => $url,
@@ -827,11 +690,6 @@ class VerifyHiddenGemSubmission implements ShouldQueue
             return null;
         }
 
-        $mimeType = $response->header('Content-Type') ?: 'image/jpeg';
-
-        return [
-            'mime_type' => explode(';', $mimeType)[0],
-            'data' => base64_encode($response->body()),
-        ];
+        return null;
     }
 }

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\HiddenGems;
 
+use App\Contracts\ObjectStorage;
 use App\Http\Controllers\Controller;
+use App\Integrations\Storage\ObjectStorageException;
 use App\Jobs\HiddenGems\ReviewPendingLocationEdit;
 use App\Jobs\HiddenGems\VerifyHiddenGemSubmission;
 use App\Models\Category;
@@ -21,7 +23,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 class HiddenGemController extends Controller
@@ -77,6 +78,7 @@ class HiddenGemController extends Controller
         private MalaysiaGeocoder $geocoder,
         private HiddenGemSearch $hiddenGemSearch,
         private OsmAttractionCache $attractionCache,
+        private ObjectStorage $storage,
     ) {}
 
     // ==================== API METHODS ====================
@@ -140,18 +142,14 @@ class HiddenGemController extends Controller
 
                 $fileName = 'hidden-gems/'.uniqid().'.'.$image->getClientOriginalExtension();
 
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-                    'apikey' => env('SUPABASE_KEY'),
-                    'Content-Type' => $image->getMimeType(),
-                ])->withBody(
-                    file_get_contents($image->getRealPath()),
-                    $image->getMimeType()
-                )->post(
-                    env('SUPABASE_URL').'/storage/v1/object/location_images/'.$fileName
-                );
-
-                if ($response->failed()) {
+                try {
+                    $imageUrl = $this->storage->uploadPublic(
+                        config('services.supabase.location_images_bucket', 'location_images'),
+                        $fileName,
+                        file_get_contents($image->getRealPath()),
+                        $image->getMimeType(),
+                    );
+                } catch (ObjectStorageException $exception) {
                     // Undo the just-created Location (cascades to any images
                     // already attached) so a failed submission never leaves a
                     // stuck, undispatched 'pending' row behind — otherwise the
@@ -161,13 +159,9 @@ class HiddenGemController extends Controller
 
                     return response()->json([
                         'message' => 'Failed to upload image.',
-                        'error' => $response->json(),
+                        'error' => $exception->upstreamError,
                     ], 500);
                 }
-
-                $imageUrl = env('SUPABASE_URL')
-                    .'/storage/v1/object/public/location_images/'
-                    .$fileName;
 
                 LocationImage::create([
                     'location_id' => $location->id,
@@ -949,24 +943,16 @@ class HiddenGemController extends Controller
         foreach ($files as $image) {
             $fileName = 'hidden-gems/'.uniqid().'.'.$image->getClientOriginalExtension();
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-                'apikey' => env('SUPABASE_KEY'),
-                'Content-Type' => $image->getMimeType(),
-            ])->withBody(
-                file_get_contents($image->getRealPath()),
-                $image->getMimeType()
-            )->post(
-                env('SUPABASE_URL').'/storage/v1/object/location_images/'.$fileName
-            );
-
-            if ($response->failed()) {
+            try {
+                $urls[] = $this->storage->uploadPublic(
+                    config('services.supabase.location_images_bucket', 'location_images'),
+                    $fileName,
+                    file_get_contents($image->getRealPath()),
+                    $image->getMimeType(),
+                );
+            } catch (ObjectStorageException) {
                 return null;
             }
-
-            $urls[] = env('SUPABASE_URL')
-                .'/storage/v1/object/public/location_images/'
-                .$fileName;
         }
 
         return $urls;

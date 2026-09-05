@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\Travel;
 
 use App\Http\Controllers\Controller;
-
+use App\Integrations\Geocoding\NominatimClient;
 use App\Models\Location;
 use App\Models\TripItinerary;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 
 class TripItineraryController extends Controller
 {
+    public function __construct(private NominatimClient $nominatim) {}
+
     /**
      * Display all itineraries of the logged-in user.
      */
@@ -289,17 +289,7 @@ class TripItineraryController extends Controller
 
         $countryCode = Cache::remember($cacheKey, now()->addHours(24), function () use ($latitude, $longitude) {
             try {
-                $result = Http::acceptJson()
-                    ->withUserAgent(config('app.name', 'HiddenMY').' location search')
-                    ->timeout(5)
-                    ->get('https://nominatim.openstreetmap.org/reverse', [
-                        'lat' => $latitude,
-                        'lon' => $longitude,
-                        'format' => 'jsonv2',
-                        'addressdetails' => 1,
-                    ])
-                    ->throw()
-                    ->json();
+                $result = $this->nominatim->reverse($latitude, $longitude, 'location search');
 
                 return strtolower($result['address']['country_code'] ?? '') ?: null;
             } catch (\Throwable $exception) {

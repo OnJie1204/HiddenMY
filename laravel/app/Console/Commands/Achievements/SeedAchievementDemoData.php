@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Achievements;
 
+use App\Contracts\ObjectStorage;
 use App\Models\Category;
 use App\Models\Location;
 use App\Models\LocationImage;
@@ -9,7 +10,6 @@ use App\Models\User;
 use App\Models\Vote;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 /**
@@ -35,6 +35,8 @@ use Illuminate\Support\Str;
  */
 class SeedAchievementDemoData extends Command
 {
+    private ObjectStorage $storage;
+
     protected $signature = 'hiddenmy:seed-achievements
         {email : The user who should unlock the stamps}
         {--undo : Remove the demo data (and its uploaded photos) for that user instead}
@@ -92,8 +94,10 @@ class SeedAchievementDemoData extends Command
         'demo-market.jpg', 'demo-temple.jpg', 'demo-village.jpg',
     ];
 
-    public function handle(): int
+    public function handle(ObjectStorage $storage): int
     {
+        $this->storage = $storage;
+
         $user = User::where('email', $this->argument('email'))->first();
 
         if (! $user) {
@@ -122,7 +126,7 @@ class SeedAchievementDemoData extends Command
             return self::FAILURE;
         }
 
-        if ($imagesPerGem > 0 && (! config('services.supabase.url') || ! config('services.supabase.key'))) {
+        if ($imagesPerGem > 0 && ! $this->storage->configured()) {
             $this->warn('SUPABASE_URL / SUPABASE_KEY not set — gems will be created without photos.');
             $imagesPerGem = 0;
         }
@@ -292,27 +296,21 @@ class SeedAchievementDemoData extends Command
     private function uploadDemoPhoto(string $localPath): ?string
     {
         $bucket = config('services.supabase.location_images_bucket', 'location_images');
-        $base = rtrim((string) config('services.supabase.url'), '/');
-        $key = (string) config('services.supabase.key');
         $path = 'hidden-gems/demo-'.Str::lower(Str::random(24)).'.jpg';
 
         try {
-            Http::withHeaders([
-                'Authorization' => 'Bearer '.$key,
-                'apikey' => $key,
-                'Content-Type' => 'image/jpeg',
-            ])
-                ->withBody(file_get_contents($localPath), 'image/jpeg')
-                ->timeout(20)
-                ->post("{$base}/storage/v1/object/{$bucket}/{$path}")
-                ->throw();
+            return $this->storage->uploadPublic(
+                $bucket,
+                $path,
+                file_get_contents($localPath),
+                'image/jpeg',
+                20,
+            );
         } catch (\Throwable $e) {
             $this->warn("  photo upload failed ({$path}): {$e->getMessage()}");
 
             return null;
         }
-
-        return "{$base}/storage/v1/object/public/{$bucket}/{$path}";
     }
 
     /**
@@ -375,26 +373,14 @@ class SeedAchievementDemoData extends Command
     private function deleteStorageObject(string $publicUrl): bool
     {
         $bucket = config('services.supabase.location_images_bucket', 'location_images');
-        $key = (string) config('services.supabase.key');
-        $base = rtrim((string) config('services.supabase.url'), '/');
+        $path = $this->storage->pathFromPublicUrl($publicUrl, $bucket);
 
-        $marker = "/storage/v1/object/public/{$bucket}/";
-        $pos = strpos($publicUrl, $marker);
-
-        if ($pos === false || $base === '' || $key === '') {
+        if ($path === null || ! $this->storage->configured()) {
             return false;
         }
 
-        $path = substr($publicUrl, $pos + strlen($marker));
-
         try {
-            Http::withHeaders([
-                'Authorization' => 'Bearer '.$key,
-                'apikey' => $key,
-            ])
-                ->timeout(15)
-                ->delete("{$base}/storage/v1/object/{$bucket}/{$path}")
-                ->throw();
+            $this->storage->delete($bucket, $path, 15);
 
             return true;
         } catch (\Throwable $e) {

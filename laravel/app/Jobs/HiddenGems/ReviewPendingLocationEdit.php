@@ -2,11 +2,12 @@
 
 namespace App\Jobs\HiddenGems;
 
+use App\Integrations\Gemini\GeminiClient;
+use App\Integrations\Http\RemoteImageFetcher;
 use App\Models\LocationImage;
 use App\Models\LocationPendingEdit;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -34,12 +35,17 @@ class ReviewPendingLocationEdit implements ShouldQueue
 
     private const MAX_IMAGES = 5;
 
-    private const DEFAULT_MODEL = 'gemini-3.6-flash';
-
     public function __construct(public int $pendingEditId) {}
 
-    public function handle(): void
+    private GeminiClient $gemini;
+
+    private RemoteImageFetcher $remoteImages;
+
+    public function handle(?GeminiClient $gemini = null, ?RemoteImageFetcher $remoteImages = null): void
     {
+        $this->gemini = $gemini ?? app(GeminiClient::class);
+        $this->remoteImages = $remoteImages ?? app(RemoteImageFetcher::class);
+
         $edit = LocationPendingEdit::with('location.images')->find($this->pendingEditId);
 
         if (! $edit || ! $edit->isPending()) {
@@ -53,15 +59,14 @@ class ReviewPendingLocationEdit implements ShouldQueue
             return;
         }
 
-        $apiKey = config('services.gemini.key');
-        if (! $apiKey) {
+        if (! $this->gemini->configured()) {
             Log::warning('Skipping pending-edit review: GEMINI_API_KEY not set.');
 
             return; // stays pending_review — retry sweep will pick it up
         }
 
         try {
-            $parsed = $this->askGemini($apiKey, $edit);
+            $parsed = $this->askGemini($edit);
         } catch (Throwable $e) {
             Log::warning('Pending-edit review failed technically — will retry.', [
                 'pending_edit_id' => $edit->id,
@@ -118,7 +123,7 @@ class ReviewPendingLocationEdit implements ShouldQueue
         ]);
     }
 
-    private function askGemini(string $apiKey, LocationPendingEdit $edit): array
+    private function askGemini(LocationPendingEdit $edit): array
     {
         $location = $edit->location;
 
@@ -139,27 +144,22 @@ class ReviewPendingLocationEdit implements ShouldQueue
             }
         }
 
-        $model = trim((string) config('services.gemini.model')) ?: self::DEFAULT_MODEL;
-
-        $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
-            ->timeout(45)
-            ->retry(2, 1500, throw: false)
-            ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
-                'contents' => [['parts' => $parts]],
-                'generationConfig' => [
-                    'temperature' => 0,
-                    'response_mime_type' => 'application/json',
-                    'response_schema' => [
-                        'type' => 'object',
-                        'properties' => [
-                            'content_safety' => ['type' => 'string', 'enum' => ['CLEAR', 'BORDERLINE', 'UNSAFE']],
-                            'same_place' => ['type' => 'boolean'],
-                            'reason' => ['type' => 'string'],
-                        ],
-                        'required' => ['content_safety', 'same_place', 'reason'],
+        $response = $this->gemini->generateContent([
+            'contents' => [['parts' => $parts]],
+            'generationConfig' => [
+                'temperature' => 0,
+                'response_mime_type' => 'application/json',
+                'response_schema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'content_safety' => ['type' => 'string', 'enum' => ['CLEAR', 'BORDERLINE', 'UNSAFE']],
+                        'same_place' => ['type' => 'boolean'],
+                        'reason' => ['type' => 'string'],
                     ],
+                    'required' => ['content_safety', 'same_place', 'reason'],
                 ],
-            ])->throw();
+            ],
+        ], timeout: 45, attempts: 2, sleepMilliseconds: 1500);
 
         $text = $response->json('candidates.0.content.parts.0.text');
         $decoded = json_decode((string) $text, true);
@@ -210,13 +210,9 @@ class ReviewPendingLocationEdit implements ShouldQueue
     private function downloadImage(string $url): ?array
     {
         try {
-            $response = Http::timeout(15)->get($url)->throw();
+            return $this->remoteImages->inlineData($url);
         } catch (Throwable $e) {
             return null;
         }
-
-        $mime = explode(';', $response->header('Content-Type') ?: 'image/jpeg')[0];
-
-        return ['mime_type' => $mime, 'data' => base64_encode($response->body())];
     }
 }

@@ -2,17 +2,21 @@
 
 namespace App\Http\Controllers\HiddenGems;
 
+use App\Contracts\ObjectStorage;
 use App\Http\Controllers\Controller;
+use App\Integrations\Storage\ObjectStorageException;
 use App\Models\GemInteraction;
 use App\Models\Location;
 use App\Services\Community\ProfanityFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 
 class GemInteractionController extends Controller
 {
-    public function __construct(private ProfanityFilter $profanity) {}
+    public function __construct(
+        private ProfanityFilter $profanity,
+        private ObjectStorage $storage,
+    ) {}
 
     public function toggle(Request $request, $locationId)
     {
@@ -74,33 +78,20 @@ class GemInteractionController extends Controller
                 // so do NOT add comment_photos/ again here.
                 $fileName = uniqid().'.'.$photo->getClientOriginalExtension();
 
-                $uploadUrl = rtrim(env('SUPABASE_URL'), '/')
-                    .'/storage/v1/object/comment_photos/'
-                    .$fileName;
-
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-                    'apikey' => env('SUPABASE_KEY'),
-                    'Content-Type' => $photo->getMimeType(),
-                ])
-                    ->withBody(
+                try {
+                    $photoPath = $this->storage->uploadPublic(
+                        $this->commentPhotosBucket(),
+                        $fileName,
                         file_get_contents($photo->getRealPath()),
-                        $photo->getMimeType()
-                    )
-                    ->post($uploadUrl);
-
-                if ($response->failed()) {
+                        $photo->getMimeType(),
+                    );
+                } catch (ObjectStorageException $exception) {
                     return response()->json([
                         'message' => 'Failed to upload comment photo.',
-                        'status' => $response->status(),
-                        'error' => $response->json(),
+                        'status' => $exception->upstreamStatus,
+                        'error' => $exception->upstreamError,
                     ], 500);
                 }
-
-                // Save public URL into photo_path
-                $photoPath = rtrim(env('SUPABASE_URL'), '/')
-                    .'/storage/v1/object/public/comment_photos/'
-                    .$fileName;
             }
 
             // Check whether user has already commented/rated
@@ -318,29 +309,16 @@ class GemInteractionController extends Controller
         $photoPath = $comment->photo_path;
 
         if ($request->boolean('remove_photo') && $comment->photo_path) {
-            $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
-                .'/storage/v1/object/public/comment_photos/';
+            $objectPath = $this->storage->pathFromPublicUrl($comment->photo_path, $this->commentPhotosBucket());
 
-            if (str_starts_with($comment->photo_path, $publicPrefix)) {
-                $objectPath = substr(
-                    $comment->photo_path,
-                    strlen($publicPrefix)
-                );
-
-                $deleteUrl = rtrim(env('SUPABASE_URL'), '/')
-                    .'/storage/v1/object/comment_photos/'
-                    .$objectPath;
-
-                $deleteResponse = Http::withHeaders([
-                    'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-                    'apikey' => env('SUPABASE_KEY'),
-                ])->delete($deleteUrl);
-
-                if ($deleteResponse->failed()) {
+            if ($objectPath !== null) {
+                try {
+                    $this->storage->delete($this->commentPhotosBucket(), $objectPath);
+                } catch (ObjectStorageException $exception) {
                     return response()->json([
                         'message' => 'Failed to remove comment photo.',
-                        'status' => $deleteResponse->status(),
-                        'error' => $deleteResponse->json(),
+                        'status' => $exception->upstreamStatus,
+                        'error' => $exception->upstreamError,
                     ], 500);
                 }
             }
@@ -357,51 +335,30 @@ class GemInteractionController extends Controller
 
             $fileName = uniqid().'.'.$photo->getClientOriginalExtension();
 
-            $uploadUrl = rtrim(env('SUPABASE_URL'), '/')
-                .'/storage/v1/object/comment_photos/'
-                .$fileName;
-
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-                'apikey' => env('SUPABASE_KEY'),
-                'Content-Type' => $photo->getMimeType(),
-            ])
-                ->withBody(
+            try {
+                $newPhotoPath = $this->storage->uploadPublic(
+                    $this->commentPhotosBucket(),
+                    $fileName,
                     file_get_contents($photo->getRealPath()),
-                    $photo->getMimeType()
-                )
-                ->post($uploadUrl);
-
-            if ($response->failed()) {
+                    $photo->getMimeType(),
+                );
+            } catch (ObjectStorageException $exception) {
                 return response()->json([
                     'message' => 'Failed to upload comment photo.',
-                    'status' => $response->status(),
-                    'error' => $response->json(),
+                    'status' => $exception->upstreamStatus,
+                    'error' => $exception->upstreamError,
                 ], 500);
             }
 
-            $newPhotoPath = rtrim(env('SUPABASE_URL'), '/')
-                .'/storage/v1/object/public/comment_photos/'
-                .$fileName;
-
             if (! $request->boolean('remove_photo') && $comment->photo_path) {
-                $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
-                    .'/storage/v1/object/public/comment_photos/';
+                $oldObjectPath = $this->storage->pathFromPublicUrl($comment->photo_path, $this->commentPhotosBucket());
 
-                if (str_starts_with($comment->photo_path, $publicPrefix)) {
-                    $oldObjectPath = substr(
-                        $comment->photo_path,
-                        strlen($publicPrefix)
-                    );
-
-                    $oldDeleteUrl = rtrim(env('SUPABASE_URL'), '/')
-                        .'/storage/v1/object/comment_photos/'
-                        .$oldObjectPath;
-
-                    Http::withHeaders([
-                        'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-                        'apikey' => env('SUPABASE_KEY'),
-                    ])->delete($oldDeleteUrl);
+                if ($oldObjectPath !== null) {
+                    try {
+                        $this->storage->delete($this->commentPhotosBucket(), $oldObjectPath);
+                    } catch (ObjectStorageException) {
+                        // Preserve the previous best-effort cleanup behaviour.
+                    }
                 }
             }
 
@@ -490,30 +447,16 @@ class GemInteractionController extends Controller
         // ============================
         if ($comment->photo_path) {
 
-            $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
-                .'/storage/v1/object/public/comment_photos/';
+            $objectPath = $this->storage->pathFromPublicUrl($comment->photo_path, $this->commentPhotosBucket());
 
-            if (str_starts_with($comment->photo_path, $publicPrefix)) {
-
-                $objectPath = substr(
-                    $comment->photo_path,
-                    strlen($publicPrefix)
-                );
-
-                $deleteUrl = rtrim(env('SUPABASE_URL'), '/')
-                    .'/storage/v1/object/comment_photos/'
-                    .$objectPath;
-
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-                    'apikey' => env('SUPABASE_KEY'),
-                ])->delete($deleteUrl);
-
-                if ($response->failed()) {
+            if ($objectPath !== null) {
+                try {
+                    $this->storage->delete($this->commentPhotosBucket(), $objectPath);
+                } catch (ObjectStorageException $exception) {
                     return response()->json([
                         'message' => 'Failed to delete photo from storage.',
-                        'status' => $response->status(),
-                        'error' => $response->json(),
+                        'status' => $exception->upstreamStatus,
+                        'error' => $exception->upstreamError,
                     ], 500);
                 }
             }
@@ -527,5 +470,10 @@ class GemInteractionController extends Controller
             'message' => 'Photo deleted successfully',
             'data' => $comment->fresh(),
         ]);
+    }
+
+    private function commentPhotosBucket(): string
+    {
+        return config('services.supabase.comment_photos_bucket', 'comment_photos');
     }
 }
