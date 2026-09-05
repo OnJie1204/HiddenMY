@@ -68,11 +68,12 @@ export default function Wishlist({ user }) {
             ) : (
                 <div className="hidden-gems-list">
                     {gems.map((gem) => (
-                        <div className={`hidden-gems-card wishlist-card${gem.permanently_closed_at ? " gem-card-closed" : ""}`} key={gem.id}>
-                            <div
-                                className="hidden-gems-card-image"
-                                onClick={() => navigate(`/hidden-gems/${gem.id}`)}
-                            >
+                        <div
+                            className={`hidden-gems-card wishlist-card${gem.permanently_closed_at ? " gem-card-closed" : ""}`}
+                            key={gem.id}
+                            onClick={() => navigate(`/hidden-gems/${gem.id}`)}
+                        >
+                            <div className="hidden-gems-card-image">
                                 <PhotoCarousel
                                     images={gem.images || []}
                                     alt={gem.place_name}
@@ -84,13 +85,16 @@ export default function Wishlist({ user }) {
 
                             <div className="hidden-gems-card-content">
                                 <div className="wishlist-card-title-row">
-                                    <h2 onClick={() => navigate(`/hidden-gems/${gem.id}`)}>{gem.place_name}</h2>
+                                    <h2>{gem.place_name}</h2>
                                     <div className="hidden-gems-card-icon-actions">
                                         <button
                                             type="button"
                                             className="wishlist-remove-btn"
                                             title="Remove from wishlist"
-                                            onClick={() => handleRemove(gem)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRemove(gem);
+                                            }}
                                         >
                                             ♥
                                         </button>
