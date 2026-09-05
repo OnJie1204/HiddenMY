@@ -3,10 +3,8 @@
 namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\User;
-use App\Services\SpecialAchievementService;
-use Illuminate\Http\Request;
+use App\Services\Achievements\SpecialAchievementService;
 
 class UserController extends Controller
 {
@@ -18,21 +16,21 @@ class UserController extends Controller
     {
         $user = User::with(['locations' => function ($query) {
             $query->select([
-                      'id',
-                      'user_id',
-                      'category_id',
-                      'place_name',
-                      'state',
-                      'status',
-                      'vote_count',
-                      'verification_threshold',
-                  ])
-                  ->with([
-                      'category:id,name',
-                      'images:id,location_id,image_url',
-                  ])
-                  ->publiclyVisible()
-                  ->orderBy('created_at', 'desc');
+                'id',
+                'user_id',
+                'category_id',
+                'place_name',
+                'state',
+                'status',
+                'vote_count',
+                'verification_threshold',
+            ])
+                ->with([
+                    'category:id,name',
+                    'images:id,location_id,image_url',
+                ])
+                ->publiclyVisible()
+                ->orderBy('created_at', 'desc');
         }])->findOrFail($id);
 
         $activeFavourites = $this->specialAchievements

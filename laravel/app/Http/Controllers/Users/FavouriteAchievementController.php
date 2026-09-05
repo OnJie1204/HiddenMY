@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\User;
 use App\Models\UserFavouriteAchievement;
-use App\Services\SpecialAchievementService;
+use App\Services\Achievements\SpecialAchievementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Travel;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\CheckIn;
 use App\Models\Location;
 use App\Models\PostImage;
@@ -11,7 +10,7 @@ use App\Models\PostStop;
 use App\Models\TravelPost;
 use App\Models\TripItinerary;
 use App\Models\TripLocation;
-use App\Services\SpecialAchievementService;
+use App\Services\Achievements\SpecialAchievementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -48,9 +47,7 @@ class TravelPostController extends Controller
         'locations.verification_threshold',
     ];
 
-    public function __construct(private SpecialAchievementService $specialAchievements)
-    {
-    }
+    public function __construct(private SpecialAchievementService $specialAchievements) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -211,11 +208,13 @@ class TravelPostController extends Controller
 
                     if (! $gem || $gem->status === 'deleted') {
                         $skipped[] = ($gem->place_name ?? $stop->osm_name) ?: 'a removed hidden gem';
+
                         continue;
                     }
 
                     if ($gem->permanently_closed_at !== null) {
-                        $skipped[] = $gem->place_name . ' (permanently closed)';
+                        $skipped[] = $gem->place_name.' (permanently closed)';
+
                         continue;
                     }
 
@@ -243,8 +242,8 @@ class TravelPostController extends Controller
 
         $message = 'Trip copied to your itineraries.';
         if (! empty($skipped)) {
-            $message .= ' Skipped ' . count($skipped) . ' stop' . (count($skipped) === 1 ? '' : 's')
-                . ' no longer available: ' . implode(', ', $skipped) . '.';
+            $message .= ' Skipped '.count($skipped).' stop'.(count($skipped) === 1 ? '' : 's')
+                .' no longer available: '.implode(', ', $skipped).'.';
         }
 
         return response()->json([
@@ -313,7 +312,7 @@ class TravelPostController extends Controller
     /**
      * @param  array<int>  $itineraryIds  already filtered to ones the author owns
      * @param  array<int, array<string, mixed>>  $stopInput  the author's edited list, authoritative when present
-     * @return array<int, array<string, mixed>>  ordered stop attribute rows
+     * @return array<int, array<string, mixed>> ordered stop attribute rows
      */
     private function buildSnapshot(array $itineraryIds, array $stopInput): array
     {
@@ -348,7 +347,7 @@ class TravelPostController extends Controller
                     continue; // not taggable (pending/rejected/closed/deleted) — drop it
                 }
 
-                $key = 'g:' . $gem->id;
+                $key = 'g:'.$gem->id;
                 if (isset($seen[$key])) {
                     continue;
                 }
@@ -377,7 +376,7 @@ class TravelPostController extends Controller
             }
 
             $osmId = $stop['osm_id'] ?? null;
-            $key = $osmId ? 'o:' . $osmId : 'c:' . round((float) $lat, 5) . ',' . round((float) $lng, 5);
+            $key = $osmId ? 'o:'.$osmId : 'c:'.round((float) $lat, 5).','.round((float) $lng, 5);
             if (isset($seen[$key])) {
                 continue;
             }
@@ -562,23 +561,23 @@ class TravelPostController extends Controller
 
     private function uploadToSupabase($image, string $folder): ?string
     {
-        $fileName = "travel-posts/{$folder}/" . uniqid() . '.' . $image->getClientOriginalExtension();
+        $fileName = "travel-posts/{$folder}/".uniqid().'.'.$image->getClientOriginalExtension();
 
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+            'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
             'apikey' => env('SUPABASE_KEY'),
             'Content-Type' => $image->getMimeType(),
         ])->withBody(
             file_get_contents($image->getRealPath()),
             $image->getMimeType()
         )->post(
-            env('SUPABASE_URL') . '/storage/v1/object/post_images/' . $fileName
+            env('SUPABASE_URL').'/storage/v1/object/post_images/'.$fileName
         );
 
         if ($response->failed()) {
             return null;
         }
 
-        return env('SUPABASE_URL') . '/storage/v1/object/public/post_images/' . $fileName;
+        return env('SUPABASE_URL').'/storage/v1/object/public/post_images/'.$fileName;
     }
 }

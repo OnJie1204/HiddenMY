@@ -3,19 +3,19 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\User;
+use App\Notifications\Auth\VerifyNewEmail;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Auth\Events\PasswordReset;
-use App\Notifications\VerifyNewEmail;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -34,7 +34,7 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        event(new \Illuminate\Auth\Events\Registered($user)); // Trigger the sending of a verification email
+        event(new Registered($user)); // Trigger the sending of a verification email
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -54,19 +54,20 @@ class AuthController extends Controller
         ]);
 
         // Device-level lockout: keyed by IP, independent of which account is being tried.
-        $deviceKey = 'login-device:' . $request->ip();
+        $deviceKey = 'login-device:'.$request->ip();
 
         if (RateLimiter::tooManyAttempts($deviceKey, 5)) {
             $secondsLeft = RateLimiter::availableIn($deviceKey);
+
             return response()->json([
                 'message' => "Too many login attempts from this device. Please try again in {$secondsLeft} second(s).",
             ], 429);
         }
 
         $user = User::where('email', $request->email)->first();
-        Log::info('After first query: ' . (microtime(true) - $start) . 's');
+        Log::info('After first query: '.(microtime(true) - $start).'s');
 
-        if (!$user) {
+        if (! $user) {
             RateLimiter::hit($deviceKey, 60); // demo: 1 minute (normally 900s / 15 min)
             throw ValidationException::withMessages([
                 'email' => ['The provided account or password is incorrect.'],
@@ -76,12 +77,13 @@ class AuthController extends Controller
         // Check if the account is locked.
         if ($user->locked_until && $user->locked_until->isFuture()) {
             $secondsLeft = now()->diffInSeconds($user->locked_until);
+
             return response()->json([
                 'message' => "Too many failed attempts. Please try again in {$secondsLeft} second(s).",
             ], 423); // 423 Locked
         }
 
-        if (!Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             RateLimiter::hit($deviceKey, 60); // demo: 1 minute (normally 900s / 15 min)
             $user->increment('failed_login_attempts');
 
@@ -101,7 +103,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if (!$user->hasVerifiedEmail()) {
+        if (! $user->hasVerifiedEmail()) {
             return response()->json([
                 'message' => 'Please verify your email before logging in.',
             ], 403);
@@ -114,7 +116,7 @@ class AuthController extends Controller
         RateLimiter::clear($deviceKey);
 
         $token = $user->createToken('auth_token')->plainTextToken;
-        Log::info('Total time: ' . (microtime(true) - $start) . 's');
+        Log::info('Total time: '.(microtime(true) - $start).'s');
 
         return response()->json([
             'user' => $user,
@@ -134,9 +136,10 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
+
         return response()->json([
             ...$user->toArray(),
-            'has_password' => !is_null($user->password),
+            'has_password' => ! is_null($user->password),
         ]);
     }
 
@@ -190,7 +193,7 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,' . $user->id,
+            'email' => 'sometimes|email|unique:users,email,'.$user->id,
         ]);
 
         // If the name has changed, update it directly.
@@ -229,17 +232,17 @@ class AuthController extends Controller
 
         $user = $request->user();
         $image = $request->file('avatar');
-        $fileName = $user->id . '-' . uniqid() . '.' . $image->getClientOriginalExtension();
+        $fileName = $user->id.'-'.uniqid().'.'.$image->getClientOriginalExtension();
 
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+            'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
             'apikey' => env('SUPABASE_KEY'),
             'Content-Type' => $image->getMimeType(),
         ])->withBody(
             file_get_contents($image->getRealPath()),
             $image->getMimeType()
         )->post(
-            env('SUPABASE_URL') . '/storage/v1/object/avatars/' . $fileName
+            env('SUPABASE_URL').'/storage/v1/object/avatars/'.$fileName
         );
 
         if ($response->failed()) {
@@ -249,7 +252,7 @@ class AuthController extends Controller
             ], 500);
         }
 
-        $user->avatar_url = env('SUPABASE_URL') . '/storage/v1/object/public/avatars/' . $fileName;
+        $user->avatar_url = env('SUPABASE_URL').'/storage/v1/object/public/avatars/'.$fileName;
         $user->save();
 
         return response()->json([
@@ -269,7 +272,7 @@ class AuthController extends Controller
                 'new_password' => 'required|min:8|confirmed',
             ]);
 
-            if (!Hash::check($request->current_password, $user->password)) {
+            if (! Hash::check($request->current_password, $user->password)) {
                 return response()->json(['message' => 'Current password is incorrect'], 400);
             }
         } else {
@@ -288,9 +291,9 @@ class AuthController extends Controller
     {
         $request->validate(['token' => 'required']);
 
-        $user = \App\Models\User::where('email_change_token', $request->token)->first();
+        $user = User::where('email_change_token', $request->token)->first();
 
-        if (!$user || !$user->pending_email) {
+        if (! $user || ! $user->pending_email) {
             return response()->json(['message' => 'Invalid or expired verification link'], 400);
         }
 
@@ -308,7 +311,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'No account found with this email'], 404);
         }
 

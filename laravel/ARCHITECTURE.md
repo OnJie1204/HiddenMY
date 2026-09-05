@@ -21,14 +21,24 @@ Controllers must not call other controllers.
 
 ```text
 app/
+  Console/Commands/
+    Achievements/  Achievement maintenance and demo tooling
+    HiddenGems/    Hidden-gem verification, promotion, and OSM sync
   Http/Controllers/
     Auth/          Authentication and OAuth endpoints
     HiddenGems/    Gems, votes, reports, interactions, and menu items
     Travel/        Itineraries and travel posts
     Users/         Profiles, wishlists, and achievements
-  Jobs/            Asynchronous application work
+  Jobs/
+    HiddenGems/    Asynchronous verification and edit-review work
   Models/          Eloquent domain and persistence models
-  Services/        Reusable business operations and external integrations
+  Notifications/
+    Auth/          Authentication and email-verification notifications
+  Services/
+    Achievements/  Achievement evaluation and awarding
+    Community/     Community-content policies such as profanity filtering
+    Geocoding/     Malaysia-focused Nominatim and Photon integration
+    HiddenGems/    Search, duplicate detection, and OSM attraction caching
   Support/         Small framework-independent helpers
 
 routes/
@@ -50,22 +60,88 @@ in a service or action; slow external calls belong in queued jobs.
 ```text
 resources/js/
   api.js           Shared HTTP transport and authentication interceptors
+  assets/
+    achievements/
+    branding/
+    common/
+    development/
+    maps/
+    navigation/
+  components/
+    achievements/
+    auth/
+    common/
+    community/
+    hidden-gems/
+    layout/
+    travel/
+  constants/
+    achievements/
+    auth/
+  context/
+    auth/
   features/
     auth/api.js
     community/     Votes, reports, ratings/comments, and menu-item APIs
     hidden-gems/api.js
     travel/        Itinerary and travel-post APIs
     users/         Wishlist and achievement APIs
-  pages/            Route-level React views
-  components/       Reusable presentation components
-  context/          Cross-page UI state
-  utils/            Framework-independent helpers
+  pages/           Route-level React views grouped by module
+    auth/
+    hidden-gems/
+    home/
+    travel/
+    users/
+  utils/
+    auth/
+    hidden-gems/
+    maps/
+    users/
+
+public/images/
+  maps/             Public marker images referenced by runtime URLs
+
+resources/css/
+  app.css           Laravel/Vite stylesheet entry point
+  base/global.css   Application-wide design and layout rules
+  modules/maps.css  Map-specific presentation rules
 ```
 
 Pages and components should use a feature API rather than constructing API URLs
 directly. Feature API modules may depend on `resources/js/api.js`; they should
 not depend on React components. Shared components should remain business-neutral
 unless they clearly belong to one feature.
+
+Use the `@/` alias for imports rooted at `resources/js` and `@css/` for imports
+rooted at `resources/css`. Module folders can then move without rewriting deep
+relative paths.
+
+## Test layout
+
+```text
+tests/
+  Feature/
+    Achievements/
+    Community/
+    HiddenGems/
+    System/
+    Travel/
+    Users/
+  Unit/
+    Community/
+    System/
+```
+
+Tests mirror the feature they protect, while `System` contains framework-level
+smoke tests. Shared test bootstrapping remains in `tests/TestCase.php`.
+
+## Deliberately shared Laravel conventions
+
+`app/Models`, `database/factories`, and `database/migrations` remain flat.
+Eloquent models are shared across several modules, Laravel resolves factories by
+their conventional namespaces, and migrations are deployment history ordered by
+timestamp. Moving these files would require extra framework configuration without
+changing the MVC or modular-monolith boundaries.
 
 ## Adding functionality
 

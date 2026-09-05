@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\HiddenGems;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\Location;
 use App\Models\MenuItem;
 use App\Models\MenuItemLike;
-use App\Services\ProfanityFilter;
+use App\Services\Community\ProfanityFilter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,9 +15,7 @@ class MenuItemController extends Controller
 {
     private const MAX_NAME_LENGTH = 80;
 
-    public function __construct(private ProfanityFilter $profanity)
-    {
-    }
+    public function __construct(private ProfanityFilter $profanity) {}
 
     public function index($locationId): JsonResponse
     {
@@ -52,13 +49,13 @@ class MenuItemController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Please login first'], 401);
         }
 
         $location = Location::findOrFail($locationId);
 
-        if (!$location->acceptsNewInteractions()) {
+        if (! $location->acceptsNewInteractions()) {
             return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
         }
 
@@ -101,13 +98,13 @@ class MenuItemController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Please login first'], 401);
         }
 
         $item = MenuItem::with('location:id,permanently_closed_at')->findOrFail($menuItemId);
 
-        if ($item->location && !$item->location->acceptsNewInteractions()) {
+        if ($item->location && ! $item->location->acceptsNewInteractions()) {
             return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
         }
 
@@ -137,7 +134,7 @@ class MenuItemController extends Controller
         $item = MenuItem::findOrFail($menuItemId);
 
         // Whoever suggested it can remove it
-        if (!$user || $item->added_by_user_id !== $user->id) {
+        if (! $user || $item->added_by_user_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

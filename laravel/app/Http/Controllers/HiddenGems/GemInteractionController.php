@@ -3,27 +3,24 @@
 namespace App\Http\Controllers\HiddenGems;
 
 use App\Http\Controllers\Controller;
-
-use App\Models\Location;
 use App\Models\GemInteraction;
-use App\Services\ProfanityFilter;
+use App\Models\Location;
+use App\Services\Community\ProfanityFilter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 
 class GemInteractionController extends Controller
 {
-    public function __construct(private ProfanityFilter $profanity)
-    {
-    }
+    public function __construct(private ProfanityFilter $profanity) {}
 
     public function toggle(Request $request, $locationId)
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
-                'message' => 'Please login first'
+                'message' => 'Please login first',
             ], 401);
         }
 
@@ -36,7 +33,7 @@ class GemInteractionController extends Controller
 
         $location = Location::findOrFail($locationId);
 
-        if (!$location->acceptsNewInteractions()) {
+        if (! $location->acceptsNewInteractions()) {
             return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
         }
 
@@ -47,19 +44,19 @@ class GemInteractionController extends Controller
 
             if ((int) $location->user_id === (int) $user->id) {
                 return response()->json([
-                    'message' => 'You cannot rate or comment on your own Hidden Gem.'
+                    'message' => 'You cannot rate or comment on your own Hidden Gem.',
                 ], 403);
             }
 
-            if (!$request->rating) {
+            if (! $request->rating) {
                 return response()->json([
-                    'message' => 'Rating is required.'
+                    'message' => 'Rating is required.',
                 ], 422);
             }
 
-            if (!$this->profanity->isClean($request->comment)) {
+            if (! $this->profanity->isClean($request->comment)) {
                 return response()->json([
-                    'message' => 'Please reword your comment — it looks like it contains inappropriate language.'
+                    'message' => 'Please reword your comment — it looks like it contains inappropriate language.',
                 ], 422);
             }
 
@@ -75,14 +72,14 @@ class GemInteractionController extends Controller
                 // IMPORTANT:
                 // Bucket already called comment_photos,
                 // so do NOT add comment_photos/ again here.
-                $fileName = uniqid() . '.' . $photo->getClientOriginalExtension();
+                $fileName = uniqid().'.'.$photo->getClientOriginalExtension();
 
                 $uploadUrl = rtrim(env('SUPABASE_URL'), '/')
-                    . '/storage/v1/object/comment_photos/'
-                    . $fileName;
+                    .'/storage/v1/object/comment_photos/'
+                    .$fileName;
 
                 $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
                     'apikey' => env('SUPABASE_KEY'),
                     'Content-Type' => $photo->getMimeType(),
                 ])
@@ -102,8 +99,8 @@ class GemInteractionController extends Controller
 
                 // Save public URL into photo_path
                 $photoPath = rtrim(env('SUPABASE_URL'), '/')
-                    . '/storage/v1/object/public/comment_photos/'
-                    . $fileName;
+                    .'/storage/v1/object/public/comment_photos/'
+                    .$fileName;
             }
 
             // Check whether user has already commented/rated
@@ -117,7 +114,7 @@ class GemInteractionController extends Controller
             // ============================
             if ($existingComment) {
 
-                if (!$existingComment->isCommentEditable()) {
+                if (! $existingComment->isCommentEditable()) {
                     return response()->json([
                         'message' => 'Comments can only be edited within 72 hours of posting.',
                     ], 403);
@@ -192,7 +189,6 @@ class GemInteractionController extends Controller
         ], 201);
     }
 
-
     // =====================================================
     // GET INTERACTIONS
     // =====================================================
@@ -220,7 +216,6 @@ class GemInteractionController extends Controller
             'user_comment' => $userComment,
         ]);
     }
-
 
     public function myRatings()
     {
@@ -264,7 +259,6 @@ class GemInteractionController extends Controller
         return response()->json(['data' => $ratings]);
     }
 
-
     // =====================================================
     // UPDATE COMMENT
     // =====================================================
@@ -272,9 +266,9 @@ class GemInteractionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
-                'message' => 'Please login first'
+                'message' => 'Please login first',
             ], 401);
         }
 
@@ -282,15 +276,15 @@ class GemInteractionController extends Controller
             ->where('type', 'comment')
             ->first();
 
-        if (!$comment) {
+        if (! $comment) {
             return response()->json([
-                'message' => 'Comment not found'
+                'message' => 'Comment not found',
             ], 404);
         }
 
         if ($comment->user_id !== $user->id) {
             return response()->json([
-                'message' => 'You are not authorized to edit this comment'
+                'message' => 'You are not authorized to edit this comment',
             ], 403);
         }
 
@@ -298,11 +292,11 @@ class GemInteractionController extends Controller
 
         if ($location && (int) $location->user_id === (int) $user->id) {
             return response()->json([
-                'message' => 'You cannot rate or comment on your own Hidden Gem.'
+                'message' => 'You cannot rate or comment on your own Hidden Gem.',
             ], 403);
         }
 
-        if (!$comment->isCommentEditable()) {
+        if (! $comment->isCommentEditable()) {
             return response()->json([
                 'message' => 'Comments can only be edited within 72 hours of posting.',
             ], 403);
@@ -315,9 +309,9 @@ class GemInteractionController extends Controller
             'remove_photo' => 'nullable|boolean',
         ]);
 
-        if (!$this->profanity->isClean($request->comment)) {
+        if (! $this->profanity->isClean($request->comment)) {
             return response()->json([
-                'message' => 'Please reword your comment — it looks like it contains inappropriate language.'
+                'message' => 'Please reword your comment — it looks like it contains inappropriate language.',
             ], 422);
         }
 
@@ -325,7 +319,7 @@ class GemInteractionController extends Controller
 
         if ($request->boolean('remove_photo') && $comment->photo_path) {
             $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
-                . '/storage/v1/object/public/comment_photos/';
+                .'/storage/v1/object/public/comment_photos/';
 
             if (str_starts_with($comment->photo_path, $publicPrefix)) {
                 $objectPath = substr(
@@ -334,11 +328,11 @@ class GemInteractionController extends Controller
                 );
 
                 $deleteUrl = rtrim(env('SUPABASE_URL'), '/')
-                    . '/storage/v1/object/comment_photos/'
-                    . $objectPath;
+                    .'/storage/v1/object/comment_photos/'
+                    .$objectPath;
 
                 $deleteResponse = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
                     'apikey' => env('SUPABASE_KEY'),
                 ])->delete($deleteUrl);
 
@@ -361,14 +355,14 @@ class GemInteractionController extends Controller
 
             $photo = $request->file('photo');
 
-            $fileName = uniqid() . '.' . $photo->getClientOriginalExtension();
+            $fileName = uniqid().'.'.$photo->getClientOriginalExtension();
 
             $uploadUrl = rtrim(env('SUPABASE_URL'), '/')
-                . '/storage/v1/object/comment_photos/'
-                . $fileName;
+                .'/storage/v1/object/comment_photos/'
+                .$fileName;
 
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
                 'apikey' => env('SUPABASE_KEY'),
                 'Content-Type' => $photo->getMimeType(),
             ])
@@ -387,12 +381,12 @@ class GemInteractionController extends Controller
             }
 
             $newPhotoPath = rtrim(env('SUPABASE_URL'), '/')
-                . '/storage/v1/object/public/comment_photos/'
-                . $fileName;
+                .'/storage/v1/object/public/comment_photos/'
+                .$fileName;
 
-            if (!$request->boolean('remove_photo') && $comment->photo_path) {
+            if (! $request->boolean('remove_photo') && $comment->photo_path) {
                 $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
-                    . '/storage/v1/object/public/comment_photos/';
+                    .'/storage/v1/object/public/comment_photos/';
 
                 if (str_starts_with($comment->photo_path, $publicPrefix)) {
                     $oldObjectPath = substr(
@@ -401,11 +395,11 @@ class GemInteractionController extends Controller
                     );
 
                     $oldDeleteUrl = rtrim(env('SUPABASE_URL'), '/')
-                        . '/storage/v1/object/comment_photos/'
-                        . $oldObjectPath;
+                        .'/storage/v1/object/comment_photos/'
+                        .$oldObjectPath;
 
                     Http::withHeaders([
-                        'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                        'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
                         'apikey' => env('SUPABASE_KEY'),
                     ])->delete($oldDeleteUrl);
                 }
@@ -426,7 +420,6 @@ class GemInteractionController extends Controller
         ]);
     }
 
-
     // =====================================================
     // DELETE COMMENT
     // =====================================================
@@ -434,9 +427,9 @@ class GemInteractionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
-                'message' => 'Please login first'
+                'message' => 'Please login first',
             ], 401);
         }
 
@@ -444,15 +437,15 @@ class GemInteractionController extends Controller
             ->where('type', 'comment')
             ->first();
 
-        if (!$comment) {
+        if (! $comment) {
             return response()->json([
-                'message' => 'Comment not found'
+                'message' => 'Comment not found',
             ], 404);
         }
 
         if ($comment->user_id !== $user->id) {
             return response()->json([
-                'message' => 'You are not authorized to delete this comment'
+                'message' => 'You are not authorized to delete this comment',
             ], 403);
         }
 
@@ -463,7 +456,6 @@ class GemInteractionController extends Controller
         ]);
     }
 
-
     // =====================================================
     // DELETE COMMENT PHOTO
     // =====================================================
@@ -471,9 +463,9 @@ class GemInteractionController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
-                'message' => 'Please login first'
+                'message' => 'Please login first',
             ], 401);
         }
 
@@ -481,15 +473,15 @@ class GemInteractionController extends Controller
             ->where('type', 'comment')
             ->first();
 
-        if (!$comment) {
+        if (! $comment) {
             return response()->json([
-                'message' => 'Comment not found'
+                'message' => 'Comment not found',
             ], 404);
         }
 
         if ($comment->user_id !== $user->id) {
             return response()->json([
-                'message' => 'Unauthorized'
+                'message' => 'Unauthorized',
             ], 403);
         }
 
@@ -499,7 +491,7 @@ class GemInteractionController extends Controller
         if ($comment->photo_path) {
 
             $publicPrefix = rtrim(env('SUPABASE_URL'), '/')
-                . '/storage/v1/object/public/comment_photos/';
+                .'/storage/v1/object/public/comment_photos/';
 
             if (str_starts_with($comment->photo_path, $publicPrefix)) {
 
@@ -509,11 +501,11 @@ class GemInteractionController extends Controller
                 );
 
                 $deleteUrl = rtrim(env('SUPABASE_URL'), '/')
-                    . '/storage/v1/object/comment_photos/'
-                    . $objectPath;
+                    .'/storage/v1/object/comment_photos/'
+                    .$objectPath;
 
                 $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . env('SUPABASE_KEY'),
+                    'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
                     'apikey' => env('SUPABASE_KEY'),
                 ])->delete($deleteUrl);
 
@@ -528,7 +520,7 @@ class GemInteractionController extends Controller
         }
 
         $comment->update([
-            'photo_path' => null
+            'photo_path' => null,
         ]);
 
         return response()->json([

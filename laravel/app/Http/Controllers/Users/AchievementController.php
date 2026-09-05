@@ -3,8 +3,7 @@
 namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
-
-use App\Services\SpecialAchievementService;
+use App\Services\Achievements\SpecialAchievementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
