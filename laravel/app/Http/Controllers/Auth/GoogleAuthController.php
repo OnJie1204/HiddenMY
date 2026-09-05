@@ -46,7 +46,7 @@ class GoogleAuthController extends Controller
                     'email' => $googleUser->getEmail(),
                     'google_id' => $googleUser->getId(),
                     'password' => null,
-                    'email_verified_at' => now(), // Google 已验证过，直接标记为已验证
+                    'email_verified_at' => now(), // Google verified
                     'avatar_url' => $googleUser->getAvatar(),
                 ]);
             }
@@ -63,7 +63,7 @@ class GoogleAuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         // Redirect back to the frontend, carrying the token.
-        $frontendUrl = 'http://127.0.0.1:8000/google-callback?token=' . $token . '&remember=' . $remember;
+        $frontendUrl = config('app.url') . '/google-callback?token=' . $token . '&remember=' . $remember;
         return redirect($frontendUrl);
     }
 }
