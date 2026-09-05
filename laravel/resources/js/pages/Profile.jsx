@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
-import { getMe, getUserProfile, updateProfile, changePassword, uploadAvatar } from '../api/auth';
-import { getMyHiddenGems } from '../api/hiddenGems';
-import { getTripItineraries } from '../api/TripItinerary';
-import { getMyTravelPosts } from '../api/travelPosts';
+import { getMe, getUserProfile, updateProfile, changePassword, uploadAvatar } from '../features/auth/api';
+import { getMyHiddenGems } from '../features/hidden-gems/api';
+import { getTripItineraries } from '../features/travel/tripItinerariesApi';
+import { getMyTravelPosts } from '../features/travel/travelPostsApi';
 import PhotoCarousel from '../components/PhotoCarousel';
-import { getFavouriteAchievements } from '../api/achievements';
+import { getFavouriteAchievements } from '../features/users/achievementsApi';
 import { getPasswordStrength } from '../utils/password';
 import Avatar from '../components/Avatar';
 import FavouriteAchievementBadges from '../components/FavouriteAchievementBadges';

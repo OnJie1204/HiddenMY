@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getHiddenGems, getWellKnownPlaces, getCategories, getStates } from "../api/hiddenGems";
-import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
+import { getHiddenGems, getWellKnownPlaces, getCategories, getStates } from "../features/hidden-gems/api";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../features/users/wishlistApi";
 import TruncatedText from "../components/TruncatedText";
 import PhotoCarousel from "../components/PhotoCarousel";
 import LoadingCards from "../components/LoadingCards";

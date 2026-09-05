@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { verifyNewEmail } from '../api/auth';
+import { verifyNewEmail } from '../features/auth/api';
 
 function VerifyNewEmail() {
   const [searchParams] = useSearchParams();

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getMenuItems, addMenuItem, toggleMenuItemLike, deleteMenuItem } from "../api/menuItems";
+import { getMenuItems, addMenuItem, toggleMenuItemLike, deleteMenuItem } from "../features/community/menuItemsApi";
 import Spinner from "./Spinner";
 import { useAuthPrompt } from "../context/AuthPromptContext";
 

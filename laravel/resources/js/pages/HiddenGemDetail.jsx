@@ -1,24 +1,28 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
-import { getHiddenGemDetail, updateHiddenGem } from "../api/hiddenGems";
-import { getMe } from "../api/auth";
+import { getHiddenGemDetail, updateHiddenGem } from "../features/hidden-gems/api";
+import { getMe } from "../features/auth/api";
 import VoteModal from "../components/VoteModal";
 import ReportButton from "../components/ReportButton";
 import VerifyReportModal from "../components/VerifyReportModal";
 import Spinner from "../components/Spinner";
-import { getReportForLocation } from "../api/reports";
+import { getReportForLocation } from "../features/community/reportsApi";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";
 import PhotoCarousel from "../components/PhotoCarousel";
-import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
-import { getTripItineraries, addTripLocation, createTripItinerary } from "../api/TripItinerary";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../features/users/wishlistApi";
+import { getTripItineraries, addTripLocation, createTripItinerary } from "../features/travel/tripItinerariesApi";
 
 // Backend caps trip_name at 10 characters (TripItineraryController::store).
 const ITINERARY_NAME_MAX = 10;
 import { useResumeIntent } from "../utils/useResumeIntent";
 import { useAuthPrompt } from "../context/AuthPromptContext";
-import { getTravelPostsForLocation } from "../api/travelPosts";
+import { getTravelPostsForLocation } from "../features/travel/travelPostsApi";
 import MenuItems from "../components/MenuItems";
-import api from "../api";
+import {
+    getInteractions,
+    submitComment,
+    updateComment,
+} from "../features/community/interactionsApi";
 
 import "../styles/global.css";
 
@@ -139,7 +143,7 @@ export default function HiddenGemDetail({ user }) {
 
     const fetchInteractions = async () => {
         try {
-            const response = await api.get(`/gem-interactions/${id}`);
+            const response = await getInteractions(id);
             setInteractions(response.data);
         } catch (err) {
             console.error("Error fetching interactions:", err);
@@ -188,7 +192,7 @@ export default function HiddenGemDetail({ user }) {
                 formData.append("photo", commentPhoto);
             }
 
-            await api.post(`/gem-interactions/${id}`, formData);
+            await submitComment(id, formData);
             setNewComment("");
             setNewRating(5);
             setCommentPhoto(null);
@@ -249,7 +253,7 @@ export default function HiddenGemDetail({ user }) {
                 formData.append("remove_photo", "1");
             }
 
-            await api.post(`/gem-interactions/comments/${commentId}`, formData);
+            await updateComment(commentId, formData);
 
             setEditingCommentId(null);
             setEditCommentText("");

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { createHiddenGem, getCategories, geocodeAddress } from "../api/hiddenGems";
+import { createHiddenGem, getCategories, geocodeAddress } from "../features/hidden-gems/api";
 import LocationPickerMap from "../components/LocationPickerMap";
 import AddressAutocomplete from "../components/AddressAutocomplete";
 import Spinner from "../components/Spinner";

@@ -1,6 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Users;
+
+use App\Http\Controllers\Controller;
 
 use App\Models\Location;
 use App\Models\Wishlist;

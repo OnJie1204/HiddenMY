@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getMe } from '../api/auth';
+import { getMe } from '../features/auth/api';
 import { setToken } from '../utils/tokenStorage';
 import { sanitizeIntent } from '../utils/authRedirect';
 import AuthLoadingScreen from '../components/AuthLoadingScreen';

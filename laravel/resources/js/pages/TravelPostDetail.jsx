@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getTravelPostDetail, deleteTravelPost, copyPostTrip } from "../api/travelPosts";
-import { getMe } from "../api/auth";
+import { getTravelPostDetail, deleteTravelPost, copyPostTrip } from "../features/travel/travelPostsApi";
+import { getMe } from "../features/auth/api";
 import Avatar from "../components/Avatar";
 import PhotoCarousel from "../components/PhotoCarousel";
 import Spinner from "../components/Spinner";

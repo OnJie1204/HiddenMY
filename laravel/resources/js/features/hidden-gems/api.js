@@ -1,4 +1,4 @@
-import api from '../api';
+import api from '../../api';
 
 export const getHiddenGems = (params = {}) =>
     api.get('/hidden-gems', { params });
@@ -77,6 +77,9 @@ export const getMyHiddenGems = () =>
 
 export const getPopularHiddenGems = () =>
     api.get('/popular-hidden-gems');
+
+export const getRecentHiddenGems = () =>
+    api.get('/recent-hidden-gems');
 
 export const getNearbyAttractions = (id, radius) =>
     api.get(`/hidden-gems/${id}/nearby`, { params: radius ? { radius } : {} });

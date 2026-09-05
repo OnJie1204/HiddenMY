@@ -25,7 +25,7 @@ import TravelPosts from './pages/TravelPosts';
 import TravelPostDetail from './pages/TravelPostDetail';
 import CreateTravelPost from './pages/CreateTravelPost';
 import EditTravelPost from './pages/EditTravelPost';
-import { getMe } from './api/auth';
+import { getMe } from './features/auth/api';
 import { getToken, clearToken } from './utils/tokenStorage';
 import { sanitizeIntent } from './utils/authRedirect';
 import { AuthPromptProvider } from './context/AuthPromptContext';

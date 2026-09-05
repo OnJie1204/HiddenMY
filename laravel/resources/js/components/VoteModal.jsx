@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getToken } from '../utils/tokenStorage';
 import { loginNavOptions } from '../utils/authRedirect';
+import { checkVoteEligibility, submitVote } from '../features/community/votesApi';
 
 function VoteModal({
     locationId,
@@ -37,22 +37,11 @@ function VoteModal({
         setDetectedLocation(null);
 
         try {
-            const token = getToken();
-
-            const response = await fetch(
-                `/api/votes/check/${locationId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: 'application/json',
-                    },
-                }
-            );
-
-            const data = await response.json();
+            const response = await checkVoteEligibility(locationId);
+            const data = response.data;
             setEligibility(data);
 
-            if (!response.ok || !data.eligible) {
+            if (!data.eligible) {
                 setStep('error');
                 setMessage(
                     data.message ||
@@ -69,9 +58,7 @@ function VoteModal({
             );
 
             setStep('error');
-            setMessage(
-                'Unable to check voting eligibility.'
-            );
+            setMessage(error.response?.data?.message || 'Unable to check voting eligibility.');
         } finally {
             setLoading(false);
         }
@@ -81,38 +68,9 @@ function VoteModal({
         latitude,
         longitude
     ) => {
-        const token = getToken();
+        const response = await submitVote(locationId, { latitude, longitude });
 
-        const response = await fetch(
-            `/api/votes/${locationId}`,
-            {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                },
-                body: JSON.stringify({
-                    latitude,
-                    longitude,
-                }),
-            }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            const error = new Error(
-                data.message ||
-                'Failed to submit vote.'
-            );
-
-            error.data = data;
-            error.status = response.status;
-            throw error;
-        }
-
-        return data;
+        return response.data;
     };
 
     const getCurrentLocationAndVote = () => {
@@ -171,7 +129,8 @@ function VoteModal({
                         error
                     );
 
-                    const data = error.data || {};
+                    const data = error.response?.data || error.data || {};
+                    const status = error.response?.status || error.status;
 
                     if (
                         data.distance !== undefined &&
@@ -182,10 +141,10 @@ function VoteModal({
                         );
                         setStep('detect');
                     } else if (
-                        error.status === 401 ||
-                        error.status === 403 ||
-                        error.status === 409 ||
-                        error.status === 400
+                        status === 401 ||
+                        status === 403 ||
+                        status === 409 ||
+                        status === 400
                     ) {
                         setGpsStatus('');
                         setMessage(

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import SearchBar from "./SearchBar";
-import { getTripItinerary } from "../api/TripItinerary";
+import { getTripItinerary } from "../features/travel/tripItinerariesApi";
 
 // Edits a travel post's frozen trip snapshot. Stops can be seeded from any of
 // the author's itineraries (their stops merged in, deduped) and/or added by

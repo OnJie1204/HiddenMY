@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\HiddenGemController;
+use App\Http\Controllers\HiddenGems\HiddenGemController;
 use App\Models\Category;
 use App\Models\Location;
 use App\Models\LocationImage;

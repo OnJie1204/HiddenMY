@@ -16,10 +16,11 @@ import {
     getHiddenGemsInBounds,
     getHiddenGemDetail,
     getCategories,
-} from "../api/hiddenGems";
-import { getTripItineraries, addTripLocation } from "../api/TripItinerary";
-import { getWishlist, addToWishlist, removeFromWishlist } from "../api/wishlist";
-import { getInteractions } from "../api/gemInteractions";
+    getRecentHiddenGems,
+} from "../features/hidden-gems/api";
+import { getTripItineraries, addTripLocation } from "../features/travel/tripItinerariesApi";
+import { getWishlist, addToWishlist, removeFromWishlist } from "../features/users/wishlistApi";
+import { getInteractions } from "../features/community/interactionsApi";
 
 import {createGemClusterIcon} from "../components/GemClusterIcon";
 import HiddenGemMarker from "../components/HiddenGemMarker";
@@ -29,9 +30,6 @@ import SidePanel from "../components/SidePanel";
 import AttractionMarker from "../components/AttractionMarker";
 import GemCarousel from "../components/GemCarousel";
 import { sanitizeIntent } from "../utils/authRedirect";
-
-import api from "../api";
-
 
 // Marker icon
 const customIcon = new L.Icon({
@@ -360,7 +358,7 @@ function Maps({ user }){
     useEffect(() => {
         const id = setTimeout(() => {
             const jobs = [
-                api.get("/recent-hidden-gems")
+                getRecentHiddenGems()
                     .then(res => setRecentPosts(res.data))
                     .catch(err => console.log(err)),
 

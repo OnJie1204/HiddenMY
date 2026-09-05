@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
     getTripItineraries,
     createTripItinerary
-} from "../api/TripItinerary";
+} from "../features/travel/tripItinerariesApi";
 
 import "../styles/global.css";
 

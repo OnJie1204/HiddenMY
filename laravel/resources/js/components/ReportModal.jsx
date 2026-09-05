@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { checkReportEligibility, submitReport } from '../api/reports';
+import { checkReportEligibility, submitReport } from '../features/community/reportsApi';
 import { loginNavOptions } from '../utils/authRedirect';
-import { checkIn as postCheckIn } from '../api/votes';
+import { checkIn as postCheckIn } from '../features/community/votesApi';
 
 // A verified place (pending_community_vote / hidden_gem / well_known) can be
 // reported for two things, both resolved by a community vote (one report per

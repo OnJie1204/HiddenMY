@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getWishlist, removeFromWishlist } from "../api/wishlist";
+import { getWishlist, removeFromWishlist } from "../features/users/wishlistApi";
 import ReportButton from "../components/ReportButton";
 import PhotoCarousel from "../components/PhotoCarousel";
 import LoadingCards from "../components/LoadingCards";

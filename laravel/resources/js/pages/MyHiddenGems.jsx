@@ -5,9 +5,9 @@ import {
     deleteHiddenGem,
     getCategories,
     getStates,
-} from "../api/hiddenGems";
-import { getMyVotes } from "../api/votes";
-import { getMyRatings } from "../api/gemInteractions";
+} from "../features/hidden-gems/api";
+import { getMyVotes } from "../features/community/votesApi";
+import { getMyRatings } from "../features/community/interactionsApi";
 import GemImage from "../components/GemImage";
 import PhotoCarousel from "../components/PhotoCarousel";
 import LoadingCards from "../components/LoadingCards";

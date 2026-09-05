@@ -7,9 +7,9 @@ import {
     getTripItinerary,
     updateTripItinerary,
     updateTripLocationOrder,
-} from "../api/TripItinerary";
-import { getHiddenGems, searchHiddenGems, reverseGeocodeLocation } from "../api/hiddenGems";
-import { getWishlist } from "../api/wishlist";
+} from "../features/travel/tripItinerariesApi";
+import { getHiddenGems, searchHiddenGems, reverseGeocodeLocation } from "../features/hidden-gems/api";
+import { getWishlist } from "../features/users/wishlistApi";
 import { getGemStatusDisplay } from "../utils/gemStatus";
 
 import {

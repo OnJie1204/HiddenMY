@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { checkVerifyEligibility, verifyReport } from '../api/reports';
+import { checkVerifyEligibility, verifyReport } from '../features/community/reportsApi';
 import { loginNavOptions } from '../utils/authRedirect';
-import { checkIn as postCheckIn } from '../api/votes';
+import { checkIn as postCheckIn } from '../features/community/votesApi';
 
 const REASON_LABELS = {
     permanently_closed: 'Permanently closed',

@@ -11,8 +11,8 @@ import TruncatedText from "./TruncatedText";
 import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
 import { useAuthPrompt } from "../context/AuthPromptContext";
-import { getReportForLocation } from "../api/reports";
-import { createTripItinerary } from "../api/TripItinerary";
+import { getReportForLocation } from "../features/community/reportsApi";
+import { createTripItinerary } from "../features/travel/tripItinerariesApi";
 
 // Backend caps trip_name at 10 characters (TripItineraryController::store).
 const ITINERARY_NAME_MAX = 10;

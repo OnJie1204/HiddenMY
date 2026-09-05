@@ -24,7 +24,7 @@ import {
     getFavouriteAchievements,
     syncAchievements,
     updateFavouriteAchievements,
-} from "../api/achievements";
+} from "../features/users/achievementsApi";
 import { SPECIAL_ACHIEVEMENT_METADATA } from "../constants/specialAchievements";
 
 const REGIONS = [

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
-import { register } from '../api/auth';
+import { register } from '../features/auth/api';
 import { getPasswordStrength } from '../utils/password';
 import { sanitizeIntent } from '../utils/authRedirect';
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { verifyEmail } from '../api/auth';
+import { verifyEmail } from '../features/auth/api';
 
 function VerifyEmail() {
   const { id, hash } = useParams();

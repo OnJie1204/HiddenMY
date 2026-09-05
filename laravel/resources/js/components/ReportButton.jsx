@@ -1,7 +1,7 @@
 import { useState } from "react";
 import ReportModal from "./ReportModal";
 import VerifyReportModal from "./VerifyReportModal";
-import { getReportForLocation } from "../api/reports";
+import { getReportForLocation } from "../features/community/reportsApi";
 import { useResumeIntent } from "../utils/useResumeIntent";
 import { useAuthPrompt } from "../context/AuthPromptContext";
 

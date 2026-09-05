@@ -12,7 +12,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { cartoTileUrl } from "../utils/cartoTiles";
 
-import { reverseGeocodeAddress } from "../api/hiddenGems";
+import { reverseGeocodeAddress } from "../features/hidden-gems/api";
 
 const customIcon = new L.Icon({
     iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",

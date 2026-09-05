@@ -1,6 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\HiddenGems;
+
+use App\Http\Controllers\Controller;
 
 use App\Jobs\ReviewPendingLocationEdit;
 use App\Jobs\VerifyHiddenGemSubmission;

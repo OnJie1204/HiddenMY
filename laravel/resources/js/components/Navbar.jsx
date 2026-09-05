@@ -1,6 +1,6 @@
 import { startTransition } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { logout } from '../api/auth';
+import { logout } from '../features/auth/api';
 import { clearToken } from '../utils/tokenStorage';
 import { loginNavOptions } from '../utils/authRedirect';
 import Avatar from './Avatar';

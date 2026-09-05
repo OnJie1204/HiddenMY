@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md';
-import { resetPassword } from '../api/auth';
+import { resetPassword } from '../features/auth/api';
 
 function ResetPassword() {
   const [searchParams] = useSearchParams();

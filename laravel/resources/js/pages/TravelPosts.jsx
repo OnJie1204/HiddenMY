@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getTravelPosts, getMyTravelPosts } from "../api/travelPosts";
-import { getCategories, getStates } from "../api/hiddenGems";
+import { getTravelPosts, getMyTravelPosts } from "../features/travel/travelPostsApi";
+import { getCategories, getStates } from "../features/hidden-gems/api";
 import Avatar from "../components/Avatar";
 import LoadingCards from "../components/LoadingCards";
 import FavouriteAchievementBadges from "../components/FavouriteAchievementBadges";

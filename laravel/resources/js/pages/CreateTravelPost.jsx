@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { createTravelPost } from "../api/travelPosts";
-import { getTripItineraries, getTripItinerary } from "../api/TripItinerary";
+import { createTravelPost } from "../features/travel/travelPostsApi";
+import { getTripItineraries, getTripItinerary } from "../features/travel/tripItinerariesApi";
 import TripStopsEditor, { appendStopsToFormData } from "../components/TripStopsEditor";
 import Spinner from "../components/Spinner";
 

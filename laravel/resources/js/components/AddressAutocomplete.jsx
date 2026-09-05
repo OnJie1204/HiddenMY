@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { autocompleteAddress } from "../api/hiddenGems";
+import { autocompleteAddress } from "../features/hidden-gems/api";
 
 const DEBOUNCE_MS = 400;
 const MIN_CHARS = 3;

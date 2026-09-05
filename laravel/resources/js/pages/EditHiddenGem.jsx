@@ -8,7 +8,7 @@ import {
     getCategories,
     updateHiddenGem,
     geocodeAddress
-} from "../api/hiddenGems";
+} from "../features/hidden-gems/api";
 
 import "../styles/global.css";
 

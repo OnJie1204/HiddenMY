@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { searchHiddenGems } from "../api/hiddenGems";
+import { searchHiddenGems } from "../features/hidden-gems/api";
 import Spinner from "./Spinner";
 
 const DEBOUNCE_MS = 350;
