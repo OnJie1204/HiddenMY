@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getHiddenGems, getWellKnownPlaces, getCategories, getStates } from "@/features/hidden-gems/api";
 import { getWishlist, addToWishlist, removeFromWishlist } from "@/features/users/wishlistApi";
@@ -28,6 +28,7 @@ export default function HiddenGems({ user }) {
 
     const [gems, setGems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const hasLoadedGems = useRef(false);
 
     const [search, setSearch] = useState(initialSearch);
 
@@ -53,8 +54,10 @@ export default function HiddenGems({ user }) {
 
     const { requireAuth } = useAuthPrompt();
 
-    const fetchGems = async () => {
-        setLoading(true);
+    const fetchGems = async (signal) => {
+        // Keep the current cards mounted during pagination/filter changes. This
+        // avoids flashing the entire grid back to skeletons for every request.
+        setLoading(!hasLoadedGems.current);
 
         try {
             const params = {
@@ -97,24 +100,30 @@ export default function HiddenGems({ user }) {
             }
 
             const response = wantWellKnown
-                ? await getWellKnownPlaces(params)
-                : await getHiddenGems(params);
+                ? await getWellKnownPlaces(params, { signal })
+                : await getHiddenGems(params, { signal });
 
             console.log("API Response:", response.data);
 
             setGems(response.data.data || []);
             setTotalResults(response.data.total || 0);
-            setCurrentPage(response.data.current_page || currentPage);
             setLastPage(response.data.last_page || 1);
             setLastSearch(search);
         } catch (error) {
+            if (signal.aborted) {
+                return;
+            }
+
             console.error("Error fetching gems:", error);
 
             setGems([]);
             setTotalResults(0);
             setLastPage(1);
         } finally {
-            setLoading(false);
+            if (!signal.aborted) {
+                hasLoadedGems.current = true;
+                setLoading(false);
+            }
         }
     };
 
@@ -163,7 +172,11 @@ export default function HiddenGems({ user }) {
             ? `/hidden-gems?${params.toString()}`
             : "/hidden-gems";
 
-        navigate(url, { replace: true });
+        const currentUrl = `${location.pathname}${location.search}`;
+
+        if (url !== currentUrl) {
+            navigate(url, { replace: true });
+        }
     };
 
     useEffect(() => {
@@ -177,7 +190,11 @@ export default function HiddenGems({ user }) {
     }, [initialSearch]);
 
     useEffect(() => {
-        fetchGems();
+        const controller = new AbortController();
+
+        fetchGems(controller.signal);
+
+        return () => controller.abort();
     }, [search, filter, currentPage]);
 
     useEffect(() => {
