@@ -130,7 +130,7 @@ function Login({ onLoginSuccess }) {
               // replace(), not an <a> navigation: this drops /login from history
               // so that Back — after the OAuth round trip — skips the login page
               // (which bfcache would otherwise restore in its signed-out state).
-              window.location.replace(config('app.url') . `/api/auth/google/redirect?remember=${rememberMe}`);
+              window.location.replace(`${window.location.origin}/api/auth/google/redirect?remember=${rememberMe}`);
             }}
           >
             Continue with Google
