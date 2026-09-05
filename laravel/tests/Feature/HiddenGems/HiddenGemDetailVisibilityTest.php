@@ -125,4 +125,41 @@ class HiddenGemDetailVisibilityTest extends TestCase
         Sanctum::actingAs($viewer);
         $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
     }
+
+    public function test_archived_gem_is_invisible_to_everyone_including_its_owner(): void
+    {
+        $owner = User::factory()->create();
+        $viewer = User::factory()->create();
+        $gem = Location::factory()->for($owner)->create(['status' => 'archived']);
+
+        $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
+
+        Sanctum::actingAs($owner);
+        $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
+
+        Sanctum::actingAs($viewer);
+        $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
+    }
+
+    public function test_archived_gem_is_excluded_from_public_lists_maps_and_search(): void
+    {
+        $gem = Location::factory()->create([
+            'status' => 'archived',
+            'place_name' => 'Archived Search Place',
+            'latitude' => 3.139,
+            'longitude' => 101.6869,
+        ]);
+
+        $this->getJson('/api/hidden-gems?include_well_known=1')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $gem->id]);
+
+        $this->getJson('/api/hidden-gems-in-bounds?north=4&south=2&east=102&west=101')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $gem->id]);
+
+        // HiddenGemSearch uses this same scope before applying its PostgreSQL
+        // ILIKE expression, which SQLite cannot execute in the test suite.
+        $this->assertFalse(Location::publiclyVisible()->whereKey($gem->id)->exists());
+    }
 }

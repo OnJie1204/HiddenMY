@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 
 use App\Models\CheckIn;
 use App\Models\Location;
+use App\Models\User;
 use App\Models\Vote;
+use App\Services\Achievements\SpecialAchievementService;
 use App\Support\Geo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 class VoteController extends Controller
 {
+    public function __construct(
+        private readonly SpecialAchievementService $achievements
+    ) {}
+
     /**
      * Two location models coexist here:
      *  - Voting: coordinates are submitted with the vote and checked inline
@@ -194,17 +200,20 @@ class VoteController extends Controller
             $location->refresh();
 
             $threshold = $location->verification_threshold ?? 10;
+            $becameHiddenGem = false;
 
             if ($location->vote_count >= $threshold) {
                 $location->update([
                     'status' => 'hidden_gem',
                 ]);
+                $becameHiddenGem = true;
             }
 
             return [
                 'error' => false,
                 'vote' => $vote,
                 'location' => $location->fresh(),
+                'became_hidden_gem' => $becameHiddenGem,
             ];
         });
 
@@ -212,6 +221,22 @@ class VoteController extends Controller
             return response()->json([
                 'message' => $result['message'],
             ], $result['status']);
+        }
+
+        // The vote is already committed. Achievement reconciliation is
+        // deliberately failure-isolated so it cannot roll back or fail the
+        // community action that triggered it.
+        try {
+            $this->achievements->sync($user->fresh());
+
+            if ($result['became_hidden_gem']) {
+                $owner = User::find($result['location']->user_id);
+                if ($owner) {
+                    $this->achievements->sync($owner);
+                }
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
         }
 
         return response()->json([
@@ -267,7 +292,7 @@ class VoteController extends Controller
         }
 
         $votes = Vote::with([
-            'location:id,place_name',
+            'location:id,place_name,status',
             'location.firstImage' => fn ($query) => $query->select([
                 'location_images.id',
                 'location_images.location_id',
@@ -283,20 +308,27 @@ class VoteController extends Controller
                 'created_at',
                 'updated_at',
             ])
-            ->map(fn (Vote $vote) => [
-                'id' => $vote->id,
-                'user_id' => $vote->user_id,
-                'location_id' => $vote->location_id,
-                'created_at' => $vote->created_at,
-                'updated_at' => $vote->updated_at,
-                'location' => $vote->location ? [
-                    'id' => $vote->location->id,
-                    'place_name' => $vote->location->place_name,
-                    'first_image' => $vote->location->firstImage ? [
-                        'image_url' => $vote->location->firstImage->image_url,
+            ->map(function (Vote $vote) {
+                $locationAvailable = $vote->location !== null
+                    && ! $vote->location->isDeleted()
+                    && ! $vote->location->isArchived();
+
+                return [
+                    'id' => $vote->id,
+                    'user_id' => $vote->user_id,
+                    'location_id' => $vote->location_id,
+                    'created_at' => $vote->created_at,
+                    'updated_at' => $vote->updated_at,
+                    'location_available' => $locationAvailable,
+                    'location' => $locationAvailable ? [
+                        'id' => $vote->location->id,
+                        'place_name' => $vote->location->place_name,
+                        'first_image' => $vote->location->firstImage ? [
+                            'image_url' => $vote->location->firstImage->image_url,
+                        ] : null,
                     ] : null,
-                ] : null,
-            ]);
+                ];
+            });
 
         return response()->json([
             'data' => $votes,

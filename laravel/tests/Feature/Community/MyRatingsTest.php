@@ -66,10 +66,34 @@ class MyRatingsTest extends TestCase
 
         $this->actingAs($user)->getJson('/api/my-ratings')
             ->assertOk()
+            ->assertJsonPath('data.0.location_available', true)
             ->assertJsonPath('data.0.location.id', $location->id)
             ->assertJsonPath('data.0.location.place_name', 'Forest Hideaway')
             ->assertJsonPath('data.0.location.status', 'hidden_gem')
             ->assertJsonPath('data.0.location.first_image.image_url', 'https://example.test/first.jpg');
+    }
+
+    public function test_deleted_and_archived_targets_keep_rating_history_without_exposing_location(): void
+    {
+        $user = User::factory()->create();
+
+        foreach ([Location::STATUS_DELETED, Location::STATUS_ARCHIVED] as $status) {
+            $location = Location::factory()->create([
+                'place_name' => 'Unavailable place',
+                'status' => $status,
+            ]);
+            $this->createInteraction($user, $location, 'comment', 'Historical rating');
+        }
+
+        $response = $this->actingAs($user)->getJson('/api/my-ratings')->assertOk();
+
+        $response->assertJsonCount(2, 'data');
+        foreach ($response->json('data') as $rating) {
+            $this->assertFalse($rating['location_available']);
+            $this->assertNull($rating['location']);
+        }
+
+        $this->assertDatabaseCount('gem_interactions', 2);
     }
 
     public function test_location_without_an_image_is_handled_safely(): void

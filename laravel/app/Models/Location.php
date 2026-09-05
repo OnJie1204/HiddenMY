@@ -20,6 +20,9 @@ class Location extends Model
      *   hidden_gem            - reached the vote threshold. Public.
      *   well_known            - post tags + ratings >= 50 (one-way). Public, but
      *                           shown on its own page, not the hidden-gems list.
+     *   archived             - a formerly verified, permanently closed place
+     *                           removed by its owner. Retained for history but
+     *                           excluded from public and owner-facing listings.
      *   deleted              - soft-deleted behind a strong confirm. Invisible
      *                           to everyone, including the owner.
      *
@@ -35,6 +38,7 @@ class Location extends Model
     public const STATUS_PENDING_VOTE = 'pending_community_vote';
     public const STATUS_HIDDEN_GEM = 'hidden_gem';
     public const STATUS_WELL_KNOWN = 'well_known';
+    public const STATUS_ARCHIVED = 'archived';
     public const STATUS_DELETED = 'deleted';
 
     /** Reached from hidden_gem when engagement crosses this. One-way. */
@@ -246,8 +250,12 @@ class Location extends Model
         return $this->status === self::STATUS_DELETED;
     }
 
-    /** Verified (past AI): votes cannot re-run verification, only contact +
-     *  AI-reviewed description edits are allowed. */
+    public function isArchived(): bool
+    {
+        return $this->status === self::STATUS_ARCHIVED;
+    }
+
+    /** Verified (past AI): only contact information may be edited. */
     public function isVerified(): bool
     {
         return in_array($this->status, [
@@ -304,10 +312,17 @@ class Location extends Model
         self::STATUS_HIDDEN_GEM,
     ];
 
-    /** Gems that count toward a submitter's achievements. */
+    /** Active verified contributions used for current dashboard counts. */
+    public const CURRENT_VERIFIED_STATUSES = [
+        self::STATUS_HIDDEN_GEM,
+        self::STATUS_WELL_KNOWN,
+    ];
+
+    /** Lifetime verified contributions used to reconcile permanent awards. */
     public const ACHIEVEMENT_STATUSES = [
         self::STATUS_HIDDEN_GEM,
         self::STATUS_WELL_KNOWN,
+        self::STATUS_ARCHIVED,
     ];
 
     public static function isPubliclyVisible(self $location): bool

@@ -246,6 +246,20 @@ class SpecialAchievementService
         return 'region:'.Str::slug($this->canonicalRegion($region));
     }
 
+    /** @return list<string> */
+    public function earnedRegions(User $user): array
+    {
+        $earnedKeys = $user->achievements()
+            ->where('achievement_type', UserAchievement::TYPE_REGION_STAMP)
+            ->pluck('achievement_key')
+            ->flip();
+
+        return collect(self::ALL_REGIONS)
+            ->filter(fn (string $region) => $earnedKeys->has($this->regionKey($region)))
+            ->values()
+            ->all();
+    }
+
     private function canonicalRegion(string $region): string
     {
         $trimmed = trim($region);

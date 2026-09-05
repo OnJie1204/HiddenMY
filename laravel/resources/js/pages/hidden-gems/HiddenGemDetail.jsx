@@ -1077,57 +1077,13 @@ export default function HiddenGemDetail({ user }) {
                         <div className="report-owner-banner">
                             <h3>⚠ Marked permanently closed</h3>
                             <p>
-                                The community confirmed this place has closed
-                                for good. It stays listed for reference but is
-                                greyed out, and check-ins, votes, ratings,
-                                comments and menu items are frozen.
+                                {Number(gem.user_id) === Number(currentUser?.id)
+                                    ? "This place has been confirmed as permanently closed. You can remove it from My Hidden Gems."
+                                    : "The community confirmed this place has closed for good. It stays listed for reference but is greyed out, and check-ins, votes, ratings, comments and menu items are frozen."}
                             </p>
 
-                            {Number(gem.user_id) ===
-                                Number(currentUser?.id) &&
-                                (gem.status ===
-                                "pending_community_vote" ? (
-                                    <p className="report-owner-countdown">
-                                        If it has reopened, edit it from{" "}
-                                        <Link to="/my-hidden-gems">
-                                            My Hidden Gems
-                                        </Link>{" "}
-                                        — that counts as a fresh submission and
-                                        goes through AI review and community
-                                        voting again. You can also delete it
-                                        there.
-                                    </p>
-                                ) : (
-                                    <p className="report-owner-countdown">
-                                        This gem was already verified, so it can
-                                        no longer be edited or deleted — the
-                                        closed listing stays as a permanent
-                                        record.
-                                    </p>
-                                ))}
                         </div>
                     )}
-
-                    {gem.pending_edit &&
-                        Number(gem.user_id) ===
-                            Number(currentUser?.id) && (
-                            <div className="report-owner-banner">
-                                <h3>
-                                    {gem.pending_edit.status ===
-                                    "pending_review"
-                                        ? "⏳ Your changes are under review"
-                                        : "✕ Your changes were not applied"}
-                                </h3>
-
-                                <p>
-                                    {gem.pending_edit.status ===
-                                    "pending_review"
-                                        ? "A quick AI check is running on your new description / photos. They'll appear here once approved."
-                                        : gem.pending_edit.ai_reason ||
-                                          "The AI review did not approve the change, so nothing was updated."}
-                                </p>
-                            </div>
-                        )}
 
                     {activeTab === "details" &&
                         gem.edit_mode === "verified" &&

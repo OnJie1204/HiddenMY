@@ -3,12 +3,10 @@
 namespace App\Http\Controllers\HiddenGems;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\HiddenGems\ReviewPendingLocationEdit;
 use App\Jobs\HiddenGems\VerifyHiddenGemSubmission;
 use App\Models\Category;
 use App\Models\Location;
 use App\Models\LocationImage;
-use App\Models\LocationPendingEdit;
 use App\Models\Report;
 use App\Services\Achievements\SpecialAchievementService;
 use App\Services\Geocoding\GeocodingException;
@@ -105,7 +103,7 @@ class HiddenGemController extends Controller
 
         $existingLocation = Location::where('place_name', $request->place_name)
             ->where('address', $request->address)
-            ->where('status', '!=', 'deleted')
+            ->whereNotIn('status', [Location::STATUS_DELETED, Location::STATUS_ARCHIVED])
             ->first();
 
         if ($existingLocation) {
@@ -319,7 +317,7 @@ class HiddenGemController extends Controller
         ])
             ->withExists('votes')
             ->where('user_id', $user->id)
-            ->where('status', '!=', 'deleted')
+            ->whereNotIn('status', [Location::STATUS_DELETED, Location::STATUS_ARCHIVED])
             ->latest()
             ->get();
 
@@ -333,6 +331,50 @@ class HiddenGemController extends Controller
 
         return response()->json([
             'data' => $hiddenGems,
+        ]);
+    }
+
+    public function myJourney(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $locations = Location::query()
+            ->select([
+                'id',
+                'category_id',
+                'place_name',
+                'state',
+                'description',
+                'latitude',
+                'longitude',
+                'status',
+                'permanently_closed_at',
+            ])
+            ->with([
+                'category:id,name',
+                'firstImage' => fn ($query) => $query->select([
+                    'location_images.id',
+                    'location_images.location_id',
+                    'location_images.image_url',
+                ]),
+            ])
+            ->where('user_id', $user->id)
+            ->whereIn('status', [
+                Location::STATUS_PENDING_VOTE,
+                Location::STATUS_HIDDEN_GEM,
+                Location::STATUS_WELL_KNOWN,
+                Location::STATUS_ARCHIVED,
+            ])
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->whereBetween('latitude', [-90, 90])
+            ->whereBetween('longitude', [-180, 180])
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'data' => $locations,
+            'discovered_regions' => $this->specialAchievements->earnedRegions($user),
         ]);
     }
 
@@ -359,7 +401,10 @@ class HiddenGemController extends Controller
             ], 403);
         }
 
-        $gem->status = 'deleted';
+        $gem->status = $gem->permanently_closed_at !== null
+            && in_array($gem->status, [Location::STATUS_HIDDEN_GEM, Location::STATUS_WELL_KNOWN], true)
+                ? Location::STATUS_ARCHIVED
+                : Location::STATUS_DELETED;
         $gem->save();
 
         return response()->json([
@@ -391,84 +436,32 @@ class HiddenGemController extends Controller
 
         // ---- Verified gem (pending_community_vote / hidden_gem / well_known) ----
         // Contact fields save instantly and clear the "contact info wrong" flag.
-        // A new description and/or extra photos go through a quick async AI
-        // review (content_safety + same_place) before they are applied — the
-        // identity fields (name / address / coordinates / category / originals)
-        // are locked forever and never touched here.
+        // Description, photos and identity fields remain locked.
         if ($editMode === 'verified') {
             $editType = $request->input('edit_type', 'contact');
 
-            if ($editType === 'contact') {
-                $contact = $request->validate([
-                    'opening_hours' => 'nullable|string|max:255',
-                    'phone' => 'nullable|string|max:30',
-                    'website' => 'nullable|url|max:255',
-                ]);
-
-                $gem->update([
-                    'opening_hours' => $contact['opening_hours'] ?? null,
-                    'phone' => $contact['phone'] ?? null,
-                    'website' => $contact['website'] ?? null,
-                    'contact_flagged_at' => null,
-                    'contact_updated_at' => now(),
-                ]);
-
+            if ($editType !== 'contact') {
                 return response()->json([
-                    'message' => 'Contact information updated.',
-                    'data' => $gem->fresh()->load(['category', 'images']),
-                ]);
+                    'message' => 'Verified Hidden Gems can only update contact information.',
+                ], 403);
             }
 
-            $validated = $request->validate([
-                'description' => 'nullable|string|max:5000',
-                'images' => 'nullable|array|max:5',
-                'images.*' => 'image|max:5120',
+            $contact = $request->validate([
+                'opening_hours' => 'nullable|string|max:255',
+                'phone' => 'nullable|string|max:30',
+                'website' => 'nullable|url|max:255',
             ]);
 
-            $hasDescription = trim((string) ($validated['description'] ?? '')) !== '';
-            if (! $hasDescription && ! $request->hasFile('images')) {
-                return response()->json([
-                    'message' => 'Add a new description or at least one photo to submit an edit.',
-                ], 422);
-            }
-
-            $usedToday = LocationPendingEdit::where('location_id', $gem->id)
-                ->whereDate('created_at', now()->toDateString())
-                ->count();
-
-            if ($usedToday >= self::MAX_CONTENT_EDITS_PER_DAY) {
-                return response()->json([
-                    'message' => 'You can submit at most '.self::MAX_CONTENT_EDITS_PER_DAY
-                        .' description/photo edits per gem per day. Please try again tomorrow.',
-                ], 429);
-            }
-
-            $uploadedImageUrls = $this->uploadLocationImages($request->file('images') ?? []);
-            if ($uploadedImageUrls === null) {
-                return response()->json(['message' => 'Failed to upload image.'], 500);
-            }
-
-            // One pending edit per gem — a fresh submission supersedes any still waiting.
-            LocationPendingEdit::where('location_id', $gem->id)
-                ->where('status', LocationPendingEdit::STATUS_PENDING)
-                ->update([
-                    'status' => LocationPendingEdit::STATUS_REJECTED,
-                    'ai_reason' => 'Replaced by a newer edit.',
-                    'reviewed_at' => now(),
-                ]);
-
-            $pendingEdit = LocationPendingEdit::create([
-                'location_id' => $gem->id,
-                'user_id' => Auth::id(),
-                'proposed_description' => $hasDescription ? $validated['description'] : null,
-                'proposed_image_urls' => $uploadedImageUrls ?: null,
-                'status' => LocationPendingEdit::STATUS_PENDING,
+            $gem->update([
+                'opening_hours' => $contact['opening_hours'] ?? null,
+                'phone' => $contact['phone'] ?? null,
+                'website' => $contact['website'] ?? null,
+                'contact_flagged_at' => null,
+                'contact_updated_at' => now(),
             ]);
-
-            ReviewPendingLocationEdit::dispatch($pendingEdit->id)->afterCommit();
 
             return response()->json([
-                'message' => 'Your changes were submitted for a quick AI review and will appear once approved.',
+                'message' => 'Contact information updated.',
                 'data' => $gem->fresh()->load(['category', 'images']),
             ]);
         }
@@ -568,10 +561,9 @@ class HiddenGemController extends Controller
         $viewer = Auth::guard('sanctum')->user();
         $isOwner = $viewer !== null && $location->user_id === $viewer->id;
 
-        // A deleted gem is invisible to everyone, its owner included. Anything
-        // else that isn't publicly visible (pending / ai_rejected) stays
-        // owner-only.
-        if ($location->status === Location::STATUS_DELETED) {
+        // Deleted and archived gems are invisible to everyone, their owner
+        // included. Other private stages remain owner-only.
+        if (in_array($location->status, [Location::STATUS_DELETED, Location::STATUS_ARCHIVED], true)) {
             abort(404);
         }
 
@@ -607,23 +599,6 @@ class HiddenGemController extends Controller
             $location->setAttribute('can_edit_contact', $eligibility['can_edit_contact']);
             $location->setAttribute('can_propose_content', $eligibility['can_propose_content']);
 
-            // Surface the current pending description/photo edit (if any) so the
-            // owner sees a "changes under review" / "changes rejected" banner.
-            $pendingEdit = $location->pendingEdits()
-                ->latest('id')
-                ->first();
-
-            if ($pendingEdit && in_array($pendingEdit->status, [
-                LocationPendingEdit::STATUS_PENDING,
-                LocationPendingEdit::STATUS_REJECTED,
-            ], true)) {
-                $location->setAttribute('pending_edit', [
-                    'status' => $pendingEdit->status,
-                    'ai_reason' => $pendingEdit->ai_reason,
-                    'submitted_at' => $pendingEdit->created_at,
-                    'reviewed_at' => $pendingEdit->reviewed_at,
-                ]);
-            }
         }
 
         return response()->json(['data' => $location]);
@@ -979,12 +954,11 @@ class HiddenGemController extends Controller
      *                   full resubmit -> status pending, full AI re-run. Deletable.
      *   'verified'    — pending_community_vote / hidden_gem / well_known, not
      *                   closed. Contact fields (hours/phone/website) save instantly;
-     *                   description + added photos go through an async AI review
-     *                   (LocationPendingEdit). Identity fields are locked forever.
+     *                   description, photos and identity fields are locked.
      *                   NOT deletable — the gem now belongs to the community.
      *   'delete_only' — any gem flagged permanently_closed. The owner can ONLY
      *                   delete it; no edits, no resubmit.
-     *   null          — deleted, or not the owner. Nothing.
+     *   null          — archived, deleted, or not the owner. Nothing.
      */
     private function managementEligibility(Location $gem): array
     {
@@ -996,7 +970,7 @@ class HiddenGemController extends Controller
             'can_propose_content' => false,
         ];
 
-        if ($gem->status === Location::STATUS_DELETED) {
+        if (in_array($gem->status, [Location::STATUS_DELETED, Location::STATUS_ARCHIVED], true)) {
             return $none;
         }
 
@@ -1023,19 +997,16 @@ class HiddenGemController extends Controller
                 'can_delete' => false,
                 'edit_mode' => 'verified',
                 'can_edit_contact' => true,
-                'can_propose_content' => true,
+                'can_propose_content' => false,
             ];
         }
 
         return $none;
     }
 
-    /** Whether the owner has already used up today's 3 AI-reviewed content edits for this gem. */
-    private const MAX_CONTENT_EDITS_PER_DAY = 3;
-
     private function deleteUnavailableMessage(Location $gem): string
     {
-        if ($gem->status === Location::STATUS_DELETED) {
+        if (in_array($gem->status, [Location::STATUS_DELETED, Location::STATUS_ARCHIVED], true)) {
             return 'This Hidden Gem has already been deleted.';
         }
 
