@@ -30,6 +30,7 @@ export default defineConfig({
                 // they cache across deploys instead of being re-downloaded inside one
                 // ~600 kB app bundle on every change.
                 manualChunks: {
+                    'malaysia-regions': ['./resources/js/assets/maps/malaysia-adm1.geo.json'],
                     'vendor-leaflet': ['leaflet', 'react-leaflet', 'react-leaflet-cluster', 'leaflet.markercluster'],
                     'vendor-react': ['react', 'react-dom', 'react-router-dom'],
                     'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],

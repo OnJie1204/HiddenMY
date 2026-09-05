@@ -62,6 +62,13 @@ export function guestReturnPath(location) {
     const from = location.state?.from;
     if (!isSafeInternalPath(from)) return '/';
     if (GUEST_BLOCKED_PATHS.some((re) => re.test(from))) return '/';
-    if (GUEST_VIEWABLE_PATHS.some((re) => re.test(from))) return from;
+    if (GUEST_VIEWABLE_PATHS.some((re) => re.test(from))) {
+        const url = new URL(from, 'https://gemora.invalid');
+        if (url.pathname.replace(/\/$/, '') === '/travel-posts' && url.searchParams.has('mine')) {
+            url.searchParams.delete('mine');
+            return `${url.pathname}${url.search}${url.hash}`;
+        }
+        return from;
+    }
     return '/';
 }

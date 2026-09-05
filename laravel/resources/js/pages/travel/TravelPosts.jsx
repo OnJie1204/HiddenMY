@@ -26,7 +26,15 @@ export default function TravelPosts({ user }) {
     const [error, setError] = useState("");
     const [categories, setCategories] = useState([]);
     const [states, setStates] = useState([]);
-    const [mineOnly, setMineOnly] = useState(searchParams.get("mine") === "1");
+    const mineOnly = Boolean(user) && searchParams.get("mine") === "1";
+
+    useEffect(() => {
+        if (!user && searchParams.has("mine")) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete("mine");
+            setSearchParams(nextParams, { replace: true });
+        }
+    }, [user, searchParams, setSearchParams]);
     const { requireAuth } = useAuthPrompt();
 
     const handleCreatePost = () => {
@@ -102,7 +110,6 @@ export default function TravelPosts({ user }) {
                     type="button"
                     className={!mineOnly ? "active" : ""}
                     onClick={() => {
-                        setMineOnly(false);
                         searchParams.delete("mine");
                         setSearchParams(searchParams, { replace: true });
                     }}
@@ -120,7 +127,6 @@ export default function TravelPosts({ user }) {
                             });
                             return;
                         }
-                        setMineOnly(true);
                         searchParams.set("mine", "1");
                         setSearchParams(searchParams, { replace: true });
                     }}

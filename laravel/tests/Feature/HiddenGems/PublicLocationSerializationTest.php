@@ -65,7 +65,6 @@ class PublicLocationSerializationTest extends TestCase
         Vote::create([
             'user_id' => $voter->id,
             'location_id' => $gem->id,
-            'travel_description' => 'Public vote story.',
         ]);
         UserFavouriteAchievement::create([
             'user_id' => $owner->id,
@@ -274,7 +273,8 @@ class PublicLocationSerializationTest extends TestCase
             ['key' => 'first-footprint', 'position' => 1],
         ], $payload['user']['favourite_achievements']);
         $this->assertSame($voter->id, $payload['votes'][0]['user']['id']);
-        $this->assertSame('Public vote story.', $payload['votes'][0]['travel_description']);
+        $this->assertArrayNotHasKey('travel_description', $payload['votes'][0]);
+        $this->assertArrayNotHasKey('photo_path', $payload['votes'][0]);
         $this->assertInternalFieldsAbsent($payload);
     }
 

@@ -3,23 +3,23 @@ import { GeoJSON, MapContainer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 
 import malaysiaRegions from "@/assets/maps/malaysia-adm1.geo.json";
-import johorStamp from "@/assets/achievements/johor.png";
-import kedahStamp from "@/assets/achievements/kedah.png";
-import kelantanStamp from "@/assets/achievements/kelantan.png";
-import melakaStamp from "@/assets/achievements/melaka.png";
-import negeriSembilanStamp from "@/assets/achievements/negeri sembilan.png";
-import pahangStamp from "@/assets/achievements/pahang.png";
-import penangStamp from "@/assets/achievements/penang.png";
-import perakStamp from "@/assets/achievements/perak.png";
-import perlisStamp from "@/assets/achievements/perlis.png";
-import sabahStamp from "@/assets/achievements/sabah.png";
-import sarawakStamp from "@/assets/achievements/sarawak.png";
-import selangorStamp from "@/assets/achievements/selangor.png";
-import terengganuStamp from "@/assets/achievements/terengganu.png";
-import kualaLumpurStamp from "@/assets/achievements/kl.png";
-import putrajayaStamp from "@/assets/achievements/putrajaya.png";
-import labuanStamp from "@/assets/achievements/labuan.png";
-import gemMascot from "@/assets/achievements/gem-mascot.png";
+import johorStamp from "@/assets/achievements/johor.webp";
+import kedahStamp from "@/assets/achievements/kedah.webp";
+import kelantanStamp from "@/assets/achievements/kelantan.webp";
+import melakaStamp from "@/assets/achievements/melaka.webp";
+import negeriSembilanStamp from "@/assets/achievements/negeri sembilan.webp";
+import pahangStamp from "@/assets/achievements/pahang.webp";
+import penangStamp from "@/assets/achievements/penang.webp";
+import perakStamp from "@/assets/achievements/perak.webp";
+import perlisStamp from "@/assets/achievements/perlis.webp";
+import sabahStamp from "@/assets/achievements/sabah.webp";
+import sarawakStamp from "@/assets/achievements/sarawak.webp";
+import selangorStamp from "@/assets/achievements/selangor.webp";
+import terengganuStamp from "@/assets/achievements/terengganu.webp";
+import kualaLumpurStamp from "@/assets/achievements/kl.webp";
+import putrajayaStamp from "@/assets/achievements/putrajaya.webp";
+import labuanStamp from "@/assets/achievements/labuan.webp";
+import gemMascot from "@/assets/achievements/gem-mascot.webp";
 import {
     getFavouriteAchievements,
     syncAchievements,

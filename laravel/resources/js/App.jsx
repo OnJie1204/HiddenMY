@@ -1,30 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import AuthLoadingScreen from '@/components/auth/AuthLoadingScreen';
-import Login from '@/pages/auth/Login';
-import Register from '@/pages/auth/Register';
-import ForgotPassword from '@/pages/auth/ForgotPassword';
-import ResetPassword from '@/pages/auth/ResetPassword';
-import VerifyEmail from '@/pages/auth/VerifyEmail';
-import VerifyNewEmail from '@/pages/auth/VerifyNewEmail';
-import ResendVerification from '@/pages/auth/ResendVerification';
-import GoogleCallback from '@/pages/auth/GoogleCallback';
-import Home from '@/pages/home/Home';
-import Maps from '@/pages/hidden-gems/Maps';
-import HiddenGems from '@/pages/hidden-gems/HiddenGems';
-import HiddenGemSubmission from '@/pages/hidden-gems/HiddenGemSubmission';
-import MyHiddenGems from '@/pages/hidden-gems/MyHiddenGems';
-import HiddenGemDetail from '@/pages/hidden-gems/HiddenGemDetail';
-import EditHiddenGem from '@/pages/hidden-gems/EditHiddenGem';
-import TripItinerary from '@/pages/travel/TripItinerary';
-import TripItineraryDetail from '@/pages/travel/TripItineraryDetail';
-import TravelPosts from '@/pages/travel/TravelPosts';
-import TravelPostDetail from '@/pages/travel/TravelPostDetail';
-import CreateTravelPost from '@/pages/travel/CreateTravelPost';
-import EditTravelPost from '@/pages/travel/EditTravelPost';
-import Profile from '@/pages/users/Profile';
-import Wishlist from '@/pages/users/Wishlist';
+const Login = lazy(() => import('@/pages/auth/Login'));
+const Register = lazy(() => import('@/pages/auth/Register'));
+const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
+const VerifyEmail = lazy(() => import('@/pages/auth/VerifyEmail'));
+const VerifyNewEmail = lazy(() => import('@/pages/auth/VerifyNewEmail'));
+const ResendVerification = lazy(() => import('@/pages/auth/ResendVerification'));
+const GoogleCallback = lazy(() => import('@/pages/auth/GoogleCallback'));
+const Home = lazy(() => import('@/pages/home/Home'));
+const Maps = lazy(() => import('@/pages/hidden-gems/Maps'));
+const HiddenGems = lazy(() => import('@/pages/hidden-gems/HiddenGems'));
+const HiddenGemSubmission = lazy(() => import('@/pages/hidden-gems/HiddenGemSubmission'));
+const MyHiddenGems = lazy(() => import('@/pages/hidden-gems/MyHiddenGems'));
+const HiddenGemDetail = lazy(() => import('@/pages/hidden-gems/HiddenGemDetail'));
+const EditHiddenGem = lazy(() => import('@/pages/hidden-gems/EditHiddenGem'));
+const TripItinerary = lazy(() => import('@/pages/travel/TripItinerary'));
+const TripItineraryDetail = lazy(() => import('@/pages/travel/TripItineraryDetail'));
+const TravelPosts = lazy(() => import('@/pages/travel/TravelPosts'));
+const TravelPostDetail = lazy(() => import('@/pages/travel/TravelPostDetail'));
+const CreateTravelPost = lazy(() => import('@/pages/travel/CreateTravelPost'));
+const EditTravelPost = lazy(() => import('@/pages/travel/EditTravelPost'));
+const Profile = lazy(() => import('@/pages/users/Profile'));
+const Wishlist = lazy(() => import('@/pages/users/Wishlist'));
 import { getMe } from './features/auth/api';
 import { getToken, clearToken } from '@/utils/auth/tokenStorage';
 import { sanitizeIntent } from '@/utils/auth/authRedirect';
@@ -102,6 +102,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthPromptProvider>
+        <Suspense fallback={<AuthLoadingScreen message="Loading…" />}>
         <Routes>
         {/* 不需要 Navbar 的页面 */}
         <Route path="/login" element={<RedirectIfAuthed user={user}><Login onLoginSuccess={setUser} /></RedirectIfAuthed>} />
@@ -225,6 +226,7 @@ function App() {
         />
 
         </Routes>
+        </Suspense>
       </AuthPromptProvider>
     </BrowserRouter>
   );

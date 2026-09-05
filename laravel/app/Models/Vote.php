@@ -9,6 +9,9 @@ class Vote extends Model
 {
     use HasFactory;
 
+    // Legacy columns may still exist; stories and photos belong to other models.
+    protected $hidden = ['travel_description', 'photo_path'];
+
     /*
      * Fields that can be stored when a community vote is created.
      *
