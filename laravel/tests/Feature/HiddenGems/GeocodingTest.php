@@ -7,11 +7,54 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class GeocodingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public static function stateAddresses(): array
+    {
+        $cases = [];
+        foreach (['Kuala Lumpur', 'Selangor', 'Johor', 'Penang', 'Melaka', 'Negeri Sembilan', 'Perak', 'Pahang', 'Kedah', 'Perlis', 'Kelantan', 'Terengganu', 'Sabah', 'Sarawak', 'Putrajaya', 'Labuan'] as $state) {
+            $cases[$state] = [['state' => $state], $state];
+        }
+
+        return $cases + [
+            'Malay Penang' => [['state' => 'Pulau Pinang'], 'Penang'],
+            'English Melaka' => [['state' => 'Malacca'], 'Melaka'],
+            'Malay territory' => [['state' => 'Wilayah Persekutuan Kuala Lumpur'], 'Kuala Lumpur'],
+            'English territory' => [['region' => 'Federal Territory of Kuala Lumpur'], 'Kuala Lumpur'],
+            'case and spacing' => [['state' => '  pulau   pinang  '], 'Penang'],
+            'region after unrecognized state' => [['state' => 'Unknown', 'region' => 'Selangor'], 'Selangor'],
+            'territory city fallback' => [['city' => 'Kuala Lumpur'], 'Kuala Lumpur'],
+            'Putrajaya fallback' => [['municipality' => 'Putrajaya'], 'Putrajaya'],
+            'Labuan fallback' => [['county' => 'Labuan'], 'Labuan'],
+            'state takes precedence' => [['state' => 'Selangor', 'city' => 'Kuala Lumpur'], 'Selangor'],
+            'no ordinary city guessing' => [['city' => 'Johor'], ''],
+            'unknown' => [[], ''],
+        ];
+    }
+
+    #[DataProvider('stateAddresses')]
+    public function test_address_lookup_and_map_selection_return_dropdown_state_names(array $address, string $expected): void
+    {
+        $result = [
+            'lat' => '3.14', 'lon' => '101.7',
+            'display_name' => 'Example address, Malaysia',
+            'address' => $address + ['country_code' => 'my'],
+        ];
+        Http::fake([
+            'nominatim.openstreetmap.org/search*' => Http::response([$result]),
+            'nominatim.openstreetmap.org/reverse*' => Http::response($result),
+        ]);
+
+        $this->getJson('/api/hidden-gems/geocode?query=Example')
+            ->assertOk()->assertJsonPath('state', $expected);
+        $this->getJson('/api/hidden-gems/reverse-geocode-address?latitude=3.14&longitude=101.7')
+            ->assertOk()->assertJsonPath('state', $expected);
+    }
 
     protected function setUp(): void
     {

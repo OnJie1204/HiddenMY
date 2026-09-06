@@ -55,7 +55,7 @@ class MalaysiaGeocoder
             'latitude' => (float) $match['lat'],
             'longitude' => (float) $match['lon'],
             'name' => $match['display_name'],
-            'state' => $this->canonicalState($address['state'] ?? $address['region'] ?? ''),
+            'state' => $this->stateFromAddress($address),
             'postcode' => $address['postcode'] ?? '',
             'country_code' => $address['country_code'] ?? '',
             'is_specific' => collect($specificFields)->contains(
@@ -133,7 +133,7 @@ class MalaysiaGeocoder
 
         return [
             'address' => $this->uniqueAddressParts([$street, $area, $locality]),
-            'state' => $this->canonicalState($details['state'] ?? $details['region'] ?? ''),
+            'state' => $this->stateFromAddress($details),
             'postcode' => $details['postcode'] ?? '',
             'latitude' => $latitude,
             'longitude' => $longitude,
@@ -230,9 +230,30 @@ class MalaysiaGeocoder
         ];
     }
 
+    private function stateFromAddress(array $address): string
+    {
+        foreach (['state', 'region'] as $field) {
+            $state = $this->canonicalState($address[$field] ?? '');
+            if ($state !== '') {
+                return $state;
+            }
+        }
+
+        // Nominatim may identify federal territories as cities instead of states.
+        // Never let a locality override recognized state/region information.
+        foreach (['city', 'municipality', 'county'] as $field) {
+            $state = $this->canonicalState($address[$field] ?? '');
+            if (in_array($state, ['Kuala Lumpur', 'Putrajaya', 'Labuan'], true)) {
+                return $state;
+            }
+        }
+
+        return '';
+    }
+
     private function canonicalState(?string $state): string
     {
-        $state = trim((string) $state);
+        $state = preg_replace('/\s+/u', ' ', trim((string) $state));
         $aliases = [
             'Pulau Pinang' => 'Penang',
             'Penang Island' => 'Penang',
@@ -247,9 +268,13 @@ class MalaysiaGeocoder
             'Federal Territory of Labuan' => 'Labuan',
             'Negeri Sembilan Darul Khusus' => 'Negeri Sembilan',
         ];
-        $state = $aliases[$state] ?? $state;
+        foreach ($aliases + array_combine(self::MALAYSIA_STATES, self::MALAYSIA_STATES) as $name => $canonical) {
+            if (strcasecmp($state, $name) === 0) {
+                return $canonical;
+            }
+        }
 
-        return in_array($state, self::MALAYSIA_STATES, true) ? $state : '';
+        return '';
     }
 
     private function uniqueAddressParts(array $parts): string
