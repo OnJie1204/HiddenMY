@@ -62,7 +62,7 @@ test("only the named Home and Map discovery collections filter permanently close
     assert.equal((mapsSource.match(/!gem\.permanently_closed_at && !gem\.permanentlyClosedAt/g) || []).length, 3);
     assert.match(mapsSource, /setRecentPosts\(/);
     assert.match(mapsSource, /setMyGems\(/);
-    assert.match(mapsSource, /setPopularPosts\(/);
+    assert.match(mapsSource, /setWellKnownPosts\(/);
 });
 
 test("Achievement collections sort earned entries first without changing favourite positions", () => {

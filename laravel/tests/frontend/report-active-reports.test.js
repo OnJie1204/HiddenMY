@@ -110,9 +110,18 @@ test("Report verification no longer collects or submits a voter comment", () => 
     assert.doesNotMatch(verifyModalSource, /const \[comment, setComment\]/);
     assert.doesNotMatch(verifyModalSource, /Comment \(optional\)/);
     assert.doesNotMatch(verifyModalSource, /<textarea/);
-    assert.match(verifyModalSource, /verifyReport\(report\.id, \{ verdict \}\)/);
+    assert.match(verifyModalSource, /verifyReport\(target\.id, \{ verdict \}\)/);
     assert.match(reportsApiSource, /verifyReport = \(reportId, \{ verdict \}\)/);
     assert.match(reportsApiSource, /verify`, \{ verdict \}\)/);
+});
+
+test("selected Report summary and verification request use the same target", () => {
+    assert.match(verifyModalSource, /REASON_LABELS\[target\.reason\] \|\| target\.reason/);
+    assert.match(verifyModalSource, /target\.description/);
+    assert.match(verifyModalSource, /href=\{target\.photo_path\}/);
+    assert.match(verifyModalSource, /src=\{target\.photo_path\}/);
+    assert.match(verifyModalSource, /verifyReport\(target\.id, \{ verdict \}\)/);
+    assert.doesNotMatch(verifyModalSource, /REASON_LABELS\[report\.reason\]/);
 });
 
 test("Confirm and Dispute remain and original Report description is retained", () => {
