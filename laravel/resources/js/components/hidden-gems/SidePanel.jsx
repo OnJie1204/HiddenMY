@@ -57,6 +57,7 @@ function SidePanel({
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [activeReport, setActiveReport] = useState(null);
     const [activeReports, setActiveReports] = useState([]);
+    const [reportsRefreshKey, setReportsRefreshKey] = useState(0);
     const [loadingReport, setLoadingReport] = useState(false);
     const [localReportStatus, setLocalReportStatus] = useState(null);
     const [localStatus, setLocalStatus] = useState(null);
@@ -134,6 +135,8 @@ function SidePanel({
         }
 
         let active = true;
+        setActiveReports([]);
+
         getReportForLocation(gem.id)
             .then((res) => {
                 if (active) setActiveReports(res.data.active_reports ?? []);
@@ -143,7 +146,7 @@ function SidePanel({
             });
 
         return () => { active = false; };
-    }, [gem?.id, reportStatus, user?.id]);
+    }, [gem?.id, reportStatus, user?.id, reportsRefreshKey]);
 
     // Drag-to-resize
     useEffect(() => {
@@ -566,7 +569,7 @@ function SidePanel({
                             </div>
                         </div>
                         {gem.source === "database" && reportStatus === "under_review" && Number(gem.user_id) !== Number(user?.id) && (
-                            activeReports.length > 0 ? (
+                            user ? (
                                 activeReports.map((report) => (
                                     <div className="report-banner" key={report.id}>
                                         <div className="report-banner-text">
@@ -913,7 +916,10 @@ function SidePanel({
                     locationId={gem.id}
                     isOpen={reportModalOpen}
                     onClose={() => setReportModalOpen(false)}
-                    onReportSuccess={() => setLocalReportStatus("under_review")}
+                    onReportSuccess={() => {
+                        setLocalReportStatus("under_review");
+                        setReportsRefreshKey((key) => key + 1);
+                    }}
                 />
             )}
             {gem && (
@@ -929,6 +935,9 @@ function SidePanel({
                             setLocalStatus(data.location.status);
                         }
                         setActiveReport(data?.report ?? null);
+                        setActiveReports((reports) => reports
+                            .map((report) => report.id === data?.report?.id ? data.report : report)
+                            .filter((report) => report.status === "pending"));
                     }}
                     onReportInstead={() => { setVerifyModalOpen(false); setReportModalOpen(true); }}
                 />
