@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import AuthLoadingScreen from '@/components/auth/AuthLoadingScreen';
+import ScrollToTop from '@/components/common/ScrollToTop';
 const Login = lazy(() => import('@/pages/auth/Login'));
 const Register = lazy(() => import('@/pages/auth/Register'));
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));
@@ -101,6 +102,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthPromptProvider>
         <Suspense fallback={<AuthLoadingScreen message="Loading…" />}>
         <Routes>
