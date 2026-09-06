@@ -858,6 +858,7 @@ function Maps({ user }){
         { value: null, label: "All" },
         { value: "hidden_gem", label: "Hidden Gem" },
         { value: "pending_community_vote", label: "Awaiting Votes" },
+        { value: "well_known", label: "Well-Known" },
     ];
 
     const activeFilterCount = (statusFilter ? 1 : 0) + (categoryFilter.length > 0 ? 1 : 0) + (wishlistOnly ? 1 : 0);
@@ -1053,7 +1054,6 @@ function Maps({ user }){
                     />
                 </div>
 
-                {/* Right column: title, status, filters */}
                 <div className="maps-hero-topbar">
                     {boundsLoading && (
                         <div className="maps-updating-pill">

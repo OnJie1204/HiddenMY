@@ -736,7 +736,7 @@ class HiddenGemController extends Controller
             'south' => ['required', 'numeric', 'between:-90,90'],
             'east' => ['required', 'numeric', 'between:-180,180'],
             'west' => ['required', 'numeric', 'between:-180,180'],
-            'status' => ['nullable', 'in:hidden_gem,pending_community_vote'],
+            'status' => ['nullable', 'in:hidden_gem,pending_community_vote,well_known'],
         ]);
 
         // Markers/popups only ever need one photo and the category name, not the

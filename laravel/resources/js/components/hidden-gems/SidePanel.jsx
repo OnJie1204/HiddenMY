@@ -258,22 +258,25 @@ function SidePanel({
     }
 
     // The backend only accepts publicly-visible gems as itinerary stops
-    // (TripItineraryController uses the publiclyVisible() scope: 'hidden_gem'
-    // and 'pending_community_vote'), so anything still awaiting AI review is
-    // blocked here rather than failing with a 422 after the fact.
+    // (TripItineraryController uses the publiclyVisible() scope: 'hidden_gem',
+    // 'pending_community_vote' and 'well_known'), so anything still awaiting AI
+    // review is blocked here rather than failing with a 422 after the fact.
     const canAddToItinerary = gem
-        && (gem.source === "attraction" || status === "hidden_gem" || status === "pending_community_vote");
+        && (gem.source === "attraction" || status === "hidden_gem" || status === "pending_community_vote"
+            || status === "well_known");
 
     // A permanently-closed gem is frozen — no new wishlisting or
     // reporting (see Location::acceptsNewInteractions on the backend).
     const isClosed = !!(gem && (gem.permanently_closed_at || gem.permanentlyClosedAt));
 
     // OSM attractions aren't Location records, so there's nothing to wishlist —
-    // only our own database gems that have passed AI review qualify.
+    // only our own database gems that have passed AI review qualify. Matches
+    // WishlistController::WISHLISTABLE_STATUSES, which includes 'well_known'.
     const canWishlist = gem
         && gem.source === "database"
         && !isClosed
-        && (status === "hidden_gem" || status === "pending_community_vote");
+        && (status === "hidden_gem" || status === "pending_community_vote"
+            || status === "well_known");
     const isWishlisted = gem && wishlistIds.has(gem.id);
 
     // A verified Hidden Gem, or one still in community voting (permanently_closed
@@ -524,7 +527,7 @@ function SidePanel({
                                     <span className="badge badge-pending">Awaiting Votes</span>
                                 )}
                                 {gem.source === "database" && status === "ai_rejected" && (
-                                    <span className="badge badge-pending">Not Accepted</span>
+                                    <span className="badge badge-reported">Not Accepted</span>
                                 )}
                                 {gem.source === "database" && status === "well_known" && (
                                     <span className="badge badge-success">Well-Known Place</span>
