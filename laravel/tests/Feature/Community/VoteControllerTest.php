@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Models\Vote;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class VoteControllerTest extends TestCase
@@ -29,7 +28,7 @@ class VoteControllerTest extends TestCase
 
         $response = $this->actingAs($voter)->getJson("/api/votes/check/{$location->id}");
 
-        $response->assertOk();
+        $response->assertStatus(400);
         $response->assertJson(['eligible' => false]);
     }
 
@@ -39,7 +38,7 @@ class VoteControllerTest extends TestCase
         $voter = User::factory()->create();
         $location = Location::factory()->create(['user_id' => $owner->id, 'status' => 'ai_rejected']);
 
-        $response = $this->actingAs($voter)->postJson("/api/votes/{$location->id}", []);
+        $response = $this->actingAs($voter)->postJson("/api/votes/{$location->id}", $this->coordinates($location));
 
         $response->assertStatus(400);
     }
@@ -61,9 +60,7 @@ class VoteControllerTest extends TestCase
             'check_in_at' => now(),
         ]);
 
-        $response = $this->actingAs($voter)->postJson("/api/votes/{$location->id}", [
-            'comment' => 'Lovely hidden spot!',
-        ]);
+        $response = $this->actingAs($voter)->postJson("/api/votes/{$location->id}", $this->coordinates($location));
 
         $response->assertStatus(201);
         $this->assertSame(1, $location->fresh()->vote_count);
@@ -87,7 +84,7 @@ class VoteControllerTest extends TestCase
             'check_in_at' => now(),
         ]);
 
-        $response = $this->actingAs($voter)->postJson("/api/votes/{$location->id}", []);
+        $response = $this->actingAs($voter)->postJson("/api/votes/{$location->id}", $this->coordinates($location));
 
         $response->assertStatus(201);
         $this->assertSame('hidden_gem', $location->fresh()->status);
@@ -99,109 +96,48 @@ class VoteControllerTest extends TestCase
         $voter = User::factory()->create();
         $location = Location::factory()->create(['user_id' => $owner->id, 'status' => 'hidden_gem']);
 
-        $response = $this->actingAs($voter)->postJson("/api/votes/{$location->id}", []);
+        $response = $this->actingAs($voter)->postJson("/api/votes/{$location->id}", $this->coordinates($location));
 
         $response->assertStatus(400);
     }
 
-    public function test_vote_owner_can_edit_comment_before_72_hours(): void
+    public function test_current_coordinates_are_required_even_after_check_in(): void
     {
-        [$owner, , $vote] = $this->createVoteAt(now()->subHours(71));
-
-        $this->actingAs($owner)->patchJson("/api/votes/{$vote->id}/comment", [
-            'comment' => 'Updated description',
-        ])->assertOk();
-
-        $this->assertSame('Updated description', $vote->fresh()->travel_description);
-    }
-
-    public function test_vote_owner_can_edit_exactly_at_72_hour_boundary(): void
-    {
-        $createdAt = Carbon::parse('2026-01-01 00:00:00');
-        [$owner, , $vote] = $this->createVoteAt($createdAt);
-        Carbon::setTestNow($createdAt->copy()->addHours(72));
-
-        $this->actingAs($owner)->patchJson("/api/votes/{$vote->id}/comment", [
-            'comment' => 'Boundary update',
-        ])->assertOk();
-    }
-
-    public function test_expired_vote_edit_is_rejected_and_original_content_is_unchanged(): void
-    {
-        [$owner, , $vote] = $this->createVoteAt(now()->subHours(72)->subSecond());
-
-        $this->actingAs($owner)->patchJson("/api/votes/{$vote->id}/comment", [
-            'comment' => 'Should not persist',
-        ])->assertForbidden()
-            ->assertJsonPath('message', 'Comments can only be edited within 72 hours of posting.');
-
-        $this->assertSame('Original description', $vote->fresh()->travel_description);
-    }
-
-    public function test_non_owner_cannot_edit_vote_comment(): void
-    {
-        [, , $vote] = $this->createVoteAt(now()->subHour());
-        $otherUser = User::factory()->create();
-
-        $this->actingAs($otherUser)->patchJson("/api/votes/{$vote->id}/comment", [
-            'comment' => 'Unauthorized update',
-        ])->assertForbidden();
-
-        $this->assertSame('Original description', $vote->fresh()->travel_description);
-    }
-
-    public function test_vote_updated_at_does_not_extend_edit_window(): void
-    {
-        [$owner, , $vote] = $this->createVoteAt(now()->subDays(4), now());
-
-        $this->actingAs($owner)->patchJson("/api/votes/{$vote->id}/comment", [
-            'comment' => 'Should not persist',
-        ])->assertForbidden();
-
-        $this->assertSame('Original description', $vote->fresh()->travel_description);
-    }
-
-    public function test_vote_creation_post_rejects_existing_vote_as_alternative_edit_path(): void
-    {
-        [$owner, $location, $vote] = $this->createVoteAt(now()->subDays(4));
-
-        $this->actingAs($owner)->postJson("/api/votes/{$location->id}", [
-            'comment' => 'Bypass attempt',
-        ])->assertStatus(400);
-
-        $this->assertSame('Original description', $vote->fresh()->travel_description);
-    }
-
-    public function test_vote_owner_can_delete_comment_after_72_hours(): void
-    {
-        [$owner, , $vote] = $this->createVoteAt(now()->subDays(4));
-
-        $this->actingAs($owner)
-            ->deleteJson("/api/votes/{$vote->id}/comment")
-            ->assertOk();
-
-        $this->assertNull($vote->fresh()->travel_description);
-    }
-
-    private function createVoteAt(Carbon $createdAt, ?Carbon $updatedAt = null): array
-    {
-        $locationOwner = User::factory()->create();
         $voter = User::factory()->create();
-        $location = Location::factory()->create([
-            'user_id' => $locationOwner->id,
-            'status' => 'pending_community_vote',
-        ]);
-        $vote = Vote::create([
-            'user_id' => $voter->id,
-            'location_id' => $location->id,
-            'travel_description' => 'Original description',
-        ]);
+        $location = Location::factory()->create(['status' => 'pending_community_vote']);
+        CheckIn::create(['user_id' => $voter->id, 'location_id' => $location->id, 'check_in_at' => now()]);
 
-        DB::table('votes')->where('id', $vote->id)->update([
-            'created_at' => $createdAt,
-            'updated_at' => $updatedAt ?? $createdAt,
-        ]);
+        $this->actingAs($voter)->postJson("/api/votes/{$location->id}", [])
+            ->assertUnprocessable()->assertJsonValidationErrors(['latitude', 'longitude']);
+        $this->assertDatabaseCount('votes', 0);
+    }
 
-        return [$voter, $location, $vote->fresh()];
+    public function test_voting_outside_the_five_kilometre_radius_is_rejected(): void
+    {
+        $voter = User::factory()->create();
+        $location = Location::factory()->create(['status' => 'pending_community_vote']);
+
+        $this->actingAs($voter)->postJson("/api/votes/{$location->id}", [
+            'latitude' => $location->latitude + 1,
+            'longitude' => $location->longitude,
+        ])->assertUnprocessable()->assertJsonPath('max_distance', 5);
+        $this->assertDatabaseCount('votes', 0);
+    }
+
+    public function test_duplicate_vote_is_rejected_without_incrementing_the_count(): void
+    {
+        $voter = User::factory()->create();
+        $location = Location::factory()->create(['status' => 'pending_community_vote', 'vote_count' => 1]);
+        Vote::create(['user_id' => $voter->id, 'location_id' => $location->id]);
+
+        $this->actingAs($voter)->postJson("/api/votes/{$location->id}", $this->coordinates($location))
+            ->assertConflict();
+        $this->assertDatabaseCount('votes', 1);
+        $this->assertSame(1, $location->fresh()->vote_count);
+    }
+
+    private function coordinates(Location $location): array
+    {
+        return ['latitude' => $location->latitude, 'longitude' => $location->longitude];
     }
 }

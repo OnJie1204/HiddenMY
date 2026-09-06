@@ -44,11 +44,35 @@ class MyVotesTest extends TestCase
 
         $response->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $ownVote->id)
+            ->assertJsonPath('data.0.location_available', true)
             ->assertJsonPath('data.0.location.id', $location->id)
             ->assertJsonPath('data.0.location.place_name', 'Forest Hideaway')
             ->assertJsonPath('data.0.location.first_image.image_url', 'https://example.test/forest.jpg')
             ->assertJsonMissingPath('data.0.comment')
             ->assertJsonMissingPath('data.0.photo_path');
+    }
+
+    public function test_deleted_and_archived_targets_keep_vote_history_without_exposing_location(): void
+    {
+        $user = User::factory()->create();
+
+        foreach ([Location::STATUS_DELETED, Location::STATUS_ARCHIVED] as $status) {
+            $location = Location::factory()->create([
+                'place_name' => 'Unavailable place',
+                'status' => $status,
+            ]);
+            Vote::create(['user_id' => $user->id, 'location_id' => $location->id]);
+        }
+
+        $response = $this->actingAs($user)->getJson('/api/my-votes')->assertOk();
+
+        $response->assertJsonCount(2, 'data');
+        foreach ($response->json('data') as $vote) {
+            $this->assertFalse($vote['location_available']);
+            $this->assertNull($vote['location']);
+        }
+
+        $this->assertDatabaseCount('votes', 2);
     }
 
     public function test_vote_history_is_returned_newest_first(): void

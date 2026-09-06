@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\HiddenGems;
 
-use App\Jobs\HiddenGems\ReviewPendingLocationEdit;
 use App\Jobs\HiddenGems\VerifyHiddenGemSubmission;
+use App\Jobs\HiddenGems\ReviewPendingLocationEdit;
 use App\Models\Location;
 use App\Models\LocationPendingEdit;
 use App\Models\User;
@@ -15,7 +15,7 @@ use Tests\TestCase;
 /**
  * Owner edit modes (redesign spec §2):
  *   pending / ai_rejected      -> 'normal'      full resubmit, full AI re-run
- *   verified (vote/gem/known)  -> 'verified'    contact instant, description/photos AI-reviewed
+ *   verified (vote/gem/known)  -> 'verified'    contact information only
  *   permanently_closed         -> 'delete_only' delete only, no edits
  */
 class HiddenGemEditingTest extends TestCase
@@ -51,7 +51,7 @@ class HiddenGemEditingTest extends TestCase
 
     public function test_verified_gem_owner_contact_edit_is_instant_and_clears_the_flag(): void
     {
-        Bus::fake([VerifyHiddenGemSubmission::class, ReviewPendingLocationEdit::class]);
+        Bus::fake([VerifyHiddenGemSubmission::class]);
 
         $owner = User::factory()->create();
         $gem = Location::factory()->for($owner)->create([
@@ -81,9 +81,9 @@ class HiddenGemEditingTest extends TestCase
         Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
     }
 
-    public function test_verified_gem_owner_content_edit_goes_through_ai_review(): void
+    public function test_verified_gem_owner_cannot_submit_content_edit_directly(): void
     {
-        Bus::fake([VerifyHiddenGemSubmission::class, ReviewPendingLocationEdit::class]);
+        Bus::fake([VerifyHiddenGemSubmission::class]);
 
         $owner = User::factory()->create();
         $gem = Location::factory()->for($owner)->create(['status' => 'hidden_gem']);
@@ -93,17 +93,31 @@ class HiddenGemEditingTest extends TestCase
         $this->putJson("/api/hidden-gems/{$gem->id}", [
             'edit_type' => 'content',
             'description' => 'A richer, more accurate description of the place.',
-        ])->assertOk();
+        ])->assertForbidden()
+            ->assertJsonPath('message', 'Verified Hidden Gems can only update contact information.');
 
-        $this->assertDatabaseHas('location_pending_edits', [
+        $this->assertNotSame('A richer, more accurate description of the place.', $gem->fresh()->description);
+        Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
+    }
+
+    public function test_legacy_queued_verified_content_edit_is_rejected_without_application(): void
+    {
+        $owner = User::factory()->create();
+        $gem = Location::factory()->for($owner)->create([
+            'status' => 'hidden_gem',
+            'description' => 'Original description.',
+        ]);
+        $edit = LocationPendingEdit::create([
             'location_id' => $gem->id,
             'user_id' => $owner->id,
+            'proposed_description' => 'Legacy queued description.',
             'status' => LocationPendingEdit::STATUS_PENDING,
         ]);
-        // The live gem is untouched until the review applies it.
-        $this->assertNotSame('A richer, more accurate description of the place.', $gem->fresh()->description);
-        Bus::assertDispatched(ReviewPendingLocationEdit::class);
-        Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
+
+        (new ReviewPendingLocationEdit($edit->id))->handle();
+
+        $this->assertSame('Original description.', $gem->fresh()->description);
+        $this->assertSame(LocationPendingEdit::STATUS_REJECTED, $edit->fresh()->status);
     }
 
     public function test_non_owner_cannot_edit_a_hidden_gem(): void
@@ -150,7 +164,7 @@ class HiddenGemEditingTest extends TestCase
 
         $this->patchJson("/api/hidden-gems/{$gem->id}/status", ['status' => 'deleted'])
             ->assertOk();
-        $this->assertSame('deleted', $gem->fresh()->status);
+        $this->assertSame('archived', $gem->fresh()->status);
     }
 
     private function updatePayload(Location $gem, array $overrides = []): array

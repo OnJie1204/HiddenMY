@@ -32,7 +32,9 @@ class VerifyNewEmail extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $url = config('app.url') . '/verify-email?token=' . $this->token;
+        $url = rtrim((string) config('app.url'), '/').'/verify-email?'.http_build_query([
+            'token' => $this->token,
+        ]);
 
         return (new MailMessage)
             ->subject('Verify Your New Email Address')

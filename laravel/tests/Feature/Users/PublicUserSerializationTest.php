@@ -66,7 +66,6 @@ class PublicUserSerializationTest extends TestCase
         Vote::create([
             'user_id' => $voter->id,
             'location_id' => $gem->id,
-            'travel_description' => 'A public travel description.',
         ]);
 
         foreach (['/api/hidden-gems', '/api/recent-hidden-gems', '/api/popular-hidden-gems'] as $uri) {
@@ -89,21 +88,20 @@ class PublicUserSerializationTest extends TestCase
         $this->assertPublicIdentity($voterPayload, $voter);
     }
 
-    public function test_public_votes_return_safe_voter_identity_without_changing_vote_content(): void
+    public function test_public_votes_return_safe_voter_identity_without_obsolete_story_fields(): void
     {
         $voter = $this->createUserWithSensitiveData();
         $gem = Location::factory()->create(['status' => 'pending_community_vote']);
         Vote::create([
             'user_id' => $voter->id,
             'location_id' => $gem->id,
-            'photo_path' => 'https://example.test/vote.jpg',
-            'travel_description' => 'Still visible to the public.',
         ]);
 
         $response = $this->getJson("/api/votes/{$gem->id}")->assertOk();
 
-        $this->assertSame('Still visible to the public.', $response->json('data.0.travel_description'));
-        $this->assertSame('https://example.test/vote.jpg', $response->json('data.0.photo_path'));
+        $response->assertJsonMissingPath('data.0.travel_description');
+        $response->assertJsonMissingPath('data.0.photo_path');
+        $response->assertJsonPath('data.0.location_id', $gem->id);
         $this->assertPublicIdentity($response->json('data.0.user'), $voter);
     }
 

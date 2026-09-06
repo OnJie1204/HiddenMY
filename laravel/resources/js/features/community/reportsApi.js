@@ -14,5 +14,5 @@ export const getReportForLocation = (locationId) =>
 export const checkVerifyEligibility = (reportId) =>
     api.get(`/reports/${reportId}/check`);
 
-export const verifyReport = (reportId, { verdict, comment }) =>
-    api.post(`/reports/${reportId}/verify`, { verdict, comment });
+export const verifyReport = (reportId, { verdict }) =>
+    api.post(`/reports/${reportId}/verify`, { verdict });

@@ -4,6 +4,7 @@ namespace Tests\Unit\Community;
 
 use App\Services\Community\ProfanityFilter;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class ProfanityFilterTest extends TestCase
 {
@@ -15,7 +16,7 @@ class ProfanityFilterTest extends TestCase
         $this->filter = new ProfanityFilter;
     }
 
-    /** @dataProvider cleanStrings */
+    #[DataProvider('cleanStrings')]
     public function test_clean_text_passes(string $text): void
     {
         $this->assertTrue($this->filter->isClean($text), "Expected clean: {$text}");
@@ -33,7 +34,7 @@ class ProfanityFilterTest extends TestCase
         ];
     }
 
-    /** @dataProvider dirtyStrings */
+    #[DataProvider('dirtyStrings')]
     public function test_profane_text_is_blocked(string $text): void
     {
         $this->assertFalse($this->filter->isClean($text), "Expected blocked: {$text}");

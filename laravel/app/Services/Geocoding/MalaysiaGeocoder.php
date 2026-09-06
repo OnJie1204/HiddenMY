@@ -2,8 +2,9 @@
 
 namespace App\Services\Geocoding;
 
+use App\Integrations\Geocoding\NominatimClient;
+use App\Integrations\Geocoding\PhotonClient;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class MalaysiaGeocoder
@@ -18,21 +19,21 @@ class MalaysiaGeocoder
         'Perlis', 'Putrajaya', 'Labuan',
     ];
 
+    public function __construct(
+        private NominatimClient $nominatim,
+        private PhotonClient $photon,
+    ) {}
+
     public function geocode(string $query): array
     {
         try {
-            $results = Http::acceptJson()
-                ->withUserAgent(config('app.name', 'Gemora').' hidden gem address geocoder')
-                ->timeout(5)
-                ->get('https://nominatim.openstreetmap.org/search', [
-                    'q' => trim($query),
-                    'format' => 'jsonv2',
-                    'limit' => 1,
-                    'countrycodes' => 'my',
-                    'addressdetails' => 1,
-                ])
-                ->throw()
-                ->json();
+            $results = $this->nominatim->search([
+                'q' => trim($query),
+                'format' => 'jsonv2',
+                'limit' => 1,
+                'countrycodes' => 'my',
+                'addressdetails' => 1,
+            ], 'hidden gem address geocoder');
         } catch (Throwable $exception) {
             report($exception);
 
@@ -152,18 +153,13 @@ class MalaysiaGeocoder
         }
 
         try {
-            $features = Http::acceptJson()
-                ->withUserAgent(config('app.name', 'HiddenMY').' address autocomplete')
-                ->timeout(5)
-                ->get(rtrim((string) config('services.photon.url'), '/').'/api', [
-                    'q' => $query,
-                    'lang' => 'en',
-                    'limit' => 15,
-                    'lat' => $latitude ?? 4.2,
-                    'lon' => $longitude ?? 102.0,
-                ])
-                ->throw()
-                ->json('features', []);
+            $features = $this->photon->autocomplete([
+                'q' => $query,
+                'lang' => 'en',
+                'limit' => 15,
+                'lat' => $latitude ?? 4.2,
+                'lon' => $longitude ?? 102.0,
+            ]);
         } catch (Throwable $exception) {
             report($exception);
 
@@ -191,17 +187,7 @@ class MalaysiaGeocoder
 
     private function reverseRequest(float $latitude, float $longitude, string $userAgent): array
     {
-        return Http::acceptJson()
-            ->withUserAgent(config('app.name', 'Gemora').' '.$userAgent)
-            ->timeout(5)
-            ->get('https://nominatim.openstreetmap.org/reverse', [
-                'lat' => $latitude,
-                'lon' => $longitude,
-                'format' => 'jsonv2',
-                'addressdetails' => 1,
-            ])
-            ->throw()
-            ->json();
+        return $this->nominatim->reverse($latitude, $longitude, $userAgent);
     }
 
     private function normalisePhotonFeature(array $feature): array

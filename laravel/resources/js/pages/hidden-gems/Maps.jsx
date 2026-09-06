@@ -359,17 +359,29 @@ function Maps({ user }){
         const id = setTimeout(() => {
             const jobs = [
                 getRecentHiddenGems()
-                    .then(res => setRecentPosts(res.data))
+                    .then(res => setRecentPosts(
+                        (res.data || []).filter(
+                            gem => !gem.permanently_closed_at && !gem.permanentlyClosedAt
+                        )
+                    ))
                     .catch(err => console.log(err)),
 
                 user
                     ? getMyHiddenGems()
-                        .then(res => setMyGems(res.data.data || []))
+                        .then(res => setMyGems(
+                            (res.data.data || []).filter(
+                                gem => !gem.permanently_closed_at && !gem.permanentlyClosedAt
+                            )
+                        ))
                         .catch(err => console.log(err))
                     : Promise.resolve(),
 
                 getPopularHiddenGems()
-                    .then(res => setPopularPosts(res.data || []))
+                    .then(res => setPopularPosts(
+                        (res.data || []).filter(
+                            gem => !gem.permanently_closed_at && !gem.permanentlyClosedAt
+                        )
+                    ))
                     .catch(err => console.log(err)),
 
                 getCategories()

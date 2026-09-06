@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Travel;
 
+use App\Contracts\ObjectStorage;
 use App\Http\Controllers\Controller;
+use App\Integrations\Storage\ObjectStorageException;
 use App\Models\CheckIn;
 use App\Models\Location;
 use App\Models\PostImage;
@@ -16,7 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class TravelPostController extends Controller
@@ -47,7 +48,10 @@ class TravelPostController extends Controller
         'locations.verification_threshold',
     ];
 
-    public function __construct(private SpecialAchievementService $specialAchievements) {}
+    public function __construct(
+        private SpecialAchievementService $specialAchievements,
+        private ObjectStorage $storage,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -66,7 +70,11 @@ class TravelPostController extends Controller
 
     public function show($id): JsonResponse
     {
-        $post = TravelPost::with($this->publicRelations())->findOrFail($id);
+        $post = TravelPost::with($this->publicRelations())->find($id);
+
+        if (! $post) {
+            return response()->json(['message' => 'Travel post not found.'], 404);
+        }
 
         return response()->json(['data' => $this->present($this->includeAuthorFavourites($post))]);
     }
@@ -206,7 +214,7 @@ class TravelPostController extends Controller
                 if ($stop->isGemStop()) {
                     $gem = $stop->location;
 
-                    if (! $gem || $gem->status === 'deleted') {
+                    if (! $gem || in_array($gem->status, [Location::STATUS_DELETED, Location::STATUS_ARCHIVED], true)) {
                         $skipped[] = ($gem->place_name ?? $stop->osm_name) ?: 'a removed hidden gem';
 
                         continue;
@@ -499,9 +507,9 @@ class TravelPostController extends Controller
 
             $stops = $post->stops->map(function (PostStop $stop) {
                 $isGem = $stop->isGemStop();
-                // A gem stop is "removed" if the row is gone (hard delete) or
-                // its status is now 'deleted' (the normal soft delete).
-                $live = ($isGem && $stop->location && $stop->location->status !== 'deleted')
+                // A gem stop is "removed" if the row is gone or its status is
+                // now deleted/archived through logical removal.
+                $live = ($isGem && $stop->location && ! in_array($stop->location->status, [Location::STATUS_DELETED, Location::STATUS_ARCHIVED], true))
                     ? $stop->location
                     : null;
                 $lat = $live?->latitude ?? $stop->latitude;
@@ -563,21 +571,15 @@ class TravelPostController extends Controller
     {
         $fileName = "travel-posts/{$folder}/".uniqid().'.'.$image->getClientOriginalExtension();
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-            'apikey' => env('SUPABASE_KEY'),
-            'Content-Type' => $image->getMimeType(),
-        ])->withBody(
-            file_get_contents($image->getRealPath()),
-            $image->getMimeType()
-        )->post(
-            env('SUPABASE_URL').'/storage/v1/object/post_images/'.$fileName
-        );
-
-        if ($response->failed()) {
+        try {
+            return $this->storage->uploadPublic(
+                config('services.supabase.post_images_bucket', 'post_images'),
+                $fileName,
+                file_get_contents($image->getRealPath()),
+                $image->getMimeType(),
+            );
+        } catch (ObjectStorageException) {
             return null;
         }
-
-        return env('SUPABASE_URL').'/storage/v1/object/public/post_images/'.$fileName;
     }
 }

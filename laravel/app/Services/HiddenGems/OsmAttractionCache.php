@@ -2,11 +2,12 @@
 
 namespace App\Services\HiddenGems;
 
+use App\Integrations\OpenStreetMap\OverpassClient;
+use App\Integrations\Wikimedia\WikidataClient;
 use App\Models\OsmAttraction;
 use App\Models\OsmSyncCell;
 use App\Support\Geo;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Http;
 
 class OsmAttractionCache
 {
@@ -39,6 +40,11 @@ class OsmAttractionCache
     // The whole app only ever operates within Malaysia (map bounds, Nominatim
     // countrycodes=my, ...), so the cache never needs to cover anywhere else.
     private const MALAYSIA_BOUNDS = [0.5, 7.5, 99.5, 119.5]; // [minLat, maxLat, minLng, maxLng]
+
+    public function __construct(
+        private OverpassClient $overpass,
+        private WikidataClient $wikidata,
+    ) {}
 
     /**
      * Nearby attractions around a point — served from the database whenever
@@ -173,14 +179,7 @@ class OsmAttractionCache
 
         // Overpass answers 406 Not Acceptable to Guzzle's default User-Agent,
         // so an explicit one is required here (same as the Nominatim calls).
-        $response = Http::asForm()
-            ->withUserAgent(config('app.name', 'HiddenMY').' nearby attractions')
-            ->timeout($timeoutSeconds)
-            ->post('https://overpass-api.de/api/interpreter', ['data' => $overpassQuery])
-            ->throw()
-            ->json();
-
-        $places = collect($response['elements'] ?? [])
+        $places = collect($this->overpass->query($overpassQuery, $timeoutSeconds))
             ->map(function (array $element) {
                 $tags = $element['tags'] ?? [];
                 $name = $tags['name'] ?? null;
@@ -247,30 +246,13 @@ class OsmAttractionCache
 
         foreach ($ids->chunk(50) as $chunk) {
             try {
-                $response = Http::withUserAgent(config('app.name', 'HiddenMY').' attraction images')
-                    ->timeout(5)
-                    ->get('https://www.wikidata.org/w/api.php', [
-                        'action' => 'wbgetentities',
-                        'ids' => $chunk->implode('|'),
-                        'props' => 'claims',
-                        'format' => 'json',
-                    ])
-                    ->throw()
-                    ->json();
+                $images += $this->wikidata->imageUrls($chunk);
             } catch (\Throwable $exception) {
                 // Wikidata unreachable/slow/rate-limited — skip this batch,
                 // those places just keep image_url = null.
                 continue;
             }
 
-            foreach ($response['entities'] ?? [] as $qid => $entity) {
-                $filename = $entity['claims']['P18'][0]['mainsnak']['datavalue']['value'] ?? null;
-
-                if ($filename) {
-                    $images[$qid] = 'https://commons.wikimedia.org/wiki/Special:FilePath/'
-                        .rawurlencode($filename).'?width=400';
-                }
-            }
         }
 
         return $places->map(function (array $place) use ($images) {

@@ -3,11 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\User;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
-use Illuminate\Support\Str;
 
 class GoogleAuthController extends Controller
 {
@@ -15,12 +13,12 @@ class GoogleAuthController extends Controller
     public function redirect(Request $request)
     {
         $remember = $request->query('remember', 'false');
-    
+
         return Socialite::driver('google')
             ->stateless()
             ->with(['state' => $remember])
             ->redirect();
-        }
+    }
 
     // Process the returned information after Google sign-in is complete.
     public function callback(Request $request)
@@ -31,7 +29,7 @@ class GoogleAuthController extends Controller
         // First, check if an account has already been created using the `google_id`.
         $user = User::where('google_id', $googleUser->getId())->first();
 
-        if (!$user) {
+        if (! $user) {
             // Next, check whether this email has already been used to register with an email and password.
             $user = User::where('email', $googleUser->getEmail())->first();
 
@@ -55,7 +53,7 @@ class GoogleAuthController extends Controller
         // Backfill the Google avatar for accounts that don't have one yet
         // (e.g. Google users created before avatar_url existed). Never
         // overwrite a photo the user already uploaded themselves.
-        if (!$user->avatar_url && $googleUser->getAvatar()) {
+        if (! $user->avatar_url && $googleUser->getAvatar()) {
             $user->avatar_url = $googleUser->getAvatar();
             $user->save();
         }
@@ -63,7 +61,11 @@ class GoogleAuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         // Redirect back to the frontend, carrying the token.
-        $frontendUrl = config('app.url') . '/google-callback?token=' . $token . '&remember=' . $remember;
+        $frontendUrl = rtrim((string) config('app.url'), '/').'/google-callback?'.http_build_query([
+            'token' => $token,
+            'remember' => $remember,
+        ]);
+
         return redirect($frontendUrl);
     }
 }

@@ -2,11 +2,11 @@
 
 namespace App\Services\HiddenGems;
 
+use App\Integrations\Geocoding\NominatimClient;
 use App\Models\Location;
 use App\Support\Geo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class HiddenGemSearch
@@ -18,6 +18,8 @@ class HiddenGemSearch
     private const OSM_CACHE_TTL_HOURS = 6;
 
     private const NEARBY_VIEWBOX_DEGREES = 0.5;
+
+    public function __construct(private NominatimClient $nominatim) {}
 
     public function search(
         string $query,
@@ -131,21 +133,15 @@ class HiddenGemSearch
             $params['bounded'] = 0;
         }
 
-        $results = collect(
-            Http::acceptJson()
-                ->withUserAgent(config('app.name', 'HiddenMY').' location search')
-                ->timeout(5)
-                ->get('https://nominatim.openstreetmap.org/search', $params)
-                ->throw()
-                ->json()
-        )->map(fn (array $location) => [
-            'id' => 'osm-'.$location['osm_type'].'-'.$location['osm_id'],
-            'osm_id' => (int) $location['osm_id'],
-            'name' => $location['display_name'],
-            'latitude' => (float) $location['lat'],
-            'longitude' => (float) $location['lon'],
-            'source' => 'openstreetmap',
-        ]);
+        $results = collect($this->nominatim->search($params, 'location search'))
+            ->map(fn (array $location) => [
+                'id' => 'osm-'.$location['osm_type'].'-'.$location['osm_id'],
+                'osm_id' => (int) $location['osm_id'],
+                'name' => $location['display_name'],
+                'latitude' => (float) $location['lat'],
+                'longitude' => (float) $location['lon'],
+                'source' => 'openstreetmap',
+            ]);
 
         if ($hasLocation) {
             return $results

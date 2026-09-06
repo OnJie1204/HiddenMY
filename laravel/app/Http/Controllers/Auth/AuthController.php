@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Contracts\ObjectStorage;
 use App\Http\Controllers\Controller;
+use App\Integrations\Storage\ObjectStorageException;
 use App\Models\User;
 use App\Notifications\Auth\VerifyNewEmail;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(private ObjectStorage $storage) {}
+
     // register
     public function register(Request $request)
     {
@@ -234,25 +237,21 @@ class AuthController extends Controller
         $image = $request->file('avatar');
         $fileName = $user->id.'-'.uniqid().'.'.$image->getClientOriginalExtension();
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.env('SUPABASE_KEY'),
-            'apikey' => env('SUPABASE_KEY'),
-            'Content-Type' => $image->getMimeType(),
-        ])->withBody(
-            file_get_contents($image->getRealPath()),
-            $image->getMimeType()
-        )->post(
-            env('SUPABASE_URL').'/storage/v1/object/avatars/'.$fileName
-        );
-
-        if ($response->failed()) {
+        try {
+            $avatarUrl = $this->storage->uploadPublic(
+                config('services.supabase.avatars_bucket', 'avatars'),
+                $fileName,
+                file_get_contents($image->getRealPath()),
+                $image->getMimeType(),
+            );
+        } catch (ObjectStorageException $exception) {
             return response()->json([
                 'message' => 'Failed to upload avatar.',
-                'error' => $response->json(),
+                'error' => $exception->upstreamError,
             ], 500);
         }
 
-        $user->avatar_url = env('SUPABASE_URL').'/storage/v1/object/public/avatars/'.$fileName;
+        $user->avatar_url = $avatarUrl;
         $user->save();
 
         return response()->json([
