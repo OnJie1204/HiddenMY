@@ -625,7 +625,7 @@ export default function MyHiddenGems() {
                                                     : `/my-hidden-gems/edit/${gem.id}`)
                                             }
                                         >
-                                            {gem.edit_mode === "verified" ? "Edit info" : "Edit"}
+                                            {gem.edit_mode === "verified" ? "Edit Info" : "Edit"}
                                         </button>
                                     )}
 
