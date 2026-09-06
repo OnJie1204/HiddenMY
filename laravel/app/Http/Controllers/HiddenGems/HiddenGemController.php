@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class HiddenGemController extends Controller
@@ -202,7 +203,7 @@ class HiddenGemController extends Controller
         if ($request->boolean('include_well_known')) {
             $query->publiclyVisible()->whereNull('permanently_closed_at');
         } else {
-            $query->discoverable();
+            $query->discoverable()->whereNull('permanently_closed_at');
         }
 
         // Filter by status (hidden_gem / pending_community_vote)
@@ -269,7 +270,7 @@ class HiddenGemController extends Controller
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
-            ->wellKnown();
+            ->wellKnown()->whereNull('permanently_closed_at');
 
         if ($request->filled('category')) {
             $query->where('category_id', $request->category);
@@ -519,17 +520,30 @@ class HiddenGemController extends Controller
 
         // Reset verification progress after editing — an edit is a full
         // resubmit and the community re-verifies from scratch.
-        $gem->vote_count = 0;
-        $gem->status = 'pending';
-        $gem->ai_review_reason = null;
-        $gem->verification_attempts = 0;
-        $gem->report_status = null;
-        $gem->permanently_closed_at = null;
-        $gem->contact_flagged_at = null;
-        $gem->save();
+        $reset = DB::transaction(function () use ($gem) {
+            $current = Location::whereKey($gem->id)->lockForUpdate()->firstOrFail();
+            if (! $current->isPending() && ! $current->isAiRejected()) {
+                return false;
+            }
 
-        // Remove previous vote records
-        $gem->votes()->delete();
+            $current->update([
+                'vote_count' => 0,
+                'status' => Location::STATUS_PENDING,
+                'ai_review_reason' => null,
+                'verification_attempts' => 0,
+                'report_status' => null,
+                'permanently_closed_at' => null,
+                'contact_flagged_at' => null,
+            ]);
+            $current->votes()->delete();
+            $gem->refresh();
+
+            return true;
+        });
+
+        if (! $reset) {
+            return response()->json(['message' => 'The location status changed during editing. Please reload it.'], 409);
+        }
 
         // Re-run Stage 1 AI verification against the updated submission.
         VerifyHiddenGemSubmission::dispatch($gem->id)->afterCommit();
@@ -656,6 +670,7 @@ class HiddenGemController extends Controller
             ->select(['id', 'place_name', 'category_id', 'latitude', 'longitude', 'status', 'permanently_closed_at'])
             ->with('category:id,name')
             ->publiclyVisible()
+            ->whereNull('permanently_closed_at')
             ->where('id', '!=', $gem->id)
             ->whereBetween('latitude', [$minLat, $maxLat])
             ->whereBetween('longitude', [$minLng, $maxLng])
@@ -721,7 +736,7 @@ class HiddenGemController extends Controller
             'south' => ['required', 'numeric', 'between:-90,90'],
             'east' => ['required', 'numeric', 'between:-180,180'],
             'west' => ['required', 'numeric', 'between:-180,180'],
-            'status' => ['nullable', 'in:hidden_gem,pending_community_vote'],
+            'status' => ['nullable', 'in:hidden_gem,pending_community_vote,well_known'],
         ]);
 
         // Markers/popups only ever need one photo and the category name, not the
@@ -739,6 +754,7 @@ class HiddenGemController extends Controller
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
             ->publiclyVisible()
+            ->whereNull('permanently_closed_at')
             ->whereBetween('latitude', [$validated['south'], $validated['north']])
             ->whereBetween('longitude', [$validated['west'], $validated['east']]);
 

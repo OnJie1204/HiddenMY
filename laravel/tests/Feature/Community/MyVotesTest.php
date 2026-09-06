@@ -75,6 +75,24 @@ class MyVotesTest extends TestCase
         $this->assertDatabaseCount('votes', 2);
     }
 
+    public function test_permanently_closed_target_keeps_vote_history_without_detail_navigation_data(): void
+    {
+        $user = User::factory()->create();
+        $location = Location::factory()->create([
+            'status' => Location::STATUS_HIDDEN_GEM,
+            'permanently_closed_at' => now(),
+        ]);
+        $vote = Vote::create(['user_id' => $user->id, 'location_id' => $location->id]);
+
+        $this->actingAs($user)->getJson('/api/my-votes')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $vote->id)
+            ->assertJsonPath('data.0.location_available', false)
+            ->assertJsonPath('data.0.location', null);
+
+        $this->assertDatabaseHas('votes', ['id' => $vote->id]);
+    }
+
     public function test_vote_history_is_returned_newest_first(): void
     {
         $user = User::factory()->create();

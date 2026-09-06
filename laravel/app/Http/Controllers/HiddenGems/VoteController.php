@@ -199,15 +199,8 @@ class VoteController extends Controller
             $location->increment('vote_count');
             $location->refresh();
 
-            $threshold = $location->verification_threshold ?? 10;
-            $becameHiddenGem = false;
-
-            if ($location->vote_count >= $threshold) {
-                $location->update([
-                    'status' => 'hidden_gem',
-                ]);
-                $becameHiddenGem = true;
-            }
+            $location = Location::evaluateStatus($location->id);
+            $becameHiddenGem = in_array($location->status, Location::CURRENT_VERIFIED_STATUSES, true);
 
             return [
                 'error' => false,
@@ -245,7 +238,7 @@ class VoteController extends Controller
             'location' => $result['location'],
             'distance' => round($distance, 2),
             'max_distance' => self::MAX_VOTE_DISTANCE,
-            'is_verified' => $result['location']->status === 'hidden_gem',
+            'is_verified' => in_array($result['location']->status, Location::CURRENT_VERIFIED_STATUSES, true),
         ], 201);
     }
 
@@ -253,6 +246,8 @@ class VoteController extends Controller
     {
         return match ($status) {
             'hidden_gem' => 'This location is already a recognized Hidden Gem.',
+
+            'well_known' => 'This location is already a Well-Known Place.',
 
             'ai_rejected' => 'This location did not pass AI verification and is not open for voting.',
 
@@ -289,7 +284,7 @@ class VoteController extends Controller
         }
 
         $votes = Vote::with([
-            'location:id,place_name,status',
+            'location:id,place_name,status,permanently_closed_at',
             'location.firstImage' => fn ($query) => $query->select([
                 'location_images.id',
                 'location_images.location_id',
@@ -308,7 +303,8 @@ class VoteController extends Controller
             ->map(function (Vote $vote) {
                 $locationAvailable = $vote->location !== null
                     && ! $vote->location->isDeleted()
-                    && ! $vote->location->isArchived();
+                    && ! $vote->location->isArchived()
+                    && ! $vote->location->isPermanentlyClosed();
 
                 return [
                     'id' => $vote->id,

@@ -601,7 +601,7 @@ export default function HiddenGems({ user }) {
                                         ) : gem.status ===
                                           "pending_community_vote" ? (
                                             <span className="hidden-gems-card-pending">
-                                                Pending (
+                                                Awaiting Votes (
                                                 {gem.votes_count ?? 0}/
                                                 {gem.verification_threshold ||
                                                     10}{" "}

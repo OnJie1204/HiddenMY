@@ -914,6 +914,10 @@ export default function HiddenGemDetail({ user }) {
                             <span className="gem-detail-status-verified">
                                 Well-Known Place
                             </span>
+                        ) : gem.status === "pending_community_vote" ? (
+                            <span className="gem-detail-status-pending">
+                                Awaiting Votes
+                            </span>
                         ) : gem.status === "ai_rejected" ? (
                             <span
                                 className="gem-detail-status-rejected"

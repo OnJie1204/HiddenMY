@@ -96,6 +96,24 @@ class MyRatingsTest extends TestCase
         $this->assertDatabaseCount('gem_interactions', 2);
     }
 
+    public function test_permanently_closed_target_keeps_rating_history_without_detail_navigation_data(): void
+    {
+        $user = User::factory()->create();
+        $location = Location::factory()->create([
+            'status' => Location::STATUS_HIDDEN_GEM,
+            'permanently_closed_at' => now(),
+        ]);
+        $rating = $this->createInteraction($user, $location, 'comment', 'Historical rating');
+
+        $this->actingAs($user)->getJson('/api/my-ratings')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $rating->id)
+            ->assertJsonPath('data.0.location_available', false)
+            ->assertJsonPath('data.0.location', null);
+
+        $this->assertDatabaseHas('gem_interactions', ['id' => $rating->id]);
+    }
+
     public function test_location_without_an_image_is_handled_safely(): void
     {
         $user = User::factory()->create();

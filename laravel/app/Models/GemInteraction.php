@@ -11,6 +11,21 @@ class GemInteraction extends Model
 
     public const COMMENT_EDIT_WINDOW_HOURS = 72;
 
+    protected static function booted(): void
+    {
+        $evaluate = function (self $interaction) {
+            if ($interaction->type === 'comment' || $interaction->getOriginal('type') === 'comment') {
+                Location::evaluateStatus($interaction->location_id);
+                if ($interaction->wasChanged('location_id')) {
+                    Location::evaluateStatus($interaction->getOriginal('location_id'));
+                }
+            }
+        };
+
+        static::saved($evaluate);
+        static::deleted($evaluate);
+    }
+
     protected $fillable = [
         'user_id',
         'location_id',

@@ -39,6 +39,7 @@
     box-shadow: var(--shadow-md);
 }
 
+
 .maps-hero.fullscreen {
     position: fixed;
     inset: 0;
@@ -906,13 +907,13 @@
 }
 
 .badge-success {
-    background: var(--color-primary-soft, #e6f6f3);
-    color: var(--color-primary-dark, #0f766e);
+    background: #fff7ed;
+    color: #c2410c;
 }
 
 .badge-pending {
-    background: #fef3c7;
-    color: #92400e;
+    background: #f3f4f6;
+    color: #6b7280;
 }
 
 /* Attraction "no reviews in our DB" note */
@@ -1386,6 +1387,11 @@
 
 .maps-hero .gem-marker.gem-marker-closed {
     filter: grayscale(1) opacity(0.55);
+}
+
+.maps-hero .gem-marker.gem-marker-well-known {
+    filter: sepia(0.7) saturate(2.2) hue-rotate(5deg) brightness(1.05)
+        drop-shadow(0 0 4px rgba(202, 138, 4, 0.9)) opacity(0.8);
 }
 
 .maps-hero .gem-marker.hidden-gem-marker-selected {

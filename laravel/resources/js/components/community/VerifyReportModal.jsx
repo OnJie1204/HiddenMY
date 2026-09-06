@@ -230,29 +230,29 @@ function VerifyReportModal({ report, reports = null, isOpen, onClose, onVerifySu
 
                             <div className="report-summary">
                                 <span className="report-summary-label">Reported for</span>
-                                <strong>{REASON_LABELS[report.reason] || report.reason}</strong>
-                                {report.description && <p className="report-summary-desc">"{report.description}"</p>}
+                                <strong>{REASON_LABELS[target.reason] || target.reason}</strong>
+                                {target.description && <p className="report-summary-desc">"{target.description}"</p>}
 
-                                {report.photo_path && (
+                                {target.photo_path && (
                                     <a
-                                        href={report.photo_path}
+                                        href={target.photo_path}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="report-evidence-photo"
                                     >
-                                        <img src={report.photo_path} alt="Evidence from the reporter" />
+                                        <img src={target.photo_path} alt="Evidence from the reporter" />
                                         <span>Reporter's evidence — tap to view full size</span>
                                     </a>
                                 )}
 
-                                {report.reason === 'permanently_closed' && (
+                                {target.reason === 'permanently_closed' && (
                                     <p className="report-summary-desc">
                                         Confirm only if you've seen it closed for good. If confirmed, the gem stays
                                         listed but is greyed out and marked "Permanently closed".
                                     </p>
                                 )}
 
-                                {report.reason === 'incorrect_contact_info' && (
+                                {target.reason === 'incorrect_contact_info' && (
                                     <div className="report-contact-diff">
                                         <p className="report-summary-desc">
                                             Current contact info:

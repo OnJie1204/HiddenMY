@@ -7309,8 +7309,8 @@ img.avatar {
 }
 
 .hiddenmy-journey-map .gem-marker-pending {
-    filter: grayscale(1) sepia(1) saturate(2.5) hue-rotate(340deg)
-        brightness(1.12) contrast(0.9);
+    filter: grayscale(1) sepia(1) saturate(4.5) hue-rotate(325deg)
+        brightness(1.06) contrast(0.96);
 }
 
 .hiddenmy-journey-map .gem-marker-well-known {

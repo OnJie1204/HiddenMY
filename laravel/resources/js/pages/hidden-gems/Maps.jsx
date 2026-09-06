@@ -431,7 +431,7 @@ function Maps({ user }){
                     const response = await getHiddenGemDetail(gemIdParam);
                     const gem = response.data.data;
                     
-                    if (gem) {
+                    if (gem && !gem.permanently_closed_at) {
                         const normalized = normalizeGem(gem, "database");
                         setSelectedGroup([normalized]);
                         setPanelOpen(true);
@@ -465,7 +465,7 @@ function Maps({ user }){
 
     // ==================== Handle location.state.highlightGem ====================
     useEffect(() => {
-        if (highlightGem && highlightGem.id) {
+        if (highlightGem && highlightGem.id && !highlightGem.permanently_closed_at && !highlightGem.permanentlyClosedAt) {
             const normalized = normalizeGem(highlightGem, "database");
             setSelectedGroup([normalized]);
             setPanelOpen(true);
@@ -858,6 +858,7 @@ function Maps({ user }){
         { value: null, label: "All" },
         { value: "hidden_gem", label: "Hidden Gem" },
         { value: "pending_community_vote", label: "Awaiting Votes" },
+        { value: "well_known", label: "Well-Known" },
     ];
 
     const activeFilterCount = (statusFilter ? 1 : 0) + (categoryFilter.length > 0 ? 1 : 0) + (wishlistOnly ? 1 : 0);
@@ -1053,7 +1054,6 @@ function Maps({ user }){
                     />
                 </div>
 
-                {/* Right column: title, status, filters */}
                 <div className="maps-hero-topbar">
                     {boundsLoading && (
                         <div className="maps-updating-pill">

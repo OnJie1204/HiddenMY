@@ -181,7 +181,11 @@ class TravelPostController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        $locationIds = $post->locations()->pluck('locations.id');
         $post->delete();
+        foreach ($locationIds as $locationId) {
+            Location::evaluateStatus($locationId);
+        }
 
         return response()->json(['message' => 'Travel post deleted.']);
     }
@@ -313,7 +317,13 @@ class TravelPostController extends Controller
                 }
             }
 
+            $locationIds = $post->locations()->pluck('locations.id')->all();
             $this->syncPostLocations($post, $gemStops, $userId);
+            $locationIds = array_unique(array_merge($locationIds, array_column($gemStops, 'location_id')));
+            sort($locationIds);
+            foreach ($locationIds as $locationId) {
+                Location::evaluateStatus($locationId);
+            }
         });
     }
 
