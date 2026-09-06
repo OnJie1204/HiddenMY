@@ -284,7 +284,7 @@ class VoteController extends Controller
         }
 
         $votes = Vote::with([
-            'location:id,place_name,status',
+            'location:id,place_name,status,permanently_closed_at',
             'location.firstImage' => fn ($query) => $query->select([
                 'location_images.id',
                 'location_images.location_id',
@@ -303,7 +303,8 @@ class VoteController extends Controller
             ->map(function (Vote $vote) {
                 $locationAvailable = $vote->location !== null
                     && ! $vote->location->isDeleted()
-                    && ! $vote->location->isArchived();
+                    && ! $vote->location->isArchived()
+                    && ! $vote->location->isPermanentlyClosed();
 
                 return [
                     'id' => $vote->id,

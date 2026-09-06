@@ -214,7 +214,7 @@ class GemInteractionController extends Controller
             ->where('user_id', Auth::id())
             ->where('type', 'comment')
             ->with([
-                'location:id,place_name,status',
+                'location:id,place_name,status,permanently_closed_at',
                 'location.firstImage' => fn ($query) => $query->select([
                     'location_images.id',
                     'location_images.location_id',
@@ -234,7 +234,8 @@ class GemInteractionController extends Controller
             ->map(function (GemInteraction $rating) {
                 $locationAvailable = $rating->location !== null
                     && ! $rating->location->isDeleted()
-                    && ! $rating->location->isArchived();
+                    && ! $rating->location->isArchived()
+                    && ! $rating->location->isPermanentlyClosed();
 
                 return [
                     'id' => $rating->id,
