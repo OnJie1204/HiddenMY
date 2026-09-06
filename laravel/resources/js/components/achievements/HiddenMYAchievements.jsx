@@ -730,7 +730,7 @@ export default function HiddenMYAchievements({
                     <dl className="hiddenmy-passport-stats">
                         <div>
                             <dd>{currentVerifiedGemCount}</dd>
-                            <dt>Verified Gems</dt>
+                            <dt>Current Verified Gems</dt>
                         </div>
                         <div>
                             <dd>{discoveredCount}</dd>
