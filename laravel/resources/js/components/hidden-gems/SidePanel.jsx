@@ -279,12 +279,14 @@ function SidePanel({
             || status === "well_known");
     const isWishlisted = gem && wishlistIds.has(gem.id);
 
-    // A verified Hidden Gem, or one still in community voting (permanently_closed
-    // only) — the backend enforces per-reason and returns the allowed reasons.
+    // Any publicly-visible place, matching ReportController::reportableStatuses()
+    // (Location::PUBLICLY_VISIBLE_STATUSES) and the gem cards' own ReportButton —
+    // the backend enforces per-reason and returns the allowed reasons.
     const canReportOrVerify = gem
         && gem.source === "database"
         && !isClosed
-        && (status === "hidden_gem" || status === "pending_community_vote");
+        && (status === "hidden_gem" || status === "pending_community_vote"
+            || status === "well_known");
 
     async function handleReportIconClick() {
         // Guests can see the icon (it advertises the feature) but reporting
