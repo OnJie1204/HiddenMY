@@ -7611,6 +7611,24 @@ img.avatar {
     margin-top: 4px;
 }
 
+.hidden-gems-card-status .my-hidden-gem-report-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    vertical-align: middle;
+}
+
+.hidden-gems-card-status .my-hidden-gem-report-indicator svg {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+}
+
 .my-hidden-gems-actions button {
     min-width: 80px;
     padding: 9px 18px;
@@ -9245,6 +9263,52 @@ img.avatar {
     font-size: 12px;
     margin: 0;
     line-height: 1.4;
+}
+
+.authenticated-report-card {
+    display: block;
+}
+
+.authenticated-report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 12px;
+}
+
+.authenticated-report-heading {
+    display: flex;
+    align-items: flex-start;
+    flex: 1 1 220px;
+    min-width: 0;
+    gap: 8px;
+}
+
+.authenticated-report-icon {
+    flex: 0 0 auto;
+    color: #991b1b;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.authenticated-report-body {
+    margin-top: 10px;
+    padding-left: 24px;
+}
+
+.authenticated-report-body p + p {
+    margin-top: 6px;
+}
+
+@media (max-width: 480px) {
+    .authenticated-report-header .report-banner-verify-btn {
+        margin-left: 24px;
+    }
+
+    .authenticated-report-body {
+        padding-left: 24px;
+    }
 }
 
 .report-banner-verify-btn {

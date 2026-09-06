@@ -15,7 +15,6 @@ class ReportVote extends Model
         'report_id',
         'user_id',
         'verdict',
-        'comment',
     ];
 
     public function report()

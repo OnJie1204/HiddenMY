@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { MdOutlineReportProblem } from "react-icons/md";
 import {
     getMyHiddenGems,
     getMyHiddenGemJourney,
@@ -599,6 +600,12 @@ export default function MyHiddenGems() {
                                     ) : (
                                         <span className={getGemStatusDisplay(gem).badgeClass}>
                                             {getGemStatusDisplay(gem).label}
+                                        </span>
+                                    )}
+                                    {gem.has_active_report && (
+                                        <span className="my-hidden-gem-report-indicator">
+                                            <MdOutlineReportProblem aria-hidden="true" />
+                                            Report Under Review
                                         </span>
                                     )}
                                 </div>
