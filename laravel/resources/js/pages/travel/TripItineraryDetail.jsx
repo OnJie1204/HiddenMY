@@ -37,6 +37,11 @@ import Spinner from "@/components/common/Spinner";
 
 import "@css/base/global.css";
 
+// Same subset the "add stopping point" map shows as markers (Location::
+// PUBLICLY_VISIBLE_STATUSES) — kept in sync so the wishlist list below the
+// map never offers a gem the map itself wouldn't let you place a pin on.
+const STOPPING_POINT_VISIBLE_STATUSES = ["pending_community_vote", "hidden_gem", "well_known"];
+
 const hiddenGemMarkerIcon = new L.Icon({
     iconUrl: "/images/maps/gem_marker.png",
     iconSize: [24, 24],
@@ -328,6 +333,14 @@ export default function TripItineraryDetail() {
     const [mapClickError, setMapClickError] = useState("");
     const [wishlistItems, setWishlistItems] = useState([]);
     const [isLoadingWishlist, setIsLoadingWishlist] = useState(false);
+    // The wishlist endpoint already restricts to these statuses, but a gem can
+    // be permanently closed after being wishlisted — filter both here so this
+    // list never offers a stop the map's own markers wouldn't show.
+    const visibleWishlistItems = useMemo(() => (
+        wishlistItems.filter((gem) => (
+            STOPPING_POINT_VISIBLE_STATUSES.includes(gem.status) && !gem.permanently_closed_at
+        ))
+    ), [wishlistItems]);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingTrip, setIsDeletingTrip] = useState(false);
     const [deleteError, setDeleteError] = useState("");
@@ -1340,13 +1353,13 @@ export default function TripItineraryDetail() {
                                             <Spinner size="sm" inline label="Loading your wishlist…" />
                                         )}
 
-                                        {!isLoadingWishlist && wishlistItems.length === 0 && (
+                                        {!isLoadingWishlist && visibleWishlistItems.length === 0 && (
                                             <p className="stopping-point-list-status">
                                                 Nothing saved yet — <Link to="/wishlist">browse hidden gems</Link> and tap the heart to save some here.
                                             </p>
                                         )}
 
-                                        {!isLoadingWishlist && wishlistItems.length > 0 && wishlistItems.map((gem, index) => (
+                                        {!isLoadingWishlist && visibleWishlistItems.length > 0 && visibleWishlistItems.map((gem, index) => (
                                             <button
                                                 key={`wishlist-${gem.id}`}
                                                 type="button"
