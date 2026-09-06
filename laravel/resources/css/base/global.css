@@ -3675,6 +3675,13 @@ img.avatar {
     padding:2rem;
 }
 
+@media (max-width: 600px) {
+    .hidden-gem-submission-page .hidden-gem-map-picker-header,
+    .hidden-gem-submission-page .hidden-gem-upload-row {
+        flex-wrap: wrap;
+    }
+}
+
 
 .hidden-gem-back-btn {
     display:flex;
