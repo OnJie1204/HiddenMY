@@ -231,21 +231,28 @@ class GemInteractionController extends Controller
                 'created_at',
                 'updated_at',
             ])
-            ->map(fn (GemInteraction $rating) => [
-                'id' => $rating->id,
-                'rating' => $rating->rating,
-                'comment' => $rating->comment,
-                'created_at' => $rating->created_at,
-                'updated_at' => $rating->updated_at,
-                'location' => $rating->location ? [
-                    'id' => $rating->location->id,
-                    'place_name' => $rating->location->place_name,
-                    'status' => $rating->location->status,
-                    'first_image' => $rating->location->firstImage ? [
-                        'image_url' => $rating->location->firstImage->image_url,
+            ->map(function (GemInteraction $rating) {
+                $locationAvailable = $rating->location !== null
+                    && ! $rating->location->isDeleted()
+                    && ! $rating->location->isArchived();
+
+                return [
+                    'id' => $rating->id,
+                    'rating' => $rating->rating,
+                    'comment' => $rating->comment,
+                    'created_at' => $rating->created_at,
+                    'updated_at' => $rating->updated_at,
+                    'location_available' => $locationAvailable,
+                    'location' => $locationAvailable ? [
+                        'id' => $rating->location->id,
+                        'place_name' => $rating->location->place_name,
+                        'status' => $rating->location->status,
+                        'first_image' => $rating->location->firstImage ? [
+                            'image_url' => $rating->location->firstImage->image_url,
+                        ] : null,
                     ] : null,
-                ] : null,
-            ]);
+                ];
+            });
 
         return response()->json(['data' => $ratings]);
     }

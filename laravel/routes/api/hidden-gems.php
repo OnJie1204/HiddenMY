@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('hidden-gems/reverse-geocode-address', [HiddenGemController::class, 'reverseGeocodeAddress']);
     Route::post('hidden-gems', [HiddenGemController::class, 'store']);
     Route::get('my-hidden-gems', [HiddenGemController::class, 'myHiddenGems']);
+    Route::get('my-hidden-gem-journey', [HiddenGemController::class, 'myJourney']);
     Route::patch('hidden-gems/{id}/status', [HiddenGemController::class, 'updateStatus']);
     Route::put('hidden-gems/{id}', [HiddenGemController::class, 'update']);
 

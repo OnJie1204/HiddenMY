@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { MdOutlineReportProblem } from "react-icons/md";
 import {
     getMyHiddenGems,
+    getMyHiddenGemJourney,
     deleteHiddenGem,
     getCategories,
     getStates,
@@ -13,7 +15,18 @@ import PhotoCarousel from "@/components/common/PhotoCarousel";
 import LoadingCards from "@/components/common/LoadingCards";
 import HiddenGemJourneyMap from "@/components/achievements/HiddenGemJourneyMap";
 import HiddenMYAchievements from "@/components/achievements/HiddenMYAchievements";
-import { getGemStatusDisplay, voteProgressLabel } from "@/utils/hidden-gems/gemStatus";
+import { getGemStatusDisplay } from "@/utils/hidden-gems/gemStatus";
+import { matchesMyHiddenGemFilters } from "@/utils/achievements/journey";
+import {
+    contributionTargetPath,
+    isContributionTargetAvailable,
+    UNAVAILABLE_LOCATION_MESSAGE,
+} from "@/utils/hidden-gems/contributionHistory";
+import {
+    DELETE_SUCCESS_MESSAGE,
+    deleteFailureMessage,
+    removeDeletedGem,
+} from "@/utils/hidden-gems/deleteFeedback";
 
 import "@css/base/global.css";
 
@@ -26,11 +39,15 @@ export default function MyHiddenGems() {
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [gems, setGems] = useState([]);
+    const [journeyGems, setJourneyGems] = useState([]);
+    const [journeyRegions, setJourneyRegions] = useState([]);
+    const [journeyLoaded, setJourneyLoaded] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [deleteId, setDeleteId] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
+    const [deleteFeedback, setDeleteFeedback] = useState(null);
     const [activeTab, setActiveTab] = useState(() =>
         ["votes", "contributions"].includes(routeLocation.state?.activeTab)
             ? "contributions"
@@ -72,11 +89,7 @@ export default function MyHiddenGems() {
         filters.status || filters.category || filters.state
     );
 
-    const filteredGems = gems.filter((gem) =>
-        (!filters.status || gem.status === filters.status)
-        && (!filters.category || String(gem.category_id) === filters.category)
-        && (!filters.state || gem.state === filters.state)
-    );
+    const filteredGems = gems.filter((gem) => matchesMyHiddenGemFilters(gem, filters));
 
     const sortedVotes = [...votes].sort((firstVote, secondVote) => {
         const firstDate = new Date(firstVote.created_at).getTime();
@@ -129,8 +142,21 @@ export default function MyHiddenGems() {
         }
     };
 
+    const fetchJourney = async () => {
+        try {
+            const response = await getMyHiddenGemJourney();
+            setJourneyGems(response.data.data || []);
+            setJourneyRegions(response.data.discovered_regions || []);
+            setJourneyLoaded(true);
+        } catch (error) {
+            console.error("Error fetching HiddenMY Journey:", error);
+            setJourneyLoaded(false);
+        }
+    };
+
     useEffect(() => {
         fetchMyHiddenGems();
+        fetchJourney();
     }, []);
 
     useEffect(() => {
@@ -283,31 +309,42 @@ export default function MyHiddenGems() {
         }
     }, [successMessage]);
 
+    useEffect(() => {
+        if (!deleteFeedback) return undefined;
+
+        const timer = setTimeout(() => setDeleteFeedback(null), 4000);
+        return () => clearTimeout(timer);
+    }, [deleteFeedback]);
+
+    const gemToDelete = gems.find((gem) => gem.id === deleteId);
+    const willArchive = Boolean(
+        gemToDelete?.permanently_closed_at &&
+        ["hidden_gem", "well_known"].includes(gemToDelete.status)
+    );
+
     const handleDelete = async () => {
         if (!deleteId) return;
 
         setDeleting(true);
+        setDeleteFeedback(null);
+        setSuccessMessage("");
 
         try {
             await deleteHiddenGem(deleteId);
 
-            setGems((prev) =>
-                prev.filter((gem) => gem.id !== deleteId)
-            );
+            setGems((prev) => removeDeletedGem(prev, deleteId));
 
             setDeleteId(null);
+            await fetchJourney();
 
-            setSuccessMessage("Hidden gem deleted successfully.");
+            setDeleteFeedback({ type: "success", message: DELETE_SUCCESS_MESSAGE });
 
         } catch (error) {
             console.error("Delete failed:", error);
 
             setDeleteId(null);
 
-            setSuccessMessage(
-                error.response?.data?.message ||
-                "Failed to delete hidden gem."
-            );
+            setDeleteFeedback({ type: "error", message: deleteFailureMessage(error) });
 
         } finally {
             setDeleting(false);
@@ -379,8 +416,8 @@ export default function MyHiddenGems() {
 
             {activeTab === "achievements" && (
                 <HiddenMYAchievements
-                    gems={gems}
-                    gemsLoaded={!loading && !error}
+                    gems={journeyGems}
+                    gemsLoaded={journeyLoaded}
                     votes={votes}
                     votesLoading={votesLoading}
                     votesLoaded={votesLoaded}
@@ -394,7 +431,8 @@ export default function MyHiddenGems() {
 
             {activeTab === "hidden-gems" && (
                 <HiddenGemJourneyMap
-                    gems={gems}
+                    gems={journeyGems}
+                    permanentDiscoveredRegions={journeyRegions}
                     selectedRegion={filters.state}
                     onRegionSelect={(region) =>
                         updateFilter(
@@ -414,10 +452,11 @@ export default function MyHiddenGems() {
                         onChange={(event) => updateFilter("status", event.target.value)}
                     >
                         <option value="">All Status</option>
-                        <option value="pending">Being Verified</option>
+                        <option value="pending">Under Verification</option>
                         <option value="ai_rejected">Not Accepted</option>
-                        <option value="pending_community_vote">Awaiting Community Votes</option>
+                        <option value="pending_community_vote">Under Community Review</option>
                         <option value="hidden_gem">Hidden Gem</option>
+                        <option value="well_known">Well-Known Place</option>
                     </select>
 
                     <select
@@ -555,12 +594,19 @@ export default function MyHiddenGems() {
                                                 : ""}
                                         </span>
                                     ) : gem.status === "pending_community_vote" ? (
-                                        <span className={getGemStatusDisplay(gem).badgeClass}>
-                                            {getGemStatusDisplay(gem).label} · {voteProgressLabel(gem)}
+                                        <span className="hidden-gems-card-pending">
+                                            Pending ({gem.votes_count ?? gem.vote_count ?? 0}/
+                                            {gem.verification_threshold || 10} votes)
                                         </span>
                                     ) : (
                                         <span className={getGemStatusDisplay(gem).badgeClass}>
                                             {getGemStatusDisplay(gem).label}
+                                        </span>
+                                    )}
+                                    {gem.has_active_report && (
+                                        <span className="my-hidden-gem-report-indicator">
+                                            <MdOutlineReportProblem aria-hidden="true" />
+                                            Report Under Review
                                         </span>
                                     )}
                                 </div>
@@ -612,12 +658,15 @@ export default function MyHiddenGems() {
                 </div>
             ) : (
                 <div className="my-votes-feed">
-                    {sortedVotes.map((vote) => (
+                    {sortedVotes.map((vote) => {
+                        const locationAvailable = isContributionTargetAvailable(vote);
+
+                        return (
                         <article
                             key={vote.id}
-                            className="my-vote-card"
-                            onClick={() => navigate(
-                                `/hidden-gems/${vote.location?.id}`,
+                            className={`my-vote-card${locationAvailable ? "" : " is-unavailable"}`}
+                            onClick={locationAvailable ? () => navigate(
+                                contributionTargetPath(vote),
                                 {
                                     state: {
                                         openTab: "votes",
@@ -632,7 +681,7 @@ export default function MyHiddenGems() {
                                         },
                                     },
                                 }
-                            )}
+                            ) : undefined}
                         >
                             <div className="my-vote-card-content" style={{ alignSelf: "stretch" }}>
                                 <div className="my-vote-card-header">
@@ -650,6 +699,7 @@ export default function MyHiddenGems() {
                                         )}
                                     </time>
                                 </div>
+                                {!locationAvailable && <p>{UNAVAILABLE_LOCATION_MESSAGE}</p>}
                             </div>
 
                             {vote.location?.first_image?.image_url && (
@@ -660,7 +710,8 @@ export default function MyHiddenGems() {
                                 />
                             )}
                         </article>
-                    ))}
+                        );
+                    })}
                 </div>
             )) : ratingsLoading ? (
                 <LoadingCards count={4} />
@@ -675,12 +726,15 @@ export default function MyHiddenGems() {
                 </div>
             ) : (
                 <div className="my-votes-feed">
-                    {sortedRatings.map((rating) => (
+                    {sortedRatings.map((rating) => {
+                        const locationAvailable = isContributionTargetAvailable(rating);
+
+                        return (
                         <article
                             key={rating.id}
-                            className="my-vote-card"
-                            onClick={() => navigate(
-                                `/hidden-gems/${rating.location?.id}`,
+                            className={`my-vote-card${locationAvailable ? "" : " is-unavailable"}`}
+                            onClick={locationAvailable ? () => navigate(
+                                contributionTargetPath(rating),
                                 {
                                     state: {
                                         openTab: "comments",
@@ -695,7 +749,7 @@ export default function MyHiddenGems() {
                                         },
                                     },
                                 }
-                            )}
+                            ) : undefined}
                         >
                             <div className="my-vote-card-content">
                                 <div className="my-vote-card-header">
@@ -711,6 +765,7 @@ export default function MyHiddenGems() {
                                         )}
                                     </time>
                                 </div>
+                                {!locationAvailable && <p>{UNAVAILABLE_LOCATION_MESSAGE}</p>}
                                 <div
                                     className="my-rating-stars"
                                     aria-label={`${rating.rating} out of 5 stars`}
@@ -729,7 +784,8 @@ export default function MyHiddenGems() {
                                 />
                             )}
                         </article>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
             
@@ -744,9 +800,9 @@ export default function MyHiddenGems() {
                     >
                         <h2>Delete Hidden Gem?</h2>
 
-                        <p>
-                            Are you sure you want to delete this hidden gem?
-                            This action cannot be undone.
+                        <p>{willArchive
+                            ? "Are you sure you want to delete this Hidden Gem? It will remain in your Journey history."
+                            : "Are you sure you want to delete this Hidden Gem? This action cannot be undone."}
                         </p>
 
                         <div className="delete-modal-actions">
@@ -772,7 +828,14 @@ export default function MyHiddenGems() {
                 </div>
             )}
 
-            {successMessage && (
+            {deleteFeedback ? (
+                <div
+                    className={`hidden-gem-snackbar hidden-gem-snackbar-${deleteFeedback.type}`}
+                    role={deleteFeedback.type === "error" ? "alert" : "status"}
+                >
+                    {deleteFeedback.message}
+                </div>
+            ) : successMessage && (
                 <div className="hidden-gem-snackbar">
                     {successMessage}
                 </div>

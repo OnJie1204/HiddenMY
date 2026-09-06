@@ -26,6 +26,15 @@ import {
     updateFavouriteAchievements,
 } from "@/features/users/achievementsApi";
 import { SPECIAL_ACHIEVEMENT_METADATA } from "@/constants/achievements/specialAchievements";
+import {
+    isCurrentVerifiedContribution,
+    isLifetimeVerifiedContribution,
+} from "@/utils/achievements/journey";
+import {
+    failedFavouriteUpdate,
+    FAVOURITE_UPDATE_SUCCESS_MESSAGE,
+    favouriteKeysFromResponse,
+} from "@/utils/achievements/favourites";
 
 const REGIONS = [
     ["Johor", "Causeway Conqueror"],
@@ -240,12 +249,13 @@ export default function HiddenMYAchievements({
     const [favouritesLoaded, setFavouritesLoaded] = useState(false);
     const [favouritesSaving, setFavouritesSaving] = useState(false);
     const [favouritesError, setFavouritesError] = useState("");
+    const [favouriteSaveFeedback, setFavouriteSaveFeedback] = useState(null);
     const [permanentAwardKeys, setPermanentAwardKeys] = useState([]);
-    const currentVerifiedCounts = useMemo(() => {
+    const lifetimeVerifiedCounts = useMemo(() => {
         const counts = Object.fromEntries(REGIONS.map(([region]) => [region, 0]));
 
         gems.forEach((gem) => {
-            if (gem.status !== "hidden_gem") return;
+            if (!isLifetimeVerifiedContribution(gem.status)) return;
 
             const region = canonicalRegionName(gem.state);
             if (region) counts[region] += 1;
@@ -254,7 +264,7 @@ export default function HiddenMYAchievements({
         return counts;
     }, [gems]);
     const verifiedCounts = useMemo(() => {
-        const counts = { ...currentVerifiedCounts };
+        const counts = { ...lifetimeVerifiedCounts };
 
         REGIONS.forEach(([region]) => {
             const key = `region:${region.toLowerCase().replaceAll(" ", "-")}`;
@@ -264,16 +274,25 @@ export default function HiddenMYAchievements({
         });
 
         return counts;
-    }, [currentVerifiedCounts, permanentAwardKeys]);
+    }, [lifetimeVerifiedCounts, permanentAwardKeys]);
 
     const discoveredCount = Object.values(verifiedCounts)
         .filter((count) => count > 0).length;
-    const currentDiscoveredCount = Object.values(currentVerifiedCounts)
-        .filter((count) => count > 0).length;
-    const verifiedGemCount = gems.filter(
-        (gem) => gem.status === "hidden_gem"
+    const currentVerifiedGemCount = gems.filter(
+        (gem) => isCurrentVerifiedContribution(gem.status)
+    ).length;
+    const lifetimeVerifiedGemCount = gems.filter(
+        (gem) => isLifetimeVerifiedContribution(gem.status)
     ).length;
     const discoveryProgress = (discoveredCount / REGIONS.length) * 100;
+    const orderedRegions = useMemo(
+        () => [...REGIONS].sort(
+            ([firstRegion], [secondRegion]) =>
+                Number(verifiedCounts[secondRegion] > 0)
+                - Number(verifiedCounts[firstRegion] > 0)
+        ),
+        [verifiedCounts]
+    );
     useEffect(() => {
         let active = true;
 
@@ -324,9 +343,16 @@ export default function HiddenMYAchievements({
         return () => document.removeEventListener("keydown", closeOnEscape);
     }, [previewRegion, previewSpecialAchievement]);
 
+    useEffect(() => {
+        if (!favouriteSaveFeedback) return undefined;
+
+        const timer = setTimeout(() => setFavouriteSaveFeedback(null), 3000);
+        return () => clearTimeout(timer);
+    }, [favouriteSaveFeedback]);
+
     const specialAchievements = useMemo(() => {
         const discoveredRegions = new Set(
-            Object.entries(currentVerifiedCounts)
+            Object.entries(verifiedCounts)
                 .filter(([, count]) => count > 0)
                 .map(([region]) => region)
         );
@@ -361,7 +387,7 @@ export default function HiddenMYAchievements({
         );
         const verifiedCategoryIds = new Set(
             gems
-                .filter((gem) => gem.status === "hidden_gem")
+                .filter((gem) => isLifetimeVerifiedContribution(gem.status))
                 .map((gem) => gem.category_id ?? gem.category?.id)
                 .filter((id) => id !== null && id !== undefined && id !== "")
                 .map(String)
@@ -389,10 +415,10 @@ export default function HiddenMYAchievements({
                 key: "first-footprint",
                 title: SPECIAL_ACHIEVEMENT_METADATA["first-footprint"].title,
                 requirement: "Get your first Hidden Gem verified.",
-                progress: verifiedGemCount,
+                progress: lifetimeVerifiedGemCount,
                 target: 1,
-                progressLabel: `${Math.min(verifiedGemCount, 1)} / 1`,
-                unlocked: verifiedGemCount >= 1,
+                progressLabel: `${Math.min(lifetimeVerifiedGemCount, 1)} / 1`,
+                unlocked: lifetimeVerifiedGemCount >= 1,
                 available: gemsLoaded,
                 remainingUnitSingular: "verified Hidden Gem",
                 remainingUnitPlural: "verified Hidden Gems",
@@ -401,10 +427,10 @@ export default function HiddenMYAchievements({
                 key: "gem-hunter",
                 title: SPECIAL_ACHIEVEMENT_METADATA["gem-hunter"].title,
                 requirement: "Get 5 Hidden Gems verified.",
-                progress: verifiedGemCount,
+                progress: lifetimeVerifiedGemCount,
                 target: 5,
-                progressLabel: `${Math.min(verifiedGemCount, 5)} / 5`,
-                unlocked: verifiedGemCount >= 5,
+                progressLabel: `${Math.min(lifetimeVerifiedGemCount, 5)} / 5`,
+                unlocked: lifetimeVerifiedGemCount >= 5,
                 available: gemsLoaded,
                 remainingUnitSingular: "verified Hidden Gem",
                 remainingUnitPlural: "verified Hidden Gems",
@@ -413,10 +439,10 @@ export default function HiddenMYAchievements({
                 key: "halfway-there",
                 title: SPECIAL_ACHIEVEMENT_METADATA["halfway-there"].title,
                 requirement: "Discover 8 of Malaysia's 16 regions.",
-                progress: currentDiscoveredCount,
+                progress: discoveredCount,
                 target: 8,
-                progressLabel: `${Math.min(currentDiscoveredCount, 8)} / 8`,
-                unlocked: currentDiscoveredCount >= 8,
+                progressLabel: `${Math.min(discoveredCount, 8)} / 8`,
+                unlocked: discoveredCount >= 8,
                 available: gemsLoaded,
                 remainingUnitSingular: "region",
                 remainingUnitPlural: "regions",
@@ -483,10 +509,10 @@ export default function HiddenMYAchievements({
                 key: "hiddenmy-master",
                 title: SPECIAL_ACHIEVEMENT_METADATA["hiddenmy-master"].title,
                 requirement: "Discover all 16 regions of Malaysia.",
-                progress: currentDiscoveredCount,
+                progress: discoveredCount,
                 target: 16,
-                progressLabel: `${currentDiscoveredCount} / 16`,
-                unlocked: currentDiscoveredCount === 16,
+                progressLabel: `${discoveredCount} / 16`,
+                unlocked: discoveredCount === 16,
                 available: gemsLoaded,
                 remainingItemsLabel: "Regions remaining",
                 remainingItems: remainingMalaysiaRegions,
@@ -516,8 +542,6 @@ export default function HiddenMYAchievements({
         categoriesError,
         categoriesLoaded,
         categoriesLoading,
-        currentDiscoveredCount,
-        currentVerifiedCounts,
         gems,
         gemsLoaded,
         permanentAwardKeys,
@@ -526,19 +550,25 @@ export default function HiddenMYAchievements({
         votesError,
         votesLoaded,
         votesLoading,
-        verifiedGemCount,
+        lifetimeVerifiedGemCount,
     ]);
-    const filteredSpecialAchievements = specialAchievements.filter((achievement) => {
-        if (specialFilter === "unlocked") {
-            return achievement.available && achievement.unlocked;
-        }
+    const filteredSpecialAchievements = specialAchievements
+        .filter((achievement) => {
+            if (specialFilter === "unlocked") {
+                return achievement.available && achievement.unlocked;
+            }
 
-        if (specialFilter === "locked") {
-            return achievement.available && !achievement.unlocked;
-        }
+            if (specialFilter === "locked") {
+                return achievement.available && !achievement.unlocked;
+            }
 
-        return true;
-    });
+            return true;
+        })
+        .sort(
+            (first, second) =>
+                Number(second.available && second.unlocked)
+                - Number(first.available && first.unlocked)
+        );
     const filteredSpecialDataPending = specialFilter !== "all"
         && specialAchievements.some((achievement) => !achievement.available);
     const activePreviewSpecialAchievement = previewSpecialAchievement
@@ -559,7 +589,10 @@ export default function HiddenMYAchievements({
 
         const isFavourite = favouriteKeys.includes(achievementKey);
         if (!isFavourite && favouriteKeys.length >= 2) {
-            setFavouritesError("You can choose up to 2 Favourite Achievements. Remove one first.");
+            setFavouriteSaveFeedback({
+                type: "error",
+                message: "You can select up to 2 favourites.",
+            });
             return;
         }
 
@@ -569,19 +602,22 @@ export default function HiddenMYAchievements({
 
         setFavouritesSaving(true);
         setFavouritesError("");
+        setFavouriteSaveFeedback(null);
+        const savedKeys = [...favouriteKeys];
 
         try {
             const response = await updateFavouriteAchievements(desiredKeys);
-            const confirmedKeys = [...(response.data?.data || [])]
-                .sort((first, second) => first.position - second.position)
-                .map((favourite) => favourite.key);
+            const confirmedKeys = favouriteKeysFromResponse(response);
 
             setFavouriteKeys(confirmedKeys);
-        } catch (error) {
-            const validationMessage = error.response?.data?.errors?.achievement_keys?.[0];
-            setFavouritesError(
-                validationMessage || "Favourite Achievements could not be saved. Please try again."
-            );
+            setFavouriteSaveFeedback({
+                type: "success",
+                message: FAVOURITE_UPDATE_SUCCESS_MESSAGE,
+            });
+        } catch {
+            const failure = failedFavouriteUpdate(savedKeys);
+            setFavouriteKeys(failure.keys);
+            setFavouriteSaveFeedback({ type: "error", message: failure.message });
         } finally {
             setFavouritesSaving(false);
         }
@@ -693,7 +729,7 @@ export default function HiddenMYAchievements({
                     </div>
                     <dl className="hiddenmy-passport-stats">
                         <div>
-                            <dd>{verifiedGemCount}</dd>
+                            <dd>{currentVerifiedGemCount}</dd>
                             <dt>Verified Gems</dt>
                         </div>
                         <div>
@@ -758,7 +794,7 @@ export default function HiddenMYAchievements({
 
             {collection === "regions" ? (
                 <div className="hiddenmy-stamp-grid">
-                {REGIONS.map(([region, title]) => {
+                {orderedRegions.map(([region, title]) => {
                     const count = verifiedCounts[region];
                     const discovered = count > 0;
 
@@ -842,7 +878,7 @@ export default function HiddenMYAchievements({
                         </div>
                     </div>
 
-                    {favouritesError && (
+                    {!activePreviewSpecialAchievement && favouritesError && (
                         <p className="hiddenmy-favourites-message" role="status">
                             {favouritesError}
                         </p>
@@ -993,6 +1029,14 @@ export default function HiddenMYAchievements({
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+            {favouriteSaveFeedback && (
+                <div
+                    className={`hidden-gem-snackbar hiddenmy-favourite-snackbar hidden-gem-snackbar-${favouriteSaveFeedback.type}`}
+                    role={favouriteSaveFeedback.type === "error" ? "alert" : "status"}
+                >
+                    {favouriteSaveFeedback.message}
                 </div>
             )}
         </section>

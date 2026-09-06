@@ -21,7 +21,10 @@ class TripItineraryController extends Controller
     public function index(Request $request)
     {
         $itineraries = TripItinerary::where('user_id', $request->user()->id)
-            ->withCount('locations')
+            ->withCount(['locations' => fn ($query) => $query
+                ->whereNull('location_id')
+                ->orWhereHas('location', fn ($locationQuery) => $locationQuery
+                    ->where('status', '!=', Location::STATUS_ARCHIVED))])
             ->orderBy('updated_at', 'desc')
             ->get();
 
@@ -64,9 +67,12 @@ class TripItineraryController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        return response()->json([
-            'data' => $tripItinerary->load('locations.location'),
-        ]);
+        $tripItinerary->load('locations.location');
+        $tripItinerary->setRelation('locations', $tripItinerary->locations
+            ->reject(fn ($stop) => $stop->location?->status === Location::STATUS_ARCHIVED)
+            ->values());
+
+        return response()->json(['data' => $tripItinerary]);
     }
 
     // Sharing an itinerary is no longer done by linking a post to it — a travel

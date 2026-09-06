@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\HiddenGems;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\CheckIn;
 use App\Models\Location;
+use App\Models\User;
 use App\Models\Vote;
+use App\Services\Achievements\SpecialAchievementService;
 use App\Support\Geo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class VoteController extends Controller
 {
+    public function __construct(
+        private readonly SpecialAchievementService $achievements
+    ) {}
+
     /**
      * Two location models coexist here:
      *  - Voting: coordinates are submitted with the vote and checked inline
@@ -25,6 +30,7 @@ class VoteController extends Controller
      * Both use the same 5 km radius.
      */
     private const MAX_VOTE_DISTANCE = 5.0;
+
     private const MAX_CHECKIN_DISTANCE = 5.0;
 
     /**
@@ -35,7 +41,7 @@ class VoteController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'eligible' => false,
                 'message' => 'Please login first',
@@ -94,7 +100,7 @@ class VoteController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'message' => 'Please login first',
             ], 401);
@@ -194,17 +200,20 @@ class VoteController extends Controller
             $location->refresh();
 
             $threshold = $location->verification_threshold ?? 10;
+            $becameHiddenGem = false;
 
             if ($location->vote_count >= $threshold) {
                 $location->update([
                     'status' => 'hidden_gem',
                 ]);
+                $becameHiddenGem = true;
             }
 
             return [
                 'error' => false,
                 'vote' => $vote,
                 'location' => $location->fresh(),
+                'became_hidden_gem' => $becameHiddenGem,
             ];
         });
 
@@ -212,6 +221,22 @@ class VoteController extends Controller
             return response()->json([
                 'message' => $result['message'],
             ], $result['status']);
+        }
+
+        // The vote is already committed. Achievement reconciliation is
+        // deliberately failure-isolated so it cannot roll back or fail the
+        // community action that triggered it.
+        try {
+            $this->achievements->sync($user->fresh());
+
+            if ($result['became_hidden_gem']) {
+                $owner = User::find($result['location']->user_id);
+                if ($owner) {
+                    $this->achievements->sync($owner);
+                }
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
         }
 
         return response()->json([
@@ -227,14 +252,11 @@ class VoteController extends Controller
     private function notVotableMessage(string $status): string
     {
         return match ($status) {
-            'hidden_gem' =>
-                'This location is already a recognized Hidden Gem.',
+            'hidden_gem' => 'This location is already a recognized Hidden Gem.',
 
-            'ai_rejected' =>
-                'This location did not pass AI verification and is not open for voting.',
+            'ai_rejected' => 'This location did not pass AI verification and is not open for voting.',
 
-            default =>
-                'This location has not yet passed AI verification, so it cannot be voted on.',
+            default => 'This location has not yet passed AI verification, so it cannot be voted on.',
         };
     }
 
@@ -260,14 +282,14 @@ class VoteController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'message' => 'Please login first',
             ], 401);
         }
 
         $votes = Vote::with([
-            'location:id,place_name',
+            'location:id,place_name,status',
             'location.firstImage' => fn ($query) => $query->select([
                 'location_images.id',
                 'location_images.location_id',
@@ -283,20 +305,27 @@ class VoteController extends Controller
                 'created_at',
                 'updated_at',
             ])
-            ->map(fn (Vote $vote) => [
-                'id' => $vote->id,
-                'user_id' => $vote->user_id,
-                'location_id' => $vote->location_id,
-                'created_at' => $vote->created_at,
-                'updated_at' => $vote->updated_at,
-                'location' => $vote->location ? [
-                    'id' => $vote->location->id,
-                    'place_name' => $vote->location->place_name,
-                    'first_image' => $vote->location->firstImage ? [
-                        'image_url' => $vote->location->firstImage->image_url,
+            ->map(function (Vote $vote) {
+                $locationAvailable = $vote->location !== null
+                    && ! $vote->location->isDeleted()
+                    && ! $vote->location->isArchived();
+
+                return [
+                    'id' => $vote->id,
+                    'user_id' => $vote->user_id,
+                    'location_id' => $vote->location_id,
+                    'created_at' => $vote->created_at,
+                    'updated_at' => $vote->updated_at,
+                    'location_available' => $locationAvailable,
+                    'location' => $locationAvailable ? [
+                        'id' => $vote->location->id,
+                        'place_name' => $vote->location->place_name,
+                        'first_image' => $vote->location->firstImage ? [
+                            'image_url' => $vote->location->firstImage->image_url,
+                        ] : null,
                     ] : null,
-                ] : null,
-            ]);
+                ];
+            });
 
         return response()->json([
             'data' => $votes,
@@ -314,15 +343,15 @@ class VoteController extends Controller
         $user = Auth::user();
 
         // User must be authenticated before location verification
-        if (!$user) {
+        if (! $user) {
             return response()->json([
-                'message' => 'Please login first'
+                'message' => 'Please login first',
             ], 401);
         }
 
         $location = Location::findOrFail($locationId);
 
-        if (!$location->acceptsNewInteractions()) {
+        if (! $location->acceptsNewInteractions()) {
             return response()->json(['message' => Location::FROZEN_MESSAGE], 403);
         }
 
@@ -338,9 +367,9 @@ class VoteController extends Controller
         $userLng = $request->input('longitude');
 
         // Latitude and longitude are required for verification
-        if (!$userLat || !$userLng) {
+        if (! $userLat || ! $userLng) {
             return response()->json([
-                'message' => 'Please provide your location to check in'
+                'message' => 'Please provide your location to check in',
             ], 400);
         }
 
@@ -358,15 +387,14 @@ class VoteController extends Controller
         // Reject the location when it is outside the allowed 5 km radius
         if ($distance > self::MAX_CHECKIN_DISTANCE) {
             return response()->json([
-                'message' =>
-                    'You are '
-                    . round($distance, 2)
-                    . ' km away. You must be within '
-                    . self::MAX_CHECKIN_DISTANCE
-                    . ' km to check in.',
+                'message' => 'You are '
+                    .round($distance, 2)
+                    .' km away. You must be within '
+                    .self::MAX_CHECKIN_DISTANCE
+                    .' km to check in.',
 
                 'distance' => round($distance, 2),
-                'max_distance' => self::MAX_CHECKIN_DISTANCE
+                'max_distance' => self::MAX_CHECKIN_DISTANCE,
             ], 400);
         }
 
@@ -394,15 +422,14 @@ class VoteController extends Controller
         }
 
         return response()->json([
-            'message' =>
-                'Check-in successful! You are '
-                . round($distance, 2)
-                . ' km away.',
+            'message' => 'Check-in successful! You are '
+                .round($distance, 2)
+                .' km away.',
 
             'checked_in' => true,
             'distance' => round($distance, 2),
             'max_distance' => self::MAX_CHECKIN_DISTANCE,
-            'check_in' => $checkIn
+            'check_in' => $checkIn,
         ]);
     }
 

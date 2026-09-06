@@ -25,13 +25,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         ResetPassword::createUrlUsing(function ($user, string $token) {
-            return 'http://127.0.0.1:8000/reset-password?token='.$token.'&email='.urlencode($user->email);
+            return rtrim((string) config('app.url'), '/').'/reset-password?'.http_build_query([
+                'token' => $token,
+                'email' => $user->email,
+            ]);
         });
 
         VerifyEmail::toMailUsing(function ($notifiable, $url) {
             $frontendUrl = str_replace(
                 url('/api'),
-                'http://127.0.0.1:8000',
+                rtrim((string) config('app.url'), '/'),
                 $url
             );
 

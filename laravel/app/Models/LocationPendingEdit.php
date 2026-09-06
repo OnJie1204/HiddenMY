@@ -5,15 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A verified gem's owner has proposed a new description and/or extra photos.
- * The row is reviewed by AI (ReviewPendingLocationEdit job): applied -> the
- * location is updated and status becomes 'applied'; rejected -> nothing
- * changes, ai_reason is stored, status becomes 'rejected'.
+ * Legacy description/photo proposals retained for migration compatibility.
+ *
+ * New proposals are disabled. Any still-pending rows are rejected by
+ * ReviewPendingLocationEdit because verified gems can only update contact
+ * information.
  */
 class LocationPendingEdit extends Model
 {
     public const STATUS_PENDING = 'pending_review';
+
     public const STATUS_APPLIED = 'applied';
+
     public const STATUS_REJECTED = 'rejected';
 
     protected $fillable = [

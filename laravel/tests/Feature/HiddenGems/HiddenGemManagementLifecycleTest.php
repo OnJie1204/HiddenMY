@@ -2,10 +2,9 @@
 
 namespace Tests\Feature\HiddenGems;
 
-use App\Jobs\HiddenGems\ReviewPendingLocationEdit;
 use App\Jobs\HiddenGems\VerifyHiddenGemSubmission;
 use App\Models\Location;
-use App\Models\LocationPendingEdit;
+use App\Models\TripItinerary;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
@@ -39,7 +38,7 @@ class HiddenGemManagementLifecycleTest extends TestCase
 
     public function test_verified_gem_owner_updates_contact_fields_instantly_and_clears_the_flag(): void
     {
-        Bus::fake([VerifyHiddenGemSubmission::class, ReviewPendingLocationEdit::class]);
+        Bus::fake([VerifyHiddenGemSubmission::class]);
         $owner = User::factory()->create();
         $gem = Location::factory()->for($owner)->create([
             'status' => 'hidden_gem',
@@ -78,41 +77,54 @@ class HiddenGemManagementLifecycleTest extends TestCase
         Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
     }
 
-    public function test_verified_gem_owner_description_edit_is_queued_for_ai_review(): void
+    public function test_every_verified_status_allows_contact_only_editing(): void
     {
-        Bus::fake([VerifyHiddenGemSubmission::class, ReviewPendingLocationEdit::class]);
+        Bus::fake([VerifyHiddenGemSubmission::class]);
         $owner = User::factory()->create();
-        $gem = Location::factory()->for($owner)->create([
-            'status' => 'pending_community_vote',
-            'description' => 'Original description.',
-        ]);
-
         Sanctum::actingAs($owner);
 
-        $this->putJson("/api/hidden-gems/{$gem->id}", [
-            'edit_type' => 'content',
-            'description' => 'The place has been renovated and now serves brunch.',
-        ])->assertOk();
+        foreach (['pending_community_vote', 'hidden_gem', 'well_known'] as $status) {
+            $gem = Location::factory()->for($owner)->create([
+                'status' => $status,
+                'description' => 'Locked description.',
+            ]);
 
-        $this->assertDatabaseHas('location_pending_edits', [
-            'location_id' => $gem->id,
-            'status' => LocationPendingEdit::STATUS_PENDING,
-        ]);
-        $this->assertSame('Original description.', $gem->fresh()->description);
-        Bus::assertDispatched(ReviewPendingLocationEdit::class);
+            $this->putJson("/api/hidden-gems/{$gem->id}", [
+                'edit_type' => 'contact',
+                'phone' => '012-345 6789',
+                'description' => 'Ignored description.',
+            ])->assertOk();
 
-        // Only one pending edit per gem — a second submission supersedes the first.
-        $this->putJson("/api/hidden-gems/{$gem->id}", [
-            'edit_type' => 'content',
-            'description' => 'Actually it now serves dinner too.',
-        ])->assertOk();
+            $gem->refresh();
+            $this->assertSame('012-345 6789', $gem->phone);
+            $this->assertSame('Locked description.', $gem->description);
+            $this->assertSame($status, $gem->status);
+        }
 
-        $this->assertSame(
-            1,
-            LocationPendingEdit::where('location_id', $gem->id)
-                ->where('status', LocationPendingEdit::STATUS_PENDING)
-                ->count()
-        );
+        Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
+    }
+
+    public function test_every_verified_status_rejects_description_and_photo_edits(): void
+    {
+        Bus::fake([VerifyHiddenGemSubmission::class]);
+        $owner = User::factory()->create();
+        Sanctum::actingAs($owner);
+
+        foreach (['pending_community_vote', 'hidden_gem', 'well_known'] as $status) {
+            $gem = Location::factory()->for($owner)->create([
+                'status' => $status,
+                'description' => 'Original description.',
+            ]);
+
+            $this->putJson("/api/hidden-gems/{$gem->id}", [
+                'edit_type' => 'content',
+                'description' => 'Attempted direct content edit.',
+            ])->assertForbidden();
+
+            $this->assertSame('Original description.', $gem->fresh()->description);
+        }
+
+        Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
     }
 
     public function test_permanently_closed_gem_is_delete_only_for_the_owner(): void
@@ -121,7 +133,7 @@ class HiddenGemManagementLifecycleTest extends TestCase
         $owner = User::factory()->create();
         Sanctum::actingAs($owner);
 
-        foreach (['pending_community_vote', 'hidden_gem'] as $status) {
+        foreach (['pending_community_vote', 'hidden_gem', 'well_known'] as $status) {
             $closed = Location::factory()->for($owner)->create([
                 'status' => $status,
                 'permanently_closed_at' => now(),
@@ -139,22 +151,50 @@ class HiddenGemManagementLifecycleTest extends TestCase
 
             $this->patchJson("/api/hidden-gems/{$closed->id}/status", ['status' => 'deleted'])
                 ->assertOk();
-            $this->assertSame('deleted', $closed->fresh()->status);
+            $expected = $status === 'pending_community_vote' ? 'deleted' : 'archived';
+            $this->assertSame($expected, $closed->fresh()->status);
         }
 
         Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
     }
 
-    public function test_deleted_gem_is_invisible_even_to_its_owner(): void
+    public function test_deleted_and_archived_gems_are_invisible_even_to_their_owner(): void
     {
         $owner = User::factory()->create();
-        $gem = Location::factory()->for($owner)->create(['status' => 'deleted']);
-
         Sanctum::actingAs($owner);
-        $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
+
+        foreach (['deleted', 'archived'] as $status) {
+            $gem = Location::factory()->for($owner)->create(['status' => $status]);
+            $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
+        }
     }
 
-    public function test_my_hidden_gems_exposes_authoritative_eligibility_and_excludes_deleted(): void
+    public function test_deleted_archived_and_every_permanently_closed_status_reject_editing(): void
+    {
+        Bus::fake([VerifyHiddenGemSubmission::class]);
+        $owner = User::factory()->create();
+        Sanctum::actingAs($owner);
+
+        foreach (['pending', 'ai_rejected', 'pending_community_vote', 'hidden_gem', 'well_known'] as $status) {
+            $gem = Location::factory()->for($owner)->create([
+                'status' => $status,
+                'permanently_closed_at' => now(),
+            ]);
+
+            $this->putJson("/api/hidden-gems/{$gem->id}", $this->updatePayload($gem))
+                ->assertForbidden();
+        }
+
+        foreach (['deleted', 'archived'] as $status) {
+            $gem = Location::factory()->for($owner)->create(['status' => $status]);
+            $this->putJson("/api/hidden-gems/{$gem->id}", $this->updatePayload($gem))
+                ->assertForbidden();
+        }
+
+        Bus::assertNotDispatched(VerifyHiddenGemSubmission::class);
+    }
+
+    public function test_my_hidden_gems_exposes_authoritative_eligibility_and_excludes_deleted_and_archived(): void
     {
         $owner = User::factory()->create();
         $pending = Location::factory()->for($owner)->create(['status' => 'pending']);
@@ -168,6 +208,7 @@ class HiddenGemManagementLifecycleTest extends TestCase
             'permanently_closed_at' => now(),
         ]);
         $deleted = Location::factory()->for($owner)->create(['status' => 'deleted']);
+        $archived = Location::factory()->for($owner)->create(['status' => 'archived']);
 
         Sanctum::actingAs($owner);
         $data = $this->getJson('/api/my-hidden-gems')->assertOk()->json('data');
@@ -189,6 +230,7 @@ class HiddenGemManagementLifecycleTest extends TestCase
         $this->assertSame('delete_only', $byId[$closed->id]['edit_mode']);
 
         $this->assertFalse($byId->has($deleted->id));
+        $this->assertFalse($byId->has($archived->id));
     }
 
     public function test_delete_permissions_by_status(): void
@@ -198,10 +240,15 @@ class HiddenGemManagementLifecycleTest extends TestCase
 
         // pending / ai_rejected — deletable
         foreach (['pending', 'ai_rejected'] as $status) {
-            $gem = Location::factory()->for($owner)->create(['status' => $status]);
-            $this->patchJson("/api/hidden-gems/{$gem->id}/status", ['status' => 'deleted'])
-                ->assertOk();
-            $this->assertSame('deleted', $gem->fresh()->status);
+            foreach ([null, now()] as $closedAt) {
+                $gem = Location::factory()->for($owner)->create([
+                    'status' => $status,
+                    'permanently_closed_at' => $closedAt,
+                ]);
+                $this->patchJson("/api/hidden-gems/{$gem->id}/status", ['status' => 'deleted'])
+                    ->assertOk();
+                $this->assertSame('deleted', $gem->fresh()->status);
+            }
         }
 
         // verified — not deletable
@@ -221,6 +268,36 @@ class HiddenGemManagementLifecycleTest extends TestCase
             ->assertForbidden()
             ->assertJsonPath('message', 'Unauthorized');
         $this->assertSame('pending', $ownedPending->fresh()->status);
+    }
+
+    public function test_archived_location_is_excluded_from_itineraries(): void
+    {
+        $owner = User::factory()->create();
+        $trip = TripItinerary::create([
+            'user_id' => $owner->id,
+            'trip_name' => 'Archive',
+        ]);
+        $gem = Location::factory()->for($owner)->create(['status' => 'archived']);
+        $trip->locations()->create([
+            'location_id' => $gem->id,
+            'isHidden' => true,
+            'order_number' => 1,
+        ]);
+
+        Sanctum::actingAs($owner);
+
+        $this->getJson("/api/trip-itineraries/{$trip->id}")
+            ->assertOk()
+            ->assertJsonCount(0, 'data.locations');
+
+        $this->getJson('/api/trip-itineraries')
+            ->assertOk()
+            ->assertJsonPath('0.locations_count', 0);
+
+        $this->postJson("/api/trip-itineraries/{$trip->id}/locations", [
+            'source' => 'database',
+            'location_id' => $gem->id,
+        ])->assertUnprocessable();
     }
 
     private function updatePayload(Location $gem, array $overrides = []): array
