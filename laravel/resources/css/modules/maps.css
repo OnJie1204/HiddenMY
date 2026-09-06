@@ -41,14 +41,13 @@
 
 .maps-hero.fullscreen {
     position: fixed;
-    top: var(--navbar-height, 64px);
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     width: 100vw;
     height: auto;
+    min-height: 0;
+    max-height: none;
     margin: 0;
-    z-index: 90;
+    z-index: 1200;
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -356,7 +355,7 @@
     left: 0;
     height: 100%;
     width: min(380px, calc(100% - 24px));
-    z-index: 40; 
+    z-index: 60;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -475,7 +474,7 @@
 /* Fullscreen has the whole viewport to work with — let the results run almost
    to the bottom of the screen instead of the compact contained-view cap. */
 .maps-hero.fullscreen .search-dropdown {
-    max-height: calc(100vh - var(--navbar-height, 64px) - 130px);
+    max-height: calc(100vh - 130px);
 }
 
 .search-dropdown-header {
@@ -1501,6 +1500,7 @@
     .maps-hero.fullscreen {
         height: 100vh;
         min-height: 0;
+        max-height: none;
     }
 }
 

@@ -10,9 +10,10 @@ const REASON_LABELS = {
     incorrect_contact_info: 'Contact info is wrong (hours / phone / website)',
 };
 
-function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
+function VerifyReportModal({ report, reports = null, isOpen, onClose, onVerifySuccess, onReportInstead }) {
     const navigate = useNavigate();
     const location = useLocation();
+    const [picked, setPicked] = useState(null);
     const [step, setStep] = useState('checking');
     const [loading, setLoading] = useState(false);
     const [eligibility, setEligibility] = useState(null);
@@ -21,18 +22,20 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     const [checkingIn, setCheckingIn] = useState(false);
     const [gpsStatus, setGpsStatus] = useState('');
 
+    const target = picked ?? report;
+
     useEffect(() => {
-        if (isOpen && report) {
+        if (isOpen && target) {
             checkEligibility();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, report?.id]);
+    }, [isOpen, target?.id]);
 
     const checkEligibility = async () => {
         setLoading(true);
         setStep('checking');
         try {
-            const res = await checkVerifyEligibility(report.id);
+            const res = await checkVerifyEligibility(target.id);
             const data = res.data;
             setEligibility(data);
             if (data.eligible) {
@@ -97,7 +100,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         setLoading(true);
         setMessage('');
         try {
-            const res = await verifyReport(report.id, { verdict });
+            const res = await verifyReport(target.id, { verdict });
             setStep('success');
             setMessage(res.data.message);
             onVerifySuccess?.(res.data);
@@ -115,6 +118,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         setMessage('');
         setEligibility(null);
         setGpsStatus('');
+        setPicked(null);
     };
 
     const handleClose = () => {
@@ -127,7 +131,44 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         navigate('/login', loginNavOptions(location));
     };
 
-    if (!isOpen || !report) return null;
+    if (!isOpen) return null;
+
+    // Two reasons can be open at once and each is voted on separately, so ask
+    if (!picked && Array.isArray(reports) && reports.length > 1) {
+        return createPortal((
+            <div className="vote-modal-overlay" onClick={(e) => { e.stopPropagation(); handleClose(); }}>
+                <div className="vote-modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="vote-modal-header">
+                        <h2>Which report?</h2>
+                        <button className="vote-modal-close" onClick={handleClose}>✕</button>
+                    </div>
+                    <div className="vote-modal-body">
+                        <div className="vote-form">
+                            <div className="vote-location-info">
+                                <p>This place has more than one report under review.</p>
+                                <p className="vote-location-address">Each is settled by its own vote.</p>
+                            </div>
+                            <div className="vote-actions">
+                                {reports.map((r) => (
+                                    <button
+                                        key={r.id}
+                                        className="vote-btn-secondary"
+                                        onClick={() => setPicked(r)}
+                                        disabled={!r.can_verify}
+                                    >
+                                        {r.reason_label || r.reason}
+                                        {!r.can_verify && ' — you already voted'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ), document.body);
+    }
+
+    if (!target) return null;
 
     const gemLocation = eligibility?.location;
 
@@ -246,6 +287,11 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                     ⚠ Confirm — issue is real
                                 </button>
                             </div>
+                            {onReportInstead && (
+                                <button className="vote-btn-secondary" onClick={onReportInstead}>
+                                    Report a different issue instead
+                                </button>
+                            )}
                             <button className="vote-btn-secondary" onClick={handleClose}>Cancel</button>
                         </div>
                     )}
@@ -266,6 +312,11 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                 <button className="vote-btn-primary" onClick={goToLogin}>Login to Verify</button>
                             ) : (
                                 <button className="vote-btn-primary" onClick={handleClose}>Close</button>
+                            )}
+                            {onReportInstead && !message.includes('login') && (
+                                <button className="vote-btn-secondary" onClick={onReportInstead}>
+                                    Report a different issue instead
+                                </button>
                             )}
                         </div>
                     )}

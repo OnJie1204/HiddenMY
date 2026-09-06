@@ -887,6 +887,7 @@ class HiddenGemController extends Controller
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
             ->discoverable()
+            ->whereNull('permanently_closed_at')
             ->latest()
             ->take(6)
             ->get();
@@ -908,7 +909,8 @@ class HiddenGemController extends Controller
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
-            ->where('status', 'hidden_gem')
+            ->where('status', 'well_known')
+            ->whereNull('permanently_closed_at')
             ->orderByDesc('votes_count')
             ->take(6)
             ->get();

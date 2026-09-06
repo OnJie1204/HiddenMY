@@ -4,6 +4,7 @@ import { getHiddenGemDetail, updateHiddenGem } from "@/features/hidden-gems/api"
 import { getMe } from "@/features/auth/api";
 import VoteModal from "@/components/community/VoteModal";
 import ReportButton from "@/components/community/ReportButton";
+import ReportModal from "@/components/community/ReportModal";
 import VerifyReportModal from "@/components/community/VerifyReportModal";
 import Spinner from "@/components/common/Spinner";
 import { getReportForLocation } from "@/features/community/reportsApi";
@@ -133,6 +134,8 @@ export default function HiddenGemDetail({ user }) {
     const [activeReport, setActiveReport] = useState(null);
     const [activeReports, setActiveReports] = useState([]);
     const [loadingReport, setLoadingReport] = useState(false);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [reportsRefreshKey, setReportsRefreshKey] = useState(0);
 
     const galleryImages = gem?.images ?? [];
 
@@ -598,7 +601,7 @@ export default function HiddenGemDetail({ user }) {
         return () => {
             active = false;
         };
-    }, [gem?.id, gem?.report_status, currentUser?.id]);
+    }, [gem?.id, gem?.report_status, currentUser?.id, reportsRefreshKey]);
 
     // Resume whatever the guest was doing before the login wall. Wishlist runs
     // outright (reversible, private); everything else just re-opens its UI so
@@ -2284,6 +2287,14 @@ export default function HiddenGemDetail({ user }) {
                         .map((report) => report.id === data?.report?.id ? data.report : report)
                         .filter((report) => report.status === "pending"));
                 }}
+                onReportInstead={() => { setVerifyModalOpen(false); setReportModalOpen(true); }}
+            />
+
+            <ReportModal
+                locationId={gem.id}
+                isOpen={reportModalOpen}
+                onClose={() => setReportModalOpen(false)}
+                onReportSuccess={() => setReportsRefreshKey((key) => key + 1)}
             />
 
             {selectedPhoto && (

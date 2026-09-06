@@ -14,6 +14,7 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [activeReport, setActiveReport] = useState(null);
+    const [activeReports, setActiveReports] = useState([]);
     const [loadingReport, setLoadingReport] = useState(false);
     const { requireAuth } = useAuthPrompt();
 
@@ -59,6 +60,7 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
         try {
             const res = await getReportForLocation(gem.id);
             setActiveReport(res.data.data);
+            setActiveReports(res.data.active_reports ?? []);
             setVerifyModalOpen(true);
         } catch (error) {
             console.error("Error checking report status:", error);
@@ -86,9 +88,11 @@ function ReportButton({ gem, user, onReportSuccess, onVerifySuccess }) {
             />
             <VerifyReportModal
                 report={activeReport}
+                reports={activeReports}
                 isOpen={verifyModalOpen}
                 onClose={() => setVerifyModalOpen(false)}
                 onVerifySuccess={onVerifySuccess}
+                onReportInstead={() => { setVerifyModalOpen(false); setReportModalOpen(true); }}
             />
         </>
     );
