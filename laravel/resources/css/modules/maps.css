@@ -29,6 +29,11 @@
    ============================================================ */
 .maps-hero {
     position: relative;
+    /* Filtered Leaflet markers may be promoted to compositor layers. Keep every
+       map pane inside this stacking context so they cannot paint over the
+       sticky navbar while the page is being scrolled. */
+    z-index: 0;
+    isolation: isolate;
     width: 100%;
     height: 64vh;
     min-height: 440px;
