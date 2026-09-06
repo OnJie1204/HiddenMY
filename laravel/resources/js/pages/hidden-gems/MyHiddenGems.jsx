@@ -21,6 +21,11 @@ import {
     isContributionTargetAvailable,
     UNAVAILABLE_LOCATION_MESSAGE,
 } from "@/utils/hidden-gems/contributionHistory";
+import {
+    DELETE_SUCCESS_MESSAGE,
+    deleteFailureMessage,
+    removeDeletedGem,
+} from "@/utils/hidden-gems/deleteFeedback";
 
 import "@css/base/global.css";
 
@@ -41,6 +46,7 @@ export default function MyHiddenGems() {
     const [deleteId, setDeleteId] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [successMessage, setSuccessMessage] = useState("");
+    const [deleteFeedback, setDeleteFeedback] = useState(null);
     const [activeTab, setActiveTab] = useState(() =>
         ["votes", "contributions"].includes(routeLocation.state?.activeTab)
             ? "contributions"
@@ -302,6 +308,13 @@ export default function MyHiddenGems() {
         }
     }, [successMessage]);
 
+    useEffect(() => {
+        if (!deleteFeedback) return undefined;
+
+        const timer = setTimeout(() => setDeleteFeedback(null), 4000);
+        return () => clearTimeout(timer);
+    }, [deleteFeedback]);
+
     const gemToDelete = gems.find((gem) => gem.id === deleteId);
     const willArchive = Boolean(
         gemToDelete?.permanently_closed_at &&
@@ -312,28 +325,25 @@ export default function MyHiddenGems() {
         if (!deleteId) return;
 
         setDeleting(true);
+        setDeleteFeedback(null);
+        setSuccessMessage("");
 
         try {
             await deleteHiddenGem(deleteId);
 
-            setGems((prev) =>
-                prev.filter((gem) => gem.id !== deleteId)
-            );
+            setGems((prev) => removeDeletedGem(prev, deleteId));
 
             setDeleteId(null);
             await fetchJourney();
 
-            setSuccessMessage("Hidden gem deleted successfully.");
+            setDeleteFeedback({ type: "success", message: DELETE_SUCCESS_MESSAGE });
 
         } catch (error) {
             console.error("Delete failed:", error);
 
             setDeleteId(null);
 
-            setSuccessMessage(
-                error.response?.data?.message ||
-                "Failed to delete hidden gem."
-            );
+            setDeleteFeedback({ type: "error", message: deleteFailureMessage(error) });
 
         } finally {
             setDeleting(false);
@@ -810,7 +820,14 @@ export default function MyHiddenGems() {
                 </div>
             )}
 
-            {successMessage && (
+            {deleteFeedback ? (
+                <div
+                    className={`hidden-gem-snackbar hidden-gem-snackbar-${deleteFeedback.type}`}
+                    role={deleteFeedback.type === "error" ? "alert" : "status"}
+                >
+                    {deleteFeedback.message}
+                </div>
+            ) : successMessage && (
                 <div className="hidden-gem-snackbar">
                     {successMessage}
                 </div>
