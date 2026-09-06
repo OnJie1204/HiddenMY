@@ -1,33 +1,77 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Home from './pages/Home';
-import Maps from './pages/Maps';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Profile from './pages/Profile';
-import VerifyEmail from './pages/VerifyEmail';
-import VerifyNewEmail from './pages/VerifyNewEmail';
-import ResendVerification from './pages/ResendVerification';
-import GoogleCallback from './pages/GoogleCallback';
-import TripItinerary from "./pages/TripItinerary";
-import TripItineraryDetail from "./pages/TripItineraryDetail";
-import HiddenGems from './pages/HiddenGems';  
-import HiddenGemSubmission from './pages/HiddenGemSubmission';
-import MyHiddenGems from './pages/MyHiddenGems';
-import HiddenGemDetail from "./pages/HiddenGemDetail";
-import EditHiddenGem from './pages/EditHiddenGem';
-import Wishlist from './pages/Wishlist';
-import TravelPosts from './pages/TravelPosts';
-import TravelPostDetail from './pages/TravelPostDetail';
-import CreateTravelPost from './pages/CreateTravelPost';
-import EditTravelPost from './pages/EditTravelPost';
-import CompareGems from './pages/CompareGems';
-import { CompareProvider } from './context/CompareContext';
-import { getMe } from './api/auth';
-import { getToken, clearToken } from './utils/tokenStorage';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import Layout from '@/components/layout/Layout';
+import AuthLoadingScreen from '@/components/auth/AuthLoadingScreen';
+const Login = lazy(() => import('@/pages/auth/Login'));
+const Register = lazy(() => import('@/pages/auth/Register'));
+const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'));
+const VerifyEmail = lazy(() => import('@/pages/auth/VerifyEmail'));
+const VerifyNewEmail = lazy(() => import('@/pages/auth/VerifyNewEmail'));
+const ResendVerification = lazy(() => import('@/pages/auth/ResendVerification'));
+const GoogleCallback = lazy(() => import('@/pages/auth/GoogleCallback'));
+const Home = lazy(() => import('@/pages/home/Home'));
+const Maps = lazy(() => import('@/pages/hidden-gems/Maps'));
+const HiddenGems = lazy(() => import('@/pages/hidden-gems/HiddenGems'));
+const HiddenGemSubmission = lazy(() => import('@/pages/hidden-gems/HiddenGemSubmission'));
+const MyHiddenGems = lazy(() => import('@/pages/hidden-gems/MyHiddenGems'));
+const HiddenGemDetail = lazy(() => import('@/pages/hidden-gems/HiddenGemDetail'));
+const EditHiddenGem = lazy(() => import('@/pages/hidden-gems/EditHiddenGem'));
+const TripItinerary = lazy(() => import('@/pages/travel/TripItinerary'));
+const TripItineraryDetail = lazy(() => import('@/pages/travel/TripItineraryDetail'));
+const TravelPosts = lazy(() => import('@/pages/travel/TravelPosts'));
+const TravelPostDetail = lazy(() => import('@/pages/travel/TravelPostDetail'));
+const CreateTravelPost = lazy(() => import('@/pages/travel/CreateTravelPost'));
+const EditTravelPost = lazy(() => import('@/pages/travel/EditTravelPost'));
+const Profile = lazy(() => import('@/pages/users/Profile'));
+const Wishlist = lazy(() => import('@/pages/users/Wishlist'));
+import { getMe } from './features/auth/api';
+import { getToken, clearToken } from '@/utils/auth/tokenStorage';
+import { sanitizeIntent } from '@/utils/auth/authRedirect';
+import { AuthPromptProvider } from '@/context/auth/AuthPromptContext';
+
+// Gate for pages that need an account. Records where the guest was headed in
+// `state.from` so Login (and the Google callback) can send them back there
+// instead of dropping them on the home page.
+function RequireAuth({ user, children }) {
+  const location = useLocation();
+  if (!user) {
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to="/login" replace state={{ from }} />;
+  }
+  return children;
+}
+
+// Only-a-safe-relative-path guard shared by the redirect helpers.
+function safeInternalPath(value, fallback = '/') {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
+    return fallback;
+  }
+  // Never bounce back onto an auth page.
+  if (/^\/(login|register)(\/|\?|#|$)/.test(value)) {
+    return fallback;
+  }
+  return value;
+}
+
+// Login/Register: once the user is authenticated, leave the auth page for
+// wherever they were originally headed (RequireAuth stashes it in state.from),
+// falling back to home. Doing it here — not just in the page's submit handler —
+// makes the destination deterministic regardless of render/navigation timing.
+function RedirectIfAuthed({ user, children }) {
+  const location = useLocation();
+  if (user) {
+    const intent = sanitizeIntent(location.state?.intent);
+    return (
+      <Navigate
+        to={safeInternalPath(location.state?.from)}
+        replace
+        state={intent ? { resumeIntent: intent } : undefined}
+      />
+    );
+  }
+  return children;
+}
 
 function App() {
   const [user, setUser] = useState(null);
@@ -53,15 +97,16 @@ function App() {
     }
   }, []);
 
-  if (checking) return <p>Loading...</p>;
+  if (checking) return <AuthLoadingScreen message="Loading…" />;
 
   return (
     <BrowserRouter>
-      <CompareProvider>
-      <Routes>
+      <AuthPromptProvider>
+        <Suspense fallback={<AuthLoadingScreen message="Loading…" />}>
+        <Routes>
         {/* 不需要 Navbar 的页面 */}
-        <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLoginSuccess={setUser} />} />
-        <Route path="/register" element={user ? <Navigate to="/" /> : <Register onRegisterSuccess={setUser} />} />
+        <Route path="/login" element={<RedirectIfAuthed user={user}><Login onLoginSuccess={setUser} /></RedirectIfAuthed>} />
+        <Route path="/register" element={<RedirectIfAuthed user={user}><Register onRegisterSuccess={setUser} /></RedirectIfAuthed>} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/email/verify/:id/:hash" element={<VerifyEmail />} />
@@ -91,44 +136,36 @@ function App() {
         <Route path="/travel-posts/:id" element={
           <Layout user={user} setUser={setUser}><TravelPostDetail user={user} /></Layout>
         } />
-
         {/* 需要 Navbar 的页面(登入后才能进) */}
         <Route path="/profile" element={
-          user ? <Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout> : <Navigate to="/login" />
+          <RequireAuth user={user}><Layout user={user} setUser={setUser}><Profile setAppUser={setUser} /></Layout></RequireAuth>
         } />
         <Route path="/users/:id" element={
-          user ? <Layout user={user} setUser={setUser}><Profile /></Layout> : <Navigate to="/login" />
+          <RequireAuth user={user}><Layout user={user} setUser={setUser}><Profile /></Layout></RequireAuth>
         } />
         <Route path="/wishlist" element={
-          user ? <Layout user={user} setUser={setUser}><Wishlist user={user} /></Layout> : <Navigate to="/login" />
-        } />
-        <Route path="/compare" element={
-          user ? <Layout user={user} setUser={setUser}><CompareGems /></Layout> : <Navigate to="/login" />
+          <RequireAuth user={user}><Layout user={user} setUser={setUser}><Wishlist user={user} /></Layout></RequireAuth>
         } />
 
         <Route
           path="/trip-itinerary"
           element={
-            user ? (
+            <RequireAuth user={user}>
               <Layout user={user} setUser={setUser}>
                 <TripItinerary />
               </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            </RequireAuth>
           }
         />
 
         <Route
           path="/trip-itinerary/:id"
           element={
-            user ? (
+            <RequireAuth user={user}>
               <Layout user={user} setUser={setUser}>
                 <TripItineraryDetail />
               </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            </RequireAuth>
           }
         />
 
@@ -136,70 +173,61 @@ function App() {
         <Route
           path="/hidden-gems/create"
           element={
-            user ? (
+            <RequireAuth user={user}>
               <Layout user={user} setUser={setUser}>
                 <HiddenGemSubmission />
               </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            </RequireAuth>
           }
         />
 
         <Route
             path="/my-hidden-gems"
             element={
-                user ? (
+                <RequireAuth user={user}>
                     <Layout user={user} setUser={setUser}>
                         <MyHiddenGems />
                     </Layout>
-                ) : (
-                    <Navigate to="/login" />
-                )
+                </RequireAuth>
             }
         />
 
         <Route
           path="/my-hidden-gems/edit/:id"
           element={
-              user ? (
+              <RequireAuth user={user}>
                   <Layout user={user} setUser={setUser}>
                       <EditHiddenGem />
                   </Layout>
-              ) : (
-                  <Navigate to="/login" />
-              )
+              </RequireAuth>
           }
       />
 
         <Route
           path="/travel-posts/create"
           element={
-            user ? (
+            <RequireAuth user={user}>
               <Layout user={user} setUser={setUser}>
                 <CreateTravelPost />
               </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            </RequireAuth>
           }
         />
 
         <Route
           path="/travel-posts/:id/edit"
           element={
-            user ? (
+            <RequireAuth user={user}>
               <Layout user={user} setUser={setUser}>
                 <EditTravelPost />
               </Layout>
-            ) : (
-              <Navigate to="/login" />
-            )
+            </RequireAuth>
           }
         />
 
-      </Routes>
-      </CompareProvider>
+        </Routes>
+        </Suspense>
+      </AuthPromptProvider>
     </BrowserRouter>
   );
 }

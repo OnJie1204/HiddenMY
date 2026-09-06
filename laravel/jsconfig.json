@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["resources/js/*"],
+            "@css/*": ["resources/css/*"]
+        }
+    },
+    "include": ["resources/js/**/*.js", "resources/js/**/*.jsx", "vite.config.js"]
+}
