@@ -70,7 +70,11 @@ class TravelPostController extends Controller
 
     public function show($id): JsonResponse
     {
-        $post = TravelPost::with($this->publicRelations())->findOrFail($id);
+        $post = TravelPost::with($this->publicRelations())->find($id);
+
+        if (! $post) {
+            return response()->json(['message' => 'Travel post not found.'], 404);
+        }
 
         return response()->json(['data' => $this->present($this->includeAuthorFavourites($post))]);
     }

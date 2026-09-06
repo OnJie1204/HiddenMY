@@ -19,6 +19,13 @@ class TravelPostSnapshotTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_missing_travel_post_returns_a_controlled_not_found_response(): void
+    {
+        $this->getJson('/api/travel-posts/999999')
+            ->assertNotFound()
+            ->assertExactJson(['message' => 'Travel post not found.']);
+    }
+
     private function itineraryWithGem(User $owner, Location $gem): TripItinerary
     {
         $trip = TripItinerary::create(['user_id' => $owner->id, 'trip_name' => 'jb']);

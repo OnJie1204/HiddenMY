@@ -39,7 +39,11 @@ export default function TravelPostDetail({ user }) {
             .then((res) => setPost(res.data.data))
             .catch((err) => {
                 console.error("Error fetching travel post:", err);
-                setError(err.response?.data?.message || "Failed to load this travel post.");
+                setError(
+                    err.response?.status === 404
+                        ? "Travel post not found."
+                        : err.response?.data?.message || "Failed to load this travel post."
+                );
             })
             .finally(() => setLoading(false));
     }, [id]);
