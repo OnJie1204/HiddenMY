@@ -51,6 +51,7 @@ class PublicLocationSerializationTest extends TestCase
             ['/api/recent-hidden-gems', '0'],
             ['/api/popular-hidden-gems', '0'],
         ] as [$uri, $path]) {
+            $gem->update(['status' => $uri === '/api/popular-hidden-gems' ? 'well_known' : 'hidden_gem']);
             $payload = $this->getJson($uri)->assertOk()->json($path);
 
             $this->assertPublicLocationFields($payload, $gem);

@@ -41,6 +41,7 @@ class HiddenGemSearch
 
         $databaseQuery = Location::query()
             ->publiclyVisible()
+            ->whereNull('permanently_closed_at')
             ->where(function ($builder) use ($query) {
                 $builder->where('place_name', 'ILIKE', '%'.$query.'%')
                     ->orWhere('state', 'ILIKE', '%'.$query.'%');

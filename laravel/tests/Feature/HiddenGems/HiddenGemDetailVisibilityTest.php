@@ -141,6 +141,36 @@ class HiddenGemDetailVisibilityTest extends TestCase
         $this->getJson("/api/hidden-gems/{$gem->id}")->assertNotFound();
     }
 
+    public function test_permanently_closed_gems_are_excluded_from_discovery_but_keep_direct_history_access(): void
+    {
+        $open = Location::factory()->create(['status' => 'hidden_gem', 'latitude' => 3.139, 'longitude' => 101.6869]);
+        $closed = collect(['pending_community_vote', 'hidden_gem', 'well_known'])->map(fn ($status) => Location::factory()->create([
+            'status' => $status,
+            'latitude' => 3.139,
+            'longitude' => 101.6869,
+            'permanently_closed_at' => now(),
+        ]));
+
+        foreach ([
+            '/api/hidden-gems',
+            '/api/hidden-gems?include_well_known=1',
+            '/api/well-known-places',
+            '/api/hidden-gems-in-bounds?north=4&south=2&east=102&west=101',
+            '/api/recent-hidden-gems',
+            '/api/popular-hidden-gems',
+            '/api/hidden-gems/'.$open->id.'/nearby-gems',
+        ] as $url) {
+            $response = $this->getJson($url)->assertOk();
+            foreach ($closed as $gem) {
+                $response->assertJsonMissing(['id' => $gem->id]);
+            }
+        }
+        $this->getJson('/api/hidden-gems')->assertJsonFragment(['id' => $open->id]);
+        foreach ($closed as $gem) {
+            $this->getJson('/api/hidden-gems/'.$gem->id)->assertOk();
+        }
+    }
+
     public function test_archived_gem_is_excluded_from_public_lists_maps_and_search(): void
     {
         $gem = Location::factory()->create([

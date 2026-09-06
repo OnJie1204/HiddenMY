@@ -203,7 +203,7 @@ class HiddenGemController extends Controller
         if ($request->boolean('include_well_known')) {
             $query->publiclyVisible()->whereNull('permanently_closed_at');
         } else {
-            $query->discoverable();
+            $query->discoverable()->whereNull('permanently_closed_at');
         }
 
         // Filter by status (hidden_gem / pending_community_vote)
@@ -270,7 +270,7 @@ class HiddenGemController extends Controller
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
-            ->wellKnown();
+            ->wellKnown()->whereNull('permanently_closed_at');
 
         if ($request->filled('category')) {
             $query->where('category_id', $request->category);
@@ -670,6 +670,7 @@ class HiddenGemController extends Controller
             ->select(['id', 'place_name', 'category_id', 'latitude', 'longitude', 'status', 'permanently_closed_at'])
             ->with('category:id,name')
             ->publiclyVisible()
+            ->whereNull('permanently_closed_at')
             ->where('id', '!=', $gem->id)
             ->whereBetween('latitude', [$minLat, $maxLat])
             ->whereBetween('longitude', [$minLng, $maxLng])
@@ -753,6 +754,7 @@ class HiddenGemController extends Controller
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
             ->publiclyVisible()
+            ->whereNull('permanently_closed_at')
             ->whereBetween('latitude', [$validated['south'], $validated['north']])
             ->whereBetween('longitude', [$validated['west'], $validated['east']]);
 

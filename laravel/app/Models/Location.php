@@ -20,7 +20,7 @@ class Location extends Model
      *                           or unsafe content. Private.
      *   pending_community_vote - passed AI, collecting votes. Public.
      *   hidden_gem            - reached the vote threshold. Public.
-     *   well_known            - post tags + ratings >= 50 (one-way). Public, but
+     *   well_known            - hidden_gem with post tags + ratings >= 50 (one-way). Public, but
      *                           shown on its own page, not the hidden-gems list.
      *   archived             - a formerly verified, permanently closed place
      *                           removed by its owner. Retained for history but
@@ -30,7 +30,7 @@ class Location extends Model
      *
      * Two flags ride alongside status without changing it:
      *   permanently_closed_at  - 5 confirmed "permanently closed" reports.
-     *                            Greyed everywhere, frozen, owner can only delete.
+     *                            Hidden from discovery, frozen, retained for history.
      *   contact_flagged_at     - 5 confirmed "incorrect contact info" reports.
      *                            Shows a warning icon; cleared on the owner's
      *                            next contact edit. No freeze.
@@ -49,7 +49,7 @@ class Location extends Model
 
     public const STATUS_DELETED = 'deleted';
 
-    /** Reached directly from pending/voting or hidden_gem. One-way. */
+    /** Reached only from hidden_gem. One-way. */
     public const WELL_KNOWN_THRESHOLD = 50;
 
     /**
@@ -235,7 +235,6 @@ class Location extends Model
     // ==================== Status helpers ====================
 
     public const PROMOTABLE_STATUSES = [
-        Location::STATUS_PENDING,
         Location::STATUS_PENDING_VOTE,
         Location::STATUS_HIDDEN_GEM,
     ];
@@ -254,7 +253,8 @@ class Location extends Model
             $location->loadCount(['posts', 'qualifyingRatings']);
             $status = $location->status;
 
-            if ($location->posts_count + $location->qualifying_ratings_count >= Location::WELL_KNOWN_THRESHOLD) {
+            if ($location->isHiddenGem()
+                && $location->posts_count + $location->qualifying_ratings_count >= Location::WELL_KNOWN_THRESHOLD) {
                 $status = Location::STATUS_WELL_KNOWN;
             } elseif ($location->isPendingCommunityVote()
                 && $location->vote_count >= ($location->verification_threshold ?? 10)) {

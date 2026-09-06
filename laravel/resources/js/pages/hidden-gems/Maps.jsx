@@ -431,7 +431,7 @@ function Maps({ user }){
                     const response = await getHiddenGemDetail(gemIdParam);
                     const gem = response.data.data;
                     
-                    if (gem) {
+                    if (gem && !gem.permanently_closed_at) {
                         const normalized = normalizeGem(gem, "database");
                         setSelectedGroup([normalized]);
                         setPanelOpen(true);
@@ -465,7 +465,7 @@ function Maps({ user }){
 
     // ==================== Handle location.state.highlightGem ====================
     useEffect(() => {
-        if (highlightGem && highlightGem.id) {
+        if (highlightGem && highlightGem.id && !highlightGem.permanently_closed_at && !highlightGem.permanentlyClosedAt) {
             const normalized = normalizeGem(highlightGem, "database");
             setSelectedGroup([normalized]);
             setPanelOpen(true);

@@ -31,7 +31,7 @@ class PromoteWellKnownGems extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         $candidates = Location::query()
-            ->whereIn('status', Location::PROMOTABLE_STATUSES)
+            ->where('status', Location::STATUS_HIDDEN_GEM)
             ->whereNull('permanently_closed_at')
             ->withCount(['posts', 'qualifyingRatings as ratings_count'])
             ->get(['id', 'place_name'])
