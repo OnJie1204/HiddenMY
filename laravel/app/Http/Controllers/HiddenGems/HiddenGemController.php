@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class HiddenGemController extends Controller
@@ -519,17 +520,30 @@ class HiddenGemController extends Controller
 
         // Reset verification progress after editing — an edit is a full
         // resubmit and the community re-verifies from scratch.
-        $gem->vote_count = 0;
-        $gem->status = 'pending';
-        $gem->ai_review_reason = null;
-        $gem->verification_attempts = 0;
-        $gem->report_status = null;
-        $gem->permanently_closed_at = null;
-        $gem->contact_flagged_at = null;
-        $gem->save();
+        $reset = DB::transaction(function () use ($gem) {
+            $current = Location::whereKey($gem->id)->lockForUpdate()->firstOrFail();
+            if (! $current->isPending() && ! $current->isAiRejected()) {
+                return false;
+            }
 
-        // Remove previous vote records
-        $gem->votes()->delete();
+            $current->update([
+                'vote_count' => 0,
+                'status' => Location::STATUS_PENDING,
+                'ai_review_reason' => null,
+                'verification_attempts' => 0,
+                'report_status' => null,
+                'permanently_closed_at' => null,
+                'contact_flagged_at' => null,
+            ]);
+            $current->votes()->delete();
+            $gem->refresh();
+
+            return true;
+        });
+
+        if (! $reset) {
+            return response()->json(['message' => 'The location status changed during editing. Please reload it.'], 409);
+        }
 
         // Re-run Stage 1 AI verification against the updated submission.
         VerifyHiddenGemSubmission::dispatch($gem->id)->afterCommit();

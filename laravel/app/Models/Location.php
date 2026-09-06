@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\Achievements\SpecialAchievementService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Location extends Model
 {
@@ -47,7 +49,7 @@ class Location extends Model
 
     public const STATUS_DELETED = 'deleted';
 
-    /** Reached from hidden_gem when engagement crosses this. One-way. */
+    /** Reached directly from pending/voting or hidden_gem. One-way. */
     public const WELL_KNOWN_THRESHOLD = 50;
 
     /**
@@ -166,6 +168,12 @@ class Location extends Model
         return $this->hasMany(GemInteraction::class)->where('type', 'comment');
     }
 
+    /** Match the existing rating input rule; legacy unrated comments do not qualify. */
+    public function qualifyingRatings()
+    {
+        return $this->ratings()->whereBetween('rating', [1, 5]);
+    }
+
     public function menuItems()
     {
         return $this->hasMany(MenuItem::class)->orderByDesc('like_count');
@@ -225,6 +233,51 @@ class Location extends Model
     }
 
     // ==================== Status helpers ====================
+
+    public const PROMOTABLE_STATUSES = [
+        Location::STATUS_PENDING,
+        Location::STATUS_PENDING_VOTE,
+        Location::STATUS_HIDDEN_GEM,
+    ];
+
+    /** Promotions are one-way; removal and closure are separate lifecycle rules. */
+    public static function evaluateStatus(int $locationId): ?Location
+    {
+        return DB::transaction(function () use ($locationId) {
+            $location = Location::query()->lockForUpdate()->find($locationId);
+
+            if (! $location || $location->isPermanentlyClosed()
+                || ! in_array($location->status, self::PROMOTABLE_STATUSES, true)) {
+                return $location;
+            }
+
+            $location->loadCount(['posts', 'qualifyingRatings']);
+            $status = $location->status;
+
+            if ($location->posts_count + $location->qualifying_ratings_count >= Location::WELL_KNOWN_THRESHOLD) {
+                $status = Location::STATUS_WELL_KNOWN;
+            } elseif ($location->isPendingCommunityVote()
+                && $location->vote_count >= ($location->verification_threshold ?? 10)) {
+                $status = Location::STATUS_HIDDEN_GEM;
+            }
+
+            if ($status !== $location->status) {
+                $location->update(['status' => $status]);
+                $ownerId = $location->user_id;
+                DB::afterCommit(function () use ($ownerId) {
+                    try {
+                        if ($owner = User::find($ownerId)) {
+                            app(SpecialAchievementService::class)->sync($owner);
+                        }
+                    } catch (\Throwable $exception) {
+                        report($exception);
+                    }
+                });
+            }
+
+            return $location;
+        });
+    }
 
     public function isPending()
     {

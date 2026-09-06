@@ -9,6 +9,7 @@ use App\Services\HiddenGems\DuplicateDetectionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
@@ -93,7 +94,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         if ($duplicate['status'] === 'CONFIRMED_DUPLICATE') {
             $match = $duplicate['location'];
 
-            $location->update([
+            $this->persistVerification($location, [
                 'status' => 'ai_rejected',
                 'duplicate_status' => 'CONFIRMED_DUPLICATE',
                 'duplicate_of_location_id' => $match?->id,
@@ -123,6 +124,21 @@ class VerifyHiddenGemSubmission implements ShouldQueue
     }
 
     // ==================== STAGE 1 PIPELINE ====================
+
+    /** An in-flight AI result must not overwrite community promotion or removal. */
+    private function persistVerification(Location $location, array $attributes): void
+    {
+        DB::transaction(function () use ($location, $attributes) {
+            $current = Location::whereKey($location->id)->lockForUpdate()->first();
+            if (! $current || ! $current->isPending()) {
+                return;
+            }
+
+            $current->update($attributes);
+            Location::evaluateStatus($location->id);
+            $location->refresh();
+        });
+    }
 
     /**
      * Call A: grounded Google Search research, plain text (no JSON schema —
@@ -285,7 +301,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
             $confidence = min($confidence, 70);
         }
 
-        $location->update([
+        $this->persistVerification($location, [
             'status' => $status,
             'verification_score' => $weighted,
             'verification_confidence' => $confidence,
@@ -321,7 +337,7 @@ class VerifyHiddenGemSubmission implements ShouldQueue
         // just status/reason — otherwise a failed retry after an edit leaves
         // stale scores/duplicate info on screen that no longer correspond to
         // the current submission content.
-        $location->update([
+        $this->persistVerification($location, [
             'status' => 'pending',
             'ai_review_reason' => 'Automated verification could not be completed and will be retried.',
             'verification_attempts' => $location->verification_attempts + 1,

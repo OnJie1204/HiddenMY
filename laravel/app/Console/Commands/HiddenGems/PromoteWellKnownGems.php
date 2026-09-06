@@ -4,16 +4,15 @@ namespace App\Console\Commands\HiddenGems;
 
 use App\Models\Location;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * A Hidden Gem that the community has clearly outgrown — enough people have
+ * A location that the community has clearly outgrown — enough people have
  * tagged it in travel posts and rated it that it is no longer "hidden" —
  * is promoted to the 'well_known' status.
  *
  * Signal: (# travel-post tags) + (# ratings) >= WELL_KNOWN_THRESHOLD, counting
- * everything (no de-duplication by user). One-way ratchet — a well-known place
+ * existing stories and valid 1–5 ratings (no de-duplication by user). A well-known place
  * never drops back to hidden_gem. It keeps every vote, rating, post tag and
  * achievement credit; only its status and where it is displayed change.
  */
@@ -23,7 +22,7 @@ class PromoteWellKnownGems extends Command
         {--limit=200 : Maximum number of gems to promote in one run}
         {--dry-run : List what would be promoted without changing anything}';
 
-    protected $description = 'Promote Hidden Gems that have crossed the well-known threshold (post tags + ratings).';
+    protected $description = 'Promote eligible locations that have crossed the well-known threshold (post tags + valid ratings).';
 
     public function handle(): int
     {
@@ -32,8 +31,9 @@ class PromoteWellKnownGems extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         $candidates = Location::query()
-            ->where('status', Location::STATUS_HIDDEN_GEM)
-            ->withCount(['posts', 'ratings'])
+            ->whereIn('status', Location::PROMOTABLE_STATUSES)
+            ->whereNull('permanently_closed_at')
+            ->withCount(['posts', 'qualifyingRatings as ratings_count'])
             ->get(['id', 'place_name'])
             ->map(function (Location $gem) {
                 $gem->well_known_score = (int) $gem->posts_count + (int) $gem->ratings_count;
@@ -63,18 +63,16 @@ class PromoteWellKnownGems extends Command
             return self::SUCCESS;
         }
 
-        $ids = $candidates->pluck('id')->all();
-
-        DB::table('locations')
-            ->whereIn('id', $ids)
-            ->where('status', Location::STATUS_HIDDEN_GEM)
-            ->update([
-                'status' => Location::STATUS_WELL_KNOWN,
-                'updated_at' => now(),
-            ]);
+        $ids = [];
+        foreach ($candidates as $gem) {
+            $location = Location::evaluateStatus($gem->id);
+            if ($location?->isWellKnown()) {
+                $ids[] = $gem->id;
+            }
+        }
 
         Log::info('Promoted gems to well-known.', ['ids' => $ids]);
-        $this->info("Promoted {$candidates->count()} gem(s) to well-known.");
+        $this->info('Promoted '.count($ids).' gem(s) to well-known.');
 
         return self::SUCCESS;
     }
