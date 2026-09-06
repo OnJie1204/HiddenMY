@@ -249,7 +249,7 @@ function Maps({ user }){
     const [myGems,setMyGems]=useState([]);
     const [discoverLoading,setDiscoverLoading]=useState(true);
     const [boundsLoading,setBoundsLoading]=useState(false);
-    const [popularPosts,setPopularPosts]=useState([]);
+    const [wellKnownPosts,setWellKnownPosts]=useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState(() =>
         sessionStorage.getItem(MAP_STATUS_FILTER_KEY) || null
@@ -377,7 +377,7 @@ function Maps({ user }){
                     : Promise.resolve(),
 
                 getPopularHiddenGems()
-                    .then(res => setPopularPosts(
+                    .then(res => setWellKnownPosts(
                         (res.data || []).filter(
                             gem => !gem.permanently_closed_at && !gem.permanentlyClosedAt
                         )
@@ -1221,7 +1221,7 @@ function Maps({ user }){
             <div className="maps-discover">
                 <GemCarousel
                     title="Recent Hidden Gems"
-                    seeMoreTo="/hidden-gems"
+                    seeMoreTo="/hidden-gems?sort=latest"
                     items={recentPosts}
                     loading={discoverLoading}
                     onItemClick={selectGem}
@@ -1238,12 +1238,12 @@ function Maps({ user }){
                     />
                 )}
                 <GemCarousel
-                    title="Popular Hidden Gems"
-                    seeMoreTo="/hidden-gems"
-                    items={popularPosts}
+                    title="Well-Known Places"
+                    seeMoreTo="/hidden-gems?status=well_known"
+                    items={wellKnownPosts}
                     loading={discoverLoading}
                     onItemClick={selectGem}
-                    emptyText="No popular gems yet."
+                    emptyText="No well-known places yet."
                 />
             </div>
         </div>

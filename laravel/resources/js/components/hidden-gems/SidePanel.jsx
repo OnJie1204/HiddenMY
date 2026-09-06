@@ -56,6 +56,7 @@ function SidePanel({
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [activeReport, setActiveReport] = useState(null);
+    const [activeReports, setActiveReports] = useState([]);
     const [loadingReport, setLoadingReport] = useState(false);
     const [localReportStatus, setLocalReportStatus] = useState(null);
     const [localStatus, setLocalStatus] = useState(null);
@@ -125,6 +126,24 @@ function SidePanel({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resumeIntent, user, gem, isOpen]);
+
+    useEffect(() => {
+        if (!user || !gem || reportStatus !== "under_review") {
+            setActiveReports([]);
+            return;
+        }
+
+        let active = true;
+        getReportForLocation(gem.id)
+            .then((res) => {
+                if (active) setActiveReports(res.data.active_reports ?? []);
+            })
+            .catch(() => {
+                if (active) setActiveReports([]);
+            });
+
+        return () => { active = false; };
+    }, [gem?.id, reportStatus, user?.id]);
 
     // Drag-to-resize
     useEffect(() => {
@@ -547,20 +566,44 @@ function SidePanel({
                             </div>
                         </div>
                         {gem.source === "database" && reportStatus === "under_review" && Number(gem.user_id) !== Number(user?.id) && (
-                            <div className="report-banner">
-                                <div className="report-banner-text">
-                                    <strong>This gem has a report under review</strong>
-                                    <p>Help the community confirm or dispute it — 5 votes either way settles it.</p>
+                            activeReports.length > 0 ? (
+                                activeReports.map((report) => (
+                                    <div className="report-banner" key={report.id}>
+                                        <div className="report-banner-text">
+                                            <strong>{report.reason_label || report.reason}</strong>
+                                            <p>
+                                                Confirm {report.confirm_count ?? 0} / {report.verification_threshold ?? 5}
+                                                {" · "}
+                                                Dispute {report.dispute_count ?? 0} / {report.verification_threshold ?? 5}
+                                            </p>
+                                        </div>
+                                        {report.can_verify && (
+                                            <button
+                                                type="button"
+                                                className="report-banner-verify-btn"
+                                                onClick={() => { setActiveReport(report); setVerifyModalOpen(true); }}
+                                            >
+                                                Help Verify
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="report-banner">
+                                    <div className="report-banner-text">
+                                        <strong>This gem has a report under review</strong>
+                                        <p>Help the community confirm or dispute it — 5 votes either way settles it.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="report-banner-verify-btn"
+                                        onClick={handleReportIconClick}
+                                        disabled={loadingReport}
+                                    >
+                                        {loadingReport ? "Loading…" : "Help Verify"}
+                                    </button>
                                 </div>
-                                <button
-                                    type="button"
-                                    className="report-banner-verify-btn"
-                                    onClick={handleReportIconClick}
-                                    disabled={loadingReport}
-                                >
-                                    {loadingReport ? "Loading…" : "Help Verify"}
-                                </button>
-                            </div>
+                            )
                         )}
 
                         {gem.state && <p className="side-panel-gem-meta">{gem.state}</p>}
@@ -887,6 +930,7 @@ function SidePanel({
                         }
                         setActiveReport(data?.report ?? null);
                     }}
+                    onReportInstead={() => { setVerifyModalOpen(false); setReportModalOpen(true); }}
                 />
             )}
         </div>

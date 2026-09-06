@@ -908,7 +908,7 @@ class HiddenGemController extends Controller
             ->withCount('votes')
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
-            ->where('status', 'hidden_gem')
+            ->where('status', 'well_known')
             ->orderByDesc('votes_count')
             ->take(6)
             ->get();
