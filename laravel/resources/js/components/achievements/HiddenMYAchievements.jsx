@@ -285,6 +285,14 @@ export default function HiddenMYAchievements({
         (gem) => isLifetimeVerifiedContribution(gem.status)
     ).length;
     const discoveryProgress = (discoveredCount / REGIONS.length) * 100;
+    const orderedRegions = useMemo(
+        () => [...REGIONS].sort(
+            ([firstRegion], [secondRegion]) =>
+                Number(verifiedCounts[secondRegion] > 0)
+                - Number(verifiedCounts[firstRegion] > 0)
+        ),
+        [verifiedCounts]
+    );
     useEffect(() => {
         let active = true;
 
@@ -544,17 +552,23 @@ export default function HiddenMYAchievements({
         votesLoading,
         lifetimeVerifiedGemCount,
     ]);
-    const filteredSpecialAchievements = specialAchievements.filter((achievement) => {
-        if (specialFilter === "unlocked") {
-            return achievement.available && achievement.unlocked;
-        }
+    const filteredSpecialAchievements = specialAchievements
+        .filter((achievement) => {
+            if (specialFilter === "unlocked") {
+                return achievement.available && achievement.unlocked;
+            }
 
-        if (specialFilter === "locked") {
-            return achievement.available && !achievement.unlocked;
-        }
+            if (specialFilter === "locked") {
+                return achievement.available && !achievement.unlocked;
+            }
 
-        return true;
-    });
+            return true;
+        })
+        .sort(
+            (first, second) =>
+                Number(second.available && second.unlocked)
+                - Number(first.available && first.unlocked)
+        );
     const filteredSpecialDataPending = specialFilter !== "all"
         && specialAchievements.some((achievement) => !achievement.available);
     const activePreviewSpecialAchievement = previewSpecialAchievement
@@ -780,7 +794,7 @@ export default function HiddenMYAchievements({
 
             {collection === "regions" ? (
                 <div className="hiddenmy-stamp-grid">
-                {REGIONS.map(([region, title]) => {
+                {orderedRegions.map(([region, title]) => {
                     const count = verifiedCounts[region];
                     const discovered = count > 0;
 

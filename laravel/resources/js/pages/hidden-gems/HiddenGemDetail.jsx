@@ -79,7 +79,7 @@ function ActiveReportCard({ report, threshold, loading, onVerify }) {
             <div className="report-banner-text authenticated-report-body">
                 {hasDetails && (
                     <p>
-                        <strong>Report details</strong><br />
+                        <strong>Report details</strong>
                         {report.description}
                     </p>
                 )}
@@ -792,10 +792,6 @@ export default function HiddenGemDetail({ user }) {
         return (
             <div className="gem-detail-error">
                 <p>{error || "Hidden gem not found."}</p>
-
-                <Link to="/hidden-gems" className="gem-detail-back-link">
-                    ← Back to List
-                </Link>
             </div>
         );
     }
@@ -1112,8 +1108,11 @@ export default function HiddenGemDetail({ user }) {
                 <div className="gem-detail-content">
                     {!currentUser && gem.has_active_report && (
                         <div className="report-banner">
-                            <div className="report-banner-text">
-                                <strong>Information for this Hidden Gem is under community review.</strong>
+                            <div className="authenticated-report-heading">
+                                <span className="authenticated-report-icon" aria-hidden="true">⚠</span>
+                                <div className="report-banner-text">
+                                    <strong>Information for this Hidden Gem is under community review.</strong>
+                                </div>
                             </div>
                         </div>
                     )}

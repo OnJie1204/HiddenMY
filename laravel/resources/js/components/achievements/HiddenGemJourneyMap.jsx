@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import {
     GeoJSON,
     MapContainer,
@@ -11,6 +12,7 @@ import {
 
 import malaysiaRegions from "@/assets/maps/malaysia-adm1.geo.json";
 import GemImage from "@/components/hidden-gems/GemImage";
+import { createGemClusterIcon } from "@/components/hidden-gems/GemClusterIcon";
 import { getHiddenGemMarkerIcon } from "@/components/hidden-gems/HiddenGemMarker";
 import { cartoTileUrl } from "@/utils/maps/cartoTiles";
 import {
@@ -46,11 +48,9 @@ const DATASET_REGION_ALIASES = {
 };
 
 const MALAYSIA_BOUNDS = [
-    [0.5, 99.5],
-    [7.5, 119.5],
+    [0.853821, 99.6404969],
+    [7.3628175, 119.2690567],
 ];
-
-const PENINSULAR_MALAYSIA_CENTER = [4.2105, 101.9758];
 
 function InitialJourneyView() {
     const map = useMap();
@@ -60,11 +60,8 @@ function InitialJourneyView() {
         if (applied.current) return;
 
         applied.current = true;
-        map.setView(
-            PENINSULAR_MALAYSIA_CENTER,
-            Math.min(map.getZoom() + 1, map.getMaxZoom()),
-            { animate: false }
-        );
+        map.fitBounds(MALAYSIA_BOUNDS, { padding: [4, 4], animate: false });
+        map.setZoom(map.getZoom() + 0.1, { animate: false });
     }, [map]);
 
     return null;
@@ -216,12 +213,9 @@ export default function HiddenGemJourneyMap({
 
             <div className="hiddenmy-journey-map">
                 <MapContainer
-                    bounds={MALAYSIA_BOUNDS}
-                    boundsOptions={{ padding: [4, 4] }}
+                    zoomSnap={0.25}
                     minZoom={4}
                     maxZoom={11}
-                    maxBounds={MALAYSIA_BOUNDS}
-                    maxBoundsViscosity={1.0}
                     zoomControl={false}
                     style={{ height: "100%", width: "100%" }}
                 >
@@ -240,46 +234,53 @@ export default function HiddenGemJourneyMap({
                         onEachFeature={bindRegionInteraction}
                     />
 
-                    {mapMarkers.map((gem) => {
-                        const presentation = journeyMarkerPresentation(gem);
+                    <MarkerClusterGroup
+                        iconCreateFunction={createGemClusterIcon}
+                        zoomToBoundsOnClick={true}
+                        spiderfyOnMaxZoom={true}
+                        showCoverageOnHover={false}
+                    >
+                        {mapMarkers.map((gem) => {
+                            const presentation = journeyMarkerPresentation(gem);
 
-                        return <Marker
-                            key={gem.id}
-                            position={[Number(gem.latitude), Number(gem.longitude)]}
-                            icon={getHiddenGemMarkerIcon(gem.status, presentation.closed)}
-                            bubblingMouseEvents={false}
-                            riseOnHover
-                        >
-                            <Popup
-                                className="hiddenmy-journey-popup"
-                                autoPan
-                                autoPanPadding={[24, 24]}
-                                minWidth={180}
-                                maxWidth={240}
+                            return <Marker
+                                key={gem.id}
+                                position={[Number(gem.latitude), Number(gem.longitude)]}
+                                icon={getHiddenGemMarkerIcon(gem.status, presentation.closed)}
+                                bubblingMouseEvents={false}
+                                riseOnHover
                             >
-                                <GemImage
-                                    src={gem.first_image?.image_url || gem.images?.[0]?.image_url}
-                                    alt={gem.place_name}
-                                    className="hiddenmy-journey-popup-image"
-                                />
-                                <strong>{gem.place_name}</strong>
-                                <span>{gem.state || "Unknown region"}</span>
-                                <span className={`hiddenmy-journey-popup-status ${presentation.tone}`}>
-                                    {presentation.label}
-                                </span>
-                                {gem.status === "archived" ? (
-                                    <p>This previously verified place is part of your HiddenMY Journey.</p>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => onViewDetails(gem.id)}
-                                    >
-                                        View Details
-                                    </button>
-                                )}
-                            </Popup>
-                        </Marker>;
-                    })}
+                                <Popup
+                                    className="hiddenmy-journey-popup"
+                                    autoPan
+                                    autoPanPadding={[24, 24]}
+                                    minWidth={180}
+                                    maxWidth={240}
+                                >
+                                    <GemImage
+                                        src={gem.first_image?.image_url || gem.images?.[0]?.image_url}
+                                        alt={gem.place_name}
+                                        className="hiddenmy-journey-popup-image"
+                                    />
+                                    <strong>{gem.place_name}</strong>
+                                    <span>{gem.state || "Unknown region"}</span>
+                                    <span className={`hiddenmy-journey-popup-status ${presentation.tone}`}>
+                                        {presentation.label}
+                                    </span>
+                                    {gem.status === "archived" ? (
+                                        <p>This previously verified place is part of your HiddenMY Journey.</p>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => onViewDetails(gem.id)}
+                                        >
+                                            View Details
+                                        </button>
+                                    )}
+                                </Popup>
+                            </Marker>;
+                        })}
+                    </MarkerClusterGroup>
                 </MapContainer>
             </div>
 

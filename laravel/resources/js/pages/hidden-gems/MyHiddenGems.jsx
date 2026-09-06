@@ -15,7 +15,7 @@ import PhotoCarousel from "@/components/common/PhotoCarousel";
 import LoadingCards from "@/components/common/LoadingCards";
 import HiddenGemJourneyMap from "@/components/achievements/HiddenGemJourneyMap";
 import HiddenMYAchievements from "@/components/achievements/HiddenMYAchievements";
-import { getGemStatusDisplay, voteProgressLabel } from "@/utils/hidden-gems/gemStatus";
+import { getGemStatusDisplay } from "@/utils/hidden-gems/gemStatus";
 import { matchesMyHiddenGemFilters } from "@/utils/achievements/journey";
 import {
     contributionTargetPath,
@@ -452,9 +452,9 @@ export default function MyHiddenGems() {
                         onChange={(event) => updateFilter("status", event.target.value)}
                     >
                         <option value="">All Status</option>
-                        <option value="pending">Being Verified</option>
+                        <option value="pending">Under Verification</option>
                         <option value="ai_rejected">Not Accepted</option>
-                        <option value="pending_community_vote">Awaiting Community Votes</option>
+                        <option value="pending_community_vote">Under Community Review</option>
                         <option value="hidden_gem">Hidden Gem</option>
                         <option value="well_known">Well-Known Place</option>
                     </select>
@@ -594,8 +594,9 @@ export default function MyHiddenGems() {
                                                 : ""}
                                         </span>
                                     ) : gem.status === "pending_community_vote" ? (
-                                        <span className={getGemStatusDisplay(gem).badgeClass}>
-                                            {getGemStatusDisplay(gem).label} · {voteProgressLabel(gem)}
+                                        <span className="hidden-gems-card-pending">
+                                            Pending ({gem.votes_count ?? gem.vote_count ?? 0}/
+                                            {gem.verification_threshold || 10} votes)
                                         </span>
                                     ) : (
                                         <span className={getGemStatusDisplay(gem).badgeClass}>

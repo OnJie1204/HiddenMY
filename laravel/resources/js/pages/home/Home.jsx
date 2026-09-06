@@ -216,7 +216,13 @@ function Home({ user }) {
                     (gem) => Array.isArray(gem.images) && gem.images.length > 0
                 );
 
-                setPopularGems(allGems.slice(0, 10));
+                setPopularGems(
+                    allGems
+                        .filter(
+                            (gem) => !gem.permanently_closed_at && !gem.permanentlyClosedAt
+                        )
+                        .slice(0, 10)
+                );
                 setRecentTrips(tripsRes.data || []);
                 setMapGems(topGems);
                 setSelectedGem(topGems[0] || null);
