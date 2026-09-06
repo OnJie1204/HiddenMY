@@ -316,6 +316,10 @@ class HiddenGemController extends Controller
             'images',
         ])
             ->withExists('votes')
+            ->withExists([
+                'reports as has_active_report' => fn ($query) => $query
+                    ->where('status', Report::STATUS_PENDING),
+            ])
             ->where('user_id', $user->id)
             ->whereNotIn('status', [Location::STATUS_DELETED, Location::STATUS_ARCHIVED])
             ->latest()
@@ -326,6 +330,7 @@ class HiddenGemController extends Controller
             $gem->setAttribute('can_edit', $eligibility['can_edit']);
             $gem->setAttribute('can_delete', $eligibility['can_delete']);
             $gem->setAttribute('edit_mode', $eligibility['edit_mode']);
+            $gem->setAttribute('has_active_report', (bool) $gem->has_active_report);
             $gem->makeHidden('votes_exists');
         });
 
@@ -555,7 +560,13 @@ class HiddenGemController extends Controller
         ])
             ->withAvg('ratings', 'rating')
             ->withCount(['ratings', 'checkIns'])
+            ->withExists([
+                'reports as has_active_report' => fn ($query) => $query
+                    ->where('status', Report::STATUS_PENDING),
+            ])
             ->findOrFail($id);
+
+        $location->setAttribute('has_active_report', (bool) $location->has_active_report);
 
         $isPubliclyVisible = Location::isPubliclyVisible($location);
         $viewer = Auth::guard('sanctum')->user();

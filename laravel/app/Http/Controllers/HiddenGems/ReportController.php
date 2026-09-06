@@ -9,7 +9,9 @@ use App\Models\Location;
 use App\Models\Report;
 use App\Models\ReportVote;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -221,23 +223,40 @@ class ReportController extends Controller
 
     public function show($locationId)
     {
-        $reports = Report::with('user:id,name')
+        $location = Location::findOrFail($locationId);
+        $user = Auth::user();
+        $reports = Report::query()
             ->where('location_id', $locationId)
             ->whereIn('status', [Report::STATUS_PENDING, Report::STATUS_UPHELD])
             ->latest()
             ->get();
 
         $pending = $reports->firstWhere('status', Report::STATUS_PENDING);
-
-        $myVerdict = ($pending && Auth::check())
-            ? ReportVote::where('report_id', $pending->id)->where('user_id', Auth::id())->value('verdict')
+        $myVerdicts = ReportVote::query()
+            ->where('user_id', $user->id)
+            ->whereIn('report_id', $reports->pluck('id'))
+            ->pluck('verdict', 'report_id');
+        $hasCheckIn = CheckIn::where('user_id', $user->id)
+            ->where('location_id', $location->id)
+            ->exists();
+        $safeReports = $reports->map(fn (Report $report) => $this->reportForViewer(
+            $report,
+            $location,
+            $user->id,
+            $myVerdicts->get($report->id),
+            $hasCheckIn,
+        ));
+        $activeReports = $safeReports->where('status', Report::STATUS_PENDING)->values();
+        $legacyPending = $pending
+            ? $activeReports->firstWhere('id', $pending->id)
             : null;
 
         return response()->json([
-            'data' => $pending,
-            'root_report' => $pending,
-            'reports' => $reports,
-            'my_verdict' => $myVerdict,
+            'data' => $legacyPending,
+            'root_report' => $legacyPending,
+            'reports' => $safeReports->values(),
+            'active_reports' => $activeReports,
+            'my_verdict' => $legacyPending['my_verdict'] ?? null,
         ]);
     }
 
@@ -294,59 +313,111 @@ class ReportController extends Controller
 
         $validated = $request->validate([
             'verdict' => 'required|string|in:' . implode(',', ReportVote::VERDICTS),
-            'comment' => 'nullable|string|max:1000',
         ]);
 
-        if (!$report->isPending()) {
-            return response()->json(['message' => 'This report has already been resolved.'], 400);
+        try {
+            [$vote, $lockedReport, $location] = DB::transaction(function () use ($report, $user, $validated) {
+                $lockedReport = Report::query()
+                    ->whereKey($report->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if (!$lockedReport->isPending()) {
+                    abort(400, 'This report has already been resolved.');
+                }
+
+                if ($lockedReport->user_id === $user->id) {
+                    abort(403, 'You cannot verify your own report.');
+                }
+
+                // Always lock Report first, then Location, so every verifier uses
+                // the same lock order before applying cross-record side effects.
+                $location = Location::query()
+                    ->whereKey($lockedReport->location_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($location->user_id === $user->id) {
+                    abort(403, 'You cannot verify a report on your own hidden gem.');
+                }
+
+                if (ReportVote::where('report_id', $lockedReport->id)
+                    ->where('user_id', $user->id)
+                    ->exists()) {
+                    abort(400, 'You have already voted on this report.');
+                }
+
+                if ($lockedReport->requiresCheckIn() && !CheckIn::where('user_id', $user->id)
+                    ->where('location_id', $location->id)
+                    ->exists()) {
+                    abort(400, 'Please check-in at this location first before verifying');
+                }
+
+                $vote = ReportVote::create([
+                    'report_id' => $lockedReport->id,
+                    'user_id' => $user->id,
+                    'verdict' => $validated['verdict'],
+                ]);
+
+                $lockedReport->forceFill([
+                    'confirm_count' => $lockedReport->votes()->where('verdict', 'confirm')->count(),
+                    'dispute_count' => $lockedReport->votes()->where('verdict', 'dispute')->count(),
+                ])->save();
+
+                $this->resolveIfThresholdReached($lockedReport, $location);
+
+                return [$vote, $lockedReport->fresh(), $location->fresh()];
+            });
+        } catch (QueryException $exception) {
+            if (ReportVote::where('report_id', $report->id)->where('user_id', $user->id)->exists()) {
+                return response()->json(['message' => 'You have already voted on this report.'], 400);
+            }
+
+            throw $exception;
         }
-
-        if ($report->user_id === $user->id) {
-            return response()->json(['message' => 'You cannot verify your own report.'], 403);
-        }
-
-        $location = $report->location;
-
-        if ($location->user_id === $user->id) {
-            return response()->json(['message' => 'You cannot verify a report on your own hidden gem.'], 403);
-        }
-
-        $alreadyVoted = ReportVote::where('report_id', $report->id)->where('user_id', $user->id)->exists();
-
-        if ($alreadyVoted) {
-            return response()->json(['message' => 'You have already voted on this report.'], 400);
-        }
-
-        $requiresCheckIn = $report->requiresCheckIn();
-        $hasCheckIn = CheckIn::where('user_id', $user->id)
-            ->where('location_id', $location->id)
-            ->exists();
-
-        if ($requiresCheckIn && !$hasCheckIn) {
-            return response()->json(['message' => 'Please check-in at this location first before verifying'], 400);
-        }
-
-        $vote = ReportVote::create([
-            'report_id' => $report->id,
-            'user_id' => $user->id,
-            'verdict' => $validated['verdict'],
-            'comment' => $validated['comment'] ?? null,
-        ]);
-
-        if ($validated['verdict'] === 'confirm') {
-            $report->increment('confirm_count');
-        } else {
-            $report->increment('dispute_count');
-        }
-
-        $this->resolveIfThresholdReached($report->fresh(), $location);
 
         return response()->json([
             'message' => 'Vote recorded.',
             'vote' => $vote,
-            'report' => $report->fresh(),
-            'location' => $location->fresh(),
+            'report' => $lockedReport,
+            'location' => $location,
         ], 201);
+    }
+
+    private function reportForViewer(
+        Report $report,
+        Location $location,
+        int $viewerId,
+        ?string $myVerdict,
+        bool $hasCheckIn,
+    ): array {
+        $canVerify = $report->isPending()
+            && $report->user_id !== $viewerId
+            && $location->user_id !== $viewerId
+            && $myVerdict === null;
+
+        return [
+            'id' => $report->id,
+            'location_id' => $report->location_id,
+            'reason' => $report->reason,
+            'reason_label' => match ($report->reason) {
+                Report::REASON_PERMANENTLY_CLOSED => 'Permanently closed',
+                Report::REASON_INCORRECT_CONTACT => 'Contact info is wrong (hours / phone / website)',
+                default => $report->reason,
+            },
+            'description' => $report->description,
+            'photo_path' => $report->photo_path,
+            'status' => $report->status,
+            'status_label' => $report->isPending() ? 'Under Community Review' : ucfirst($report->status),
+            'confirm_count' => $report->confirm_count,
+            'dispute_count' => $report->dispute_count,
+            'verification_threshold' => self::VERIFICATION_THRESHOLD,
+            'my_verdict' => $myVerdict,
+            'can_verify' => $canVerify,
+            'has_check_in' => $hasCheckIn,
+            'created_at' => $report->created_at,
+            'resolved_at' => $report->resolved_at,
+        ];
     }
 
     private function reportRateLimitExceeded(int $userId): bool

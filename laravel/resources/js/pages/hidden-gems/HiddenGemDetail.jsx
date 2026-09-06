@@ -49,6 +49,50 @@ function canEditWithinCommentWindow(createdAt) {
         && Date.now() <= createdAtMs + COMMENT_EDIT_WINDOW_MS;
 }
 
+function ActiveReportCard({ report, threshold, loading, onVerify }) {
+    const hasDetails = typeof report.description === "string"
+        && report.description.trim() !== "";
+
+    return (
+        <div className="report-banner authenticated-report-card">
+            <div className="authenticated-report-header">
+                <div className="authenticated-report-heading">
+                    <span className="authenticated-report-icon" aria-hidden="true">⚠</span>
+                    <div className="report-banner-text">
+                        <strong>{report.reason_label || report.reason}</strong>
+                        <p>{report.status_label || "Under Community Review"}</p>
+                    </div>
+                </div>
+
+                {report.can_verify && (
+                    <button
+                        type="button"
+                        className="report-banner-verify-btn"
+                        onClick={() => onVerify(report)}
+                        disabled={loading}
+                    >
+                        Help Verify
+                    </button>
+                )}
+            </div>
+
+            <div className="report-banner-text authenticated-report-body">
+                {hasDetails && (
+                    <p>
+                        <strong>Report details</strong><br />
+                        {report.description}
+                    </p>
+                )}
+                <p>
+                    Confirm {report.confirm_count ?? 0} / {threshold}
+                    {" · "}
+                    Dispute {report.dispute_count ?? 0} / {threshold}
+                </p>
+            </div>
+        </div>
+    );
+}
+
 export default function HiddenGemDetail({ user }) {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -87,6 +131,7 @@ export default function HiddenGemDetail({ user }) {
     const [creatingItinerary, setCreatingItinerary] = useState(false);
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [activeReport, setActiveReport] = useState(null);
+    const [activeReports, setActiveReports] = useState([]);
     const [loadingReport, setLoadingReport] = useState(false);
 
     const galleryImages = gem?.images ?? [];
@@ -504,9 +549,15 @@ export default function HiddenGemDetail({ user }) {
     // Dedicated "Help Verify" entry point on the detail page — separate from
     // the small report-icon toggle, which visitors could easily miss or
     // mistake for "report a new problem" instead of "verify the existing one".
-    async function handleHelpVerify() {
+    async function handleHelpVerify(report = null) {
         if (!currentUser) {
             requireAuth({ reason: "verifyReport", gemId: gem.id });
+            return;
+        }
+
+        if (report) {
+            setActiveReport(report);
+            setVerifyModalOpen(true);
             return;
         }
 
@@ -514,14 +565,40 @@ export default function HiddenGemDetail({ user }) {
 
         try {
             const res = await getReportForLocation(gem.id);
-            setActiveReport(res.data.data);
-            setVerifyModalOpen(true);
+            const reports = res.data.active_reports ?? (res.data.data ? [res.data.data] : []);
+            setActiveReports(reports);
+            const reportToVerify = reports.find((item) => item.can_verify) ?? reports[0] ?? null;
+            if (reportToVerify) {
+                setActiveReport(reportToVerify);
+                setVerifyModalOpen(true);
+            }
         } catch (error) {
             console.error("Error checking report status:", error);
         } finally {
             setLoadingReport(false);
         }
     }
+
+    useEffect(() => {
+        if (!currentUser || !gem || gem.report_status !== "under_review") {
+            setActiveReports([]);
+            return;
+        }
+
+        let active = true;
+        getReportForLocation(gem.id)
+            .then((res) => {
+                if (!active) return;
+                setActiveReports(res.data.active_reports ?? (res.data.data ? [res.data.data] : []));
+            })
+            .catch(() => {
+                if (active) setActiveReports([]);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [gem?.id, gem?.report_status, currentUser?.id]);
 
     // Resume whatever the guest was doing before the login wall. Wishlist runs
     // outright (reversible, private); everything else just re-opens its UI so
@@ -1033,45 +1110,27 @@ export default function HiddenGemDetail({ user }) {
                 </div>
 
                 <div className="gem-detail-content">
-                    {gem.report_status === "under_review" &&
-                        Number(gem.user_id) !==
-                            Number(currentUser?.id) && (
-                            <div className="report-banner">
-                                <div className="report-banner-text">
-                                    <strong>
-                                        This gem has a report under review
-                                    </strong>
-                                    <p>
-                                        Help the community confirm or dispute it
-                                        — 5 votes either way settles it.
-                                    </p>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="report-banner-verify-btn"
-                                    onClick={handleHelpVerify}
-                                    disabled={loadingReport}
-                                >
-                                    {loadingReport
-                                        ? "Loading…"
-                                        : "Help Verify"}
-                                </button>
+                    {!currentUser && gem.has_active_report && (
+                        <div className="report-banner">
+                            <div className="report-banner-text">
+                                <strong>Information for this Hidden Gem is under community review.</strong>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                    {gem.report_status === "under_review" &&
-                        Number(gem.user_id) ===
-                            Number(currentUser?.id) && (
-                            <div className="report-owner-banner">
-                                <h3>⚠ Your gem has been reported</h3>
-                                <p>
-                                    The community is voting to confirm or
-                                    dispute it. You'll be able to act once it's
-                                    resolved.
-                                </p>
-                            </div>
-                        )}
+                    {gem.report_status === "under_review" && activeReports.map((report) => {
+                        const threshold = report.verification_threshold ?? 5;
+
+                        return (
+                            <ActiveReportCard
+                                key={report.id}
+                                report={report}
+                                threshold={threshold}
+                                loading={loadingReport}
+                                onVerify={handleHelpVerify}
+                            />
+                        );
+                    })}
 
                     {isClosed && (
                         <div className="report-owner-banner">
@@ -2222,6 +2281,9 @@ export default function HiddenGemDetail({ user }) {
                                 : prev
                         );
                     }
+                    setActiveReports((reports) => reports
+                        .map((report) => report.id === data?.report?.id ? data.report : report)
+                        .filter((report) => report.status === "pending"));
                 }}
             />
 

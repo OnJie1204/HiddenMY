@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { checkVerifyEligibility, verifyReport } from '@/features/community/reportsApi';
@@ -16,7 +16,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
     const [step, setStep] = useState('checking');
     const [loading, setLoading] = useState(false);
     const [eligibility, setEligibility] = useState(null);
-    const [comment, setComment] = useState('');
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState('error');
     const [checkingIn, setCheckingIn] = useState(false);
@@ -98,7 +97,7 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
         setLoading(true);
         setMessage('');
         try {
-            const res = await verifyReport(report.id, { verdict, comment: comment || undefined });
+            const res = await verifyReport(report.id, { verdict });
             setStep('success');
             setMessage(res.data.message);
             onVerifySuccess?.(res.data);
@@ -113,7 +112,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
 
     const reset = () => {
         setStep('checking');
-        setComment('');
         setMessage('');
         setEligibility(null);
         setGpsStatus('');
@@ -236,18 +234,6 @@ function VerifyReportModal({ report, isOpen, onClose, onVerifySuccess }) {
                                         </p>
                                     </div>
                                 )}
-                            </div>
-
-                            <div className="vote-form-group">
-                                <label>Comment (optional)</label>
-                                <textarea
-                                    className="vote-textarea"
-                                    placeholder='What did you find when you visited?'
-                                    value={comment}
-                                    onChange={(e) => setComment(e.target.value)}
-                                    maxLength={1000}
-                                />
-                                <span className="vote-char-count">{comment.length}/1000</span>
                             </div>
 
                             {message && <div className={`vote-message ${messageType}`}>{message}</div>}
