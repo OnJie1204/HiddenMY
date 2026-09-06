@@ -144,6 +144,11 @@ export default function HiddenGemSubmission() {
             try {
                 const response = await geocodeAddress(attempt.query);
 
+                setFormData((prev) => ({
+                    ...prev,
+                    state: response.data.state || prev.state,
+                }));
+
                 if (attempt.precision === "exact") {
                     setFormData((prev) => ({
                         ...prev,
@@ -191,6 +196,12 @@ export default function HiddenGemSubmission() {
         e.preventDefault();
 
         if (submitting) return;
+
+        if (formData.latitude === "" || formData.longitude === "") {
+            setMessage("Please select a location on the map before submitting.");
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -232,7 +243,7 @@ export default function HiddenGemSubmission() {
 
 
     return (
-        <div className="hidden-gem-form-page">
+        <div className="hidden-gem-form-page hidden-gem-submission-page">
             {message && (
                 <div className="hidden-gem-snackbar">
                     {message}
@@ -257,6 +268,26 @@ export default function HiddenGemSubmission() {
                         onChange={handleChange}
                     />
 
+
+                    <select
+                        className="form-input"
+                        name="category_id"
+                        value={formData.category_id}
+                        onChange={handleChange}
+                    >
+                        <option value="">
+                            Select Category
+                        </option>
+
+                        {categories.map((category) => (
+                            <option
+                                key={category.id}
+                                value={category.id}
+                            >
+                                {category.name}
+                            </option>
+                        ))}
+                    </select>
 
                     <AddressAutocomplete
                         className="form-input"
@@ -381,7 +412,7 @@ export default function HiddenGemSubmission() {
                             {geocoding ? (
                                 <Spinner size="sm" inline label="Finding…" className="btn-spinner" />
                             ) : (
-                                "Find Coordinates from Address"
+                                "Find Location from Address"
                             )}
                         </button>
 
@@ -416,44 +447,6 @@ export default function HiddenGemSubmission() {
                             setGeocodeStatus("");
                         }}
                     />
-
-                    <input
-                        className="form-input"
-                        name="latitude"
-                        placeholder="Latitude"
-                        value={formData.latitude}
-                        onChange={handleChange}
-                    />
-
-
-                    <input
-                        className="form-input"
-                        name="longitude"
-                        placeholder="Longitude"
-                        value={formData.longitude}
-                        onChange={handleChange}
-                    />
-
-
-                    <select
-                        className="form-input"
-                        name="category_id"
-                        value={formData.category_id}
-                        onChange={handleChange}
-                    >
-                        <option value="">
-                            Select Category
-                        </option>
-
-                        {categories.map((category) => (
-                            <option 
-                                key={category.id}
-                                value={category.id}
-                            >
-                                {category.name}
-                            </option>
-                        ))}
-                    </select>
 
                     <div className="hidden-gem-upload-row">
                         <label className="hidden-gem-file-label">
@@ -545,4 +538,3 @@ export default function HiddenGemSubmission() {
         </div>
     );
 }
-
