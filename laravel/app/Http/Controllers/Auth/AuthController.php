@@ -79,7 +79,7 @@ class AuthController extends Controller
 
         // Check if the account is locked.
         if ($user->locked_until && $user->locked_until->isFuture()) {
-            $secondsLeft = now()->diffInSeconds($user->locked_until);
+            $secondsLeft = (int) ceil(now()->diffInSeconds($user->locked_until));
 
             return response()->json([
                 'message' => "Too many failed attempts. Please try again in {$secondsLeft} second(s).",
